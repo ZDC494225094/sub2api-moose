@@ -44,6 +44,10 @@
         linear-gradient(180deg, #fbfdff 0%, #f5f9ff 56%, #fbfdff 100%);
     }
 
+    body.has-modal {
+      overflow: hidden;
+    }
+
     a {
       color: inherit;
       text-decoration: none;
@@ -96,17 +100,6 @@
       box-shadow: 0 8px 22px rgba(37, 99, 255, 0.22);
     }
 
-    .brand-badge {
-      margin-left: 4px;
-      border: 1px solid rgba(37, 99, 255, 0.12);
-      border-radius: 999px;
-      background: #f2f6ff;
-      color: #41516b;
-      padding: 4px 10px;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
     .nav-links {
       display: flex;
       align-items: center;
@@ -141,7 +134,15 @@
       flex: 0 0 auto;
     }
 
+    .menu-btn {
+      display: none;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+    }
+
     .theme-btn,
+    .menu-btn,
     .login-btn,
     .primary-btn,
     .secondary-btn,
@@ -158,10 +159,72 @@
       transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
     }
 
+    .menu-btn {
+      display: none;
+    }
+
     .theme-btn {
       width: 38px;
       height: 38px;
       padding: 0;
+    }
+
+    .mobile-menu {
+      position: absolute;
+      top: 74px;
+      right: var(--page-x);
+      display: grid;
+      width: min(280px, calc(100vw - 32px));
+      padding: 10px;
+      border: 1px solid rgba(28, 42, 64, 0.12);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 22px 55px rgba(15, 23, 42, 0.12);
+      backdrop-filter: blur(22px) saturate(170%);
+      -webkit-backdrop-filter: blur(22px) saturate(170%);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-8px);
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+
+    .mobile-menu.is-open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    .mobile-menu a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 44px;
+      padding: 0 14px;
+      border-radius: 10px;
+      color: #1f2937;
+      font-size: 14px;
+      font-weight: 780;
+    }
+
+    .mobile-menu a::after {
+      width: 6px;
+      height: 6px;
+      border-top: 2px solid currentColor;
+      border-right: 2px solid currentColor;
+      opacity: 0;
+      transform: rotate(45deg);
+      content: "";
+    }
+
+    .mobile-menu a:hover,
+    .mobile-menu a.active {
+      background: rgba(37, 99, 255, 0.08);
+      color: var(--blue);
+    }
+
+    .mobile-menu a:hover::after,
+    .mobile-menu a.active::after {
+      opacity: 1;
     }
 
     .login-btn {
@@ -195,6 +258,8 @@
     .secondary-btn:hover,
     .login-btn:hover,
     .theme-btn:hover,
+    .menu-btn:hover,
+    .notice-menu-btn:hover,
     .text-btn:hover {
       transform: translateY(-1px);
       border-color: var(--line-strong);
@@ -269,6 +334,24 @@
       margin-top: 26px;
     }
 
+    .notice-menu-btn {
+      display: none;
+      gap: 9px;
+      height: 46px;
+      min-width: 128px;
+      border-color: rgba(37, 99, 255, 0.2);
+      background: rgba(255, 255, 255, 0.78);
+      color: var(--ink);
+    }
+
+    .notice-menu-btn .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #e03131;
+      box-shadow: 0 0 0 4px rgba(224, 49, 49, 0.08);
+    }
+
     .primary-btn .circle {
       display: grid;
       width: 22px;
@@ -305,6 +388,11 @@
       box-shadow: var(--shadow-card);
       backdrop-filter: blur(18px) saturate(150%);
       -webkit-backdrop-filter: blur(18px) saturate(150%);
+    }
+
+    .notice-close,
+    .notice-backdrop {
+      display: none;
     }
 
     .notice-head {
@@ -706,10 +794,95 @@
       }
     }
 
-    @media (max-width: 900px) {
+    @media (min-width: 1241px) {
+      .mobile-menu {
+        display: none;
+      }
+    }
+
+    @media (max-width: 1240px) {
       .nav-links {
         display: none;
       }
+
+      .menu-btn {
+        display: inline-flex;
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .notice-menu-btn {
+        display: inline-flex;
+      }
+
+      .notice-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 70;
+        display: block;
+        background: rgba(15, 23, 42, 0.22);
+        opacity: 0;
+        pointer-events: none;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        transition: opacity 180ms ease;
+      }
+
+      .notice-backdrop.is-open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .notice-card {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        z-index: 80;
+        width: min(620px, calc(100vw - 32px));
+        max-height: min(72vh, 620px);
+        grid-column: auto;
+        justify-self: auto;
+        opacity: 0;
+        pointer-events: none;
+        transform: translate(-50%, -46%) scale(0.98);
+        transition: opacity 180ms ease, transform 180ms ease;
+      }
+
+      .notice-card.is-open {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translate(-50%, -50%) scale(1);
+      }
+
+      .notice-head {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: rgba(255, 255, 255, 0.86);
+        backdrop-filter: blur(16px) saturate(160%);
+        -webkit-backdrop-filter: blur(16px) saturate(160%);
+      }
+
+      .notice-card .notice-all {
+        display: none;
+      }
+
+      .notice-close {
+        display: inline-grid;
+        width: 32px;
+        height: 32px;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.78);
+        color: var(--ink);
+        cursor: pointer;
+        font-size: 20px;
+        line-height: 1;
+      }
+    }
+
+    @media (max-width: 900px) {
 
       .hero {
         grid-template-columns: 1fr;
@@ -747,10 +920,20 @@
         --page-x: 16px;
       }
 
-      .brand-badge,
       .theme-btn,
       .login-btn {
         display: none;
+      }
+
+      .nav-actions {
+        gap: 8px;
+      }
+
+      .primary-btn {
+        min-width: auto;
+        height: 38px;
+        padding: 0 12px;
+        font-size: 13px;
       }
 
       .hero h1 {
@@ -797,7 +980,6 @@
           </svg>
         </span>
         <span>AI Hub</span>
-        <span class="brand-badge">API中转站</span>
       </a>
       <div class="nav-links">
         <a class="active" href="#">首页</a>
@@ -808,6 +990,11 @@
         <a href="#">支持中心</a>
       </div>
       <div class="nav-actions">
+        <button class="menu-btn" id="menuButton" type="button" aria-label="打开导航菜单" aria-controls="mobileMenu" aria-expanded="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1f2937" stroke-width="2" stroke-linecap="round">
+            <path d="M4 7h16M4 12h16M4 17h16"/>
+          </svg>
+        </button>
         <button class="theme-btn" type="button" aria-label="切换主题">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1f2937" stroke-width="1.8">
             <path d="M12 3v2.4M12 18.6V21M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M3 12h2.4M18.6 12H21M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"/>
@@ -818,6 +1005,14 @@
         <a class="primary-btn" href="#">注册 / 免费试用</a>
       </div>
     </nav>
+    <div class="mobile-menu" id="mobileMenu" aria-label="移动端导航菜单">
+      <a class="active" href="#">首页</a>
+      <a href="#models">模型广场</a>
+      <a href="#plans">套餐服务</a>
+      <a href="#">文档中心</a>
+      <a href="#">解决方案</a>
+      <a href="#">支持中心</a>
+    </div>
   </header>
 
   <main class="shell">
@@ -832,6 +1027,10 @@
         <div class="hero-actions">
           <a class="primary-btn" href="#plans">立即开始 <span class="circle">›</span></a>
           <a class="secondary-btn" href="#">查看文档</a>
+          <button class="secondary-btn notice-menu-btn" id="noticeButton" type="button" aria-controls="noticeDialog" aria-expanded="false">
+            <span class="dot" aria-hidden="true"></span>
+            公告
+          </button>
         </div>
       </div>
 
@@ -839,13 +1038,14 @@
         <img src="assets/hero-ai.png" alt="" />
       </div>
 
-      <aside class="notice-card" aria-label="公告">
+      <aside class="notice-card" id="noticeDialog" aria-label="公告">
         <div class="notice-head">
           <div class="notice-title">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1f2937" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h16"/></svg>
             公告
           </div>
           <a class="notice-all" href="#">查看全部 ›</a>
+          <button class="notice-close" id="noticeClose" type="button" aria-label="关闭公告弹窗">×</button>
         </div>
         <div class="notice-list">
           <article class="notice-item">
@@ -869,6 +1069,7 @@
           订阅公告
         </a>
       </aside>
+      <div class="notice-backdrop" id="noticeBackdrop" aria-hidden="true"></div>
     </section>
 
     <section class="feature-strip" aria-label="平台优势">
@@ -984,7 +1185,7 @@
         <article class="model-card">
           <img class="vendor-logo" src="https://openai.com/favicon.ico" alt="OpenAI logo" />
           <div>
-            <h3>GPT-4o</h3>
+            <h3>GPT-5.5</h3>
             <p>OpenAI</p>
             <div class="tags"><span>文本</span><span>视觉</span><span>音频</span></div>
           </div>
@@ -992,7 +1193,7 @@
         <article class="model-card">
           <img class="vendor-logo" src="https://www.anthropic.com/favicon.ico" alt="Anthropic logo" />
           <div>
-            <h3>Claude 3.5 Sonnet</h3>
+            <h3>claude opus4.7</h3>
             <p>Anthropic</p>
             <div class="tags"><span>文本</span><span>推理</span><span>分析</span></div>
           </div>
@@ -1000,7 +1201,7 @@
         <article class="model-card">
           <img class="vendor-logo" src="https://www.google.com/favicon.ico" alt="Google logo" />
           <div>
-            <h3>Gemini 1.5 Pro</h3>
+            <h3>gemini 3.1 flash</h3>
             <p>Google</p>
             <div class="tags"><span>文本</span><span>代码</span><span>多模态</span></div>
           </div>
@@ -1008,17 +1209,9 @@
         <article class="model-card">
           <img class="vendor-logo" src="https://www.deepseek.com/favicon.ico" alt="DeepSeek logo" />
           <div>
-            <h3>DeepSeek-R1</h3>
+            <h3>DeepSeek v4 pro</h3>
             <p>DeepSeek</p>
             <div class="tags"><span>推理</span><span>代码</span><span>数学</span></div>
-          </div>
-        </article>
-        <article class="model-card">
-          <img class="vendor-logo" src="https://about.meta.com/favicon.ico" alt="Meta logo" />
-          <div>
-            <h3>Code Llama 3</h3>
-            <p>Meta</p>
-            <div class="tags"><span>代码</span><span>补全</span><span>调试</span></div>
           </div>
         </article>
         <article class="model-card">
@@ -1037,5 +1230,65 @@
       </div>
     </section>
   </main>
+  <script>
+    const menuButton = document.getElementById("menuButton");
+    const mobileMenu = document.getElementById("mobileMenu");
+    const noticeButton = document.getElementById("noticeButton");
+    const noticeDialog = document.getElementById("noticeDialog");
+    const noticeClose = document.getElementById("noticeClose");
+    const noticeBackdrop = document.getElementById("noticeBackdrop");
+
+    function closeMobileMenu() {
+      mobileMenu?.classList.remove("is-open");
+      menuButton?.setAttribute("aria-expanded", "false");
+    }
+
+    function closeNoticeDialog() {
+      noticeDialog?.classList.remove("is-open");
+      noticeBackdrop?.classList.remove("is-open");
+      noticeButton?.setAttribute("aria-expanded", "false");
+      document.body.classList.remove("has-modal");
+    }
+
+    function openNoticeDialog() {
+      noticeDialog?.classList.add("is-open");
+      noticeBackdrop?.classList.add("is-open");
+      noticeButton?.setAttribute("aria-expanded", "true");
+      document.body.classList.add("has-modal");
+    }
+
+    menuButton?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const isOpen = mobileMenu?.classList.toggle("is-open");
+      menuButton.setAttribute("aria-expanded", String(Boolean(isOpen)));
+    });
+
+    mobileMenu?.addEventListener("click", (event) => {
+      if (event.target.closest("a")) {
+        closeMobileMenu();
+      }
+    });
+
+    noticeButton?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openNoticeDialog();
+    });
+
+    noticeClose?.addEventListener("click", closeNoticeDialog);
+    noticeBackdrop?.addEventListener("click", closeNoticeDialog);
+
+    document.addEventListener("click", (event) => {
+      if (!mobileMenu?.contains(event.target) && !menuButton?.contains(event.target)) {
+        closeMobileMenu();
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeMobileMenu();
+        closeNoticeDialog();
+      }
+    });
+  </script>
 </body>
 </html>
