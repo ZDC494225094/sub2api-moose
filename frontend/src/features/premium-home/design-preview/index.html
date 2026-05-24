@@ -1,0 +1,1041 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Hub Home Preview</title>
+  <style>
+    :root {
+      --bg: #f7fbff;
+      --white: #ffffff;
+      --ink: #111827;
+      --muted: #5f6b7a;
+      --soft: #8b97a8;
+      --blue: #2563ff;
+      --blue-2: #2f7bff;
+      --blue-soft: #eef5ff;
+      --line: rgba(28, 42, 64, 0.12);
+      --line-strong: rgba(37, 99, 255, 0.36);
+      --green: #16a34a;
+      --shadow: 0 16px 42px rgba(37, 99, 255, 0.08);
+      --shadow-card: 0 18px 50px rgba(15, 23, 42, 0.07);
+      --radius: 12px;
+      --max: 1480px;
+      --page-x: clamp(20px, 4.4vw, 72px);
+      --font: "Inter", "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-width: 320px;
+      margin: 0;
+      color: var(--ink);
+      font-family: var(--font);
+      background:
+        radial-gradient(circle at 28% 0%, rgba(37, 99, 255, 0.08), transparent 34%),
+        linear-gradient(180deg, #fbfdff 0%, #f5f9ff 56%, #fbfdff 100%);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .shell {
+      width: min(var(--max), calc(100vw - var(--page-x) * 2));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      height: 64px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      gap: 28px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 0 0 auto;
+      font-weight: 820;
+      font-size: 20px;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 30px;
+      height: 30px;
+      place-items: center;
+      border-radius: 9px;
+      background: linear-gradient(145deg, #124dff, #69d5ff);
+      box-shadow: 0 8px 22px rgba(37, 99, 255, 0.22);
+    }
+
+    .brand-badge {
+      margin-left: 4px;
+      border: 1px solid rgba(37, 99, 255, 0.12);
+      border-radius: 999px;
+      background: #f2f6ff;
+      color: #41516b;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(24px, 4vw, 54px);
+      flex: 1 1 auto;
+      font-size: 14px;
+      font-weight: 720;
+    }
+
+    .nav-links a {
+      position: relative;
+      padding: 23px 0 20px;
+      color: #1f2937;
+    }
+
+    .nav-links a.active::after {
+      position: absolute;
+      right: 0;
+      bottom: -1px;
+      left: 0;
+      height: 3px;
+      border-radius: 999px 999px 0 0;
+      background: var(--blue);
+      content: "";
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 0 0 auto;
+    }
+
+    .theme-btn,
+    .login-btn,
+    .primary-btn,
+    .secondary-btn,
+    .text-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.82);
+      color: var(--ink);
+      cursor: pointer;
+      font-weight: 760;
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+
+    .theme-btn {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+    }
+
+    .login-btn {
+      min-width: 74px;
+      height: 38px;
+      padding: 0 18px;
+    }
+
+    .primary-btn {
+      height: 46px;
+      min-width: 136px;
+      border-color: transparent;
+      background: linear-gradient(135deg, #2258f8, #3a8bff);
+      color: #fff;
+      box-shadow: 0 12px 24px rgba(37, 99, 255, 0.18);
+    }
+
+    .secondary-btn {
+      height: 46px;
+      min-width: 128px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .text-btn {
+      height: 38px;
+      padding: 0 16px;
+      background: transparent;
+    }
+
+    .primary-btn:hover,
+    .secondary-btn:hover,
+    .login-btn:hover,
+    .theme-btn:hover,
+    .text-btn:hover {
+      transform: translateY(-1px);
+      border-color: var(--line-strong);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(390px, 0.9fr) minmax(420px, 0.82fr) minmax(360px, 0.7fr);
+      align-items: center;
+      gap: clamp(24px, 3vw, 44px);
+      min-height: 432px;
+      padding: 54px 0 28px;
+    }
+
+    .hero::before {
+      position: absolute;
+      inset: 0 -8vw -18px;
+      z-index: -1;
+      background:
+        radial-gradient(circle at 62% 46%, rgba(37, 99, 255, 0.13), transparent 32%),
+        linear-gradient(110deg, transparent 50%, rgba(180, 214, 255, 0.24) 100%);
+      content: "";
+    }
+
+    .hero-copy {
+      padding-top: 6px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 30px;
+      margin-bottom: 24px;
+      border: 1px solid rgba(37, 99, 255, 0.14);
+      border-radius: 999px;
+      background: rgba(37, 99, 255, 0.06);
+      color: #244a8f;
+      padding: 0 14px;
+      font-size: 13px;
+      font-weight: 760;
+    }
+
+    .hero h1 {
+      margin: 0;
+      color: #111827;
+      font-size: clamp(44px, 4.5vw, 66px);
+      line-height: 1.12;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .hero h1 span {
+      color: var(--blue);
+    }
+
+    .hero p {
+      max-width: 560px;
+      margin: 22px 0 0;
+      color: #536174;
+      font-size: 17px;
+      font-weight: 520;
+      line-height: 1.9;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 26px;
+    }
+
+    .primary-btn .circle {
+      display: grid;
+      width: 22px;
+      height: 22px;
+      margin-left: 10px;
+      place-items: center;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.24);
+      font-size: 15px;
+    }
+
+    .hero-visual {
+      position: relative;
+      align-self: stretch;
+      min-height: 328px;
+    }
+
+    .hero-visual img {
+      position: absolute;
+      inset: -30px -80px -58px -92px;
+      width: calc(100% + 172px);
+      height: calc(100% + 86px);
+      object-fit: cover;
+      mix-blend-mode: multiply;
+      filter: saturate(1.08);
+    }
+
+    .notice-card {
+      align-self: start;
+      overflow: hidden;
+      border: 1px solid rgba(37, 99, 255, 0.12);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.76);
+      box-shadow: var(--shadow-card);
+      backdrop-filter: blur(18px) saturate(150%);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
+    }
+
+    .notice-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 58px;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .notice-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 17px;
+      font-weight: 830;
+    }
+
+    .notice-all {
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 760;
+    }
+
+    .notice-list {
+      position: relative;
+      padding: 10px 22px 10px 34px;
+    }
+
+    .notice-list::before {
+      position: absolute;
+      top: 30px;
+      bottom: 26px;
+      left: 28px;
+      width: 2px;
+      border-radius: 999px;
+      background: #c7d7ff;
+      content: "";
+    }
+
+    .notice-item {
+      position: relative;
+      padding: 10px 0 14px 18px;
+      border-bottom: 1px solid rgba(28, 42, 64, 0.08);
+    }
+
+    .notice-item:last-child {
+      border-bottom: 0;
+    }
+
+    .notice-item::before {
+      position: absolute;
+      top: 16px;
+      left: -11px;
+      width: 10px;
+      height: 10px;
+      border: 3px solid #d8e4ff;
+      border-radius: 999px;
+      background: var(--blue);
+      content: "";
+    }
+
+    .notice-date {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 7px;
+      color: #697386;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .new-tag {
+      border-radius: 999px;
+      background: #edf4ff;
+      color: var(--blue);
+      padding: 2px 7px;
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .notice-item h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 830;
+    }
+
+    .notice-item p {
+      margin: 6px 0 0;
+      color: #617085;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+
+    .subscribe {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      height: 42px;
+      border-top: 1px solid var(--line);
+      color: var(--blue);
+      font-size: 14px;
+      font-weight: 760;
+    }
+
+    .feature-strip {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      margin: 0 auto 22px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: 0 14px 36px rgba(15, 23, 42, 0.05);
+      backdrop-filter: blur(16px) saturate(150%);
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      min-height: 76px;
+      border-right: 1px solid var(--line);
+    }
+
+    .feature-item:last-child {
+      border-right: 0;
+    }
+
+    .feature-icon {
+      display: grid;
+      width: 32px;
+      height: 32px;
+      place-items: center;
+      color: var(--blue);
+    }
+
+    .feature-item strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 830;
+    }
+
+    .feature-item span {
+      display: block;
+      margin-top: 3px;
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .section {
+      padding: 0 0 24px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 0 0 14px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-title h2 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 880;
+    }
+
+    .soft-badge {
+      border-radius: 999px;
+      background: #edf4ff;
+      color: var(--blue);
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 760;
+    }
+
+    .all-link {
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 760;
+    }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 18px;
+    }
+
+    .plan-card {
+      position: relative;
+      min-height: 234px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: rgba(255, 255, 255, 0.72);
+      padding: 22px 18px 16px;
+      box-shadow: 0 12px 34px rgba(15, 23, 42, 0.045);
+      backdrop-filter: blur(14px) saturate(150%);
+      transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .plan-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(37, 99, 255, 0.34);
+      box-shadow: var(--shadow-card);
+    }
+
+    .plan-card.hot {
+      border-color: #3a7bff;
+      box-shadow: 0 18px 48px rgba(37, 99, 255, 0.12);
+    }
+
+    .hot-ribbon {
+      position: absolute;
+      top: 0;
+      right: 0;
+      border-radius: 0 10px 0 10px;
+      background: linear-gradient(135deg, #2c67ff, #4da3ff);
+      color: #fff;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .plan-card h3 {
+      margin: 0;
+      font-size: 19px;
+      font-weight: 860;
+    }
+
+    .price {
+      display: flex;
+      align-items: end;
+      gap: 5px;
+      margin: 10px 0 3px;
+    }
+
+    .price strong {
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .price span {
+      color: #657386;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .plan-desc {
+      margin: 0 0 14px;
+      color: #6b7789;
+      font-size: 13px;
+    }
+
+    .features {
+      display: grid;
+      gap: 8px;
+      min-height: 70px;
+      margin: 0 0 16px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .features li {
+      display: flex;
+      gap: 8px;
+      color: #42526a;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .features li::before {
+      color: var(--green);
+      content: "✓";
+      font-weight: 900;
+    }
+
+    .plan-btn {
+      width: 100%;
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.76);
+      color: #172033;
+      cursor: pointer;
+      font-weight: 820;
+    }
+
+    .plan-card.hot .plan-btn {
+      border-color: transparent;
+      background: linear-gradient(135deg, #245cff, #398bff);
+      color: #fff;
+    }
+
+    .models-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 16px;
+    }
+
+    .model-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-height: 112px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.74);
+      padding: 18px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
+      backdrop-filter: blur(14px) saturate(150%);
+    }
+
+    .vendor-logo {
+      width: 44px;
+      height: 44px;
+      flex: 0 0 auto;
+      border-radius: 10px;
+      object-fit: contain;
+      background: #fff;
+      padding: 6px;
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .model-card h3 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 830;
+    }
+
+    .model-card p {
+      margin: 3px 0 8px;
+      color: #6b7789;
+      font-size: 12px;
+      font-weight: 680;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .tags span {
+      border-radius: 4px;
+      background: #edf4ff;
+      color: #47617f;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 720;
+    }
+
+    .models-cta {
+      display: flex;
+      justify-content: center;
+      padding: 16px 0 0;
+    }
+
+    .models-cta a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 40px;
+      min-width: 154px;
+      border: 1px solid rgba(37, 99, 255, 0.2);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.7);
+      color: var(--blue);
+      font-weight: 820;
+    }
+
+    @media (max-width: 1280px) {
+      .hero {
+        grid-template-columns: minmax(360px, 0.9fr) minmax(360px, 0.8fr);
+      }
+
+      .notice-card {
+        grid-column: 1 / -1;
+        width: min(720px, 100%);
+        justify-self: center;
+      }
+
+      .pricing-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .models-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 900px) {
+      .nav-links {
+        display: none;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+        padding-top: 38px;
+      }
+
+      .hero-copy {
+        text-align: center;
+      }
+
+      .hero p {
+        margin-right: auto;
+        margin-left: auto;
+      }
+
+      .hero-actions {
+        justify-content: center;
+      }
+
+      .hero-visual {
+        min-height: 260px;
+      }
+
+      .feature-strip {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .feature-item {
+        border-bottom: 1px solid var(--line);
+      }
+    }
+
+    @media (max-width: 640px) {
+      :root {
+        --page-x: 16px;
+      }
+
+      .brand-badge,
+      .theme-btn,
+      .login-btn {
+        display: none;
+      }
+
+      .hero h1 {
+        font-size: 38px;
+      }
+
+      .hero-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .pricing-grid,
+      .models-grid,
+      .feature-strip {
+        grid-template-columns: 1fr;
+      }
+
+      .feature-item {
+        justify-content: flex-start;
+        padding-left: 20px;
+        border-right: 0;
+      }
+
+      .section-head {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .notice-list {
+        padding-left: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <nav class="shell nav" aria-label="主导航">
+      <a class="brand" href="#">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2 21 7v10l-9 5-9-5V7l9-5Z" fill="#fff" opacity=".95"/>
+            <path d="M8 8.3 12 6l4 2.3v4.4L12 15l-4-2.3V8.3Z" fill="#2563ff"/>
+          </svg>
+        </span>
+        <span>AI Hub</span>
+        <span class="brand-badge">API中转站</span>
+      </a>
+      <div class="nav-links">
+        <a class="active" href="#">首页</a>
+        <a href="#models">模型广场</a>
+        <a href="#plans">套餐服务</a>
+        <a href="#">文档中心</a>
+        <a href="#">解决方案</a>
+        <a href="#">支持中心</a>
+      </div>
+      <div class="nav-actions">
+        <button class="theme-btn" type="button" aria-label="切换主题">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1f2937" stroke-width="1.8">
+            <path d="M12 3v2.4M12 18.6V21M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M3 12h2.4M18.6 12H21M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"/>
+            <circle cx="12" cy="12" r="3.7"/>
+          </svg>
+        </button>
+        <a class="login-btn" href="#">登录</a>
+        <a class="primary-btn" href="#">注册 / 免费试用</a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563ff" stroke-width="2"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m8.5 12 2.3 2.3 4.8-5"/></svg>
+          一站式 AI API 中转服务平台
+        </div>
+        <h1>连接全球顶尖 AI<br>赋能<span>无限可能</span></h1>
+        <p>聚合最前沿的大模型 API，稳定高效的中转服务，助力开发者与企业快速构建智能应用</p>
+        <div class="hero-actions">
+          <a class="primary-btn" href="#plans">立即开始 <span class="circle">›</span></a>
+          <a class="secondary-btn" href="#">查看文档</a>
+        </div>
+      </div>
+
+      <div class="hero-visual" aria-hidden="true">
+        <img src="assets/hero-ai.png" alt="" />
+      </div>
+
+      <aside class="notice-card" aria-label="公告">
+        <div class="notice-head">
+          <div class="notice-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1f2937" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h16"/></svg>
+            公告
+          </div>
+          <a class="notice-all" href="#">查看全部 ›</a>
+        </div>
+        <div class="notice-list">
+          <article class="notice-item">
+            <div class="notice-date">2024-05-20 <span class="new-tag">NEW</span></div>
+            <h3>DeepSeek-R1 模型正式接入</h3>
+            <p>DeepSeek-R1 已全面接入，支持深度推理与复杂任务处理。</p>
+          </article>
+          <article class="notice-item">
+            <div class="notice-date">2024-05-15</div>
+            <h3>Claude 3.5 系列模型更新</h3>
+            <p>Claude 3.5 Sonnet 与 Claude 3.5 Haiku 现已支持最新版。</p>
+          </article>
+          <article class="notice-item">
+            <div class="notice-date">2024-05-10</div>
+            <h3>平台计费与维护公告</h3>
+            <p>5月12日 02:00-04:00 进行系统升级，期间服务可能短暂中断。</p>
+          </article>
+        </div>
+        <a class="subscribe" href="#">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="#2563ff"><path d="M12 22a2.7 2.7 0 0 0 2.6-2H9.4a2.7 2.7 0 0 0 2.6 2Zm7-6-2-2.3V10a5 5 0 0 0-3.7-4.8V4a1.3 1.3 0 0 0-2.6 0v1.2A5 5 0 0 0 7 10v3.7L5 16v1h14v-1Z"/></svg>
+          订阅公告
+        </a>
+      </aside>
+    </section>
+
+    <section class="feature-strip" aria-label="平台优势">
+      <div class="feature-item">
+        <div class="feature-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3 20 7v5c0 5-3.4 7.8-8 9-4.6-1.2-8-4-8-9V7l8-4Z"/><path d="m8.8 12.2 2.1 2.1 4.4-5"/></svg>
+        </div>
+        <div><strong>稳定可靠</strong><span>99.9% 可用性保障</span></div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="m13 2-8 12h7l-1 8 8-12h-7l1-8Z"/></svg>
+        </div>
+        <div><strong>极速响应</strong><span>毫秒级 API 响应</span></div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M7 11V8a5 5 0 0 1 10 0v3"/><rect x="5" y="11" width="14" height="10" rx="2"/></svg>
+        </div>
+        <div><strong>安全隐私</strong><span>数据加密 · 隐私保护</span></div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="m12 3 8 4-8 4-8-4 8-4Z"/><path d="m4 12 8 4 8-4"/><path d="m4 17 8 4 8-4"/></svg>
+        </div>
+        <div><strong>丰富模型</strong><span>接入 20+ 顶尖大模型</span></div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M16 11a4 4 0 1 0-8 0"/><path d="M3 21a7 7 0 0 1 14 0"/><path d="M17 8a3 3 0 1 1 0 6"/><path d="M17 17a5.5 5.5 0 0 1 4 4"/></svg>
+        </div>
+        <div><strong>优质服务</strong><span>7x24 小时技术支持</span></div>
+      </div>
+    </section>
+
+    <section class="section" id="plans">
+      <div class="section-head">
+        <div class="section-title">
+          <h2>套餐服务</h2>
+          <span class="soft-badge">超值套餐，灵活选择</span>
+        </div>
+        <a class="all-link" href="#">查看全部套餐</a>
+      </div>
+      <div class="pricing-grid">
+        <article class="plan-card">
+          <h3>免费体验</h3>
+          <div class="price"><strong>¥0</strong><span>/ 月</span></div>
+          <p class="plan-desc">适合个人开发者体验</p>
+          <ul class="features">
+            <li>赠送额度 10,000 tokens</li>
+            <li>限速 3 RPM</li>
+            <li>基础模型访问</li>
+          </ul>
+          <button class="plan-btn">立即体验</button>
+        </article>
+        <article class="plan-card">
+          <h3>基础版</h3>
+          <div class="price"><strong>¥39</strong><span>/ 月</span></div>
+          <p class="plan-desc">适合个人开发者</p>
+          <ul class="features">
+            <li>100万 tokens / 月</li>
+            <li>限速 60 RPM</li>
+            <li>所有基础模型访问</li>
+          </ul>
+          <button class="plan-btn">立即购买</button>
+        </article>
+        <article class="plan-card hot">
+          <div class="hot-ribbon">最受欢迎</div>
+          <h3>专业版</h3>
+          <div class="price"><strong>¥129</strong><span>/ 月</span></div>
+          <p class="plan-desc">适合专业开发团队</p>
+          <ul class="features">
+            <li>500万 tokens / 月</li>
+            <li>限速 300 RPM</li>
+            <li>所有模型访问</li>
+          </ul>
+          <button class="plan-btn">立即购买</button>
+        </article>
+        <article class="plan-card">
+          <h3>企业版</h3>
+          <div class="price"><strong>¥399</strong><span>/ 月起</span></div>
+          <p class="plan-desc">适合企业级应用</p>
+          <ul class="features">
+            <li>自定义额度</li>
+            <li>高并发支持</li>
+            <li>专属技术支持</li>
+          </ul>
+          <button class="plan-btn">联系我们</button>
+        </article>
+        <article class="plan-card">
+          <h3>定制版</h3>
+          <div class="price"><strong>定制价格</strong></div>
+          <p class="plan-desc">满足个性化需求</p>
+          <ul class="features">
+            <li>专属解决方案</li>
+            <li>私有化部署</li>
+            <li>定制化服务</li>
+          </ul>
+          <button class="plan-btn">联系我们</button>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="models">
+      <div class="section-head">
+        <div class="section-title">
+          <h2>模型广场</h2>
+          <span class="soft-badge">已接入 20+ 顶尖大模型</span>
+        </div>
+        <a class="all-link" href="#">查看全部模型</a>
+      </div>
+      <div class="models-grid">
+        <article class="model-card">
+          <img class="vendor-logo" src="https://openai.com/favicon.ico" alt="OpenAI logo" />
+          <div>
+            <h3>GPT-4o</h3>
+            <p>OpenAI</p>
+            <div class="tags"><span>文本</span><span>视觉</span><span>音频</span></div>
+          </div>
+        </article>
+        <article class="model-card">
+          <img class="vendor-logo" src="https://www.anthropic.com/favicon.ico" alt="Anthropic logo" />
+          <div>
+            <h3>Claude 3.5 Sonnet</h3>
+            <p>Anthropic</p>
+            <div class="tags"><span>文本</span><span>推理</span><span>分析</span></div>
+          </div>
+        </article>
+        <article class="model-card">
+          <img class="vendor-logo" src="https://www.google.com/favicon.ico" alt="Google logo" />
+          <div>
+            <h3>Gemini 1.5 Pro</h3>
+            <p>Google</p>
+            <div class="tags"><span>文本</span><span>代码</span><span>多模态</span></div>
+          </div>
+        </article>
+        <article class="model-card">
+          <img class="vendor-logo" src="https://www.deepseek.com/favicon.ico" alt="DeepSeek logo" />
+          <div>
+            <h3>DeepSeek-R1</h3>
+            <p>DeepSeek</p>
+            <div class="tags"><span>推理</span><span>代码</span><span>数学</span></div>
+          </div>
+        </article>
+        <article class="model-card">
+          <img class="vendor-logo" src="https://about.meta.com/favicon.ico" alt="Meta logo" />
+          <div>
+            <h3>Code Llama 3</h3>
+            <p>Meta</p>
+            <div class="tags"><span>代码</span><span>补全</span><span>调试</span></div>
+          </div>
+        </article>
+        <article class="model-card">
+          <div class="vendor-logo" style="display:grid;place-items:center;color:#2563ff;">
+            <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/><path d="M7 7h.01M7 12h.01M7 17h.01"/></svg>
+          </div>
+          <div>
+            <h3>更多模型</h3>
+            <p>20+ 模型可选</p>
+            <div class="tags"><span>持续更新中</span></div>
+          </div>
+        </article>
+      </div>
+      <div class="models-cta">
+        <a href="#">探索全部模型 →</a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
