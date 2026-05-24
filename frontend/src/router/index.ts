@@ -30,6 +30,15 @@ const routes: RouteRecordRaw[] = [
 
   // ==================== Public Routes ====================
   {
+    path: '/',
+    name: 'PremiumHome',
+    component: () => import('@/features/premium-home/runtime/PremiumHomeView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Home'
+    }
+  },
+  {
     path: '/home',
     name: 'Home',
     component: () => import('@/views/HomeView.vue'),
@@ -174,12 +183,7 @@ const routes: RouteRecordRaw[] = [
       title: 'Legal Document'
     }
   },
-
   // ==================== User Routes ====================
-  {
-    path: '/',
-    redirect: '/home'
-  },
   {
     path: '/dashboard',
     name: 'Dashboard',

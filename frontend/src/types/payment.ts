@@ -121,6 +121,8 @@ export interface SubscriptionPlan {
   features: string[]
   for_sale: boolean
   sort_order: number
+  discount_rate?: number
+  purchase_count?: number
 }
 
 export interface PaymentChannel {

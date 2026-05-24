@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -47,35 +48,38 @@ func (h *PaymentHandler) GetPaymentConfig(c *gin.Context) {
 // GetPlans returns subscription plans available for sale.
 // GET /api/v1/payment/plans
 func (h *PaymentHandler) GetPlans(c *gin.Context) {
-	plans, err := h.configService.ListPlansForSale(c.Request.Context())
+	h.respondPlansForSale(c)
+}
+
+// GetPublicPlans returns subscription plans available for anonymous homepage display.
+// GET /api/v1/payment/public/plans
+func (h *PaymentHandler) GetPublicPlans(c *gin.Context) {
+	h.respondPlansForSale(c)
+}
+
+func (h *PaymentHandler) respondPlansForSale(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	plans, err := h.configService.ListPlansForSale(ctx)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-	// Enrich plans with group platform for frontend color coding
-	type planWithPlatform struct {
-		ID            int64    `json:"id"`
-		GroupID       int64    `json:"group_id"`
-		GroupPlatform string   `json:"group_platform"`
-		Name          string   `json:"name"`
-		Description   string   `json:"description"`
-		Price         float64  `json:"price"`
-		OriginalPrice *float64 `json:"original_price,omitempty"`
-		ValidityDays  int      `json:"validity_days"`
-		ValidityUnit  string   `json:"validity_unit"`
-		Features      string   `json:"features"`
-		ProductName   string   `json:"product_name"`
-		ForSale       bool     `json:"for_sale"`
-		SortOrder     int      `json:"sort_order"`
-	}
-	platformMap := h.configService.GetGroupPlatformMap(c.Request.Context(), plans)
-	result := make([]planWithPlatform, 0, len(plans))
+	groupInfo := h.configService.GetGroupInfoMap(ctx, plans)
+	purchaseCounts := h.configService.GetPlanPurchaseCountMap(ctx, plans)
+	result := make([]checkoutPlan, 0, len(plans))
 	for _, p := range plans {
-		result = append(result, planWithPlatform{
-			ID: int64(p.ID), GroupID: p.GroupID, GroupPlatform: platformMap[p.GroupID],
+		gi := groupInfo[p.GroupID]
+		result = append(result, checkoutPlan{
+			ID: int64(p.ID), GroupID: p.GroupID,
+			GroupPlatform: gi.Platform, GroupName: gi.Name,
+			RateMultiplier: gi.RateMultiplier, DailyLimitUSD: gi.DailyLimitUSD,
+			WeeklyLimitUSD: gi.WeeklyLimitUSD, MonthlyLimitUSD: gi.MonthlyLimitUSD,
+			ModelScopes: gi.ModelScopes,
 			Name: p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
-			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: p.Features,
+			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: parseFeatures(p.Features),
 			ProductName: p.ProductName, ForSale: p.ForSale, SortOrder: p.SortOrder,
+			DiscountRate: planDiscountRate(p.Price, p.OriginalPrice), PurchaseCount: purchaseCounts[int64(p.ID)],
 		})
 	}
 	response.Success(c, result)
@@ -115,6 +119,7 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 	// Fetch plans with group info
 	plans, _ := h.configService.ListPlansForSale(ctx)
 	groupInfo := h.configService.GetGroupInfoMap(ctx, plans)
+	purchaseCounts := h.configService.GetPlanPurchaseCountMap(ctx, plans)
 	planList := make([]checkoutPlan, 0, len(plans))
 	for _, p := range plans {
 		gi := groupInfo[p.GroupID]
@@ -126,7 +131,8 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 			ModelScopes: gi.ModelScopes,
 			Name:        p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
 			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: parseFeatures(p.Features),
-			ProductName: p.ProductName,
+			ProductName: p.ProductName, ForSale: p.ForSale, SortOrder: p.SortOrder,
+			DiscountRate: planDiscountRate(p.Price, p.OriginalPrice), PurchaseCount: purchaseCounts[int64(p.ID)],
 		})
 	}
 
@@ -177,6 +183,18 @@ type checkoutPlan struct {
 	ValidityUnit    string   `json:"validity_unit"`
 	Features        []string `json:"features"`
 	ProductName     string   `json:"product_name"`
+	ForSale         bool     `json:"for_sale"`
+	SortOrder       int      `json:"sort_order"`
+	DiscountRate    *float64 `json:"discount_rate,omitempty"`
+	PurchaseCount   int      `json:"purchase_count"`
+}
+
+func planDiscountRate(price float64, originalPrice *float64) *float64 {
+	if originalPrice == nil || *originalPrice <= 0 || price <= 0 || price >= *originalPrice {
+		return nil
+	}
+	rate := math.Round((price / *originalPrice) * 1000) / 1000
+	return &rate
 }
 
 // parseFeatures splits a newline-separated features string into a string slice.

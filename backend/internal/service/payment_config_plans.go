@@ -7,7 +7,9 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
+	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
@@ -118,6 +120,23 @@ func (s *PaymentConfigService) ListPlans(ctx context.Context) ([]*dbent.Subscrip
 
 func (s *PaymentConfigService) ListPlansForSale(ctx context.Context) ([]*dbent.SubscriptionPlan, error) {
 	return s.entClient.SubscriptionPlan.Query().Where(subscriptionplan.ForSaleEQ(true)).Order(subscriptionplan.BySortOrder()).All(ctx)
+}
+
+func (s *PaymentConfigService) GetPlanPurchaseCountMap(ctx context.Context, plans []*dbent.SubscriptionPlan) map[int64]int {
+	counts := make(map[int64]int, len(plans))
+	for _, p := range plans {
+		count, err := s.entClient.PaymentOrder.Query().
+			Where(
+				paymentorder.PlanIDEQ(int64(p.ID)),
+				paymentorder.OrderTypeEQ(payment.OrderTypeSubscription),
+				paymentorder.StatusIn(payment.OrderStatusPaid, payment.OrderStatusCompleted),
+			).
+			Count(ctx)
+		if err == nil {
+			counts[int64(p.ID)] = count
+		}
+	}
+	return counts
 }
 
 func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanRequest) (*dbent.SubscriptionPlan, error) {

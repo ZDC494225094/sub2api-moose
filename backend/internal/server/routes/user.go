@@ -15,6 +15,11 @@ func RegisterUserRoutes(
 	jwtAuth middleware.JWTAuthMiddleware,
 	settingService *service.SettingService,
 ) {
+	publicAnnouncements := v1.Group("/announcements")
+	{
+		publicAnnouncements.GET("/public", h.Announcement.ListPublic)
+	}
+
 	authenticated := v1.Group("")
 	authenticated.Use(gin.HandlerFunc(jwtAuth))
 	authenticated.Use(middleware.BackendModeUserGuard(settingService))

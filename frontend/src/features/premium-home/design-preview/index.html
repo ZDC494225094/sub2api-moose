@@ -593,14 +593,48 @@
 
     .plan-card {
       position: relative;
+      overflow: hidden;
       min-height: 234px;
       border: 1px solid var(--line);
       border-radius: 11px;
-      background: rgba(255, 255, 255, 0.72);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 251, 255, 0.74)),
+        radial-gradient(circle at 20% 0%, rgba(37, 99, 255, 0.1), transparent 42%);
       padding: 22px 18px 16px;
       box-shadow: 0 12px 34px rgba(15, 23, 42, 0.045);
       backdrop-filter: blur(14px) saturate(150%);
       transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .plan-card::before {
+      position: absolute;
+      inset: -2px;
+      border-radius: inherit;
+      background: linear-gradient(115deg, transparent 0 34%, rgba(37, 99, 255, 0.28) 45%, rgba(110, 207, 255, 0.5) 50%, transparent 62% 100%);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(-70%);
+      content: "";
+    }
+
+    .plan-card:hover::before,
+    .plan-card.hot::before {
+      animation: electric-scan 2.8s ease-in-out infinite;
+      opacity: 1;
+    }
+
+    .plan-card::after {
+      position: absolute;
+      inset: 1px;
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(247, 251, 255, 0.62));
+      pointer-events: none;
+      content: "";
+    }
+
+    .plan-card > * {
+      position: relative;
+      z-index: 1;
     }
 
     .plan-card:hover {
@@ -611,7 +645,7 @@
 
     .plan-card.hot {
       border-color: #3a7bff;
-      box-shadow: 0 18px 48px rgba(37, 99, 255, 0.12);
+      box-shadow: 0 20px 54px rgba(37, 99, 255, 0.18), 0 0 0 1px rgba(37, 99, 255, 0.12) inset;
     }
 
     .hot-ribbon {
@@ -624,6 +658,31 @@
       padding: 8px 14px;
       font-size: 13px;
       font-weight: 800;
+    }
+
+    .plan-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 28px;
+    }
+
+    .promo-pill {
+      flex: 0 0 auto;
+      border: 1px solid rgba(37, 99, 255, 0.16);
+      border-radius: 999px;
+      background: rgba(237, 244, 255, 0.9);
+      color: var(--blue);
+      padding: 4px 9px;
+      font-size: 11px;
+      font-weight: 850;
+    }
+
+    .promo-pill.hot {
+      border-color: rgba(255, 122, 0, 0.22);
+      background: #fff3e8;
+      color: #d96b00;
     }
 
     .plan-card h3 {
@@ -655,6 +714,90 @@
       margin: 0 0 14px;
       color: #6b7789;
       font-size: 13px;
+    }
+
+    .deal-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 12px 0 10px;
+      border: 1px solid rgba(37, 99, 255, 0.12);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.66);
+      padding: 8px 10px;
+      color: #516176;
+      font-size: 12px;
+      font-weight: 760;
+    }
+
+    .deal-row strong {
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .plan-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 0 0 12px;
+    }
+
+    .stat-chip {
+      border: 1px solid rgba(37, 99, 255, 0.1);
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.58);
+      padding: 7px 8px;
+    }
+
+    .stat-chip span {
+      display: block;
+      color: #7b8798;
+      font-size: 10px;
+      font-weight: 760;
+    }
+
+    .stat-chip strong {
+      display: block;
+      margin-top: 2px;
+      color: #172033;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .heat {
+      margin: 0 0 13px;
+    }
+
+    .heat-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      color: #617189;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .heat-head strong {
+      color: #ff7a00;
+    }
+
+    .heat-track {
+      overflow: hidden;
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(37, 99, 255, 0.1);
+    }
+
+    .heat-track i {
+      display: block;
+      width: var(--heat, 60%);
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #2563ff, #55b7ff, #ffb34d);
+      box-shadow: 0 0 16px rgba(37, 99, 255, 0.32);
     }
 
     .features {
@@ -695,6 +838,15 @@
       border-color: transparent;
       background: linear-gradient(135deg, #245cff, #398bff);
       color: #fff;
+    }
+
+    @keyframes electric-scan {
+      0% {
+        transform: translateX(-92%);
+      }
+      48%, 100% {
+        transform: translateX(92%);
+      }
     }
 
     .models-grid {
@@ -1114,10 +1266,22 @@
         <a class="all-link" href="#">查看全部套餐</a>
       </div>
       <div class="pricing-grid">
-        <article class="plan-card">
-          <h3>免费体验</h3>
+        <article class="plan-card" style="--heat: 36%;">
+          <div class="plan-top">
+            <h3>免费体验</h3>
+            <span class="promo-pill">0元试用</span>
+          </div>
           <div class="price"><strong>¥0</strong><span>/ 月</span></div>
           <p class="plan-desc">适合个人开发者体验</p>
+          <div class="deal-row"><span>新用户专享</span><strong>100% 折扣</strong></div>
+          <div class="plan-stats">
+            <div class="stat-chip"><span>火热程度</span><strong>36%</strong></div>
+            <div class="stat-chip"><span>已领取</span><strong>1,284 人</strong></div>
+          </div>
+          <div class="heat">
+            <div class="heat-head"><span>实时热度</span><strong>入门体验</strong></div>
+            <div class="heat-track"><i></i></div>
+          </div>
           <ul class="features">
             <li>赠送额度 10,000 tokens</li>
             <li>限速 3 RPM</li>
@@ -1125,10 +1289,22 @@
           </ul>
           <button class="plan-btn">立即体验</button>
         </article>
-        <article class="plan-card">
-          <h3>基础版</h3>
+        <article class="plan-card" style="--heat: 68%;">
+          <div class="plan-top">
+            <h3>基础版</h3>
+            <span class="promo-pill">限时 7.8 折</span>
+          </div>
           <div class="price"><strong>¥39</strong><span>/ 月</span></div>
           <p class="plan-desc">适合个人开发者</p>
+          <div class="deal-row"><span>月付立省</span><strong>¥11 / 月</strong></div>
+          <div class="plan-stats">
+            <div class="stat-chip"><span>火热程度</span><strong>68%</strong></div>
+            <div class="stat-chip"><span>已购买</span><strong>3,920 人</strong></div>
+          </div>
+          <div class="heat">
+            <div class="heat-head"><span>实时热度</span><strong>持续升温</strong></div>
+            <div class="heat-track"><i></i></div>
+          </div>
           <ul class="features">
             <li>100万 tokens / 月</li>
             <li>限速 60 RPM</li>
@@ -1136,11 +1312,23 @@
           </ul>
           <button class="plan-btn">立即购买</button>
         </article>
-        <article class="plan-card hot">
+        <article class="plan-card hot" style="--heat: 96%;">
           <div class="hot-ribbon">最受欢迎</div>
-          <h3>专业版</h3>
+          <div class="plan-top">
+            <h3>专业版</h3>
+            <span class="promo-pill hot">爆款 6.5 折</span>
+          </div>
           <div class="price"><strong>¥129</strong><span>/ 月</span></div>
           <p class="plan-desc">适合专业开发团队</p>
+          <div class="deal-row"><span>团队推荐</span><strong>本周省 ¥70</strong></div>
+          <div class="plan-stats">
+            <div class="stat-chip"><span>火热程度</span><strong>96%</strong></div>
+            <div class="stat-chip"><span>已购买</span><strong>8,631 人</strong></div>
+          </div>
+          <div class="heat">
+            <div class="heat-head"><span>实时热度</span><strong>正在热卖</strong></div>
+            <div class="heat-track"><i></i></div>
+          </div>
           <ul class="features">
             <li>500万 tokens / 月</li>
             <li>限速 300 RPM</li>
@@ -1148,10 +1336,22 @@
           </ul>
           <button class="plan-btn">立即购买</button>
         </article>
-        <article class="plan-card">
-          <h3>企业版</h3>
+        <article class="plan-card" style="--heat: 74%;">
+          <div class="plan-top">
+            <h3>企业版</h3>
+            <span class="promo-pill">年付 8.5 折</span>
+          </div>
           <div class="price"><strong>¥399</strong><span>/ 月起</span></div>
           <p class="plan-desc">适合企业级应用</p>
+          <div class="deal-row"><span>企业采购</span><strong>赠 SLA 保障</strong></div>
+          <div class="plan-stats">
+            <div class="stat-chip"><span>火热程度</span><strong>74%</strong></div>
+            <div class="stat-chip"><span>企业客户</span><strong>1,206 家</strong></div>
+          </div>
+          <div class="heat">
+            <div class="heat-head"><span>实时热度</span><strong>企业优选</strong></div>
+            <div class="heat-track"><i></i></div>
+          </div>
           <ul class="features">
             <li>自定义额度</li>
             <li>高并发支持</li>
@@ -1159,10 +1359,22 @@
           </ul>
           <button class="plan-btn">联系我们</button>
         </article>
-        <article class="plan-card">
-          <h3>定制版</h3>
+        <article class="plan-card" style="--heat: 52%;">
+          <div class="plan-top">
+            <h3>定制版</h3>
+            <span class="promo-pill">专属报价</span>
+          </div>
           <div class="price"><strong>定制价格</strong></div>
           <p class="plan-desc">满足个性化需求</p>
+          <div class="deal-row"><span>方案顾问</span><strong>1v1 评估</strong></div>
+          <div class="plan-stats">
+            <div class="stat-chip"><span>火热程度</span><strong>52%</strong></div>
+            <div class="stat-chip"><span>咨询人数</span><strong>328 次</strong></div>
+          </div>
+          <div class="heat">
+            <div class="heat-head"><span>实时热度</span><strong>高阶需求</strong></div>
+            <div class="heat-track"><i></i></div>
+          </div>
           <ul class="features">
             <li>专属解决方案</li>
             <li>私有化部署</li>
