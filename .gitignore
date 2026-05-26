@@ -136,3 +136,5 @@ docs/*
 frontend/coverage/
 aicodex
 output/
+/.codex-cache-test
+/.codex-tools

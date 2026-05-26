@@ -96,7 +96,9 @@
         </div>
 
         <div class="hero-visual" aria-hidden="true">
-          <img :src="heroImage" alt="" />
+          <div class="hero-orbit">
+            <canvas ref="globeCanvas" class="globe-canvas"></canvas>
+          </div>
         </div>
 
         <aside class="notice-card" :class="{ 'is-open': noticePanelOpen }" aria-label="公告">
@@ -241,8 +243,8 @@ import { useAppStore, useAuthStore } from '@/stores'
 import Icon from '@/components/icons/Icon.vue'
 import type { SubscriptionPlan } from '@/types/payment'
 import type { UserAnnouncement } from '@/types'
-import heroImage from './assets/hero-ai.png'
 import { getPublicAnnouncements, getPublicPlans } from './api'
+import { mountPremiumHomeGlobe } from './premium-home-globe'
 import './premium-home.css'
 
 type IconName = InstanceType<typeof Icon>['$props']['name']
@@ -269,6 +271,7 @@ const fallbackAnnouncements: UserAnnouncement[] = [
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
+const globeCanvas = ref<HTMLCanvasElement | null>(null)
 const menuOpen = ref(false)
 const noticePanelOpen = ref(false)
 const themeMenuOpen = ref(false)
@@ -279,6 +282,7 @@ const plans = ref<SubscriptionPlan[]>([])
 const announcements = ref<UserAnnouncement[]>([])
 const plansLoading = ref(true)
 let systemThemeQuery: MediaQueryList | null = null
+let globeCleanup: (() => void) | null = null
 
 marked.setOptions({
   breaks: true,
@@ -346,6 +350,25 @@ function readInitialThemeMode(): ThemeMode {
     return savedTheme
   }
   return 'system'
+}
+
+async function startGlobeAnimation() {
+  const canvas = globeCanvas.value
+  if (!canvas || globeCleanup || typeof window === 'undefined') return
+  const cleanup = await mountPremiumHomeGlobe(canvas, { maxSize: 760, maxPixelRatio: 2 })
+  if (!globeCanvas.value || globeCanvas.value !== canvas) {
+    cleanup()
+    return
+  }
+
+  globeCleanup = () => {
+    cleanup()
+    globeCleanup = null
+  }
+}
+
+function stopGlobeAnimation() {
+  globeCleanup?.()
 }
 
 function applyThemeClass() {
@@ -487,6 +510,9 @@ onMounted(async () => {
   systemDark.value = systemThemeQuery.matches
   systemThemeQuery.addEventListener('change', onSystemThemeChange)
   applyThemeClass()
+  startGlobeAnimation().catch((error) => {
+    console.warn('Premium home globe fallback:', error)
+  })
 
   if (!appStore.publicSettingsLoaded) {
     appStore.fetchPublicSettings().catch(() => {})
@@ -511,5 +537,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
   systemThemeQuery?.removeEventListener('change', onSystemThemeChange)
   systemThemeQuery = null
+  stopGlobeAnimation()
 })
 </script>

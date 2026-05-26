@@ -367,16 +367,63 @@
       position: relative;
       align-self: stretch;
       min-height: 328px;
+      display: flex;
+      align-items: end;
+      justify-content: center;
+      isolation: isolate;
     }
 
-    .hero-visual img {
+    .hero-visual::before {
       position: absolute;
-      inset: -30px -80px -58px -92px;
-      width: calc(100% + 172px);
-      height: calc(100% + 86px);
-      object-fit: cover;
-      mix-blend-mode: multiply;
-      filter: saturate(1.08);
+      inset: 14% 2% 8%;
+      z-index: -2;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 36% 28%, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0) 34%),
+        radial-gradient(circle at 50% 56%, rgba(56, 189, 248, 0.24), rgba(56, 189, 248, 0) 48%),
+        radial-gradient(circle at 58% 62%, rgba(168, 85, 247, 0.14), rgba(168, 85, 247, 0) 62%);
+      filter: blur(26px);
+      content: "";
+    }
+
+    .hero-visual::after {
+      position: absolute;
+      inset: 4% 8% auto;
+      z-index: -1;
+      height: 78%;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 50% 44%, rgba(191, 219, 254, 0.4), rgba(191, 219, 254, 0) 54%),
+        radial-gradient(circle at 54% 72%, rgba(125, 211, 252, 0.22), rgba(125, 211, 252, 0) 74%);
+      filter: blur(34px);
+      content: "";
+    }
+
+    .hero-orbit {
+      position: relative;
+      width: min(100%, 620px);
+      aspect-ratio: 1;
+      opacity: 0.92;
+      animation: hero-float 12s ease-in-out infinite;
+      transform-origin: center;
+      transform: translateY(24px);
+    }
+
+    .globe-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      filter: drop-shadow(0 28px 58px rgba(148, 163, 184, 0.18));
+    }
+
+    @keyframes hero-float {
+      0%,
+      100% {
+        transform: translateY(24px);
+      }
+      50% {
+        transform: scale(1.58);
+      }
     }
 
     .notice-card {
@@ -1058,6 +1105,11 @@
         min-height: 260px;
       }
 
+      .hero-orbit {
+        width: min(100%, 460px);
+        transform: translateY(8px);
+      }
+
       .feature-strip {
         grid-template-columns: repeat(2, 1fr);
       }
@@ -1090,6 +1142,15 @@
 
       .hero h1 {
         font-size: 38px;
+      }
+
+      .hero-visual {
+        min-height: 220px;
+      }
+
+      .hero-orbit {
+        width: min(100%, 380px);
+        transform: translateY(0);
       }
 
       .hero-actions {
@@ -1187,7 +1248,9 @@
       </div>
 
       <div class="hero-visual" aria-hidden="true">
-        <img src="assets/hero-ai.png" alt="" />
+        <div class="hero-orbit">
+          <canvas id="globeCanvas" class="globe-canvas"></canvas>
+        </div>
       </div>
 
       <aside class="notice-card" id="noticeDialog" aria-label="公告">
@@ -1442,13 +1505,16 @@
       </div>
     </section>
   </main>
-  <script>
+  <script type="module">
+    import { mountPremiumHomeGlobe } from "../runtime/premium-home-globe.js";
+
     const menuButton = document.getElementById("menuButton");
     const mobileMenu = document.getElementById("mobileMenu");
     const noticeButton = document.getElementById("noticeButton");
     const noticeDialog = document.getElementById("noticeDialog");
     const noticeClose = document.getElementById("noticeClose");
     const noticeBackdrop = document.getElementById("noticeBackdrop");
+    const globeCanvas = document.getElementById("globeCanvas");
 
     function closeMobileMenu() {
       mobileMenu?.classList.remove("is-open");
@@ -1500,6 +1566,10 @@
         closeMobileMenu();
         closeNoticeDialog();
       }
+    });
+
+    mountPremiumHomeGlobe(globeCanvas, { maxSize: 620, maxPixelRatio: 2 }).catch((error) => {
+      console.warn("Preview globe fallback:", error);
     });
   </script>
 </body>
