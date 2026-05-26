@@ -354,8 +354,35 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
 
   const globeShell = new THREE.Mesh(
     new THREE.SphereGeometry(2, 64, 64),
-    new THREE.MeshBasicMaterial({
-      color: 0xf3f3f3,
+    new THREE.ShaderMaterial({
+      uniforms: {
+        centerColor: { value: new THREE.Color('#fdfdfe') },
+        edgeColor: { value: new THREE.Color('#eaebed') },
+      },
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
+
+        void main() {
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          vNormal = normalize(normalMatrix * normal);
+          vViewPosition = -mvPosition.xyz;
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 centerColor;
+        uniform vec3 edgeColor;
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
+
+        void main() {
+          float facing = max(dot(normalize(vNormal), normalize(vViewPosition)), 0.0);
+          float centerWeight = smoothstep(0.1, 1.0, pow(facing, 0.72));
+          vec3 color = mix(edgeColor, centerColor, centerWeight);
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `,
     }),
   )
   group.add(globeShell)
