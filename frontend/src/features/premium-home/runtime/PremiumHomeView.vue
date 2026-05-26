@@ -79,7 +79,7 @@
           <p>{{ siteSubtitle }}</p>
           <div class="hero-actions">
             <RouterLink class="primary-btn hero-btn" :to="isAuthenticated ? dashboardPath : '/register'">
-              立即开始 <span class="circle"><Icon name="arrowRight" size="sm" /></span>
+              立即开始 
             </RouterLink>
             <RouterLink class="secondary-btn hero-btn" to="/docs">查看文档</RouterLink>
             <button class="secondary-btn hero-btn notice-menu-btn" type="button" @click="noticePanelOpen = true">

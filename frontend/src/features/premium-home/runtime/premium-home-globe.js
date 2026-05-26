@@ -1,6 +1,8 @@
-const THREE_CDN_URL = 'https://unpkg.com/three@0.160.0/build/three.module.js'
-const EARTH_TEXTURE_URL = 'https://unpkg.com/three-globe/example/img/earth-water.png'
+import * as THREE from 'three'
 
+// const EARTH_TEXTURE_URL = 'https://www.devdeg.com/wp-content/uploads/2026/05/earth-water_compressed.png'
+const EARTH_TEXTURE_URL = 'https://unpkg.com/three-globe@2.45.2/example/img/earth-water.png'
+// const EARTH_TEXTURE_URL = 'https://backup.fukit.cn/autoupload/fr/l0gmhm2zIgt2UnXKo8lSJczVcRJnkKiqwQso438nc8Oyl5f0KlZfm6UsKj-HyTuv/20260526/q5A1/1600X800/earth-water%2520%281%29_compressed.png'
 const globeHub = { lat: 31.2304, lon: 121.4737 }
 
 const globeRoutes = [
@@ -11,15 +13,6 @@ const globeRoutes = [
   { start: { lat: 48.8566, lon: 2.3522 }, end: globeHub, width: 0.82, speed: 0.42 },
   { start: { lat: -33.9249, lon: 18.4241 }, end: globeHub, width: 0.9, speed: 0.4 },
 ]
-
-let threePromise = null
-
-function loadThree() {
-  if (!threePromise) {
-    threePromise = import(/* @vite-ignore */ THREE_CDN_URL)
-  }
-  return threePromise
-}
 
 function latLonToVector3(THREE, lat, lon, radius) {
   const phi = ((90 - lat) * Math.PI) / 180
@@ -316,7 +309,6 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
   }
 
   const parent = canvas.parentElement || canvas
-  const THREE = await loadThree()
 
   if (!canvas.isConnected) {
     return () => {}
