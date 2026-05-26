@@ -14,12 +14,9 @@
         </RouterLink>
 
         <div class="nav-links">
-          <a class="active" href="#top">首页</a>
-          <a href="#models">模型广场</a>
-          <a href="#plans">套餐服务</a>
-          <a :href="docUrl || '#'" :target="docUrl ? '_blank' : undefined" rel="noopener noreferrer">文档中心</a>
-          <a href="#capabilities">解决方案</a>
-          <a href="#support">支持中心</a>
+          <a :class="{ active: activeHomeSection === 'top' }" href="#top" @click="setActiveHomeSection('top')">首页</a>
+          <a :class="{ active: activeHomeSection === 'plans' }" href="#plans" @click="setActiveHomeSection('plans')">套餐服务</a>
+          <RouterLink to="/docs">文档中心</RouterLink>
         </div>
 
         <div class="nav-actions">
@@ -65,12 +62,9 @@
       </nav>
 
       <div class="mobile-menu" :class="{ 'is-open': menuOpen }">
-        <a class="active" href="#top" @click="menuOpen = false">首页</a>
-        <a href="#models" @click="menuOpen = false">模型广场</a>
-        <a href="#plans" @click="menuOpen = false">套餐服务</a>
-        <a :href="docUrl || '#'" @click="menuOpen = false">文档中心</a>
-        <a href="#capabilities" @click="menuOpen = false">解决方案</a>
-        <a href="#support" @click="menuOpen = false">支持中心</a>
+        <a :class="{ active: activeHomeSection === 'top' }" href="#top" @click="handleHomeNavClick('top')">首页</a>
+        <a :class="{ active: activeHomeSection === 'plans' }" href="#plans" @click="handleHomeNavClick('plans')">套餐服务</a>
+        <RouterLink to="/docs" @click="menuOpen = false">文档中心</RouterLink>
       </div>
     </header>
 
@@ -85,9 +79,9 @@
           <p>{{ siteSubtitle }}</p>
           <div class="hero-actions">
             <RouterLink class="primary-btn hero-btn" :to="isAuthenticated ? dashboardPath : '/register'">
-              立即开始 <span class="circle">›</span>
+              立即开始 <span class="circle"><Icon name="arrowRight" size="sm" /></span>
             </RouterLink>
-            <a class="secondary-btn hero-btn" :href="docUrl || '#'" :target="docUrl ? '_blank' : undefined" rel="noopener noreferrer">查看文档</a>
+            <RouterLink class="secondary-btn hero-btn" to="/docs">查看文档</RouterLink>
             <button class="secondary-btn hero-btn notice-menu-btn" type="button" @click="noticePanelOpen = true">
               <span class="red-dot" aria-hidden="true"></span>
               公告
@@ -127,7 +121,7 @@
           </div>
           <button class="subscribe" type="button" @click="openAnnouncement(visibleAnnouncements[0])">
             <Icon name="bell" size="sm" />
-            查看公告全文
+            查看全部公告
           </button>
         </aside>
         <div class="notice-backdrop" :class="{ 'is-open': noticePanelOpen }" @click="noticePanelOpen = false"></div>
@@ -162,43 +156,62 @@
         </div>
 
         <div v-if="plansLoading" class="loading-card">正在读取套餐配置...</div>
-        <div v-else-if="displayPlans.length > 0" class="pricing-grid">
-          <article
-            v-for="(plan, index) in displayPlans"
-            :key="plan.id"
-            class="plan-card"
-            :class="{ hot: index === recommendedPlanIndex }"
-            :style="{ '--heat': `${discountPercent(plan)}%` }"
-          >
-            <div v-if="index === recommendedPlanIndex" class="hot-ribbon">最受欢迎</div>
-            <div class="plan-top">
-              <h3>{{ plan.name }}</h3>
-              <span class="promo-pill" :class="{ hot: index === recommendedPlanIndex }">{{ discountLabel(plan) }}</span>
-            </div>
-            <div class="price">
-              <strong>{{ formatPlanPrice(plan.price) }}</strong>
-              <span>/ {{ validityText(plan) }}</span>
-            </div>
-            <p class="plan-desc">{{ plan.description || plan.group_name || '灵活套餐配置' }}</p>
-            <div class="deal-row">
-              <span>接口折扣</span>
-              <strong>{{ savingsLabel(plan) }}</strong>
-            </div>
-            <div class="plan-stats">
-              <div class="stat-chip"><span>折扣率</span><strong>{{ discountRateLabel(plan) }}</strong></div>
-              <div class="stat-chip"><span>已购买</span><strong>{{ formatPurchaseCount(plan.purchase_count) }} 人</strong></div>
-            </div>
-            <div class="heat">
-              <div class="heat-head"><span>折扣力度</span><strong>{{ discountStrengthLabel(plan) }}</strong></div>
-              <div class="heat-track"><i></i></div>
-            </div>
-            <ul class="features">
-              <li v-for="item in planFeatures(plan)" :key="item">{{ item }}</li>
-            </ul>
-            <RouterLink class="plan-btn" :to="`/purchase?tab=subscription&group=${plan.group_id}`">
-              立即购买
-            </RouterLink>
-          </article>
+        <div v-else-if="visiblePlanTabs.length > 0" class="plans-panel">
+          <div class="plan-tabs" role="tablist" aria-label="套餐类型">
+            <button
+              v-for="tab in visiblePlanTabs"
+              :key="tab.key"
+              type="button"
+              role="tab"
+              :aria-selected="activePlanTab === tab.key"
+              :class="{ active: activePlanTab === tab.key }"
+              @click="activePlanTab = tab.key"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
+
+          <div class="pricing-grid">
+            <article
+              v-for="plan in activePlans"
+              :key="plan.id"
+              class="plan-card"
+              :class="{ hot: plan.id === recommendedPlanId }"
+              :style="{ '--heat': `${discountPercent(plan)}%` }"
+            >
+              <div v-if="plan.id === recommendedPlanId" class="hot-ribbon">最受欢迎</div>
+              <div class="plan-top">
+                <h3>{{ plan.name }}</h3>
+              </div>
+              <div class="price">
+                <strong>{{ formatPlanPrice(plan.price) }}</strong>
+                <span>/ {{ validityText(plan) }}</span>
+              </div>
+              <p class="plan-desc">{{ plan.description || plan.group_name || '灵活套餐配置' }}</p>
+              <div class="deal-row">
+                <span>接口折扣</span>
+                <span class="promo-pill" :class="{ hot: plan.id === recommendedPlanId }">{{ discountLabel(plan) }}</span>
+                <strong>{{ savingsLabel(plan) }}</strong>
+              </div>
+              <div class="plan-stats">
+                <div class="stat-chip"><span>折扣率</span><strong>{{ discountRateLabel(plan) }}</strong></div>
+                <div class="stat-chip">
+                  <span>已购买</span>
+                  <strong>{{ formatPurchaseCount(displayPurchaseCount(plan)) }} 人</strong>
+                </div>
+              </div>
+              <div class="heat">
+                <div class="heat-head"><span>折扣力度</span><strong>{{ discountStrengthLabel(plan) }}</strong></div>
+                <div class="heat-track"><i></i></div>
+              </div>
+              <ul class="features">
+                <li v-for="item in planFeatures(plan)" :key="item">{{ item }}</li>
+              </ul>
+              <RouterLink class="plan-btn" :to="`/purchase?tab=subscription&group=${plan.group_id}`">
+                立即购买
+              </RouterLink>
+            </article>
+          </div>
         </div>
         <div v-else class="loading-card">暂无可购买订阅套餐</div>
       </section>
@@ -235,7 +248,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -281,6 +294,9 @@ const selectedAnnouncement = ref<UserAnnouncement | null>(null)
 const plans = ref<SubscriptionPlan[]>([])
 const announcements = ref<UserAnnouncement[]>([])
 const plansLoading = ref(true)
+const activePlanTab = ref('openai')
+const virtualPurchaseCounts = ref<Record<number, number>>({})
+const activeHomeSection = ref<'top' | 'plans'>('top')
 let systemThemeQuery: MediaQueryList | null = null
 let globeCleanup: (() => void) | null = null
 
@@ -309,18 +325,34 @@ const selectedAnnouncementHtml = computed(() => {
   const html = marked.parse(selectedAnnouncement.value.content) as string
   return DOMPurify.sanitize(html)
 })
-const recommendedPlanIndex = computed(() => {
-  if (displayPlans.value.length === 0) return -1
-  let index = -1
+const planTabs = [
+  { key: 'openai', label: 'OpenAI', keywords: ['openai', 'gpt', 'chatgpt', 'o1', 'o3', 'o4'] },
+  { key: 'anthropic', label: 'Anthropic', keywords: ['anthropic', 'claude', 'opus', 'sonnet', 'haiku'] },
+  { key: 'google', label: 'Google', keywords: ['google', 'gemini'] },
+  { key: 'deepseek', label: 'DeepSeek', keywords: ['deepseek'] },
+]
+
+const plansByTab = computed(() => {
+  return planTabs.reduce<Record<string, SubscriptionPlan[]>>((groups, tab) => {
+    groups[tab.key] = displayPlans.value.filter((plan) => planMatchesTab(plan, tab.key))
+    return groups
+  }, {})
+})
+
+const visiblePlanTabs = computed(() => planTabs.filter((tab) => (plansByTab.value[tab.key] || []).length > 0))
+const activePlans = computed(() => plansByTab.value[activePlanTab.value] || [])
+const recommendedPlanId = computed(() => {
+  if (activePlans.value.length === 0) return -1
+  let id = -1
   let maxDiscount = 0
-  displayPlans.value.forEach((plan, i) => {
+  activePlans.value.forEach((plan) => {
     const discount = discountPercent(plan)
     if (discount > maxDiscount) {
       maxDiscount = discount
-      index = i
+      id = plan.id
     }
   })
-  return index
+  return id
 })
 
 const features: Array<{ title: string; desc: string; icon: IconName }> = [
@@ -380,6 +412,59 @@ function setThemeMode(mode: ThemeMode) {
   localStorage.setItem('theme', mode)
   applyThemeClass()
   themeMenuOpen.value = false
+}
+
+function normalizePlanPlatform(value?: string) {
+  const platform = (value || '').toLowerCase()
+  if (platform.includes('anthropic') || platform.includes('claude')) return 'anthropic'
+  if (platform.includes('google') || platform.includes('gemini')) return 'google'
+  if (platform.includes('deepseek')) return 'deepseek'
+  if (platform.includes('openai') || platform.includes('gpt') || platform.includes('chatgpt')) return 'openai'
+  return ''
+}
+
+function normalizedPlanNameText(plan: SubscriptionPlan) {
+  return [
+    plan.group_name,
+    plan.name,
+  ].filter(Boolean).join(' ').toLowerCase()
+}
+
+function planMatchesTab(plan: SubscriptionPlan, tabKey: string) {
+  const tab = planTabs.find((entry) => entry.key === tabKey)
+  if (!tab) return false
+  const explicitPlatform = normalizePlanPlatform(plan.group_platform)
+  if (explicitPlatform) {
+    return explicitPlatform === tabKey
+  }
+  const text = normalizedPlanNameText(plan)
+  return tab.keywords.some((keyword) => text.includes(keyword))
+}
+
+function seededCount(seed: number) {
+  const value = Math.sin(seed * 12.9898) * 43758.5453
+  const fraction = value - Math.floor(value)
+  return 118 + Math.floor(fraction * 220)
+}
+
+function initializeVirtualPurchaseCounts(sourcePlans: SubscriptionPlan[]) {
+  if (sourcePlans.length === 0) {
+    virtualPurchaseCounts.value = {}
+    return
+  }
+
+  const sortedPlans = [...sourcePlans].sort((a, b) => a.price - b.price || a.id - b.id)
+  const cheapestPlanId = sortedPlans[0]?.id
+  const counts: Record<number, number> = {}
+
+  sortedPlans.forEach((plan, index) => {
+    counts[plan.id] = plan.id === cheapestPlanId ? 395 : seededCount(plan.id + index * 17)
+  })
+  virtualPurchaseCounts.value = counts
+}
+
+function displayPurchaseCount(plan: SubscriptionPlan) {
+  return virtualPurchaseCounts.value[plan.id] ?? 0
 }
 
 function formatPlanPrice(price: number) {
@@ -504,8 +589,30 @@ function onSystemThemeChange(event: MediaQueryListEvent) {
   }
 }
 
+function setActiveHomeSection(section: 'top' | 'plans') {
+  activeHomeSection.value = section
+}
+
+function handleHomeNavClick(section: 'top' | 'plans') {
+  setActiveHomeSection(section)
+  menuOpen.value = false
+}
+
+function syncActiveSectionFromHash() {
+  activeHomeSection.value = window.location.hash === '#plans' ? 'plans' : 'top'
+}
+
+watch(visiblePlanTabs, (tabs) => {
+  if (tabs.length === 0) return
+  if (!tabs.some((tab) => tab.key === activePlanTab.value)) {
+    activePlanTab.value = tabs[0].key
+  }
+}, { immediate: true })
+
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
+  window.addEventListener('hashchange', syncActiveSectionFromHash)
+  syncActiveSectionFromHash()
   systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
   systemDark.value = systemThemeQuery.matches
   systemThemeQuery.addEventListener('change', onSystemThemeChange)
@@ -525,6 +632,7 @@ onMounted(async () => {
       getPublicAnnouncements(),
     ])
     plans.value = publicPlans
+    initializeVirtualPurchaseCounts(publicPlans)
     announcements.value = publicAnnouncements
   } catch (error) {
     console.warn('Premium home public data fallback:', error)
@@ -535,6 +643,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('hashchange', syncActiveSectionFromHash)
   systemThemeQuery?.removeEventListener('change', onSystemThemeChange)
   systemThemeQuery = null
   stopGlobeAnimation()

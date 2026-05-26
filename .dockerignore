@@ -43,10 +43,15 @@ coverage/
 .env
 .env.*
 !.env.example
+**/.env
+**/.env.*
+!**/.env.example
 
 # Local config
 config.yaml
 config.local.yaml
+**/config.yaml
+**/config.local.yaml
 
 # Logs
 *.log
@@ -61,6 +66,7 @@ temp/
 deploy/install.sh
 deploy/sub2api.service
 deploy/sub2api-sudoers
+deploy/.env
 deploy/data/
 deploy/postgres_data/
 deploy/redis_data/

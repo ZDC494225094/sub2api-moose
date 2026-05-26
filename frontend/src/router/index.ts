@@ -39,6 +39,15 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/docs',
+    name: 'PremiumDocs',
+    component: () => import('@/features/premium-home/runtime/PremiumDocsView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: '文档中心'
+    }
+  },
+  {
     path: '/home',
     name: 'Home',
     component: () => import('@/views/HomeView.vue'),
