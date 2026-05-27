@@ -10,7 +10,7 @@
               <path d="M8 8.3 12 6l4 2.3v4.4L12 15l-4-2.3V8.3Z" fill="#6ddcff" />
             </svg>
           </span>
-          <span>{{ siteName }}</span>
+          <span class="brand-text">{{ siteName }}</span>
         </RouterLink>
 
         <div class="nav-links">

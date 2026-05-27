@@ -66,6 +66,14 @@
   font-weight: 820;
 }
 
+.premium-home .brand-text {
+  display: block;
+  max-width: min(32vw, 240px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .premium-home .brand-mark {
   display: grid;
   width: 34px;
@@ -289,6 +297,7 @@
 
 .premium-home .hero-copy {
   padding-top: 6px;
+  min-width: 0;
 }
 
 .premium-home .eyebrow {
@@ -331,8 +340,13 @@
 .premium-home .hero-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 16px;
   margin-top: 26px;
+}
+
+.premium-home .hero-actions > * {
+  flex: 0 0 auto;
 }
 
 .premium-home .hero-btn .circle {
@@ -639,6 +653,7 @@
 .premium-home .notice-reader-body {
   overflow: auto;
   padding: 24px 28px 30px;
+  overscroll-behavior: contain;
 }
 
 .premium-home .markdown-body {
@@ -749,6 +764,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
   margin: 0 0 14px;
 }
 
@@ -1729,6 +1745,23 @@
 }
 
 @media (max-width: 1240px) {
+  .premium-home .nav {
+    gap: 16px;
+  }
+
+  .premium-home .brand {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .premium-home .brand-text {
+    max-width: min(42vw, 320px);
+  }
+
+  .premium-home .nav-actions {
+    gap: 10px;
+  }
+
   .premium-home .nav-links {
     display: none;
   }
@@ -1748,7 +1781,7 @@
   }
 
   .premium-home .hero-actions {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
 
   .premium-home .notice-card {
@@ -1866,7 +1899,12 @@
     justify-content: center;
   }
 
+  .premium-home .hero-actions > * {
+    flex: 0 1 auto;
+  }
+
   .premium-home .hero-visual {
+    order: 2;
     min-height: 360px;
   }
 
@@ -1874,6 +1912,16 @@
     width: min(112vw, 560px);
     margin: -42px auto -24px;
     transform: translateY(8px);
+  }
+
+  .premium-home .notice-card {
+    order: 3;
+  }
+
+  .premium-home .section-title {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .premium-home .feature-strip {
@@ -1900,6 +1948,30 @@
     --page-x: 16px;
   }
 
+  .premium-home .topbar,
+  .premium-home .nav {
+    height: 60px;
+  }
+
+  .premium-home .brand {
+    gap: 8px;
+    font-size: 18px;
+  }
+
+  .premium-home .brand-mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+  }
+
+  .premium-home .brand-text {
+    max-width: min(34vw, 132px);
+  }
+
+  .premium-home .nav-actions {
+    gap: 8px;
+  }
+
   .premium-home .login-btn {
     display: none;
   }
@@ -1913,6 +1985,11 @@
 
   .premium-home .hero h1 {
     font-size: 38px;
+  }
+
+  .premium-home .hero p {
+    font-size: 15px;
+    line-height: 1.75;
   }
 
   .premium-home .hero-visual {
@@ -1930,6 +2007,49 @@
     align-items: stretch;
   }
 
+  .premium-home .hero-actions > * {
+    width: 100%;
+  }
+
+  .premium-home .secondary-btn,
+  .premium-home .hero-btn,
+  .premium-home .plan-btn {
+    min-width: 0;
+  }
+
+  .premium-home .notice-card,
+  .premium-home .notice-reader {
+    width: calc(100vw - 24px);
+  }
+
+  .premium-home .notice-list {
+    padding: 10px 16px 10px 24px;
+  }
+
+  .premium-home .notice-list::before {
+    left: 19px;
+  }
+
+  .premium-home .notice-item {
+    padding-left: 14px;
+  }
+
+  .premium-home .notice-item::before {
+    left: -5px;
+  }
+
+  .premium-home .notice-reader-head {
+    padding: 18px 18px 14px;
+  }
+
+  .premium-home .notice-reader-head h2 {
+    font-size: 20px;
+  }
+
+  .premium-home .notice-reader-body {
+    padding: 18px 18px 24px;
+  }
+
   .premium-home .plan-tabs {
     justify-self: stretch;
   }
@@ -1945,9 +2065,109 @@
     grid-template-columns: 1fr;
   }
 
+  .premium-home .plan-card,
+  .premium-home .model-card,
+  .premium-home .support-card {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
   .premium-home .section-head,
   .premium-home .support-card {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+@media (max-width: 520px) {
+  .premium-home .nav {
+    gap: 10px;
+  }
+
+  .premium-home .brand {
+    flex: 1 1 auto;
+  }
+
+  .premium-home .brand-text {
+    max-width: min(30vw, 104px);
+  }
+
+  .premium-home .icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .premium-home .primary-btn {
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .premium-home .hero {
+    padding-top: 28px;
+    gap: 20px;
+  }
+
+  .premium-home .hero h1 {
+    font-size: 32px;
+    line-height: 1.16;
+  }
+
+  .premium-home .eyebrow {
+    min-height: 30px;
+    padding: 4px 10px;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+
+  .premium-home .hero-visual {
+    min-height: 248px;
+  }
+
+  .premium-home .hero-orbit {
+    width: min(126vw, 380px);
+    margin: -18px auto -10px;
+  }
+
+  .premium-home .feature-item {
+    justify-content: flex-start;
+    min-height: 64px;
+    padding: 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .premium-home .feature-item:last-child {
+    border-bottom: 0;
+  }
+
+  .premium-home .section-title h2,
+  .premium-home .support-card h2 {
+    font-size: 22px;
+  }
+
+  .premium-home .soft-badge {
+    font-size: 11px;
+  }
+
+  .premium-home .plan-card {
+    min-height: 0;
+  }
+
+  .premium-home .model-card {
+    gap: 14px;
+    min-height: 92px;
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+
+  .premium-home .vendor-logo {
+    width: 42px;
+    height: 42px;
+  }
+
+  .premium-home .support-card {
+    margin-bottom: 40px;
+    padding-top: 22px;
+    padding-bottom: 22px;
   }
 }
