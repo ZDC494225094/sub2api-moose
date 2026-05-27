@@ -134,8 +134,8 @@ codex</code></pre>
 
           <section id="claude-code" class="doc-section">
             <span class="soft-badge">Anthropic Claude</span>
-            <h2>CloudCode CLI 安装教程</h2>
-            <p>CloudCode CLI 是直接调用 Claude Code 系列模型的命令行工具，如需 Claude Code 工作流可安装。</p>
+            <h2>ClaudeCode CLI 安装教程</h2>
+            <p>ClaudeCode CLI 是直接调用 Claude Code 系列模型的命令行工具，如需 Claude Code 工作流可安装。</p>
             <pre class="doc-code"><code># 全局安装 Claude Code
 npm install -g @anthropic-ai/claude-code
 
@@ -246,7 +246,7 @@ const installNav: Array<{ id: string; title: string; icon: IconName }> = [
   { id: 'npm', title: '安装 Node.js', icon: 'download' },
   { id: 'codex-cli', title: 'Codex CLI 安装命令', icon: 'terminal' },
   { id: 'codex-app', title: 'Codex APP 安装', icon: 'download' },
-  { id: 'claude-code', title: 'CloudCode CLI', icon: 'cloud' },
+  { id: 'claude-code', title: 'ClaudeCode CLI', icon: 'cloud' },
   { id: 'gpt-image-2', title: 'gpt-image-2 调用', icon: 'sparkles' },
   { id: 'ccswitch', title: 'CCSwitch 安装与配置', icon: 'swap' },
 ]

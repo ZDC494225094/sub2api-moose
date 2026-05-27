@@ -187,11 +187,15 @@
                 <strong>{{ formatPlanPrice(plan.price) }}</strong>
                 <span>/ {{ validityText(plan) }}</span>
               </div>
+              <div v-if="plan.original_price && plan.original_price > plan.price" class="price-compare">
+                <span class="current-price">{{ formatPlanPrice(plan.price) }}</span>
+                <span class="original-price">{{ formatPlanPrice(plan.original_price) }}</span>
+              </div>
               <p class="plan-desc">{{ plan.description || plan.group_name || '灵活套餐配置' }}</p>
               <div class="deal-row">
                 <span>接口折扣</span>
                 <span class="promo-pill" :class="{ hot: plan.id === recommendedPlanId }">{{ discountLabel(plan) }}</span>
-                <strong>{{ savingsLabel(plan) }}</strong>
+                <strong>{{ plan.original_price && plan.original_price > plan.price ? `省 ¥${Math.round(plan.original_price - plan.price)}` : savingsLabel(plan) }}</strong>
               </div>
               <div class="plan-stats">
                 <div class="stat-chip"><span>折扣率</span><strong>{{ discountRateLabel(plan) }}</strong></div>
@@ -226,7 +230,7 @@
         </div>
         <div class="models-grid">
           <article v-for="model in models" :key="model.name" class="model-card">
-            <img class="vendor-logo" :src="model.logo" :alt="`${model.vendor} logo`" />
+            <img class="vendor-logo" :src="model.vendor === 'Google' ? googleLogo : model.logo" :alt="`${model.vendor} logo`" />
             <div>
               <h3>{{ model.name }}</h3>
               <p>{{ model.vendor }}</p>
@@ -258,6 +262,7 @@ import type { SubscriptionPlan } from '@/types/payment'
 import type { UserAnnouncement } from '@/types'
 import { getPublicAnnouncements, getPublicPlans } from './api'
 import { mountPremiumHomeGlobe } from './premium-home-globe'
+import googleLogo from './assets/google-logo.png'
 import './premium-home.css'
 
 type IconName = InstanceType<typeof Icon>['$props']['name']
@@ -510,6 +515,11 @@ function savingsLabel(plan: SubscriptionPlan) {
 }
 
 function discountStrengthLabel(plan: SubscriptionPlan) {
+  const rate = normalizedDiscountRate(plan)
+  if (!rate) return '暂无折扣'
+  if (rate > 0.9) return '大折扣'
+  if (rate > 0.7) return '超大折扣'
+  return '限时优惠'
   const percent = discountPercent(plan)
   if (percent >= 40) return '高折扣'
   if (percent >= 20) return '中折扣'

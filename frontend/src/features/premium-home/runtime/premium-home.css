@@ -940,6 +940,27 @@
   margin: 10px 0 3px;
 }
 
+.premium-home .price-compare {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+}
+
+.premium-home .price-compare .current-price {
+  color: #2563ff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.premium-home .price-compare .original-price {
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
 .premium-home .price strong {
   font-size: 30px;
   line-height: 1;
@@ -1114,10 +1135,10 @@
   width: 48px;
   height: 48px;
   object-fit: contain;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(37, 99, 255, 0.08);
   border-radius: 10px;
   background: #fff;
-  padding: 8px;
+  padding: 4px;
 }
 
 .premium-home .model-card h3 {
