@@ -1490,6 +1490,16 @@
   font-weight: 600;
 }
 
+.premium-home .doc-section h3 {
+  margin: 24px 0 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(37, 99, 255, 0.1);
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 860;
+  letter-spacing: -0.02em;
+}
+
 .premium-home .doc-section code {
   border-radius: 6px;
   background: rgba(37, 99, 255, 0.08);
@@ -1533,6 +1543,10 @@
 
 .premium-home .doc-steps.compact {
   margin-top: 18px;
+}
+
+.premium-home .doc-steps.single {
+  grid-template-columns: 1fr;
 }
 
 .premium-home .doc-step-card {
@@ -1680,6 +1694,10 @@
 .dark .premium-home .doc-callout span,
 .dark .premium-home .doc-step-card span {
   color: #aab8cc;
+}
+
+.dark .premium-home .doc-section h3 {
+  border-bottom-color: rgba(85, 183, 255, 0.15);
 }
 
 .dark .premium-home .docs-hero-card,

@@ -176,17 +176,26 @@ curl $SUB2API_BASE/v1/images/generations \
           <section id="ccswitch" class="doc-section">
             <span class="soft-badge">快速切换</span>
             <h2>CCSwitch 安装与配置</h2>
-            <p>CCSwitch 可用于快速切换与配置 Claude Code、Codex 的 API Key 与请求路径。</p>
+            <p>CCSwitch 可用于快速切换与配置 Claude Code、Codex 的 API Key 与请求路径。配置方式分为自动导入和手动操作两种。</p>
             <div class="doc-downloads">
-              <a href="https://github.com/farion1231/cc-switch/releases/tag/v3.13.0" target="_blank" rel="noopener noreferrer">
-                <span>macOS 打开发布页选择版本</span>
+              <a href="https://github.com/farion1231/cc-switch/releases/download/v3.15.0/CC-Switch-v3.15.0-macOS.dmg" target="_blank" rel="noopener noreferrer">
+                <span>macOS 版下载</span>
                 <Icon name="download" size="sm" />
               </a>
-              <a href="https://github.com/farion1231/cc-switch/releases/download/v3.13.0/CC-Switch-v3.13.0-Windows-Portable.zip" target="_blank" rel="noopener noreferrer">
+              <a href="https://github.com/farion1231/cc-switch/releases/download/v3.15.0/CC-Switch-v3.15.0-Windows.msi" target="_blank" rel="noopener noreferrer">
                 <span>Windows 版下载</span>
                 <Icon name="download" size="sm" />
               </a>
             </div>
+            <h3>方式一：自动导入</h3>
+            <div class="doc-steps compact single">
+              <div class="doc-step-card">
+                <Icon name="bolt" size="lg" />
+                <strong>一键导入</strong>
+                <span>在 sub2api 的 API 密钥页面，点击【导入到 CCS】按钮，即可自动将配置写入 CCSwitch。</span>
+              </div>
+            </div>
+            <h3>方式二：手动操作</h3>
             <div class="doc-steps compact">
               <div class="doc-step-card">
                 <Icon name="plus" size="lg" />
