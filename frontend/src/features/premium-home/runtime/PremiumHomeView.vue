@@ -64,6 +64,10 @@
       <div class="mobile-menu" :class="{ 'is-open': menuOpen }">
         <a :class="{ active: activeHomeSection === 'top' }" href="#top" @click="handleHomeNavClick('top')">首页</a>
         <a :class="{ active: activeHomeSection === 'plans' }" href="#plans" @click="handleHomeNavClick('plans')">套餐服务</a>
+        <button class="mobile-menu-entry" type="button" @click="openNoticePanelFromMenu">
+          <span class="red-dot" aria-hidden="true"></span>
+          公告
+        </button>
         <RouterLink to="/docs" @click="menuOpen = false">文档中心</RouterLink>
       </div>
     </header>
@@ -79,13 +83,9 @@
           <p>{{ siteSubtitle }}</p>
           <div class="hero-actions">
             <RouterLink class="primary-btn hero-btn" :to="isAuthenticated ? dashboardPath : '/register'">
-              立即开始 
+              立即开始
             </RouterLink>
-            <RouterLink class="secondary-btn hero-btn" to="/docs">查看文档</RouterLink>
-            <button class="secondary-btn hero-btn notice-menu-btn" type="button" @click="noticePanelOpen = true">
-              <span class="red-dot" aria-hidden="true"></span>
-              公告
-            </button>
+            <a class="secondary-btn hero-btn" href="#plans" @click="setActiveHomeSection('plans')">套餐定价</a>
           </div>
         </div>
 
@@ -101,7 +101,7 @@
               <Icon name="menu" size="sm" />
               公告
             </div>
-            <button class="notice-close" type="button" aria-label="关闭公告弹窗" @click="noticePanelOpen = false">×</button>
+            <button class="notice-close" type="button" aria-label="关闭公告弹窗" @click="closeNoticePanel()">×</button>
           </div>
           <div class="notice-list">
             <button
@@ -119,12 +119,12 @@
               <p>{{ announcementExcerpt(notice.content) }}</p>
             </button>
           </div>
-          <button class="subscribe" type="button" @click="openAnnouncement(visibleAnnouncements[0])">
-            <Icon name="bell" size="sm" />
-            查看全部公告
-          </button>
+          <div class="notice-footer">
+            <button class="notice-footer-btn is-muted" type="button" @click="closeNoticePanel(true)">今日关闭</button>
+            <button class="notice-footer-btn" type="button" @click="closeNoticePanel()">关闭</button>
+          </div>
         </aside>
-        <div class="notice-backdrop" :class="{ 'is-open': noticePanelOpen }" @click="noticePanelOpen = false"></div>
+        <div class="notice-backdrop" :class="{ 'is-open': noticePanelOpen }" @click="closeNoticePanel()"></div>
 
         <div class="notice-reader-backdrop" :class="{ 'is-open': !!selectedAnnouncement }" @click="closeAnnouncement"></div>
         <section class="notice-reader" :class="{ 'is-open': !!selectedAnnouncement }" aria-label="公告全文">
@@ -304,6 +304,9 @@ const virtualPurchaseCounts = ref<Record<number, number>>({})
 const activeHomeSection = ref<'top' | 'plans'>('top')
 let systemThemeQuery: MediaQueryList | null = null
 let globeCleanup: (() => void) | null = null
+
+const NOTICE_DISMISS_KEY = 'premium-home-notice-dismiss-date'
+const SMALL_SCREEN_QUERY = '(max-width: 1280px)'
 
 marked.setOptions({
   breaks: true,
@@ -560,10 +563,41 @@ function announcementExcerpt(content: string) {
   return plain.length > 64 ? `${plain.slice(0, 64)}...` : plain
 }
 
+function todayDismissKey() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function isNoticeDismissedToday() {
+  return localStorage.getItem(NOTICE_DISMISS_KEY) === todayDismissKey()
+}
+
+function isSmallScreen() {
+  return typeof window !== 'undefined' && window.matchMedia(SMALL_SCREEN_QUERY).matches
+}
+
+function shouldAutoOpenNotice(source: UserAnnouncement[]) {
+  return source.length > 0 && isSmallScreen() && !isNoticeDismissedToday()
+}
+
+function openNoticePanel() {
+  noticePanelOpen.value = true
+}
+
+function openNoticePanelFromMenu() {
+  menuOpen.value = false
+  openNoticePanel()
+}
+
+function closeNoticePanel(dismissToday = false) {
+  if (dismissToday) {
+    localStorage.setItem(NOTICE_DISMISS_KEY, todayDismissKey())
+  }
+  noticePanelOpen.value = false
+}
+
 function openAnnouncement(notice?: UserAnnouncement) {
   if (!notice) return
   selectedAnnouncement.value = notice
-  noticePanelOpen.value = false
 }
 
 function closeAnnouncement() {
@@ -587,7 +621,7 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     menuOpen.value = false
     themeMenuOpen.value = false
-    noticePanelOpen.value = false
+    closeNoticePanel()
     closeAnnouncement()
   }
 }
@@ -644,8 +678,14 @@ onMounted(async () => {
     plans.value = publicPlans
     initializeVirtualPurchaseCounts(publicPlans)
     announcements.value = publicAnnouncements
+    if (shouldAutoOpenNotice(publicAnnouncements)) {
+      openNoticePanel()
+    }
   } catch (error) {
     console.warn('Premium home public data fallback:', error)
+    if (shouldAutoOpenNotice(fallbackAnnouncements)) {
+      openNoticePanel()
+    }
   } finally {
     plansLoading.value = false
   }

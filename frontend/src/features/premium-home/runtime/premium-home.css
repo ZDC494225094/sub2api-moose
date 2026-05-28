@@ -14,6 +14,7 @@
   --page-x: clamp(20px, 4.4vw, 72px);
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: clip;
   color: var(--ink);
   background:
     radial-gradient(circle at 28% 0%, rgba(37, 99, 255, 0.08), transparent 34%),
@@ -259,7 +260,10 @@
   transform: translateY(0);
 }
 
-.premium-home .mobile-menu a {
+.premium-home .mobile-menu a,
+.premium-home .mobile-menu-entry {
+  display: flex;
+  align-items: center;
   min-height: 44px;
   padding: 12px 14px;
   border-radius: 10px;
@@ -268,8 +272,17 @@
   font-weight: 780;
 }
 
+.premium-home .mobile-menu-entry {
+  gap: 9px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
 .premium-home .mobile-menu a:hover,
-.premium-home .mobile-menu a.active {
+.premium-home .mobile-menu a.active,
+.premium-home .mobile-menu-entry:hover {
   background: rgba(37, 99, 255, 0.08);
   color: var(--blue);
 }
@@ -347,6 +360,10 @@
 
 .premium-home .hero-actions > * {
   flex: 0 0 auto;
+}
+
+.premium-home .hero-actions .hero-btn {
+  min-width: 136px;
 }
 
 .premium-home .hero-btn .circle {
@@ -553,20 +570,30 @@
   -webkit-line-clamp: 2;
 }
 
-.premium-home .subscribe {
-  display: flex;
+.premium-home .notice-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding: 14px 18px 18px;
+}
+
+.premium-home .notice-footer-btn {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  width: 100%;
-  height: 46px;
-  border: 0;
-  border-top: 1px solid var(--line);
-  background: transparent;
-  color: var(--blue);
+  min-height: 42px;
+  border: 1px solid rgba(37, 99, 255, 0.18);
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2258f8, #3a8bff);
+  color: #fff;
   cursor: pointer;
   font-weight: 830;
-  white-space: nowrap;
+}
+
+.premium-home .notice-footer-btn.is-muted {
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--ink);
 }
 
 .premium-home .notice-reader-backdrop {
@@ -1261,6 +1288,7 @@
 
 .dark .premium-home .nav-links a,
 .dark .premium-home .mobile-menu a,
+.dark .premium-home .mobile-menu-entry,
 .dark .premium-home .hero h1,
 .dark .premium-home .feature-item strong,
 .dark .premium-home .section-title h2,
@@ -1276,6 +1304,7 @@
 .dark .premium-home .login-btn,
 .dark .premium-home .secondary-btn,
 .dark .premium-home .plan-btn,
+.dark .premium-home .notice-footer-btn.is-muted,
 .dark .premium-home .notice-reader-head button,
 .dark .premium-home .theme-menu button {
   background: rgba(15, 27, 46, 0.78);
@@ -1738,13 +1767,13 @@
   }
 }
 
-@media (min-width: 1241px) {
+@media (min-width: 1281px) {
   .premium-home .mobile-menu {
     display: none;
   }
 }
 
-@media (max-width: 1240px) {
+@media (max-width: 1280px) {
   .premium-home .nav {
     gap: 16px;
   }
@@ -1777,7 +1806,7 @@
   }
 
   .premium-home .notice-menu-btn {
-    display: inline-flex;
+    display: none;
   }
 
   .premium-home .hero-actions {
@@ -1976,9 +2005,10 @@
     display: none;
   }
 
-  .premium-home .primary-btn {
-    min-width: auto;
-    height: 38px;
+  .premium-home .primary-btn,
+  .premium-home .secondary-btn {
+    min-width: 0;
+    height: 40px;
     padding: 0 12px;
     font-size: 13px;
   }
@@ -2003,15 +2033,26 @@
   }
 
   .premium-home .hero-actions {
-    flex-direction: column;
+    justify-content: stretch;
     align-items: stretch;
-  }
-
-  .premium-home .hero-actions > * {
+    flex-wrap: nowrap;
+    gap: 12px;
     width: 100%;
   }
 
-  .premium-home .secondary-btn,
+  .premium-home .hero-actions > * {
+    flex: 1 1 0;
+    width: auto;
+  }
+
+  .premium-home .hero-actions .hero-btn {
+    min-width: 0;
+  }
+
+  .premium-home .notice-footer {
+    grid-template-columns: 1fr;
+  }
+
   .premium-home .hero-btn,
   .premium-home .plan-btn {
     min-width: 0;
