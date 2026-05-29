@@ -494,6 +494,11 @@
   grid-template-columns: 1fr;
 }
 
+.premium-home .notice-card--side .notice-list {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
 .premium-home .notice-head {
   display: flex;
   align-items: center;
@@ -562,7 +567,7 @@
   position: relative;
   display: block;
   width: 100%;
-  padding: 12px 0 16px 18px;
+  padding: 8px 0 12px 18px;
   border: 0;
   border-bottom: 1px solid var(--line);
   background: transparent;
@@ -1406,6 +1411,18 @@
 
 .dark .premium-home .notice-reader {
   background: rgba(9, 17, 31, 0.94);
+}
+
+.dark .premium-home .notice-card--dialog .notice-head {
+  border-bottom-color: rgba(180, 202, 235, 0.16);
+  background: rgba(9, 17, 31, 0.88);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+
+.dark .premium-home .notice-close {
+  border-color: rgba(180, 202, 235, 0.18);
+  background: rgba(15, 27, 46, 0.86);
+  color: var(--ink);
 }
 
 .dark .premium-home .notice-reader-head {
