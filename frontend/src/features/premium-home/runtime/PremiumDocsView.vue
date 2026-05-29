@@ -10,22 +10,104 @@
               <path d="M8 8.3 12 6l4 2.3v4.4L12 15l-4-2.3V8.3Z" fill="#6ddcff" />
             </svg>
           </span>
-          <span>{{ siteName }}</span>
+          <span class="brand-text">{{ siteName }}</span>
         </RouterLink>
 
         <div class="nav-links">
           <RouterLink to="/">首页</RouterLink>
-          <a href="/#plans">套餐服务</a>
+          <RouterLink :to="{ path: '/', hash: '#plans' }">套餐服务</RouterLink>
           <RouterLink class="active" to="/docs">文档中心</RouterLink>
         </div>
 
         <div class="nav-actions">
-          <RouterLink class="login-btn" :to="dashboardPath">{{ isAuthenticated ? '控制台' : '登录' }}</RouterLink>
-          <RouterLink class="primary-btn" :to="isAuthenticated ? dashboardPath : '/register'">
-            {{ isAuthenticated ? '进入控制台' : '注册 / 免费试用' }}
-          </RouterLink>
+          <button
+            class="icon-btn menu-btn"
+            type="button"
+            aria-label="打开导航菜单"
+            :aria-expanded="menuOpen"
+            @click="menuOpen = !menuOpen"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+          </button>
+          <div class="theme-switcher">
+            <button
+              class="icon-btn theme-trigger"
+              type="button"
+              aria-label="切换主题"
+              :aria-expanded="themeMenuOpen"
+              @click="themeMenuOpen = !themeMenuOpen"
+            >
+              <Icon :name="themeIcon" size="sm" />
+            </button>
+            <div class="theme-menu" :class="{ 'is-open': themeMenuOpen }">
+              <button
+                v-for="option in themeOptions"
+                :key="option.value"
+                type="button"
+                :class="{ active: themeMode === option.value }"
+                @click="setThemeMode(option.value)"
+              >
+                <Icon :name="option.icon" size="sm" />
+                <span>{{ option.label }}</span>
+              </button>
+            </div>
+          </div>
+          <div v-if="isAuthenticated" ref="userMenuRef" class="home-user-menu">
+            <button
+              class="home-user-trigger"
+              type="button"
+              aria-label="用户菜单"
+              :aria-expanded="userMenuOpen"
+              @click="toggleUserMenu"
+            >
+              <span class="home-user-avatar">
+                <img v-if="avatarUrl" :src="avatarUrl" :alt="displayName" />
+                <span v-else>{{ userInitials }}</span>
+              </span>
+              <span class="home-user-meta">
+                <strong>{{ displayName }}</strong>
+                <small>{{ user?.email || '已登录' }}</small>
+              </span>
+              <Icon name="chevronDown" size="sm" class="home-user-chevron" />
+            </button>
+
+            <div class="home-user-dropdown" :class="{ 'is-open': userMenuOpen }">
+              <div class="home-user-info">
+                <strong>{{ displayName }}</strong>
+                <span>{{ user?.email || '已登录' }}</span>
+              </div>
+              <RouterLink class="home-user-menu-item" :to="dashboardPath" @click="closeUserMenu">
+                <Icon name="home" size="sm" />
+                <span>控制台</span>
+              </RouterLink>
+              <RouterLink class="home-user-menu-item" to="/profile" @click="closeUserMenu">
+                <Icon name="user" size="sm" />
+                <span>个人资料</span>
+              </RouterLink>
+              <RouterLink class="home-user-menu-item" to="/keys" @click="closeUserMenu">
+                <Icon name="key" size="sm" />
+                <span>API Keys</span>
+              </RouterLink>
+              <button class="home-user-menu-item home-user-logout" type="button" @click="handleLogout">
+                <Icon name="login" size="sm" />
+                <span>退出登录</span>
+              </button>
+            </div>
+          </div>
+          <template v-else>
+            <RouterLink class="login-btn" to="/login">登录</RouterLink>
+            <RouterLink class="primary-btn" to="/register">注册 / 免费试用</RouterLink>
+          </template>
         </div>
       </nav>
+
+      <div class="mobile-menu" :class="{ 'is-open': menuOpen }">
+        <RouterLink to="/" @click="menuOpen = false">首页</RouterLink>
+        <RouterLink :to="{ path: '/', hash: '#plans' }" @click="menuOpen = false">套餐服务</RouterLink>
+        <RouterLink class="active" to="/docs" @click="menuOpen = false">文档中心</RouterLink>
+      </div>
     </header>
 
     <main class="shell docs-shell">
@@ -46,15 +128,28 @@
       </section>
 
       <div class="docs-layout">
-        <aside class="docs-sidebar" aria-label="文档目录">
-          <div class="docs-sidebar-card">
+        <aside ref="docsTocRef" class="docs-sidebar" aria-label="文档目录">
+          <button
+            class="docs-toc-toggle"
+            type="button"
+            aria-controls="docs-toc-panel"
+            :aria-expanded="docsTocOpen"
+            @click="docsTocOpen = !docsTocOpen"
+          >
+            <span>
+              <Icon name="book" size="sm" />
+              文档目录
+            </span>
+            <Icon name="chevronDown" size="sm" />
+          </button>
+          <div id="docs-toc-panel" class="docs-sidebar-card" :class="{ 'is-open': docsTocOpen }">
             <p>入门指南</p>
-            <a v-for="item in guideNav" :key="item.id" :href="`#${item.id}`">
+            <a v-for="item in guideNav" :key="item.id" :href="`#${item.id}`" @click="closeDocsToc">
               <Icon :name="item.icon" size="sm" />
               {{ item.title }}
             </a>
             <p>安装教程</p>
-            <a v-for="item in installNav" :key="item.id" :href="`#${item.id}`">
+            <a v-for="item in installNav" :key="item.id" :href="`#${item.id}`" @click="closeDocsToc">
               <Icon :name="item.icon" size="sm" />
               {{ item.title }}
             </a>
@@ -227,8 +322,8 @@ curl $SUB2API_BASE/v1/images/generations \
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
 import { useAppStore, useAuthStore } from '@/stores'
 import Icon from '@/components/icons/Icon.vue'
 import ccSwitchStep1 from './assets/docs/ccswitch-1.png'
@@ -237,14 +332,40 @@ import ccSwitchStep3 from './assets/docs/ccswitch-3.png'
 import './premium-home.css'
 
 type IconName = InstanceType<typeof Icon>['$props']['name']
+type ThemeMode = 'light' | 'dark' | 'system'
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
+const router = useRouter()
+const menuOpen = ref(false)
+const themeMenuOpen = ref(false)
+const userMenuOpen = ref(false)
+const userMenuRef = ref<HTMLElement | null>(null)
+const docsTocOpen = ref(false)
+const docsTocRef = ref<HTMLElement | null>(null)
+const themeMode = ref<ThemeMode>(readInitialThemeMode())
+const systemDark = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
+let systemThemeQuery: MediaQueryList | null = null
 
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'AI Hub')
 const siteLogo = computed(() => appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '')
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const dashboardPath = computed(() => authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+const user = computed(() => authStore.user)
+const avatarUrl = computed(() => user.value?.avatar_url?.trim() || '')
+const displayName = computed(() => {
+  if (!user.value) return '用户'
+  return user.value.username || user.value.email?.split('@')[0] || user.value.email || '用户'
+})
+const userInitials = computed(() => {
+  const source = displayName.value || user.value?.email || ''
+  return source.slice(0, 2).toUpperCase()
+})
+const isDark = computed(() => themeMode.value === 'dark' || (themeMode.value === 'system' && systemDark.value))
+const themeIcon = computed<IconName>(() => {
+  if (themeMode.value === 'system') return 'cpu'
+  return isDark.value ? 'moon' : 'sun'
+})
 
 const guideNav: Array<{ id: string; title: string; icon: IconName }> = [
   { id: 'register', title: '注册与登录', icon: 'userPlus' },
@@ -272,10 +393,98 @@ const ccSwitchGuideImages = [
   { title: '步骤 3：返回列表并点击启用', src: ccSwitchStep3, alt: 'CCSwitch 第三步截图' },
 ]
 
+const themeOptions: Array<{ value: ThemeMode; label: string; icon: IconName }> = [
+  { value: 'light', label: '浅色', icon: 'sun' },
+  { value: 'dark', label: '深色', icon: 'moon' },
+  { value: 'system', label: '系统', icon: 'cpu' },
+]
+
+function readInitialThemeMode(): ThemeMode {
+  const savedTheme = localStorage.getItem('theme')
+  if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') {
+    return savedTheme
+  }
+  return 'system'
+}
+
+function applyThemeClass() {
+  document.documentElement.classList.toggle('dark', isDark.value)
+}
+
+function setThemeMode(mode: ThemeMode) {
+  themeMode.value = mode
+  localStorage.setItem('theme', mode)
+  applyThemeClass()
+  themeMenuOpen.value = false
+}
+
+function toggleUserMenu() {
+  userMenuOpen.value = !userMenuOpen.value
+  if (userMenuOpen.value) {
+    themeMenuOpen.value = false
+  }
+}
+
+function closeUserMenu() {
+  userMenuOpen.value = false
+}
+
+async function handleLogout() {
+  closeUserMenu()
+  try {
+    await authStore.logout()
+  } catch (error) {
+    console.error('Logout error:', error)
+  }
+  await router.push('/login')
+}
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    menuOpen.value = false
+    themeMenuOpen.value = false
+    userMenuOpen.value = false
+    docsTocOpen.value = false
+  }
+}
+
+function closeDocsToc() {
+  docsTocOpen.value = false
+}
+
+function onDocumentClick(event: MouseEvent) {
+  if (userMenuRef.value && !userMenuRef.value.contains(event.target as Node)) {
+    closeUserMenu()
+  }
+  if (docsTocRef.value && !docsTocRef.value.contains(event.target as Node)) {
+    closeDocsToc()
+  }
+}
+
+function onSystemThemeChange(event: MediaQueryListEvent) {
+  systemDark.value = event.matches
+  if (themeMode.value === 'system') {
+    applyThemeClass()
+  }
+}
+
 onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+  document.addEventListener('click', onDocumentClick)
+  systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
+  systemDark.value = systemThemeQuery.matches
+  systemThemeQuery.addEventListener('change', onSystemThemeChange)
+  applyThemeClass()
   if (!appStore.publicSettingsLoaded) {
     appStore.fetchPublicSettings().catch(() => {})
   }
   authStore.checkAuth()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('click', onDocumentClick)
+  systemThemeQuery?.removeEventListener('change', onSystemThemeChange)
+  systemThemeQuery = null
 })
 </script>

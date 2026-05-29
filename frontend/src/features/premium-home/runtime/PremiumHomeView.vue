@@ -54,21 +54,62 @@
               </button>
             </div>
           </div>
-          <RouterLink class="login-btn" :to="dashboardPath">{{ isAuthenticated ? '控制台' : '登录' }}</RouterLink>
-          <RouterLink class="primary-btn" :to="isAuthenticated ? dashboardPath : '/register'">
-            {{ isAuthenticated ? '进入控制台' : '注册 / 免费试用' }}
-          </RouterLink>
+          <div v-if="isAuthenticated" ref="userMenuRef" class="home-user-menu">
+            <button
+              class="home-user-trigger"
+              type="button"
+              aria-label="用户菜单"
+              :aria-expanded="userMenuOpen"
+              @click="toggleUserMenu"
+            >
+              <span class="home-user-avatar">
+                <img v-if="avatarUrl" :src="avatarUrl" :alt="displayName" />
+                <span v-else>{{ userInitials }}</span>
+              </span>
+              <span class="home-user-meta">
+                <strong>{{ displayName }}</strong>
+                <small>{{ user?.email || '已登录' }}</small>
+              </span>
+              <Icon name="chevronDown" size="sm" class="home-user-chevron" />
+            </button>
+
+            <div class="home-user-dropdown" :class="{ 'is-open': userMenuOpen }">
+              <div class="home-user-info">
+                <strong>{{ displayName }}</strong>
+                <span>{{ user?.email || '已登录' }}</span>
+              </div>
+              <RouterLink class="home-user-menu-item" :to="dashboardPath" @click="closeUserMenu">
+                <Icon name="home" size="sm" />
+                <span>控制台</span>
+              </RouterLink>
+              <RouterLink class="home-user-menu-item" to="/profile" @click="closeUserMenu">
+                <Icon name="user" size="sm" />
+                <span>个人资料</span>
+              </RouterLink>
+              <RouterLink class="home-user-menu-item" to="/keys" @click="closeUserMenu">
+                <Icon name="key" size="sm" />
+                <span>API Keys</span>
+              </RouterLink>
+              <button class="home-user-menu-item home-user-logout" type="button" @click="handleLogout">
+                <Icon name="login" size="sm" />
+                <span>退出登录</span>
+              </button>
+            </div>
+          </div>
+          <template v-else>
+            <RouterLink class="login-btn" to="/login">登录</RouterLink>
+            <RouterLink class="primary-btn" to="/register">注册 / 免费试用</RouterLink>
+          </template>
         </div>
       </nav>
 
       <div class="mobile-menu" :class="{ 'is-open': menuOpen }">
         <a :class="{ active: activeHomeSection === 'top' }" href="#top" @click="handleHomeNavClick('top')">首页</a>
         <a :class="{ active: activeHomeSection === 'plans' }" href="#plans" @click="handleHomeNavClick('plans')">套餐服务</a>
+        <RouterLink to="/docs" @click="menuOpen = false">文档中心</RouterLink>
         <button class="mobile-menu-entry" type="button" @click="openNoticePanelFromMenu">
-          <span class="red-dot" aria-hidden="true"></span>
           公告
         </button>
-        <RouterLink to="/docs" @click="menuOpen = false">文档中心</RouterLink>
       </div>
     </header>
 
@@ -281,7 +322,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useAppStore, useAuthStore } from '@/stores'
@@ -317,10 +358,13 @@ const fallbackAnnouncements: UserAnnouncement[] = [
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
+const router = useRouter()
 const globeCanvas = ref<HTMLCanvasElement | null>(null)
 const menuOpen = ref(false)
 const noticePanelOpen = ref(false)
 const themeMenuOpen = ref(false)
+const userMenuOpen = ref(false)
+const userMenuRef = ref<HTMLElement | null>(null)
 const themeMode = ref<ThemeMode>(readInitialThemeMode())
 const systemDark = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
 const selectedAnnouncement = ref<UserAnnouncement | null>(null)
@@ -348,6 +392,16 @@ const siteSubtitle = computed(() =>
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const dashboardPath = computed(() => authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+const user = computed(() => authStore.user)
+const avatarUrl = computed(() => user.value?.avatar_url?.trim() || '')
+const displayName = computed(() => {
+  if (!user.value) return '用户'
+  return user.value.username || user.value.email?.split('@')[0] || user.value.email || '用户'
+})
+const userInitials = computed(() => {
+  const source = displayName.value || user.value?.email || ''
+  return source.slice(0, 2).toUpperCase()
+})
 const displayPlans = computed(() => plans.value)
 const visibleAnnouncements = computed(() => (announcements.value.length > 0 ? announcements.value : fallbackAnnouncements))
 const sideAnnouncements = computed(() => visibleAnnouncements.value.slice(0, 3))
@@ -645,8 +699,36 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     menuOpen.value = false
     themeMenuOpen.value = false
+    userMenuOpen.value = false
     closeNoticePanel()
     closeAnnouncement()
+  }
+}
+
+function toggleUserMenu() {
+  userMenuOpen.value = !userMenuOpen.value
+  if (userMenuOpen.value) {
+    themeMenuOpen.value = false
+  }
+}
+
+function closeUserMenu() {
+  userMenuOpen.value = false
+}
+
+async function handleLogout() {
+  closeUserMenu()
+  try {
+    await authStore.logout()
+  } catch (error) {
+    console.error('Logout error:', error)
+  }
+  await router.push('/login')
+}
+
+function onDocumentClick(event: MouseEvent) {
+  if (userMenuRef.value && !userMenuRef.value.contains(event.target as Node)) {
+    closeUserMenu()
   }
 }
 
@@ -680,6 +762,7 @@ watch(visiblePlanTabs, (tabs) => {
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
   window.addEventListener('hashchange', syncActiveSectionFromHash)
+  document.addEventListener('click', onDocumentClick)
   syncActiveSectionFromHash()
   systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
   systemDark.value = systemThemeQuery.matches
@@ -718,6 +801,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('hashchange', syncActiveSectionFromHash)
+  document.removeEventListener('click', onDocumentClick)
   systemThemeQuery?.removeEventListener('change', onSystemThemeChange)
   systemThemeQuery = null
   stopGlobeAnimation()
