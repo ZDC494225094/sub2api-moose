@@ -1977,6 +1977,10 @@
     --page-x: 16px;
   }
 
+  .premium-home .shell {
+    max-width: calc(100vw - var(--page-x) * 2);
+  }
+
   .premium-home .topbar,
   .premium-home .nav {
     height: 60px;
@@ -2033,20 +2037,26 @@
   }
 
   .premium-home .hero-actions {
-    justify-content: stretch;
-    align-items: stretch;
-    flex-wrap: nowrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
-    width: 100%;
+    width: min(100%, calc(100vw - var(--page-x) * 2));
+    max-width: calc(100vw - var(--page-x) * 2);
+    min-width: 0;
+    margin-right: auto;
+    margin-left: auto;
   }
 
   .premium-home .hero-actions > * {
-    flex: 1 1 0;
-    width: auto;
+    width: 100%;
+    min-width: 0;
   }
 
   .premium-home .hero-actions .hero-btn {
     min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
   }
 
   .premium-home .notice-footer {
@@ -2165,7 +2175,7 @@
   }
 
   .premium-home .hero-orbit {
-    width: min(126vw, 380px);
+    width: min(100%, 380px);
     margin: -18px auto -10px;
   }
 
