@@ -464,6 +464,36 @@
   backdrop-filter: blur(18px) saturate(150%);
 }
 
+.premium-home .notice-card--dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 80;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(72vh, 620px);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -46%) scale(0.98);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.premium-home .notice-card--dialog.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.premium-home .notice-card--dialog .notice-list {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.premium-home .notice-card--side .notice-footer {
+  grid-template-columns: 1fr;
+}
+
 .premium-home .notice-head {
   display: flex;
   align-items: center;
@@ -481,9 +511,35 @@
   font-weight: 830;
 }
 
-.premium-home .notice-close,
+.premium-home .notice-close {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+
 .premium-home .notice-backdrop {
-  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: block;
+  background: rgba(15, 23, 42, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+  transition: opacity 180ms ease;
+}
+
+.premium-home .notice-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .premium-home .notice-list {
@@ -594,6 +650,10 @@
 .premium-home .notice-footer-btn.is-muted {
   background: rgba(255, 255, 255, 0.88);
   color: var(--ink);
+}
+
+.premium-home .notice-all-btn {
+  width: 100%;
 }
 
 .premium-home .notice-reader-backdrop {
@@ -1813,66 +1873,15 @@
     flex-wrap: wrap;
   }
 
-  .premium-home .notice-card {
+  .premium-home .notice-card--side {
     display: none;
   }
 }
 
 @media (max-width: 1024px) {
-  .premium-home .notice-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 70;
-    display: block;
-    background: rgba(15, 23, 42, 0.22);
-    opacity: 0;
-    pointer-events: none;
-    backdrop-filter: blur(8px);
-    transition: opacity 180ms ease;
-  }
-
-  .premium-home .notice-backdrop.is-open {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .premium-home .notice-card {
-    display: block;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    z-index: 80;
-    width: min(620px, calc(100vw - 32px));
-    max-height: min(72vh, 620px);
-    opacity: 0;
-    pointer-events: none;
-    transform: translate(-50%, -46%) scale(0.98);
-    transition: opacity 180ms ease, transform 180ms ease;
-  }
-
-  .premium-home .notice-card.is-open {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translate(-50%, -50%) scale(1);
-  }
-
   .premium-home .notice-head {
     background: rgba(255, 255, 255, 0.88);
     backdrop-filter: blur(16px) saturate(160%);
-  }
-
-  .premium-home .notice-close {
-    display: inline-grid;
-    width: 32px;
-    height: 32px;
-    place-items: center;
-    border: 1px solid var(--line);
-    border-radius: 9px;
-    background: rgba(255, 255, 255, 0.78);
-    color: var(--ink);
-    cursor: pointer;
-    font-size: 20px;
-    line-height: 1;
   }
 
   .premium-home .pricing-grid {
@@ -1943,7 +1952,7 @@
     transform: translateY(8px);
   }
 
-  .premium-home .notice-card {
+  .premium-home .notice-card--side {
     order: 3;
   }
 
@@ -2068,7 +2077,7 @@
     min-width: 0;
   }
 
-  .premium-home .notice-card,
+  .premium-home .notice-card--dialog,
   .premium-home .notice-reader {
     width: calc(100vw - 24px);
   }

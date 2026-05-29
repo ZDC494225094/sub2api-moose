@@ -95,7 +95,36 @@
           </div>
         </div>
 
-        <aside class="notice-card" :class="{ 'is-open': noticePanelOpen }" aria-label="公告">
+        <aside class="notice-card notice-card--side" aria-label="公告">
+          <div class="notice-head">
+            <div class="notice-title">
+              <Icon name="menu" size="sm" />
+              公告
+            </div>
+          </div>
+          <div class="notice-list">
+            <button
+              v-for="notice in sideAnnouncements"
+              :key="notice.id"
+              class="notice-item"
+              type="button"
+              @click="openAnnouncement(notice)"
+            >
+              <div class="notice-date">
+                {{ formatDate(notice.created_at || notice.starts_at) }}
+                <span v-if="isNewNotice(notice.created_at)" class="new-tag">NEW</span>
+              </div>
+              <h3>{{ notice.title }}</h3>
+              <p>{{ announcementExcerpt(notice.content) }}</p>
+            </button>
+          </div>
+          <div class="notice-footer">
+            <button class="notice-footer-btn notice-all-btn" type="button" @click="openNoticePanel">查看全部公告</button>
+          </div>
+        </aside>
+
+        <div class="notice-backdrop" :class="{ 'is-open': noticePanelOpen }" @click="closeNoticePanel()"></div>
+        <aside class="notice-card notice-card--dialog" :class="{ 'is-open': noticePanelOpen }" aria-label="公告弹窗">
           <div class="notice-head">
             <div class="notice-title">
               <Icon name="menu" size="sm" />
@@ -124,7 +153,6 @@
             <button class="notice-footer-btn" type="button" @click="closeNoticePanel()">关闭</button>
           </div>
         </aside>
-        <div class="notice-backdrop" :class="{ 'is-open': noticePanelOpen }" @click="closeNoticePanel()"></div>
 
         <div class="notice-reader-backdrop" :class="{ 'is-open': !!selectedAnnouncement }" @click="closeAnnouncement"></div>
         <section class="notice-reader" :class="{ 'is-open': !!selectedAnnouncement }" aria-label="公告全文">
@@ -306,7 +334,6 @@ let systemThemeQuery: MediaQueryList | null = null
 let globeCleanup: (() => void) | null = null
 
 const NOTICE_DISMISS_KEY = 'premium-home-notice-dismiss-date'
-const SMALL_SCREEN_QUERY = '(max-width: 1280px)'
 
 marked.setOptions({
   breaks: true,
@@ -322,7 +349,8 @@ const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const dashboardPath = computed(() => authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
 const displayPlans = computed(() => plans.value)
-const visibleAnnouncements = computed(() => (announcements.value.length > 0 ? announcements.value : fallbackAnnouncements).slice(0, 5))
+const visibleAnnouncements = computed(() => (announcements.value.length > 0 ? announcements.value : fallbackAnnouncements))
+const sideAnnouncements = computed(() => visibleAnnouncements.value.slice(0, 3))
 const isDark = computed(() => themeMode.value === 'dark' || (themeMode.value === 'system' && systemDark.value))
 const themeIcon = computed<IconName>(() => {
   if (themeMode.value === 'system') return 'cpu'
@@ -571,12 +599,8 @@ function isNoticeDismissedToday() {
   return localStorage.getItem(NOTICE_DISMISS_KEY) === todayDismissKey()
 }
 
-function isSmallScreen() {
-  return typeof window !== 'undefined' && window.matchMedia(SMALL_SCREEN_QUERY).matches
-}
-
 function shouldAutoOpenNotice(source: UserAnnouncement[]) {
-  return source.length > 0 && isSmallScreen() && !isNoticeDismissedToday()
+  return source.length > 0 && !isNoticeDismissedToday()
 }
 
 function openNoticePanel() {
