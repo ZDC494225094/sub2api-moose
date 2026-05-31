@@ -4,7 +4,24 @@ import App from './App.vue'
 import router from './router'
 import i18n, { initI18n } from './i18n'
 import { useAppStore } from '@/stores/app'
+import type { PublicSettings } from '@/types'
 import './style.css'
+
+function initInjectedConfigFromMeta() {
+  if (window.__APP_CONFIG__) return
+
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="app-config"]')
+  const encoded = meta?.content
+  if (!encoded) return
+
+  try {
+    const bytes = Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0))
+    const json = new TextDecoder().decode(bytes)
+    window.__APP_CONFIG__ = JSON.parse(json) as PublicSettings
+  } catch (error) {
+    console.warn('Failed to parse injected app config:', error)
+  }
+}
 
 function initThemeClass() {
   const savedTheme = localStorage.getItem('theme')
@@ -17,6 +34,7 @@ function initThemeClass() {
 async function bootstrap() {
   // Apply theme class globally before app mount to keep all routes consistent.
   initThemeClass()
+  initInjectedConfigFromMeta()
 
   const app = createApp(App)
   const pinia = createPinia()
