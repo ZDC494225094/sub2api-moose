@@ -3,11 +3,14 @@ package repository
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql/driver"
 	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
+	"net"
 	"sort"
 	"strings"
 	"time"
@@ -517,6 +520,14 @@ func pgAdvisoryLock(ctx context.Context, db *sql.DB) error {
 	for {
 		var locked bool
 		if err := db.QueryRowContext(ctx, "SELECT pg_try_advisory_lock($1)", migrationsAdvisoryLockID).Scan(&locked); err != nil {
+			if isRetryableMigrationsLockError(err) {
+				select {
+				case <-ctx.Done():
+					return fmt.Errorf("acquire migrations lock: %w", ctx.Err())
+				case <-ticker.C:
+					continue
+				}
+			}
 			return fmt.Errorf("acquire migrations lock: %w", err)
 		}
 		if locked {
@@ -528,6 +539,14 @@ func pgAdvisoryLock(ctx context.Context, db *sql.DB) error {
 		case <-ticker.C:
 		}
 	}
+}
+
+func isRetryableMigrationsLockError(err error) bool {
+	return errors.Is(err, io.EOF) ||
+		errors.Is(err, io.ErrUnexpectedEOF) ||
+		errors.Is(err, driver.ErrBadConn) ||
+		errors.Is(err, sql.ErrConnDone) ||
+		errors.Is(err, net.ErrClosed)
 }
 
 // pgAdvisoryUnlock 释放 PostgreSQL Advisory Lock。

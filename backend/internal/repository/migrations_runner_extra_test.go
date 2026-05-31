@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"io"
 	"io/fs"
 	"strings"
 	"testing"
@@ -376,6 +377,26 @@ func TestPgAdvisoryLockAndUnlock_ErrorBranches(t *testing.T) {
 		err = pgAdvisoryLock(ctx, db)
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, time.Since(start), migrationsLockRetryInterval)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("retry_on_transient_eof", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer func() { _ = db.Close() }()
+
+		mock.ExpectQuery("SELECT pg_try_advisory_lock\\(\\$1\\)").
+			WithArgs(migrationsAdvisoryLockID).
+			WillReturnError(io.EOF)
+		mock.ExpectQuery("SELECT pg_try_advisory_lock\\(\\$1\\)").
+			WithArgs(migrationsAdvisoryLockID).
+			WillReturnRows(sqlmock.NewRows([]string{"pg_try_advisory_lock"}).AddRow(true))
+
+		ctx, cancel := context.WithTimeout(context.Background(), migrationsLockRetryInterval*3)
+		defer cancel()
+
+		err = pgAdvisoryLock(ctx, db)
+		require.NoError(t, err)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 }

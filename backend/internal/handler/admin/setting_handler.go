@@ -218,6 +218,8 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ContactInfo:                            settings.ContactInfo,
 		DocURL:                                 settings.DocURL,
 		HomeContent:                            settings.HomeContent,
+		FooterContent:                          settings.FooterContent,
+		FooterFriendLinks:                      dto.ParseFooterFriendLinks(settings.FooterFriendLinks),
 		HideCcsImportButton:                    settings.HideCcsImportButton,
 		PurchaseSubscriptionEnabled:            settings.PurchaseSubscriptionEnabled,
 		PurchaseSubscriptionURL:                settings.PurchaseSubscriptionURL,
@@ -490,20 +492,22 @@ type UpdateSettingsRequest struct {
 	GoogleOAuthFrontendRedirectURL string `json:"google_oauth_frontend_redirect_url"`
 
 	// OEM设置
-	SiteName                    string                `json:"site_name"`
-	SiteLogo                    string                `json:"site_logo"`
-	SiteSubtitle                string                `json:"site_subtitle"`
-	APIBaseURL                  string                `json:"api_base_url"`
-	ContactInfo                 string                `json:"contact_info"`
-	DocURL                      string                `json:"doc_url"`
-	HomeContent                 string                `json:"home_content"`
-	HideCcsImportButton         bool                  `json:"hide_ccs_import_button"`
-	PurchaseSubscriptionEnabled *bool                 `json:"purchase_subscription_enabled"`
-	PurchaseSubscriptionURL     *string               `json:"purchase_subscription_url"`
-	TableDefaultPageSize        int                   `json:"table_default_page_size"`
-	TablePageSizeOptions        []int                 `json:"table_page_size_options"`
-	CustomMenuItems             *[]dto.CustomMenuItem `json:"custom_menu_items"`
-	CustomEndpoints             *[]dto.CustomEndpoint `json:"custom_endpoints"`
+	SiteName                    string                  `json:"site_name"`
+	SiteLogo                    string                  `json:"site_logo"`
+	SiteSubtitle                string                  `json:"site_subtitle"`
+	APIBaseURL                  string                  `json:"api_base_url"`
+	ContactInfo                 string                  `json:"contact_info"`
+	DocURL                      string                  `json:"doc_url"`
+	HomeContent                 string                  `json:"home_content"`
+	FooterContent               string                  `json:"footer_content"`
+	FooterFriendLinks           *[]dto.FooterFriendLink `json:"footer_friend_links"`
+	HideCcsImportButton         bool                    `json:"hide_ccs_import_button"`
+	PurchaseSubscriptionEnabled *bool                   `json:"purchase_subscription_enabled"`
+	PurchaseSubscriptionURL     *string                 `json:"purchase_subscription_url"`
+	TableDefaultPageSize        int                     `json:"table_default_page_size"`
+	TablePageSizeOptions        []int                   `json:"table_page_size_options"`
+	CustomMenuItems             *[]dto.CustomMenuItem   `json:"custom_menu_items"`
+	CustomEndpoints             *[]dto.CustomEndpoint   `json:"custom_endpoints"`
 
 	// 默认配置
 	DefaultConcurrency                        int                               `json:"default_concurrency"`
@@ -1398,6 +1402,52 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		customEndpointsJSON = string(endpointBytes)
 	}
 
+	// 首页页脚友情链接验证
+	const (
+		maxFooterFriendLinks  = 30
+		maxFooterLinkLabelLen = 50
+		maxFooterLinkURLLen   = 2048
+	)
+
+	footerFriendLinksJSON := previousSettings.FooterFriendLinks
+	if req.FooterFriendLinks != nil {
+		links := *req.FooterFriendLinks
+		if len(links) > maxFooterFriendLinks {
+			response.BadRequest(c, "Too many footer friend links (max 30)")
+			return
+		}
+		for i, link := range links {
+			links[i].Label = strings.TrimSpace(link.Label)
+			links[i].URL = strings.TrimSpace(link.URL)
+			if links[i].Label == "" {
+				response.BadRequest(c, "Footer friend link label is required")
+				return
+			}
+			if len(links[i].Label) > maxFooterLinkLabelLen {
+				response.BadRequest(c, "Footer friend link label is too long (max 50 characters)")
+				return
+			}
+			if links[i].URL == "" {
+				response.BadRequest(c, "Footer friend link URL is required")
+				return
+			}
+			if len(links[i].URL) > maxFooterLinkURLLen {
+				response.BadRequest(c, "Footer friend link URL is too long (max 2048 characters)")
+				return
+			}
+			if err := config.ValidateAbsoluteHTTPURL(links[i].URL); err != nil {
+				response.BadRequest(c, "Footer friend link URL must be an absolute http(s) URL")
+				return
+			}
+		}
+		linkBytes, err := json.Marshal(links)
+		if err != nil {
+			response.BadRequest(c, "Failed to serialize footer friend links")
+			return
+		}
+		footerFriendLinksJSON = string(linkBytes)
+	}
+
 	// Ops metrics collector interval validation (seconds).
 	if req.OpsMetricsIntervalSeconds != nil {
 		v := *req.OpsMetricsIntervalSeconds
@@ -1565,6 +1615,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ContactInfo:                            req.ContactInfo,
 		DocURL:                                 req.DocURL,
 		HomeContent:                            req.HomeContent,
+		FooterContent:                          req.FooterContent,
+		FooterFriendLinks:                      footerFriendLinksJSON,
 		HideCcsImportButton:                    req.HideCcsImportButton,
 		PurchaseSubscriptionEnabled:            purchaseEnabled,
 		PurchaseSubscriptionURL:                purchaseURL,
@@ -2002,6 +2054,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ContactInfo:                            updatedSettings.ContactInfo,
 		DocURL:                                 updatedSettings.DocURL,
 		HomeContent:                            updatedSettings.HomeContent,
+		FooterContent:                          updatedSettings.FooterContent,
+		FooterFriendLinks:                      dto.ParseFooterFriendLinks(updatedSettings.FooterFriendLinks),
 		HideCcsImportButton:                    updatedSettings.HideCcsImportButton,
 		PurchaseSubscriptionEnabled:            updatedSettings.PurchaseSubscriptionEnabled,
 		PurchaseSubscriptionURL:                updatedSettings.PurchaseSubscriptionURL,
@@ -2400,6 +2454,12 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.HomeContent != after.HomeContent {
 		changed = append(changed, "home_content")
+	}
+	if before.FooterContent != after.FooterContent {
+		changed = append(changed, "footer_content")
+	}
+	if before.FooterFriendLinks != after.FooterFriendLinks {
+		changed = append(changed, "footer_friend_links")
 	}
 	if before.HideCcsImportButton != after.HideCcsImportButton {
 		changed = append(changed, "hide_ccs_import_button")

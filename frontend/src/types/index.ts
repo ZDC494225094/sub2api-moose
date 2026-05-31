@@ -179,6 +179,11 @@ export interface CustomEndpoint {
   description: string
 }
 
+export interface FooterFriendLink {
+  label: string
+  url: string
+}
+
 export interface LoginAgreementDocument {
   id: string
   title: string
@@ -207,6 +212,8 @@ export interface PublicSettings {
   contact_info: string
   doc_url: string
   home_content: string
+  footer_content: string
+  footer_friend_links: FooterFriendLink[]
   hide_ccs_import_button: boolean
   payment_enabled: boolean
   risk_control_enabled: boolean

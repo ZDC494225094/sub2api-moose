@@ -4757,6 +4757,190 @@
             </div>
           </div>
 
+          <!-- Homepage Footer -->
+          <div class="card">
+            <div
+              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
+            >
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ localText("首页页脚", "Homepage footer") }}
+              </h2>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{
+                  localText(
+                    "配置首页底部展示内容和友情链接。",
+                    "Configure homepage footer content and friend links.",
+                  )
+                }}
+              </p>
+            </div>
+            <div class="space-y-5 p-6">
+              <div>
+                <label
+                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  {{ localText("页脚内容", "Footer content") }}
+                </label>
+                <textarea
+                  v-model="form.footer_content"
+                  rows="4"
+                  class="input text-sm"
+                  :placeholder="
+                    localText(
+                      '例如：专注稳定的大模型 API 聚合与转发服务。',
+                      'Example: Reliable aggregated API access for modern AI models.',
+                    )
+                  "
+                ></textarea>
+                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{
+                    localText(
+                      "未填写时首页会使用网站副标题作为页脚介绍。",
+                      "When empty, the homepage uses the site subtitle as the footer intro.",
+                    )
+                  }}
+                </p>
+              </div>
+
+              <div class="border-t border-gray-100 pt-5 dark:border-dark-700">
+                <div class="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-white">
+                      {{ localText("友情链接", "Friend links") }}
+                    </h3>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{
+                        localText(
+                          "会展示在首页页脚的友情链接区域，链接需使用 http(s) 完整地址。",
+                          "Shown in the homepage footer. Links must use absolute http(s) URLs.",
+                        )
+                      }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-secondary text-sm"
+                    @click="addFooterFriendLink"
+                  >
+                    {{ localText("添加友链", "Add link") }}
+                  </button>
+                </div>
+
+                <div v-if="form.footer_friend_links.length > 0" class="space-y-3">
+                  <div
+                    v-for="(link, index) in form.footer_friend_links"
+                    :key="index"
+                    class="rounded-lg border border-gray-200 p-4 dark:border-dark-600"
+                  >
+                    <div class="mb-3 flex items-center justify-between">
+                      <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {{ localText("友链", "Friend link") }} #{{ index + 1 }}
+                      </span>
+                      <div class="flex items-center gap-2">
+                        <button
+                          v-if="index > 0"
+                          type="button"
+                          class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700"
+                          :title="localText('上移', 'Move up')"
+                          @click="moveFooterFriendLink(index, -1)"
+                        >
+                          <svg
+                            class="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              d="M5 15l7-7 7 7"
+                            />
+                          </svg>
+                        </button>
+                        <button
+                          v-if="index < form.footer_friend_links.length - 1"
+                          type="button"
+                          class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700"
+                          :title="localText('下移', 'Move down')"
+                          @click="moveFooterFriendLink(index, 1)"
+                        >
+                          <svg
+                            class="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          class="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                          :title="localText('删除', 'Remove')"
+                          @click="removeFooterFriendLink(index)"
+                        >
+                          <svg
+                            class="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label
+                          class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
+                        >
+                          {{ localText("名称", "Name") }}
+                        </label>
+                        <input
+                          v-model="link.label"
+                          type="text"
+                          class="input text-sm"
+                          :placeholder="localText('例如：合作伙伴', 'Example: Partner')"
+                        />
+                      </div>
+                      <div>
+                        <label
+                          class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
+                        >
+                          URL
+                        </label>
+                        <input
+                          v-model="link.url"
+                          type="url"
+                          class="input font-mono text-sm"
+                          placeholder="https://example.com"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  v-else
+                  class="rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500 dark:border-dark-600 dark:text-gray-400"
+                >
+                  {{ localText("暂无友情链接，点击上方按钮添加。", "No friend links yet. Use the button above to add one.") }}
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Custom Menu Items -->
           <div class="card">
             <div
@@ -7012,6 +7196,11 @@ const form = reactive<SettingsForm>({
   contact_info: "",
   doc_url: "",
   home_content: "",
+  footer_content: "",
+  footer_friend_links: [] as Array<{
+    label: string;
+    url: string;
+  }>,
   backend_mode_enabled: false,
   hide_ccs_import_button: false,
   payment_enabled: false,
@@ -7702,6 +7891,27 @@ function moveMenuItem(index: number, direction: -1 | 1) {
   });
 }
 
+// Homepage footer friend link management
+function addFooterFriendLink() {
+  form.footer_friend_links.push({
+    label: "",
+    url: "",
+  });
+}
+
+function removeFooterFriendLink(index: number) {
+  form.footer_friend_links.splice(index, 1);
+}
+
+function moveFooterFriendLink(index: number, direction: -1 | 1) {
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= form.footer_friend_links.length) return;
+  const links = form.footer_friend_links;
+  const temp = links[index];
+  links[index] = links[targetIndex];
+  links[targetIndex] = temp;
+}
+
 // Custom endpoint management
 function addEndpoint() {
   form.custom_endpoints.push({ name: "", endpoint: "", description: "" });
@@ -8156,6 +8366,8 @@ async function saveSettings() {
       contact_info: form.contact_info,
       doc_url: form.doc_url,
       home_content: form.home_content,
+      footer_content: form.footer_content,
+      footer_friend_links: form.footer_friend_links,
       backend_mode_enabled: form.backend_mode_enabled,
       hide_ccs_import_button: form.hide_ccs_import_button,
       table_default_page_size: form.table_default_page_size,

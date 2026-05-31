@@ -65,6 +65,8 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		ContactInfo:                      settings.ContactInfo,
 		DocURL:                           settings.DocURL,
 		HomeContent:                      settings.HomeContent,
+		FooterContent:                    settings.FooterContent,
+		FooterFriendLinks:                dto.ParseFooterFriendLinks(settings.FooterFriendLinks),
 		HideCcsImportButton:              settings.HideCcsImportButton,
 		PurchaseSubscriptionEnabled:      settings.PurchaseSubscriptionEnabled,
 		PurchaseSubscriptionURL:          settings.PurchaseSubscriptionURL,

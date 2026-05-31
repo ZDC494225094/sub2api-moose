@@ -25,6 +25,12 @@ type CustomEndpoint struct {
 	Description string `json:"description"`
 }
 
+// FooterFriendLink represents a homepage footer friend link.
+type FooterFriendLink struct {
+	Label string `json:"label"`
+	URL   string `json:"url"`
+}
+
 // SystemSettings represents the admin settings API response payload.
 type SystemSettings struct {
 	RegistrationEnabled              bool                     `json:"registration_enabled"`
@@ -127,20 +133,22 @@ type SystemSettings struct {
 	GoogleOAuthRedirectURL            string `json:"google_oauth_redirect_url"`
 	GoogleOAuthFrontendRedirectURL    string `json:"google_oauth_frontend_redirect_url"`
 
-	SiteName                    string           `json:"site_name"`
-	SiteLogo                    string           `json:"site_logo"`
-	SiteSubtitle                string           `json:"site_subtitle"`
-	APIBaseURL                  string           `json:"api_base_url"`
-	ContactInfo                 string           `json:"contact_info"`
-	DocURL                      string           `json:"doc_url"`
-	HomeContent                 string           `json:"home_content"`
-	HideCcsImportButton         bool             `json:"hide_ccs_import_button"`
-	PurchaseSubscriptionEnabled bool             `json:"purchase_subscription_enabled"`
-	PurchaseSubscriptionURL     string           `json:"purchase_subscription_url"`
-	TableDefaultPageSize        int              `json:"table_default_page_size"`
-	TablePageSizeOptions        []int            `json:"table_page_size_options"`
-	CustomMenuItems             []CustomMenuItem `json:"custom_menu_items"`
-	CustomEndpoints             []CustomEndpoint `json:"custom_endpoints"`
+	SiteName                    string             `json:"site_name"`
+	SiteLogo                    string             `json:"site_logo"`
+	SiteSubtitle                string             `json:"site_subtitle"`
+	APIBaseURL                  string             `json:"api_base_url"`
+	ContactInfo                 string             `json:"contact_info"`
+	DocURL                      string             `json:"doc_url"`
+	HomeContent                 string             `json:"home_content"`
+	FooterContent               string             `json:"footer_content"`
+	FooterFriendLinks           []FooterFriendLink `json:"footer_friend_links"`
+	HideCcsImportButton         bool               `json:"hide_ccs_import_button"`
+	PurchaseSubscriptionEnabled bool               `json:"purchase_subscription_enabled"`
+	PurchaseSubscriptionURL     string             `json:"purchase_subscription_url"`
+	TableDefaultPageSize        int                `json:"table_default_page_size"`
+	TablePageSizeOptions        []int              `json:"table_page_size_options"`
+	CustomMenuItems             []CustomMenuItem   `json:"custom_menu_items"`
+	CustomEndpoints             []CustomEndpoint   `json:"custom_endpoints"`
 
 	DefaultConcurrency           int                          `json:"default_concurrency"`
 	DefaultBalance               float64                      `json:"default_balance"`
@@ -282,6 +290,8 @@ type PublicSettings struct {
 	ContactInfo                      string                   `json:"contact_info"`
 	DocURL                           string                   `json:"doc_url"`
 	HomeContent                      string                   `json:"home_content"`
+	FooterContent                    string                   `json:"footer_content"`
+	FooterFriendLinks                []FooterFriendLink       `json:"footer_friend_links"`
 	HideCcsImportButton              bool                     `json:"hide_ccs_import_button"`
 	PurchaseSubscriptionEnabled      bool                     `json:"purchase_subscription_enabled"`
 	PurchaseSubscriptionURL          string                   `json:"purchase_subscription_url"`
@@ -454,6 +464,20 @@ func ParseCustomMenuItems(raw string) []CustomMenuItem {
 	var items []CustomMenuItem
 	if err := json.Unmarshal([]byte(raw), &items); err != nil {
 		return []CustomMenuItem{}
+	}
+	return items
+}
+
+// ParseFooterFriendLinks parses a JSON string into a slice of FooterFriendLink.
+// Returns empty slice on empty/invalid input.
+func ParseFooterFriendLinks(raw string) []FooterFriendLink {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "[]" {
+		return []FooterFriendLink{}
+	}
+	var items []FooterFriendLink
+	if err := json.Unmarshal([]byte(raw), &items); err != nil {
+		return []FooterFriendLink{}
 	}
 	return items
 }

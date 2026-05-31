@@ -316,6 +316,53 @@
         </div>
         <RouterLink class="primary-btn" :to="isAuthenticated ? dashboardPath : '/login'">联系控制台</RouterLink>
       </section>
+
+      <footer class="home-footer" aria-label="首页页脚">
+        <div class="footer-brand">
+          <span class="footer-mark" aria-hidden="true">
+            <img v-if="siteLogo" :src="siteLogo" alt="" />
+            <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2 21 7v10l-9 5-9-5V7l9-5Z" fill="#2563ff" opacity=".95" />
+              <path d="M8 8.3 12 6l4 2.3v4.4L12 15l-4-2.3V8.3Z" fill="#6ddcff" />
+            </svg>
+          </span>
+          <div>
+            <strong>{{ siteName }}</strong>
+            <p>{{ footerContent }}</p>
+          </div>
+        </div>
+
+        <div class="footer-columns">
+          <div class="footer-column">
+            <h3>站点导航</h3>
+            <a href="#top" @click="setActiveHomeSection('top')">首页</a>
+            <a href="#plans" @click="setActiveHomeSection('plans')">套餐服务</a>
+            <RouterLink to="/docs">文档中心</RouterLink>
+          </div>
+          <div v-if="footerFriendLinks.length > 0" class="footer-column footer-friends">
+            <h3>友情链接</h3>
+            <a
+              v-for="link in footerFriendLinks"
+              :key="`${link.label}-${link.url}`"
+              :href="link.url"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {{ link.label }}
+            </a>
+          </div>
+          <div class="footer-column">
+            <h3>服务支持</h3>
+            <a v-if="docUrl" :href="docUrl" target="_blank" rel="noopener noreferrer">外部文档</a>
+            <RouterLink :to="isAuthenticated ? dashboardPath : '/login'">进入控制台</RouterLink>
+            <span v-if="contactInfo">{{ contactInfo }}</span>
+          </div>
+        </div>
+
+        <div class="footer-bottom">
+          <span>© {{ currentYear }} {{ siteName }}. All rights reserved.</span>
+        </div>
+      </footer>
     </main>
   </div>
 </template>
@@ -390,6 +437,18 @@ const siteSubtitle = computed(() =>
   appStore.cachedPublicSettings?.site_subtitle || '聚合最前沿的大模型 API，稳定高效的中转服务，助力开发者与企业快速构建智能应用'
 )
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
+const contactInfo = computed(() => appStore.cachedPublicSettings?.contact_info || appStore.contactInfo || '')
+const footerContent = computed(() => appStore.cachedPublicSettings?.footer_content?.trim() || siteSubtitle.value)
+const footerFriendLinks = computed(() => {
+  const links = appStore.cachedPublicSettings?.footer_friend_links || []
+  return links
+    .map((link) => ({
+      label: link.label?.trim() || '',
+      url: link.url?.trim() || '',
+    }))
+    .filter((link) => link.label && /^https?:\/\//i.test(link.url))
+})
+const currentYear = new Date().getFullYear()
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const dashboardPath = computed(() => authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
 const user = computed(() => authStore.user)
