@@ -115,6 +115,7 @@ export interface SubscriptionPlan {
   description: string
   price: number
   original_price?: number
+  display_purchase_count?: number
   validity_days: number
   validity_unit: string
   /** Stored as JSON string in backend; API layer should parse before use */

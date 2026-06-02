@@ -245,8 +245,8 @@
               v-for="plan in activePlans"
               :key="plan.id"
               class="plan-card"
-              :class="{ hot: plan.id === recommendedPlanId }"
-              :style="{ '--heat': `${discountPercent(plan)}%` }"
+              :class="{ hot: plan.id === recommendedPlanId, maxed: plan.id === premiumBurstPlanId }"
+              :style="{ '--heat': `${discountHeatPercent(plan)}%` }"
             >
               <div v-if="plan.id === recommendedPlanId" class="hot-ribbon">最受欢迎</div>
               <div class="plan-top">
@@ -275,7 +275,10 @@
               </div>
               <div class="heat">
                 <div class="heat-head"><span>折扣力度</span><strong>{{ discountStrengthLabel(plan) }}</strong></div>
-                <div class="heat-track"><i></i></div>
+                <div class="heat-track">
+                  <i></i>
+                  <span v-if="plan.id === premiumBurstPlanId" class="burst-badge" aria-label="爆款套餐">爆</span>
+                </div>
               </div>
               <ul class="features">
                 <li v-for="item in planFeatures(plan)" :key="item">{{ item }}</li>
@@ -339,6 +342,12 @@
             <a href="#plans" @click="setActiveHomeSection('plans')">套餐服务</a>
             <RouterLink to="/docs">文档中心</RouterLink>
           </div>
+          <div class="footer-column">
+            <h3>服务支持</h3>
+            <a v-if="docUrl" :href="docUrl" target="_blank" rel="noopener noreferrer">外部文档</a>
+            <RouterLink :to="isAuthenticated ? dashboardPath : '/login'">进入控制台</RouterLink>
+            <span v-if="contactInfo">{{ contactInfo }}</span>
+          </div>
           <div v-if="footerFriendLinks.length > 0" class="footer-column footer-friends">
             <h3>友情链接</h3>
             <a
@@ -350,12 +359,6 @@
             >
               {{ link.label }}
             </a>
-          </div>
-          <div class="footer-column">
-            <h3>服务支持</h3>
-            <a v-if="docUrl" :href="docUrl" target="_blank" rel="noopener noreferrer">外部文档</a>
-            <RouterLink :to="isAuthenticated ? dashboardPath : '/login'">进入控制台</RouterLink>
-            <span v-if="contactInfo">{{ contactInfo }}</span>
           </div>
         </div>
 
@@ -503,6 +506,10 @@ const recommendedPlanId = computed(() => {
   })
   return id
 })
+const premiumBurstPlanId = computed(() => {
+  if (activePlans.value.length === 0) return -1
+  return [...activePlans.value].sort((a, b) => b.price - a.price || b.id - a.id)[0]?.id ?? -1
+})
 
 const features: Array<{ title: string; desc: string; icon: IconName }> = [
   { title: '稳定可靠', desc: '99.9% 可用性保障', icon: 'shield' },
@@ -613,6 +620,9 @@ function initializeVirtualPurchaseCounts(sourcePlans: SubscriptionPlan[]) {
 }
 
 function displayPurchaseCount(plan: SubscriptionPlan) {
+  if (typeof plan.purchase_count === 'number' && Number.isFinite(plan.purchase_count) && plan.purchase_count > 0) {
+    return plan.purchase_count
+  }
   return virtualPurchaseCounts.value[plan.id] ?? 0
 }
 
@@ -639,6 +649,12 @@ function discountPercent(plan: SubscriptionPlan) {
   return rate ? Math.round((1 - rate) * 100) : 0
 }
 
+function discountHeatPercent(plan: SubscriptionPlan) {
+  if (plan.id === premiumBurstPlanId.value) return 100
+  const percent = discountPercent(plan)
+  return Math.min(94, 88 + Math.min(percent, 6))
+}
+
 function discountRateLabel(plan: SubscriptionPlan) {
   const rate = normalizedDiscountRate(plan)
   if (!rate) return '无折扣'
@@ -659,15 +675,11 @@ function savingsLabel(plan: SubscriptionPlan) {
 }
 
 function discountStrengthLabel(plan: SubscriptionPlan) {
-  const rate = normalizedDiscountRate(plan)
-  if (!rate) return '暂无折扣'
-  if (rate > 0.9) return '大折扣'
-  if (rate > 0.7) return '超大折扣'
-  return '限时优惠'
+  if (plan.id === premiumBurstPlanId.value) return '史低价'
   const percent = discountPercent(plan)
   if (percent >= 40) return '高折扣'
   if (percent >= 20) return '中折扣'
-  if (percent > 0) return '轻折扣'
+  if (percent > 0) return '超值'
   return '暂无折扣'
 }
 

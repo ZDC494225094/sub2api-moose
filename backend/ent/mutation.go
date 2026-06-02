@@ -30823,31 +30823,33 @@ func (m *SettingMutation) ResetEdge(name string) error {
 // SubscriptionPlanMutation represents an operation that mutates the SubscriptionPlan nodes in the graph.
 type SubscriptionPlanMutation struct {
 	config
-	op                Op
-	typ               string
-	id                *int64
-	group_id          *int64
-	addgroup_id       *int64
-	name              *string
-	description       *string
-	price             *float64
-	addprice          *float64
-	original_price    *float64
-	addoriginal_price *float64
-	validity_days     *int
-	addvalidity_days  *int
-	validity_unit     *string
-	features          *string
-	product_name      *string
-	for_sale          *bool
-	sort_order        *int
-	addsort_order     *int
-	created_at        *time.Time
-	updated_at        *time.Time
-	clearedFields     map[string]struct{}
-	done              bool
-	oldValue          func(context.Context) (*SubscriptionPlan, error)
-	predicates        []predicate.SubscriptionPlan
+	op                        Op
+	typ                       string
+	id                        *int64
+	group_id                  *int64
+	addgroup_id               *int64
+	name                      *string
+	description               *string
+	price                     *float64
+	addprice                  *float64
+	original_price            *float64
+	addoriginal_price         *float64
+	display_purchase_count    *int
+	adddisplay_purchase_count *int
+	validity_days             *int
+	addvalidity_days          *int
+	validity_unit             *string
+	features                  *string
+	product_name              *string
+	for_sale                  *bool
+	sort_order                *int
+	addsort_order             *int
+	created_at                *time.Time
+	updated_at                *time.Time
+	clearedFields             map[string]struct{}
+	done                      bool
+	oldValue                  func(context.Context) (*SubscriptionPlan, error)
+	predicates                []predicate.SubscriptionPlan
 }
 
 var _ ent.Mutation = (*SubscriptionPlanMutation)(nil)
@@ -31200,6 +31202,62 @@ func (m *SubscriptionPlanMutation) ResetOriginalPrice() {
 	m.original_price = nil
 	m.addoriginal_price = nil
 	delete(m.clearedFields, subscriptionplan.FieldOriginalPrice)
+}
+
+// SetDisplayPurchaseCount sets the "display_purchase_count" field.
+func (m *SubscriptionPlanMutation) SetDisplayPurchaseCount(i int) {
+	m.display_purchase_count = &i
+	m.adddisplay_purchase_count = nil
+}
+
+// DisplayPurchaseCount returns the value of the "display_purchase_count" field in the mutation.
+func (m *SubscriptionPlanMutation) DisplayPurchaseCount() (r int, exists bool) {
+	v := m.display_purchase_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDisplayPurchaseCount returns the old "display_purchase_count" field's value of the SubscriptionPlan entity.
+// If the SubscriptionPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionPlanMutation) OldDisplayPurchaseCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDisplayPurchaseCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDisplayPurchaseCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDisplayPurchaseCount: %w", err)
+	}
+	return oldValue.DisplayPurchaseCount, nil
+}
+
+// AddDisplayPurchaseCount adds i to the "display_purchase_count" field.
+func (m *SubscriptionPlanMutation) AddDisplayPurchaseCount(i int) {
+	if m.adddisplay_purchase_count != nil {
+		*m.adddisplay_purchase_count += i
+	} else {
+		m.adddisplay_purchase_count = &i
+	}
+}
+
+// AddedDisplayPurchaseCount returns the value that was added to the "display_purchase_count" field in this mutation.
+func (m *SubscriptionPlanMutation) AddedDisplayPurchaseCount() (r int, exists bool) {
+	v := m.adddisplay_purchase_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetDisplayPurchaseCount resets all changes to the "display_purchase_count" field.
+func (m *SubscriptionPlanMutation) ResetDisplayPurchaseCount() {
+	m.display_purchase_count = nil
+	m.adddisplay_purchase_count = nil
 }
 
 // SetValidityDays sets the "validity_days" field.
@@ -31564,7 +31622,7 @@ func (m *SubscriptionPlanMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SubscriptionPlanMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 14)
 	if m.group_id != nil {
 		fields = append(fields, subscriptionplan.FieldGroupID)
 	}
@@ -31579,6 +31637,9 @@ func (m *SubscriptionPlanMutation) Fields() []string {
 	}
 	if m.original_price != nil {
 		fields = append(fields, subscriptionplan.FieldOriginalPrice)
+	}
+	if m.display_purchase_count != nil {
+		fields = append(fields, subscriptionplan.FieldDisplayPurchaseCount)
 	}
 	if m.validity_days != nil {
 		fields = append(fields, subscriptionplan.FieldValidityDays)
@@ -31622,6 +31683,8 @@ func (m *SubscriptionPlanMutation) Field(name string) (ent.Value, bool) {
 		return m.Price()
 	case subscriptionplan.FieldOriginalPrice:
 		return m.OriginalPrice()
+	case subscriptionplan.FieldDisplayPurchaseCount:
+		return m.DisplayPurchaseCount()
 	case subscriptionplan.FieldValidityDays:
 		return m.ValidityDays()
 	case subscriptionplan.FieldValidityUnit:
@@ -31657,6 +31720,8 @@ func (m *SubscriptionPlanMutation) OldField(ctx context.Context, name string) (e
 		return m.OldPrice(ctx)
 	case subscriptionplan.FieldOriginalPrice:
 		return m.OldOriginalPrice(ctx)
+	case subscriptionplan.FieldDisplayPurchaseCount:
+		return m.OldDisplayPurchaseCount(ctx)
 	case subscriptionplan.FieldValidityDays:
 		return m.OldValidityDays(ctx)
 	case subscriptionplan.FieldValidityUnit:
@@ -31716,6 +31781,13 @@ func (m *SubscriptionPlanMutation) SetField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetOriginalPrice(v)
+		return nil
+	case subscriptionplan.FieldDisplayPurchaseCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDisplayPurchaseCount(v)
 		return nil
 	case subscriptionplan.FieldValidityDays:
 		v, ok := value.(int)
@@ -31790,6 +31862,9 @@ func (m *SubscriptionPlanMutation) AddedFields() []string {
 	if m.addoriginal_price != nil {
 		fields = append(fields, subscriptionplan.FieldOriginalPrice)
 	}
+	if m.adddisplay_purchase_count != nil {
+		fields = append(fields, subscriptionplan.FieldDisplayPurchaseCount)
+	}
 	if m.addvalidity_days != nil {
 		fields = append(fields, subscriptionplan.FieldValidityDays)
 	}
@@ -31810,6 +31885,8 @@ func (m *SubscriptionPlanMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedPrice()
 	case subscriptionplan.FieldOriginalPrice:
 		return m.AddedOriginalPrice()
+	case subscriptionplan.FieldDisplayPurchaseCount:
+		return m.AddedDisplayPurchaseCount()
 	case subscriptionplan.FieldValidityDays:
 		return m.AddedValidityDays()
 	case subscriptionplan.FieldSortOrder:
@@ -31843,6 +31920,13 @@ func (m *SubscriptionPlanMutation) AddField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddOriginalPrice(v)
+		return nil
+	case subscriptionplan.FieldDisplayPurchaseCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDisplayPurchaseCount(v)
 		return nil
 	case subscriptionplan.FieldValidityDays:
 		v, ok := value.(int)
@@ -31908,6 +31992,9 @@ func (m *SubscriptionPlanMutation) ResetField(name string) error {
 		return nil
 	case subscriptionplan.FieldOriginalPrice:
 		m.ResetOriginalPrice()
+		return nil
+	case subscriptionplan.FieldDisplayPurchaseCount:
+		m.ResetDisplayPurchaseCount()
 		return nil
 	case subscriptionplan.FieldValidityDays:
 		m.ResetValidityDays()

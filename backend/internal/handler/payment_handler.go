@@ -76,10 +76,10 @@ func (h *PaymentHandler) respondPlansForSale(c *gin.Context) {
 			RateMultiplier: gi.RateMultiplier, DailyLimitUSD: gi.DailyLimitUSD,
 			WeeklyLimitUSD: gi.WeeklyLimitUSD, MonthlyLimitUSD: gi.MonthlyLimitUSD,
 			ModelScopes: gi.ModelScopes,
-			Name: p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
+			Name:        p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
 			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: parseFeatures(p.Features),
 			ProductName: p.ProductName, ForSale: p.ForSale, SortOrder: p.SortOrder,
-			DiscountRate: planDiscountRate(p.Price, p.OriginalPrice), PurchaseCount: purchaseCounts[int64(p.ID)],
+			DiscountRate: planDiscountRate(p.Price, p.OriginalPrice), PurchaseCount: visiblePlanPurchaseCount(p, purchaseCounts[int64(p.ID)]),
 		})
 	}
 	response.Success(c, result)
@@ -132,7 +132,7 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 			Name:        p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
 			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: parseFeatures(p.Features),
 			ProductName: p.ProductName, ForSale: p.ForSale, SortOrder: p.SortOrder,
-			DiscountRate: planDiscountRate(p.Price, p.OriginalPrice), PurchaseCount: purchaseCounts[int64(p.ID)],
+			DiscountRate: planDiscountRate(p.Price, p.OriginalPrice), PurchaseCount: visiblePlanPurchaseCount(p, purchaseCounts[int64(p.ID)]),
 		})
 	}
 
@@ -193,8 +193,15 @@ func planDiscountRate(price float64, originalPrice *float64) *float64 {
 	if originalPrice == nil || *originalPrice <= 0 || price <= 0 || price >= *originalPrice {
 		return nil
 	}
-	rate := math.Round((price / *originalPrice) * 1000) / 1000
+	rate := math.Round((price / *originalPrice)*1000) / 1000
 	return &rate
+}
+
+func visiblePlanPurchaseCount(plan *dbent.SubscriptionPlan, actualCount int) int {
+	if plan.DisplayPurchaseCount > 0 {
+		return plan.DisplayPurchaseCount
+	}
+	return actualCount
 }
 
 // parseFeatures splits a newline-separated features string into a string slice.

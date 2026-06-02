@@ -6989,6 +6989,7 @@ export default {
       deletePlan: 'Delete Plan',
       deletePlanConfirm: 'Are you sure you want to delete this plan?',
       originalPrice: 'Original Price',
+      displayPurchaseCount: 'Homepage Purchases',
       price: 'Price',
       validityDays: 'Validity (days)',
       validityUnit: 'Validity Unit',

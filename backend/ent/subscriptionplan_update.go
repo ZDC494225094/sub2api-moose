@@ -125,6 +125,27 @@ func (_u *SubscriptionPlanUpdate) ClearOriginalPrice() *SubscriptionPlanUpdate {
 	return _u
 }
 
+// SetDisplayPurchaseCount sets the "display_purchase_count" field.
+func (_u *SubscriptionPlanUpdate) SetDisplayPurchaseCount(v int) *SubscriptionPlanUpdate {
+	_u.mutation.ResetDisplayPurchaseCount()
+	_u.mutation.SetDisplayPurchaseCount(v)
+	return _u
+}
+
+// SetNillableDisplayPurchaseCount sets the "display_purchase_count" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdate) SetNillableDisplayPurchaseCount(v *int) *SubscriptionPlanUpdate {
+	if v != nil {
+		_u.SetDisplayPurchaseCount(*v)
+	}
+	return _u
+}
+
+// AddDisplayPurchaseCount adds value to the "display_purchase_count" field.
+func (_u *SubscriptionPlanUpdate) AddDisplayPurchaseCount(v int) *SubscriptionPlanUpdate {
+	_u.mutation.AddDisplayPurchaseCount(v)
+	return _u
+}
+
 // SetValidityDays sets the "validity_days" field.
 func (_u *SubscriptionPlanUpdate) SetValidityDays(v int) *SubscriptionPlanUpdate {
 	_u.mutation.ResetValidityDays()
@@ -329,6 +350,12 @@ func (_u *SubscriptionPlanUpdate) sqlSave(ctx context.Context) (_node int, err e
 	if _u.mutation.OriginalPriceCleared() {
 		_spec.ClearField(subscriptionplan.FieldOriginalPrice, field.TypeFloat64)
 	}
+	if value, ok := _u.mutation.DisplayPurchaseCount(); ok {
+		_spec.SetField(subscriptionplan.FieldDisplayPurchaseCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedDisplayPurchaseCount(); ok {
+		_spec.AddField(subscriptionplan.FieldDisplayPurchaseCount, field.TypeInt, value)
+	}
 	if value, ok := _u.mutation.ValidityDays(); ok {
 		_spec.SetField(subscriptionplan.FieldValidityDays, field.TypeInt, value)
 	}
@@ -470,6 +497,27 @@ func (_u *SubscriptionPlanUpdateOne) AddOriginalPrice(v float64) *SubscriptionPl
 // ClearOriginalPrice clears the value of the "original_price" field.
 func (_u *SubscriptionPlanUpdateOne) ClearOriginalPrice() *SubscriptionPlanUpdateOne {
 	_u.mutation.ClearOriginalPrice()
+	return _u
+}
+
+// SetDisplayPurchaseCount sets the "display_purchase_count" field.
+func (_u *SubscriptionPlanUpdateOne) SetDisplayPurchaseCount(v int) *SubscriptionPlanUpdateOne {
+	_u.mutation.ResetDisplayPurchaseCount()
+	_u.mutation.SetDisplayPurchaseCount(v)
+	return _u
+}
+
+// SetNillableDisplayPurchaseCount sets the "display_purchase_count" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdateOne) SetNillableDisplayPurchaseCount(v *int) *SubscriptionPlanUpdateOne {
+	if v != nil {
+		_u.SetDisplayPurchaseCount(*v)
+	}
+	return _u
+}
+
+// AddDisplayPurchaseCount adds value to the "display_purchase_count" field.
+func (_u *SubscriptionPlanUpdateOne) AddDisplayPurchaseCount(v int) *SubscriptionPlanUpdateOne {
+	_u.mutation.AddDisplayPurchaseCount(v)
 	return _u
 }
 
@@ -706,6 +754,12 @@ func (_u *SubscriptionPlanUpdateOne) sqlSave(ctx context.Context) (_node *Subscr
 	}
 	if _u.mutation.OriginalPriceCleared() {
 		_spec.ClearField(subscriptionplan.FieldOriginalPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.DisplayPurchaseCount(); ok {
+		_spec.SetField(subscriptionplan.FieldDisplayPurchaseCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedDisplayPurchaseCount(); ok {
+		_spec.AddField(subscriptionplan.FieldDisplayPurchaseCount, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.ValidityDays(); ok {
 		_spec.SetField(subscriptionplan.FieldValidityDays, field.TypeInt, value)

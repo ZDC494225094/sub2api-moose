@@ -23,6 +23,8 @@ const (
 	FieldPrice = "price"
 	// FieldOriginalPrice holds the string denoting the original_price field in the database.
 	FieldOriginalPrice = "original_price"
+	// FieldDisplayPurchaseCount holds the string denoting the display_purchase_count field in the database.
+	FieldDisplayPurchaseCount = "display_purchase_count"
 	// FieldValidityDays holds the string denoting the validity_days field in the database.
 	FieldValidityDays = "validity_days"
 	// FieldValidityUnit holds the string denoting the validity_unit field in the database.
@@ -51,6 +53,7 @@ var Columns = []string{
 	FieldDescription,
 	FieldPrice,
 	FieldOriginalPrice,
+	FieldDisplayPurchaseCount,
 	FieldValidityDays,
 	FieldValidityUnit,
 	FieldFeatures,
@@ -76,6 +79,8 @@ var (
 	NameValidator func(string) error
 	// DefaultDescription holds the default value on creation for the "description" field.
 	DefaultDescription string
+	// DefaultDisplayPurchaseCount holds the default value on creation for the "display_purchase_count" field.
+	DefaultDisplayPurchaseCount int
 	// DefaultValidityDays holds the default value on creation for the "validity_days" field.
 	DefaultValidityDays int
 	// DefaultValidityUnit holds the default value on creation for the "validity_unit" field.
@@ -131,6 +136,11 @@ func ByPrice(opts ...sql.OrderTermOption) OrderOption {
 // ByOriginalPrice orders the results by the original_price field.
 func ByOriginalPrice(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldOriginalPrice, opts...).ToFunc()
+}
+
+// ByDisplayPurchaseCount orders the results by the display_purchase_count field.
+func ByDisplayPurchaseCount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDisplayPurchaseCount, opts...).ToFunc()
 }
 
 // ByValidityDays orders the results by the validity_days field.

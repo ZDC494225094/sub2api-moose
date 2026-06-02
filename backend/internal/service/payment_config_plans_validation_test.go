@@ -124,6 +124,19 @@ func TestValidatePlanPatch_ValidOriginalPrice(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestValidatePlanPatch_NegativeDisplayPurchaseCount(t *testing.T) {
+	count := -1
+	err := validatePlanPatch(UpdatePlanRequest{DisplayPurchaseCount: &count})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "display purchase count")
+}
+
+func TestValidatePlanPatch_ValidDisplayPurchaseCount(t *testing.T) {
+	count := 395
+	err := validatePlanPatch(UpdatePlanRequest{DisplayPurchaseCount: &count})
+	require.NoError(t, err)
+}
+
 func TestValidatePlanPatch_NilOriginalPrice(t *testing.T) {
 	err := validatePlanPatch(UpdatePlanRequest{OriginalPrice: nil})
 	require.NoError(t, err)

@@ -79,6 +79,11 @@ func OriginalPrice(v float64) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldEQ(FieldOriginalPrice, v))
 }
 
+// DisplayPurchaseCount applies equality check predicate on the "display_purchase_count" field. It's identical to DisplayPurchaseCountEQ.
+func DisplayPurchaseCount(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldDisplayPurchaseCount, v))
+}
+
 // ValidityDays applies equality check predicate on the "validity_days" field. It's identical to ValidityDaysEQ.
 func ValidityDays(v int) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldEQ(FieldValidityDays, v))
@@ -377,6 +382,46 @@ func OriginalPriceIsNil() predicate.SubscriptionPlan {
 // OriginalPriceNotNil applies the NotNil predicate on the "original_price" field.
 func OriginalPriceNotNil() predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldNotNull(FieldOriginalPrice))
+}
+
+// DisplayPurchaseCountEQ applies the EQ predicate on the "display_purchase_count" field.
+func DisplayPurchaseCountEQ(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldDisplayPurchaseCount, v))
+}
+
+// DisplayPurchaseCountNEQ applies the NEQ predicate on the "display_purchase_count" field.
+func DisplayPurchaseCountNEQ(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNEQ(FieldDisplayPurchaseCount, v))
+}
+
+// DisplayPurchaseCountIn applies the In predicate on the "display_purchase_count" field.
+func DisplayPurchaseCountIn(vs ...int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIn(FieldDisplayPurchaseCount, vs...))
+}
+
+// DisplayPurchaseCountNotIn applies the NotIn predicate on the "display_purchase_count" field.
+func DisplayPurchaseCountNotIn(vs ...int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotIn(FieldDisplayPurchaseCount, vs...))
+}
+
+// DisplayPurchaseCountGT applies the GT predicate on the "display_purchase_count" field.
+func DisplayPurchaseCountGT(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGT(FieldDisplayPurchaseCount, v))
+}
+
+// DisplayPurchaseCountGTE applies the GTE predicate on the "display_purchase_count" field.
+func DisplayPurchaseCountGTE(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGTE(FieldDisplayPurchaseCount, v))
+}
+
+// DisplayPurchaseCountLT applies the LT predicate on the "display_purchase_count" field.
+func DisplayPurchaseCountLT(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLT(FieldDisplayPurchaseCount, v))
+}
+
+// DisplayPurchaseCountLTE applies the LTE predicate on the "display_purchase_count" field.
+func DisplayPurchaseCountLTE(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLTE(FieldDisplayPurchaseCount, v))
 }
 
 // ValidityDaysEQ applies the EQ predicate on the "validity_days" field.

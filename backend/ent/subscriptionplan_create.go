@@ -68,6 +68,20 @@ func (_c *SubscriptionPlanCreate) SetNillableOriginalPrice(v *float64) *Subscrip
 	return _c
 }
 
+// SetDisplayPurchaseCount sets the "display_purchase_count" field.
+func (_c *SubscriptionPlanCreate) SetDisplayPurchaseCount(v int) *SubscriptionPlanCreate {
+	_c.mutation.SetDisplayPurchaseCount(v)
+	return _c
+}
+
+// SetNillableDisplayPurchaseCount sets the "display_purchase_count" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillableDisplayPurchaseCount(v *int) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetDisplayPurchaseCount(*v)
+	}
+	return _c
+}
+
 // SetValidityDays sets the "validity_days" field.
 func (_c *SubscriptionPlanCreate) SetValidityDays(v int) *SubscriptionPlanCreate {
 	_c.mutation.SetValidityDays(v)
@@ -219,6 +233,10 @@ func (_c *SubscriptionPlanCreate) defaults() {
 		v := subscriptionplan.DefaultDescription
 		_c.mutation.SetDescription(v)
 	}
+	if _, ok := _c.mutation.DisplayPurchaseCount(); !ok {
+		v := subscriptionplan.DefaultDisplayPurchaseCount
+		_c.mutation.SetDisplayPurchaseCount(v)
+	}
 	if _, ok := _c.mutation.ValidityDays(); !ok {
 		v := subscriptionplan.DefaultValidityDays
 		_c.mutation.SetValidityDays(v)
@@ -271,6 +289,9 @@ func (_c *SubscriptionPlanCreate) check() error {
 	}
 	if _, ok := _c.mutation.Price(); !ok {
 		return &ValidationError{Name: "price", err: errors.New(`ent: missing required field "SubscriptionPlan.price"`)}
+	}
+	if _, ok := _c.mutation.DisplayPurchaseCount(); !ok {
+		return &ValidationError{Name: "display_purchase_count", err: errors.New(`ent: missing required field "SubscriptionPlan.display_purchase_count"`)}
 	}
 	if _, ok := _c.mutation.ValidityDays(); !ok {
 		return &ValidationError{Name: "validity_days", err: errors.New(`ent: missing required field "SubscriptionPlan.validity_days"`)}
@@ -352,6 +373,10 @@ func (_c *SubscriptionPlanCreate) createSpec() (*SubscriptionPlan, *sqlgraph.Cre
 	if value, ok := _c.mutation.OriginalPrice(); ok {
 		_spec.SetField(subscriptionplan.FieldOriginalPrice, field.TypeFloat64, value)
 		_node.OriginalPrice = &value
+	}
+	if value, ok := _c.mutation.DisplayPurchaseCount(); ok {
+		_spec.SetField(subscriptionplan.FieldDisplayPurchaseCount, field.TypeInt, value)
+		_node.DisplayPurchaseCount = value
 	}
 	if value, ok := _c.mutation.ValidityDays(); ok {
 		_spec.SetField(subscriptionplan.FieldValidityDays, field.TypeInt, value)
@@ -518,6 +543,24 @@ func (u *SubscriptionPlanUpsert) AddOriginalPrice(v float64) *SubscriptionPlanUp
 // ClearOriginalPrice clears the value of the "original_price" field.
 func (u *SubscriptionPlanUpsert) ClearOriginalPrice() *SubscriptionPlanUpsert {
 	u.SetNull(subscriptionplan.FieldOriginalPrice)
+	return u
+}
+
+// SetDisplayPurchaseCount sets the "display_purchase_count" field.
+func (u *SubscriptionPlanUpsert) SetDisplayPurchaseCount(v int) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldDisplayPurchaseCount, v)
+	return u
+}
+
+// UpdateDisplayPurchaseCount sets the "display_purchase_count" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdateDisplayPurchaseCount() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldDisplayPurchaseCount)
+	return u
+}
+
+// AddDisplayPurchaseCount adds v to the "display_purchase_count" field.
+func (u *SubscriptionPlanUpsert) AddDisplayPurchaseCount(v int) *SubscriptionPlanUpsert {
+	u.Add(subscriptionplan.FieldDisplayPurchaseCount, v)
 	return u
 }
 
@@ -757,6 +800,27 @@ func (u *SubscriptionPlanUpsertOne) UpdateOriginalPrice() *SubscriptionPlanUpser
 func (u *SubscriptionPlanUpsertOne) ClearOriginalPrice() *SubscriptionPlanUpsertOne {
 	return u.Update(func(s *SubscriptionPlanUpsert) {
 		s.ClearOriginalPrice()
+	})
+}
+
+// SetDisplayPurchaseCount sets the "display_purchase_count" field.
+func (u *SubscriptionPlanUpsertOne) SetDisplayPurchaseCount(v int) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetDisplayPurchaseCount(v)
+	})
+}
+
+// AddDisplayPurchaseCount adds v to the "display_purchase_count" field.
+func (u *SubscriptionPlanUpsertOne) AddDisplayPurchaseCount(v int) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddDisplayPurchaseCount(v)
+	})
+}
+
+// UpdateDisplayPurchaseCount sets the "display_purchase_count" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdateDisplayPurchaseCount() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateDisplayPurchaseCount()
 	})
 }
 
@@ -1178,6 +1242,27 @@ func (u *SubscriptionPlanUpsertBulk) UpdateOriginalPrice() *SubscriptionPlanUpse
 func (u *SubscriptionPlanUpsertBulk) ClearOriginalPrice() *SubscriptionPlanUpsertBulk {
 	return u.Update(func(s *SubscriptionPlanUpsert) {
 		s.ClearOriginalPrice()
+	})
+}
+
+// SetDisplayPurchaseCount sets the "display_purchase_count" field.
+func (u *SubscriptionPlanUpsertBulk) SetDisplayPurchaseCount(v int) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetDisplayPurchaseCount(v)
+	})
+}
+
+// AddDisplayPurchaseCount adds v to the "display_purchase_count" field.
+func (u *SubscriptionPlanUpsertBulk) AddDisplayPurchaseCount(v int) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddDisplayPurchaseCount(v)
+	})
+}
+
+// UpdateDisplayPurchaseCount sets the "display_purchase_count" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdateDisplayPurchaseCount() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateDisplayPurchaseCount()
 	})
 }
 

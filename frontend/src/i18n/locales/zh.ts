@@ -7168,6 +7168,7 @@ export default {
       deletePlan: '删除套餐',
       deletePlanConfirm: '确定要删除此套餐吗？',
       originalPrice: '原价',
+      displayPurchaseCount: '首页已购买人数',
       price: '价格',
       validityDays: '有效期（天）',
       validityUnit: '有效期单位',

@@ -1150,6 +1150,11 @@
   box-shadow: 0 20px 54px rgba(37, 99, 255, 0.18), 0 0 0 1px rgba(37, 99, 255, 0.12) inset;
 }
 
+.premium-home .plan-card.maxed {
+  border-color: rgba(255, 122, 0, 0.52);
+  box-shadow: 0 24px 60px rgba(255, 122, 0, 0.16), 0 0 0 1px rgba(255, 122, 0, 0.18) inset;
+}
+
 .premium-home .hot-ribbon {
   position: absolute;
   top: 0;
@@ -1160,6 +1165,29 @@
   padding: 7px 12px;
   font-size: 12px;
   font-weight: 800;
+}
+
+.premium-home .burst-badge {
+  position: absolute;
+  top: 50%;
+  right: -2px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 28%, #fff7d6 0 18%, #ffb12f 42%, #ff4d00 100%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 950;
+  line-height: 1;
+  pointer-events: none;
+  transform: translateY(-50%);
+  z-index: 2;
+  text-shadow: 0 2px 8px rgba(126, 45, 0, 0.38);
+  box-shadow: 0 7px 15px rgba(255, 97, 0, 0.24), 0 0 0 4px rgba(255, 122, 0, 0.1);
+  animation: premium-burst-pop 1.7s ease-in-out infinite;
 }
 
 .premium-home .plan-top {
@@ -1314,8 +1342,13 @@
   color: #ff7a00;
 }
 
+.premium-home .plan-card.maxed .heat-head {
+  margin-bottom: 10px;
+}
+
 .premium-home .heat-track {
-  overflow: hidden;
+  position: relative;
+  overflow: visible;
   height: 7px;
   border-radius: 999px;
   background: rgba(37, 99, 255, 0.1);
@@ -1328,6 +1361,13 @@
   border-radius: inherit;
   background: linear-gradient(90deg, #2563ff, #55b7ff, #ffb34d);
   box-shadow: 0 0 16px rgba(37, 99, 255, 0.32);
+  overflow: hidden;
+}
+
+.premium-home .plan-card.maxed .heat-track i {
+  background: linear-gradient(90deg, #ff6b00, #ffb11f, #ffe16a);
+  box-shadow: 0 0 18px rgba(255, 122, 0, 0.48), 0 0 26px rgba(255, 205, 76, 0.24);
+  animation: premium-heat-pulse 1.8s ease-in-out infinite;
 }
 
 .premium-home .features {
@@ -1572,6 +1612,29 @@
   48%,
   100% {
     transform: translateX(92%);
+  }
+}
+
+@keyframes premium-burst-pop {
+  0%,
+  100% {
+    transform: translateY(-50%) rotate(-8deg) scale(1);
+  }
+  44% {
+    transform: translateY(-50%) rotate(7deg) scale(1.14);
+  }
+  62% {
+    transform: translateY(-50%) rotate(-4deg) scale(1.04);
+  }
+}
+
+@keyframes premium-heat-pulse {
+  0%,
+  100% {
+    filter: saturate(1);
+  }
+  50% {
+    filter: saturate(1.28) brightness(1.08);
   }
 }
 
