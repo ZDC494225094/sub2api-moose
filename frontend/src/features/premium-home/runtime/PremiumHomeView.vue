@@ -678,7 +678,7 @@ function discountStrengthLabel(plan: SubscriptionPlan) {
   if (plan.id === premiumBurstPlanId.value) return '史低价'
   const percent = discountPercent(plan)
   if (percent >= 40) return '高折扣'
-  if (percent >= 20) return '中折扣'
+  if (percent >= 20) return '超值'
   if (percent > 0) return '超值'
   return '暂无折扣'
 }
