@@ -15,6 +15,7 @@
 
         <div class="nav-links">
           <a :class="{ active: activeHomeSection === 'top' }" href="#top" @click="setActiveHomeSection('top')">首页</a>
+          <a :class="{ active: activeHomeSection === 'pricing' }" href="#pricing" @click="setActiveHomeSection('pricing')">充值与定价</a>
           <a :class="{ active: activeHomeSection === 'plans' }" href="#plans" @click="setActiveHomeSection('plans')">套餐服务</a>
           <RouterLink to="/docs">文档中心</RouterLink>
         </div>
@@ -105,6 +106,7 @@
 
       <div class="mobile-menu" :class="{ 'is-open': menuOpen }">
         <a :class="{ active: activeHomeSection === 'top' }" href="#top" @click="handleHomeNavClick('top')">首页</a>
+        <a :class="{ active: activeHomeSection === 'pricing' }" href="#pricing" @click="handleHomeNavClick('pricing')">充值与定价</a>
         <a :class="{ active: activeHomeSection === 'plans' }" href="#plans" @click="handleHomeNavClick('plans')">套餐服务</a>
         <RouterLink to="/docs" @click="menuOpen = false">文档中心</RouterLink>
         <button class="mobile-menu-entry" type="button" @click="openNoticePanelFromMenu">
@@ -126,7 +128,7 @@
             <RouterLink class="primary-btn hero-btn" :to="isAuthenticated ? dashboardPath : '/register'">
               立即开始
             </RouterLink>
-            <a class="secondary-btn hero-btn" href="#plans" @click="setActiveHomeSection('plans')">套餐定价</a>
+            <a class="secondary-btn hero-btn" href="#pricing" @click="setActiveHomeSection('pricing')">套餐定价</a>
           </div>
         </div>
 
@@ -212,6 +214,81 @@
         <div v-for="feature in features" :key="feature.title" class="feature-item">
           <Icon :name="feature.icon" size="xl" />
           <div><strong>{{ feature.title }}</strong><span>{{ feature.desc }}</span></div>
+        </div>
+      </section>
+
+      <section id="pricing" class="section pricing-compare-section">
+        <div class="section-head">
+          <div class="section-title">
+            <h2>充值与定价</h2>
+            <span class="soft-badge">官方计费 vs 我们计费</span>
+          </div>
+        </div>
+
+        <div class="pricing-compare-panel" aria-label="充值与定价对比">
+          <div class="pricing-metric-grid">
+            <div class="pricing-metric">
+              <span>充值口径</span>
+              <strong>¥1 = $1</strong>
+            </div>
+            <div class="pricing-metric">
+              <span>计价公式</span>
+              <strong>官方价 × 分组倍率</strong>
+            </div>
+            <div class="pricing-metric">
+              <span>最低分组折扣</span>
+              <strong>0.1×</strong>
+            </div>
+            <div class="pricing-metric highlight">
+              <span>综合低至</span>
+              <strong>官方 0.014×</strong>
+            </div>
+          </div>
+
+          <div class="pricing-table-wrap">
+            <table class="pricing-compare-table">
+              <thead>
+                <tr>
+                  <th>对比项</th>
+                  <th>官方计费</th>
+                  <th>我们计费</th>
+                  <th>差异</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th>充值</th>
+                  <td>美元支付</td>
+                  <td><strong>人民币 1:1 充值</strong></td>
+                  <td>按人民币金额获得等额美元计费余额</td>
+                </tr>
+                <tr>
+                  <th>模型单价</th>
+                  <td>官方美元定价</td>
+                  <td><strong>官方价 × 分组倍率</strong></td>
+                  <td>所有模型跟随官方价格体系</td>
+                </tr>
+                <tr>
+                  <th>汇率成本</th>
+                  <td>约 7 RMB / USD</td>
+                  <td><strong>1 RMB / USD</strong></td>
+                  <td><strong>约官方 1/7</strong></td>
+                </tr>
+                <tr>
+                  <th>分组折扣</th>
+                  <td>1×</td>
+                  <td><strong>低至 0.1×</strong></td>
+                  <td>按套餐分组倍率自动生效</td>
+                </tr>
+                <tr class="pricing-total-row">
+                  <th>综合价格</th>
+                  <td>1×</td>
+                  <td><strong>低至 0.014×</strong></td>
+                  <td><strong>约为官方 1.4%</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -339,6 +416,7 @@
           <div class="footer-column">
             <h3>站点导航</h3>
             <a href="#top" @click="setActiveHomeSection('top')">首页</a>
+            <a href="#pricing" @click="setActiveHomeSection('pricing')">充值与定价</a>
             <a href="#plans" @click="setActiveHomeSection('plans')">套餐服务</a>
             <RouterLink to="/docs">文档中心</RouterLink>
           </div>
@@ -423,7 +501,8 @@ const announcements = ref<UserAnnouncement[]>([])
 const plansLoading = ref(true)
 const activePlanTab = ref('openai')
 const virtualPurchaseCounts = ref<Record<number, number>>({})
-const activeHomeSection = ref<'top' | 'plans'>('top')
+type HomeSection = 'top' | 'pricing' | 'plans'
+const activeHomeSection = ref<HomeSection>('top')
 let systemThemeQuery: MediaQueryList | null = null
 let globeCleanup: (() => void) | null = null
 
@@ -810,17 +889,25 @@ function onSystemThemeChange(event: MediaQueryListEvent) {
   }
 }
 
-function setActiveHomeSection(section: 'top' | 'plans') {
+function setActiveHomeSection(section: HomeSection) {
   activeHomeSection.value = section
 }
 
-function handleHomeNavClick(section: 'top' | 'plans') {
+function handleHomeNavClick(section: HomeSection) {
   setActiveHomeSection(section)
   menuOpen.value = false
 }
 
 function syncActiveSectionFromHash() {
-  activeHomeSection.value = window.location.hash === '#plans' ? 'plans' : 'top'
+  if (window.location.hash === '#plans') {
+    activeHomeSection.value = 'plans'
+    return
+  }
+  if (window.location.hash === '#pricing') {
+    activeHomeSection.value = 'pricing'
+    return
+  }
+  activeHomeSection.value = 'top'
 }
 
 watch(visiblePlanTabs, (tabs) => {

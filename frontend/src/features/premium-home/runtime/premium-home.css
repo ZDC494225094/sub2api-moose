@@ -1048,6 +1048,118 @@
   text-align: center;
 }
 
+.premium-home .pricing-compare-section {
+  scroll-margin-top: 92px;
+}
+
+.premium-home .pricing-compare-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.premium-home .pricing-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.premium-home .pricing-metric {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(247, 251, 255, 0.72)),
+    radial-gradient(circle at 12% 0%, rgba(37, 99, 255, 0.1), transparent 44%);
+  padding: 16px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.045);
+  backdrop-filter: blur(14px) saturate(150%);
+}
+
+.premium-home .pricing-metric span {
+  display: block;
+  color: #69778b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.premium-home .pricing-metric strong {
+  display: block;
+  margin-top: 8px;
+  color: #172033;
+  font-size: 22px;
+  font-weight: 930;
+  line-height: 1.1;
+}
+
+.premium-home .pricing-metric.highlight {
+  border-color: rgba(37, 99, 255, 0.34);
+  background:
+    linear-gradient(135deg, rgba(37, 99, 255, 0.12), rgba(85, 183, 255, 0.16)),
+    rgba(255, 255, 255, 0.82);
+}
+
+.premium-home .pricing-metric.highlight strong {
+  color: var(--blue);
+}
+
+.premium-home .pricing-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.05);
+  backdrop-filter: blur(16px) saturate(150%);
+}
+
+.premium-home .pricing-compare-table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.premium-home .pricing-compare-table th,
+.premium-home .pricing-compare-table td {
+  border-bottom: 1px solid rgba(37, 99, 255, 0.1);
+  padding: 15px 18px;
+  vertical-align: middle;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.premium-home .pricing-compare-table thead th {
+  background: rgba(237, 244, 255, 0.8);
+  color: #315170;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.premium-home .pricing-compare-table tbody th {
+  width: 120px;
+  color: #172033;
+  font-weight: 900;
+}
+
+.premium-home .pricing-compare-table td {
+  color: #536174;
+  font-weight: 650;
+}
+
+.premium-home .pricing-compare-table td strong {
+  color: #172033;
+  font-weight: 900;
+}
+
+.premium-home .pricing-total-row th,
+.premium-home .pricing-total-row td {
+  border-bottom: 0;
+  background: linear-gradient(90deg, rgba(37, 99, 255, 0.08), rgba(85, 183, 255, 0.1));
+}
+
+.premium-home .pricing-total-row td strong {
+  color: var(--blue);
+}
+
 .premium-home .plans-panel {
   display: grid;
   gap: 14px;
@@ -1673,6 +1785,7 @@
 .dark .premium-home .notice-card,
 .dark .premium-home .feature-strip,
 .dark .premium-home .loading-card,
+.dark .premium-home .pricing-table-wrap,
 .dark .premium-home .plan-tabs,
 .dark .premium-home .model-card,
 .dark .premium-home .support-card,
@@ -1688,6 +1801,9 @@
 .dark .premium-home .hero h1,
 .dark .premium-home .feature-item strong,
 .dark .premium-home .section-title h2,
+.dark .premium-home .pricing-metric strong,
+.dark .premium-home .pricing-compare-table tbody th,
+.dark .premium-home .pricing-compare-table td strong,
 .dark .premium-home .plan-top h3,
 .dark .premium-home .price strong,
 .dark .premium-home .stat-chip strong,
@@ -1737,6 +1853,8 @@
 
 .dark .premium-home .hero p,
 .dark .premium-home .feature-item span,
+.dark .premium-home .pricing-metric span,
+.dark .premium-home .pricing-compare-table td,
 .dark .premium-home .price span,
 .dark .premium-home .plan-desc,
 .dark .premium-home .notice-item p,
@@ -1790,6 +1908,33 @@
 
 .dark .premium-home .notice-reader-head {
   background: rgba(9, 17, 31, 0.88);
+}
+
+.dark .premium-home .pricing-metric {
+  background:
+    linear-gradient(180deg, rgba(13, 24, 42, 0.92), rgba(8, 17, 31, 0.78)),
+    radial-gradient(circle at 12% 0%, rgba(58, 139, 255, 0.16), transparent 44%);
+}
+
+.dark .premium-home .pricing-metric.highlight {
+  background:
+    linear-gradient(135deg, rgba(58, 139, 255, 0.18), rgba(34, 211, 238, 0.14)),
+    rgba(13, 24, 42, 0.86);
+}
+
+.dark .premium-home .pricing-compare-table thead th {
+  background: rgba(58, 139, 255, 0.14);
+  color: #c6d9ff;
+}
+
+.dark .premium-home .pricing-compare-table th,
+.dark .premium-home .pricing-compare-table td {
+  border-bottom-color: rgba(180, 202, 235, 0.13);
+}
+
+.dark .premium-home .pricing-total-row th,
+.dark .premium-home .pricing-total-row td {
+  background: linear-gradient(90deg, rgba(58, 139, 255, 0.16), rgba(34, 211, 238, 0.12));
 }
 
 .dark .premium-home .plan-card {
@@ -2279,6 +2424,10 @@
     grid-template-columns: repeat(3, 1fr);
   }
 
+  .premium-home .pricing-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .premium-home .models-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -2409,6 +2558,10 @@
 
   .premium-home .pricing-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .premium-home .pricing-metric strong {
+    font-size: 20px;
   }
 
   .premium-home .doc-steps,
@@ -2703,8 +2856,19 @@
 
   .premium-home .pricing-grid,
   .premium-home .models-grid,
+  .premium-home .pricing-metric-grid,
   .premium-home .feature-strip {
     grid-template-columns: 1fr;
+  }
+
+  .premium-home .pricing-metric {
+    padding: 14px;
+  }
+
+  .premium-home .pricing-compare-table th,
+  .premium-home .pricing-compare-table td {
+    padding: 13px 14px;
+    font-size: 13px;
   }
 
   .premium-home .plan-card,
