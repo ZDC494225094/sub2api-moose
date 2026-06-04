@@ -15,7 +15,7 @@
 
         <div class="nav-links">
           <a :class="{ active: activeHomeSection === 'top' }" href="#top" @click="setActiveHomeSection('top')">首页</a>
-          <a :class="{ active: activeHomeSection === 'pricing' }" href="#pricing" @click="setActiveHomeSection('pricing')">充值与定价</a>
+          <!-- <a :class="{ active: activeHomeSection === 'pricing' }" href="#pricing" @click="setActiveHomeSection('pricing')">充值与定价</a> -->
           <a :class="{ active: activeHomeSection === 'plans' }" href="#plans" @click="setActiveHomeSection('plans')">套餐服务</a>
           <RouterLink to="/docs">文档中心</RouterLink>
         </div>

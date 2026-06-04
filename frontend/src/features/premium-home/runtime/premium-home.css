@@ -1118,8 +1118,6 @@
 
 .premium-home .pricing-compare-table .is-platform {
   position: relative;
-  background:
-    linear-gradient(180deg, rgba(240, 246, 255, 0.98), rgba(250, 252, 255, 0.98));
   color: #2f63dd;
 }
 
@@ -1140,14 +1138,11 @@
 
 .premium-home .pricing-compare-table thead .is-platform {
   border-top: 2px solid rgba(178, 203, 255, 0.96);
-  border-top-left-radius: 16px;
-  border-top-right-radius: 16px;
 }
 
 .premium-home .pricing-compare-table tbody tr:last-child .is-platform {
   border-bottom: 2px solid rgba(178, 203, 255, 0.96);
-  border-bottom-left-radius: 16px;
-  border-bottom-right-radius: 16px;
+
 }
 
 .premium-home .pricing-total-row th,
