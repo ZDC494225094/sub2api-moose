@@ -1053,62 +1053,18 @@
 }
 
 .premium-home .pricing-compare-panel {
-  display: grid;
-  gap: 14px;
-}
-
-.premium-home .pricing-metric-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.premium-home .pricing-metric {
-  min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(247, 251, 255, 0.72)),
-    radial-gradient(circle at 12% 0%, rgba(37, 99, 255, 0.1), transparent 44%);
-  padding: 16px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.045);
-  backdrop-filter: blur(14px) saturate(150%);
-}
-
-.premium-home .pricing-metric span {
   display: block;
-  color: #69778b;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.premium-home .pricing-metric strong {
-  display: block;
-  margin-top: 8px;
-  color: #172033;
-  font-size: 22px;
-  font-weight: 930;
-  line-height: 1.1;
-}
-
-.premium-home .pricing-metric.highlight {
-  border-color: rgba(37, 99, 255, 0.34);
-  background:
-    linear-gradient(135deg, rgba(37, 99, 255, 0.12), rgba(85, 183, 255, 0.16)),
-    rgba(255, 255, 255, 0.82);
-}
-
-.premium-home .pricing-metric.highlight strong {
-  color: var(--blue);
 }
 
 .premium-home .pricing-table-wrap {
   overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.76);
-  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.05);
-  backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(207, 222, 249, 0.92);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(247, 250, 255, 0.95)),
+    radial-gradient(circle at top, rgba(76, 138, 255, 0.1), transparent 52%);
+  box-shadow: 0 18px 48px rgba(90, 116, 168, 0.12);
+  backdrop-filter: blur(18px) saturate(150%);
 }
 
 .premium-home .pricing-compare-table {
@@ -1116,44 +1072,88 @@
   min-width: 820px;
   border-collapse: collapse;
   text-align: left;
+  table-layout: fixed;
 }
 
 .premium-home .pricing-compare-table th,
 .premium-home .pricing-compare-table td {
-  border-bottom: 1px solid rgba(37, 99, 255, 0.1);
-  padding: 15px 18px;
+  border-right: 1px solid rgba(220, 231, 248, 0.84);
+  border-bottom: 1px solid rgba(220, 231, 248, 0.84);
+  padding: 22px 22px;
   vertical-align: middle;
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: 15px;
+  line-height: 1.38;
+}
+
+.premium-home .pricing-compare-table th:last-child,
+.premium-home .pricing-compare-table td:last-child {
+  border-right: 0;
 }
 
 .premium-home .pricing-compare-table thead th {
-  background: rgba(237, 244, 255, 0.8);
-  color: #315170;
-  font-size: 12px;
+  background: linear-gradient(180deg, rgba(242, 247, 255, 0.96), rgba(235, 243, 255, 0.92));
+  color: #41546d;
+  font-size: 14px;
   font-weight: 900;
+  text-align: center;
 }
 
 .premium-home .pricing-compare-table tbody th {
-  width: 120px;
-  color: #172033;
+  color: #20304a;
+  font-size: 15px;
   font-weight: 900;
+   text-align: center;
 }
 
 .premium-home .pricing-compare-table td {
-  color: #536174;
-  font-weight: 650;
+  color: #5e6f86;
+  font-weight: 720;
+  text-align: center;
 }
 
 .premium-home .pricing-compare-table td strong {
-  color: #172033;
+  color: #24405f;
   font-weight: 900;
+}
+
+.premium-home .pricing-compare-table .is-platform {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(240, 246, 255, 0.98), rgba(250, 252, 255, 0.98));
+  color: #2f63dd;
+}
+
+.premium-home .pricing-compare-table thead .is-platform {
+  color: #3666df;
+}
+
+.premium-home .pricing-compare-table tbody td.is-platform strong {
+  color: #2d66ea;
+  font-size: 16px;
+}
+
+.premium-home .pricing-compare-table thead .is-platform,
+.premium-home .pricing-compare-table tbody .is-platform {
+  border-left: 2px solid rgba(178, 203, 255, 0.96);
+  border-right: 2px solid rgba(178, 203, 255, 0.96);
+}
+
+.premium-home .pricing-compare-table thead .is-platform {
+  border-top: 2px solid rgba(178, 203, 255, 0.96);
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+}
+
+.premium-home .pricing-compare-table tbody tr:last-child .is-platform {
+  border-bottom: 2px solid rgba(178, 203, 255, 0.96);
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
 }
 
 .premium-home .pricing-total-row th,
 .premium-home .pricing-total-row td {
   border-bottom: 0;
-  background: linear-gradient(90deg, rgba(37, 99, 255, 0.08), rgba(85, 183, 255, 0.1));
+  background: linear-gradient(90deg, rgba(242, 247, 255, 0.94), rgba(235, 244, 255, 0.94));
 }
 
 .premium-home .pricing-total-row td strong {
@@ -1801,7 +1801,6 @@
 .dark .premium-home .hero h1,
 .dark .premium-home .feature-item strong,
 .dark .premium-home .section-title h2,
-.dark .premium-home .pricing-metric strong,
 .dark .premium-home .pricing-compare-table tbody th,
 .dark .premium-home .pricing-compare-table td strong,
 .dark .premium-home .plan-top h3,
@@ -1853,7 +1852,6 @@
 
 .dark .premium-home .hero p,
 .dark .premium-home .feature-item span,
-.dark .premium-home .pricing-metric span,
 .dark .premium-home .pricing-compare-table td,
 .dark .premium-home .price span,
 .dark .premium-home .plan-desc,
@@ -1910,18 +1908,6 @@
   background: rgba(9, 17, 31, 0.88);
 }
 
-.dark .premium-home .pricing-metric {
-  background:
-    linear-gradient(180deg, rgba(13, 24, 42, 0.92), rgba(8, 17, 31, 0.78)),
-    radial-gradient(circle at 12% 0%, rgba(58, 139, 255, 0.16), transparent 44%);
-}
-
-.dark .premium-home .pricing-metric.highlight {
-  background:
-    linear-gradient(135deg, rgba(58, 139, 255, 0.18), rgba(34, 211, 238, 0.14)),
-    rgba(13, 24, 42, 0.86);
-}
-
 .dark .premium-home .pricing-compare-table thead th {
   background: rgba(58, 139, 255, 0.14);
   color: #c6d9ff;
@@ -1929,7 +1915,32 @@
 
 .dark .premium-home .pricing-compare-table th,
 .dark .premium-home .pricing-compare-table td {
+  border-right-color: rgba(180, 202, 235, 0.13);
   border-bottom-color: rgba(180, 202, 235, 0.13);
+}
+
+.dark .premium-home .pricing-compare-table .is-platform {
+  background: linear-gradient(180deg, rgba(24, 40, 72, 0.92), rgba(14, 26, 49, 0.92));
+  color: #82aefe;
+}
+
+.dark .premium-home .pricing-compare-table tbody td.is-platform strong,
+.dark .premium-home .pricing-compare-table thead .is-platform {
+  color: #9ec1ff;
+}
+
+.dark .premium-home .pricing-compare-table thead .is-platform,
+.dark .premium-home .pricing-compare-table tbody .is-platform {
+  border-left-color: rgba(90, 141, 255, 0.62);
+  border-right-color: rgba(90, 141, 255, 0.62);
+}
+
+.dark .premium-home .pricing-compare-table thead .is-platform {
+  border-top-color: rgba(90, 141, 255, 0.62);
+}
+
+.dark .premium-home .pricing-compare-table tbody tr:last-child .is-platform {
+  border-bottom-color: rgba(90, 141, 255, 0.62);
 }
 
 .dark .premium-home .pricing-total-row th,
@@ -2856,18 +2867,17 @@
 
   .premium-home .pricing-grid,
   .premium-home .models-grid,
-  .premium-home .pricing-metric-grid,
   .premium-home .feature-strip {
     grid-template-columns: 1fr;
   }
 
-  .premium-home .pricing-metric {
-    padding: 14px;
+  .premium-home .pricing-table-wrap {
+    border-radius: 18px;
   }
 
   .premium-home .pricing-compare-table th,
   .premium-home .pricing-compare-table td {
-    padding: 13px 14px;
+    padding: 16px 14px;
     font-size: 13px;
   }
 

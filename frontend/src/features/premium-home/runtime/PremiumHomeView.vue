@@ -220,70 +220,57 @@
       <section id="pricing" class="section pricing-compare-section">
         <div class="section-head">
           <div class="section-title">
-            <h2>充值与定价</h2>
-            <span class="soft-badge">官方计费 vs 我们计费</span>
+            <h2>费用对比</h2>
+            <span class="soft-badge">透明对比，清晰更安心</span>
           </div>
         </div>
 
-        <div class="pricing-compare-panel" aria-label="充值与定价对比">
-          <div class="pricing-metric-grid">
-            <div class="pricing-metric">
-              <span>充值口径</span>
-              <strong>¥1 = $1</strong>
-            </div>
-            <div class="pricing-metric">
-              <span>计价公式</span>
-              <strong>官方价 × 分组倍率</strong>
-            </div>
-            <div class="pricing-metric">
-              <span>最低分组折扣</span>
-              <strong>0.1×</strong>
-            </div>
-            <div class="pricing-metric highlight">
-              <span>综合低至</span>
-              <strong>官方 0.014×</strong>
-            </div>
-          </div>
-
+        <div class="pricing-compare-panel" aria-label="费用对比表格">
           <div class="pricing-table-wrap">
             <table class="pricing-compare-table">
+              <colgroup>
+                <col class="col-item">
+                <col class="col-official">
+                <col class="col-platform">
+                <col class="col-advantage">
+              </colgroup>
               <thead>
                 <tr>
                   <th>对比项</th>
                   <th>官方计费</th>
-                  <th>我们计费</th>
-                  <th>差异</th>
+                  <th class="is-platform">{{ siteName }} 充值（本平台）</th>
+                  <th>差异优势</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <th>充值</th>
                   <td>美元支付</td>
-                  <td><strong>人民币 1:1 充值</strong></td>
-                  <td>按人民币金额获得等额美元计费余额</td>
+                  <td class="is-platform"><strong>人民币 1:1 充值</strong></td>
+                  <td>人民币充值更便捷，享受更优汇率</td>
                 </tr>
                 <tr>
                   <th>模型单价</th>
                   <td>官方美元定价</td>
-                  <td><strong>官方价 × 分组倍率</strong></td>
-                  <td>所有模型跟随官方价格体系</td>
+                  <td class="is-platform"><strong>官方价 × 分组倍率</strong></td>
+                  <td>所有模型在官方价格体系上× 分组倍率</td>
                 </tr>
                 <tr>
                   <th>汇率成本</th>
                   <td>约 7 RMB / USD</td>
-                  <td><strong>1 RMB / USD</strong></td>
-                  <td><strong>约官方 1/7</strong></td>
+                  <td class="is-platform"><strong>1 RMB / USD</strong></td>
+                  <td><strong>成本约为1/7</strong></td>
                 </tr>
                 <tr>
                   <th>分组折扣</th>
                   <td>1×</td>
-                  <td><strong>低至 0.1×</strong></td>
+                  <td class="is-platform"><strong>低至 0.1×</strong></td>
                   <td>按套餐分组倍率自动生效</td>
                 </tr>
                 <tr class="pricing-total-row">
                   <th>综合价格</th>
-                  <td>1×</td>
-                  <td><strong>低至 0.014×</strong></td>
+                  <td>1×（官方基准）</td>
+                  <td class="is-platform"><strong>低至官方 0.014×</strong></td>
                   <td><strong>约为官方 1.4%</strong></td>
                 </tr>
               </tbody>
