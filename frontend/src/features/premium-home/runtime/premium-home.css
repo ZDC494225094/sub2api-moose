@@ -2867,13 +2867,125 @@
   }
 
   .premium-home .pricing-table-wrap {
+    overflow: visible;
+    border: 0;
     border-radius: 18px;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
   }
 
+  .premium-home .pricing-compare-table {
+    min-width: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .premium-home .pricing-compare-table colgroup,
+  .premium-home .pricing-compare-table thead {
+    display: none;
+  }
+
+  .premium-home .pricing-compare-table,
+  .premium-home .pricing-compare-table tbody,
+  .premium-home .pricing-compare-table tr,
   .premium-home .pricing-compare-table th,
   .premium-home .pricing-compare-table td {
-    padding: 16px 14px;
+    display: block;
+    width: 100%;
+  }
+
+  .premium-home .pricing-compare-table tbody {
+    padding: 0;
+  }
+
+  .premium-home .pricing-compare-table tbody tr {
+    overflow: hidden;
+    border: 1px solid rgba(207, 222, 249, 0.92);
+    border-radius: 18px;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(247, 250, 255, 0.95)),
+      radial-gradient(circle at top, rgba(76, 138, 255, 0.08), transparent 60%);
+    box-shadow: 0 12px 28px rgba(90, 116, 168, 0.1);
+  }
+
+  .premium-home .pricing-compare-table tbody tr + tr {
+    margin-top: 14px;
+  }
+
+  .premium-home .pricing-compare-table tbody th,
+  .premium-home .pricing-compare-table tbody td {
+    border-right: 0;
+    text-align: left;
+  }
+
+  .premium-home .pricing-compare-table tbody th {
+    padding: 16px 16px 12px;
+    border-bottom-color: rgba(220, 231, 248, 0.84);
+    background: linear-gradient(180deg, rgba(242, 247, 255, 0.96), rgba(235, 243, 255, 0.9));
+    font-size: 15px;
+  }
+
+  .premium-home .pricing-compare-table tbody td {
+    display: grid;
+    grid-template-columns: minmax(72px, 92px) minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    padding: 12px 16px;
     font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .premium-home .pricing-compare-table tbody td::before {
+    color: #6a7b92;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+  }
+
+  .premium-home .pricing-compare-table tbody td:nth-of-type(1)::before {
+    content: "官方计费";
+  }
+
+  .premium-home .pricing-compare-table tbody td:nth-of-type(2)::before {
+    content: "平台充值";
+  }
+
+  .premium-home .pricing-compare-table tbody td:nth-of-type(3)::before {
+    content: "差异优势";
+  }
+
+  .premium-home .pricing-compare-table tbody td.is-platform {
+    border-left: 0;
+    border-right: 0;
+    background: rgba(37, 99, 255, 0.04);
+  }
+
+  .premium-home .pricing-total-row td:last-child,
+  .premium-home .pricing-compare-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .dark .premium-home .pricing-compare-table tbody tr {
+    border-color: rgba(90, 141, 255, 0.2);
+    background:
+      linear-gradient(180deg, rgba(13, 24, 42, 0.92), rgba(8, 17, 31, 0.82)),
+      radial-gradient(circle at top, rgba(58, 139, 255, 0.18), transparent 60%);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+  }
+
+  .dark .premium-home .pricing-compare-table tbody th {
+    border-bottom-color: rgba(180, 202, 235, 0.13);
+    background: rgba(58, 139, 255, 0.12);
+  }
+
+  .dark .premium-home .pricing-compare-table tbody td::before {
+    color: #9fb4d7;
+  }
+
+  .dark .premium-home .pricing-compare-table tbody td.is-platform {
+    background: linear-gradient(180deg, rgba(24, 40, 72, 0.92), rgba(14, 26, 49, 0.92));
   }
 
   .premium-home .plan-card,

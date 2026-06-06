@@ -208,6 +208,13 @@ func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req Upd
 	return u.Save(ctx)
 }
 
+func (s *PaymentConfigService) BulkIncrementPlanDisplayPurchaseCount(ctx context.Context, amount int) (int, error) {
+	if amount <= 0 {
+		return 0, infraerrors.BadRequest("PLAN_DISPLAY_PURCHASE_COUNT_INCREMENT_INVALID", "display purchase count increment must be > 0")
+	}
+	return s.entClient.SubscriptionPlan.Update().AddDisplayPurchaseCount(amount).Save(ctx)
+}
+
 func (s *PaymentConfigService) DeletePlan(ctx context.Context, id int64) error {
 	count, err := s.countPendingOrdersByPlan(ctx, id)
 	if err != nil {

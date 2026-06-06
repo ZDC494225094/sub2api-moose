@@ -2,11 +2,33 @@
   <AppLayout>
     <div class="space-y-4">
       <!-- Actions -->
-      <div class="flex items-center justify-end gap-2">
-        <button @click="loadPlans" :disabled="plansLoading" class="btn btn-secondary" :title="t('common.refresh')">
-          <Icon name="refresh" size="md" :class="plansLoading ? 'animate-spin' : ''" />
-        </button>
-        <button @click="openPlanEdit(null)" class="btn btn-primary">{{ t('payment.admin.createPlan') }}</button>
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div class="flex flex-wrap items-end gap-2">
+          <div>
+            <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">{{ t('payment.admin.bulkIncreasePurchaseCount') }}</label>
+            <input
+              v-model.number="bulkIncreaseAmount"
+              type="number"
+              min="1"
+              step="1"
+              class="input w-36"
+              :placeholder="t('payment.admin.bulkIncreaseAmountPlaceholder')"
+            />
+          </div>
+          <button
+            @click="openBulkIncreaseDialog"
+            :disabled="plansLoading || bulkIncreasing || plans.length === 0"
+            class="btn btn-secondary"
+          >
+            {{ t('payment.admin.bulkIncreaseApply') }}
+          </button>
+        </div>
+        <div class="flex items-center justify-end gap-2">
+          <button @click="loadPlans" :disabled="plansLoading" class="btn btn-secondary" :title="t('common.refresh')">
+            <Icon name="refresh" size="md" :class="plansLoading ? 'animate-spin' : ''" />
+          </button>
+          <button @click="openPlanEdit(null)" class="btn btn-primary">{{ t('payment.admin.createPlan') }}</button>
+        </div>
       </div>
 
       <!-- Plans Table -->
@@ -72,6 +94,15 @@
     <!-- Plan Edit Dialog -->
     <PlanEditDialog :show="showPlanDialog" :plan="editingPlan" :groups="groups" @close="showPlanDialog = false" @saved="loadPlans" />
 
+    <ConfirmDialog
+      :show="showBulkIncreaseDialog"
+      :title="t('payment.admin.bulkIncreaseConfirm')"
+      :message="t('payment.admin.bulkIncreaseConfirmMessage', { count: plans.length, amount: bulkIncreaseAmount || 0 })"
+      :confirm-text="t('payment.admin.bulkIncreaseApply')"
+      @confirm="handleBulkIncrease"
+      @cancel="showBulkIncreaseDialog = false"
+    />
+
     <ConfirmDialog :show="showDeletePlanDialog" :title="t('payment.admin.deletePlan')" :message="t('payment.admin.deletePlanConfirm')" :confirm-text="t('common.delete')" danger @confirm="handleDeletePlan" @cancel="showDeletePlanDialog = false" />
   </AppLayout>
 </template>
@@ -127,8 +158,11 @@ const plansLoading = ref(false)
 const plans = ref<SubscriptionPlan[]>([])
 const showPlanDialog = ref(false)
 const showDeletePlanDialog = ref(false)
+const showBulkIncreaseDialog = ref(false)
 const editingPlan = ref<SubscriptionPlan | null>(null)
 const deletingPlanId = ref<number | null>(null)
+const bulkIncreaseAmount = ref<number | null>(null)
+const bulkIncreasing = ref(false)
 
 const planColumns = computed((): Column[] => [
   { key: 'id', label: 'ID' },
@@ -161,6 +195,39 @@ async function loadPlans() {
 function openPlanEdit(plan: SubscriptionPlan | null) {
   editingPlan.value = plan
   showPlanDialog.value = true
+}
+
+function openBulkIncreaseDialog() {
+  if (!plans.value.length) {
+    appStore.showInfo(t('payment.admin.bulkIncreaseNoPlans'))
+    return
+  }
+  const amount = Number(bulkIncreaseAmount.value ?? 0)
+  if (!Number.isInteger(amount) || amount <= 0) {
+    appStore.showError(t('payment.admin.bulkIncreaseRequired'))
+    return
+  }
+  showBulkIncreaseDialog.value = true
+}
+
+async function handleBulkIncrease() {
+  if (bulkIncreasing.value) return
+  const amount = Number(bulkIncreaseAmount.value ?? 0)
+  if (!Number.isInteger(amount) || amount <= 0) {
+    appStore.showError(t('payment.admin.bulkIncreaseRequired'))
+    return
+  }
+  bulkIncreasing.value = true
+  try {
+    const res = await adminPaymentAPI.bulkIncreaseDisplayPurchaseCount(amount)
+    appStore.showSuccess(t('payment.admin.bulkIncreaseSuccess', { count: res.data?.affected || 0 }))
+    showBulkIncreaseDialog.value = false
+    await loadPlans()
+  } catch (err: unknown) {
+    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+  } finally {
+    bulkIncreasing.value = false
+  }
 }
 
 

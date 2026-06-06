@@ -224,6 +224,22 @@ func (h *PaymentHandler) UpdatePlan(c *gin.Context) {
 	response.Success(c, plan)
 }
 
+// BulkIncrementPlanDisplayPurchaseCount increments homepage display purchase counts for all plans.
+// POST /api/v1/admin/payment/plans/bulk-increase-display-purchase-count
+func (h *PaymentHandler) BulkIncrementPlanDisplayPurchaseCount(c *gin.Context) {
+	var req service.BulkIncrementPlanDisplayPurchaseCountRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	affected, err := h.configService.BulkIncrementPlanDisplayPurchaseCount(c.Request.Context(), req.Amount)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"affected": affected})
+}
+
 // DeletePlan deletes a subscription plan.
 // DELETE /api/v1/admin/payment/plans/:id
 func (h *PaymentHandler) DeletePlan(c *gin.Context) {

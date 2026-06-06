@@ -92,6 +92,7 @@ func RegisterPaymentRoutes(
 		{
 			plans.GET("", adminPaymentHandler.ListPlans)
 			plans.POST("", adminPaymentHandler.CreatePlan)
+			plans.POST("/bulk-increase-display-purchase-count", adminPaymentHandler.BulkIncrementPlanDisplayPurchaseCount)
 			plans.PUT("/:id", adminPaymentHandler.UpdatePlan)
 			plans.DELETE("/:id", adminPaymentHandler.DeletePlan)
 		}

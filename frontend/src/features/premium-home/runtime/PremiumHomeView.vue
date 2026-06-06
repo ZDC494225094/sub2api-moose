@@ -341,7 +341,7 @@
                 <div class="heat-head"><span>折扣力度</span><strong>{{ discountStrengthLabel(plan) }}</strong></div>
                 <div class="heat-track">
                   <i></i>
-                  <span v-if="plan.id === premiumBurstPlanId" class="burst-badge" aria-label="爆款套餐">爆</span>
+                  <span v-if="plan.id === premiumBurstPlanId" class="burst-badge" aria-label="爆款套餐">夯</span>
                 </div>
               </div>
               <ul class="features">

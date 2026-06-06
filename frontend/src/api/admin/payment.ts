@@ -147,6 +147,11 @@ export const adminPaymentAPI = {
     return apiClient.put<SubscriptionPlan>(`/admin/payment/plans/${id}`, data)
   },
 
+  /** Bulk increment homepage display purchase counts for all subscription plans */
+  bulkIncreaseDisplayPurchaseCount(amount: number) {
+    return apiClient.post<{ affected: number }>('/admin/payment/plans/bulk-increase-display-purchase-count', { amount })
+  },
+
   /** Delete a subscription plan */
   deletePlan(id: number) {
     return apiClient.delete(`/admin/payment/plans/${id}`)
