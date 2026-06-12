@@ -7085,6 +7085,8 @@ export default {
     placeholderMeta: 'The admin has not filled this slot yet.',
     drawSuccess: 'Draw succeeded',
     drawFailed: 'Draw failed',
+    thresholdNotMet: 'You have not reached the draw threshold yet.',
+    walletDrawDisabled: 'Paid wallet draws are disabled for this activity.',
     availableCoupons: 'Available Coupons',
     couponHint: 'Coupons can stack with other offers. The final payment cannot go below 0.01.',
     noCoupon: 'Do not use a coupon',

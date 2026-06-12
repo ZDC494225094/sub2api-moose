@@ -17,9 +17,9 @@
         </button>
       </div>
 
-      <div class="grid gap-5 xl:grid-cols-[1fr,280px]">
+      <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr),280px]">
         <!-- Lottery Board -->
-        <section class="relative overflow-hidden rounded-3xl border border-blue-200/60 bg-gradient-to-br from-blue-50 via-white to-sky-50 p-5 shadow-xl dark:border-blue-900/30 dark:from-blue-950/30 dark:via-dark-900 dark:to-sky-950/20">
+        <section ref="boardSectionRef" class="relative overflow-hidden rounded-3xl border border-blue-200/60 bg-gradient-to-br from-blue-50 via-white to-sky-50 p-5 shadow-xl dark:border-blue-900/30 dark:from-blue-950/30 dark:via-dark-900 dark:to-sky-950/20">
           <!-- ambient glow -->
           <div class="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
             <div class="absolute -top-8 left-1/2 h-32 w-72 -translate-x-1/2 rounded-full bg-blue-300/25 blur-3xl dark:bg-blue-500/10" />
@@ -37,8 +37,9 @@
               <template v-if="slot.kind === 'center'">
                 <button
                   type="button"
-                  class="flex h-full w-full flex-col items-center justify-center gap-1 p-2"
-                  :disabled="drawing"
+                  class="flex h-full w-full flex-col items-center justify-center gap-1 p-2 transition-opacity"
+                  :class="drawButtonEnabled ? '' : 'cursor-not-allowed opacity-55'"
+                  :disabled="drawing || !drawButtonEnabled"
                   @click="handleDrawClick"
                 >
                   <div v-if="drawing" class="absolute inset-2 animate-spin rounded-full border-2 border-transparent border-t-white/80" />
@@ -81,14 +82,17 @@
         </section>
 
         <!-- Right: recent winners -->
-        <aside class="flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-lg dark:border-dark-700 dark:bg-dark-900">
+        <aside
+          class="flex min-h-0 max-h-[420px] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-lg dark:border-dark-700 dark:bg-dark-900 sm:max-h-[480px] xl:max-h-none"
+          :style="recentAsideStyle"
+        >
           <div class="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-dark-700">
             <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('userLottery.recentWinners') }}</p>
             <span class="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
               {{ prizePoolLabel }}
             </span>
           </div>
-          <div class="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+          <div ref="recentListRef" class="min-h-0 flex-1 overflow-y-auto px-3 py-2">
             <div v-if="recentWinners.length === 0" class="py-10 text-center text-sm text-gray-400 dark:text-gray-500">
               {{ t('userLottery.noRecentWinners') }}
             </div>
@@ -202,7 +206,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { paymentAPI } from '@/api/payment'
@@ -223,15 +227,46 @@ const showWalletConfirm = ref(false)
 const showHistory = ref(false)
 const historyLoading = ref(false)
 const historyItems = ref<LotteryDrawRecord[]>([])
+const recentListRef = ref<HTMLElement | null>(null)
+const boardSectionRef = ref<HTMLElement | null>(null)
+const boardSectionHeight = ref(0)
+let recentTicker: ReturnType<typeof setInterval> | null = null
+let boardResizeObserver: ResizeObserver | null = null
 
 type SlotPrize = { key: string; label: string; badge: string; prizeType: LotteryPrize['prize_type']; kind: 'prize' }
 type CenterSlot = { key: string; label: string; badge: string; prizeType: 'thanks'; kind: 'center' }
 type BoardSlot = SlotPrize | CenterSlot
 
 const availableChances = computed(() => overview.value?.user_state?.available_draw_times ?? 0)
-const middleValue = computed(() => availableChances.value > 0 ? `${availableChances.value}` : `¥${activity.value?.wallet_cost_per_draw.toFixed(2) || '0.00'}`)
-const middleHint = computed(() => availableChances.value > 0 ? t('userLottery.availableChances') : t('userLottery.drawWithWallet', { amount: activity.value?.wallet_cost_per_draw.toFixed(2) || '0.00' }))
+const drawEligibility = computed(() => overview.value?.draw_eligibility)
+const isThresholdMet = computed(() => drawEligibility.value?.consume_threshold_met !== false)
+const walletDrawEnabled = computed(() => drawEligibility.value?.wallet_draw_enabled ?? ((activity.value?.wallet_cost_per_draw || 0) > 0))
+const shouldUseWalletDisplay = computed(() => {
+  const state = overview.value?.user_state
+  if (!state) return false
+  if (availableChances.value > 0) return false
+  return state.default_granted
+})
+const drawButtonEnabled = computed(() => {
+  if (drawing.value) return false
+  if (!activity.value) return false
+  if (!isThresholdMet.value) return false
+  if (!shouldUseWalletDisplay.value) return true
+  return walletDrawEnabled.value
+})
+const middleValue = computed(() => shouldUseWalletDisplay.value ? `¥${activity.value?.wallet_cost_per_draw.toFixed(2) || '0.00'}` : `${availableChances.value}`)
+const middleHint = computed(() => {
+  if (!isThresholdMet.value) return t('userLottery.thresholdNotMet')
+  if (shouldUseWalletDisplay.value && !walletDrawEnabled.value) return t('userLottery.walletDrawDisabled')
+  return shouldUseWalletDisplay.value
+    ? t('userLottery.drawWithWallet', { amount: activity.value?.wallet_cost_per_draw.toFixed(2) || '0.00' })
+    : t('userLottery.availableChances')
+})
 const prizePoolLabel = computed(() => `${rawPrizes.value.length} ${t('userLottery.prizePoolUnits')}`)
+const recentAsideStyle = computed(() => {
+  if (typeof window === 'undefined' || window.innerWidth < 1280 || boardSectionHeight.value <= 0) return undefined
+  return { maxHeight: `${boardSectionHeight.value}px` }
+})
 const rawPrizes = computed(() => ((activity.value as (LotteryActivity & { prizes?: LotteryPrize[] }) | null)?.prizes || []).filter(p => p.status === 'active'))
 
 const distributedPrizes = computed<SlotPrize[]>(() => {
@@ -292,8 +327,16 @@ function maskedIdentity(userName?: string, userEmail?: string) {
 
 function handleDrawClick() {
   if (!activity.value || drawing.value) return
+  if (!isThresholdMet.value) {
+    appStore.showError(t('userLottery.thresholdNotMet'))
+    return
+  }
+  if (shouldUseWalletDisplay.value && !walletDrawEnabled.value) {
+    appStore.showError(t('userLottery.walletDrawDisabled'))
+    return
+  }
   // need wallet payment — show confirm
-  if (availableChances.value <= 0) {
+  if (shouldUseWalletDisplay.value) {
     showWalletConfirm.value = true
     return
   }
@@ -309,6 +352,10 @@ async function loadOverview() {
   try {
     const r = await paymentAPI.getActiveLottery()
     overview.value = r.data && 'activity' in r.data ? r.data as LotteryOverview : null
+    await nextTick()
+    syncBoardSectionHeight()
+    ensureBoardResizeObserver()
+    setTimeout(startRecentTicker, 120)
   } catch (e) {
     console.error(e)
     appStore.showError(t('userLottery.failedToLoad'))
@@ -447,5 +494,75 @@ function showResult(prizeName: string, _prizeType: string, isThanks: boolean) {
   setTimeout(() => { resultMessage.value = ''; resultSub.value = '' }, 4000)
 }
 
+function syncBoardSectionHeight() {
+  const el = boardSectionRef.value
+  if (!el) return
+  boardSectionHeight.value = Math.ceil(el.getBoundingClientRect().height)
+}
+
+function disconnectBoardResizeObserver() {
+  boardResizeObserver?.disconnect()
+  boardResizeObserver = null
+}
+
+function ensureBoardResizeObserver() {
+  const el = boardSectionRef.value
+  if (!el || typeof ResizeObserver === 'undefined') return
+  disconnectBoardResizeObserver()
+  boardResizeObserver = new ResizeObserver(() => {
+    syncBoardSectionHeight()
+  })
+  boardResizeObserver.observe(el)
+}
+
+function stopRecentTicker() {
+  if (recentTicker) {
+    clearInterval(recentTicker)
+    recentTicker = null
+  }
+}
+
+function startRecentTicker() {
+  stopRecentTicker()
+  const el = recentListRef.value
+  if (!el) return
+  recentTicker = setInterval(() => {
+    const node = recentListRef.value
+    if (!node) return
+    if (node.scrollHeight <= node.clientHeight + 4) return
+    const next = node.scrollTop + 1
+    if (next >= node.scrollHeight - node.clientHeight - 1) {
+      node.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    node.scrollTop = next
+  }, 50)
+}
+
+watch(() => recentWinners.value.length, async () => {
+  await nextTick()
+  syncBoardSectionHeight()
+  ensureBoardResizeObserver()
+  setTimeout(startRecentTicker, 120)
+})
+
+watch([activity, () => boardSlots.value.length, () => resultMessage.value], async () => {
+  await nextTick()
+  syncBoardSectionHeight()
+  ensureBoardResizeObserver()
+})
+
 onMounted(loadOverview)
+onMounted(() => {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', syncBoardSectionHeight)
+  }
+})
+onBeforeUnmount(() => {
+  stopRecentTicker()
+  disconnectBoardResizeObserver()
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', syncBoardSectionHeight)
+  }
+})
 </script>

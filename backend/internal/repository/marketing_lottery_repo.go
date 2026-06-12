@@ -411,10 +411,11 @@ func (r *lotteryDrawRecordRepository) ListByUser(ctx context.Context, userID int
 		return nil, nil, err
 	}
 	rows, err := exec.QueryContext(ctx, `
-SELECT id, activity_id, user_id, prize_id, prize_name, prize_type, result_code, chance_source,
-       wallet_amount, user_coupon_id, reward_reference, created_at
-FROM lottery_draw_records
-WHERE `+whereClause+fmt.Sprintf(" ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d", params.Limit(), params.Offset()), args...)
+SELECT r.id, r.activity_id, r.user_id, r.prize_id, r.prize_name, r.prize_type, r.result_code, r.chance_source,
+       r.wallet_amount, r.user_coupon_id, r.reward_reference, r.created_at, u.username, u.email
+FROM lottery_draw_records r
+LEFT JOIN users u ON u.id = r.user_id
+WHERE `+whereClause+fmt.Sprintf(" ORDER BY r.created_at DESC, r.id DESC LIMIT %d OFFSET %d", params.Limit(), params.Offset()), args...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -424,7 +425,9 @@ WHERE `+whereClause+fmt.Sprintf(" ORDER BY created_at DESC, id DESC LIMIT %d OFF
 		var item service.LotteryDrawRecord
 		var prizeID sql.NullInt64
 		var userCouponID sql.NullInt64
-		if err := rows.Scan(&item.ID, &item.ActivityID, &item.UserID, &prizeID, &item.PrizeName, &item.PrizeType, &item.ResultCode, &item.ChanceSource, &item.WalletAmount, &userCouponID, &item.RewardReference, &item.CreatedAt); err != nil {
+		var userName sql.NullString
+		var userEmail sql.NullString
+		if err := rows.Scan(&item.ID, &item.ActivityID, &item.UserID, &prizeID, &item.PrizeName, &item.PrizeType, &item.ResultCode, &item.ChanceSource, &item.WalletAmount, &userCouponID, &item.RewardReference, &item.CreatedAt, &userName, &userEmail); err != nil {
 			return nil, nil, err
 		}
 		if prizeID.Valid {
@@ -434,6 +437,12 @@ WHERE `+whereClause+fmt.Sprintf(" ORDER BY created_at DESC, id DESC LIMIT %d OFF
 		if userCouponID.Valid {
 			v := userCouponID.Int64
 			item.UserCouponID = &v
+		}
+		if userName.Valid {
+			item.UserName = userName.String
+		}
+		if userEmail.Valid {
+			item.UserEmail = userEmail.String
 		}
 		items = append(items, item)
 	}

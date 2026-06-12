@@ -164,17 +164,28 @@ func (s *LotteryService) GetActiveOverview(ctx context.Context, userID int64) (*
 	if err != nil {
 		return nil, err
 	}
+	eligibility, err := s.buildDrawEligibility(ctx, activity, state, userID)
+	if err != nil {
+		return nil, err
+	}
 	// Best-effort: grant default chances outside a transaction.
 	// Failures here are non-fatal; the Draw transaction will re-attempt atomically.
-	_, _ = s.tryGrantDefaultChances(ctx, activity, state, userID, now)
+	if eligibility.ConsumeThresholdMet {
+		_, _ = s.tryGrantDefaultChances(ctx, activity, state, userID, now)
+	}
+	eligibility, err = s.buildDrawEligibility(ctx, activity, state, userID)
+	if err != nil {
+		return nil, err
+	}
 	recent, err := s.drawRecordRepo.ListRecentByActivity(ctx, activity.ID, 20)
 	if err != nil {
 		return nil, err
 	}
 	return &LotteryOverview{
-		Activity:      activity,
-		UserState:     state,
-		RecentWinners: recent,
+		Activity:        activity,
+		UserState:       state,
+		RecentWinners:   recent,
+		DrawEligibility: eligibility,
 	}, nil
 }
 
@@ -276,8 +287,24 @@ func (s *LotteryService) Draw(ctx context.Context, input LotteryDrawInput) (*Lot
 	if err := ensureLotteryActivityOpen(activity, now); err != nil {
 		return nil, err
 	}
-	if _, err := s.tryGrantDefaultChances(txCtx, activity, state, input.UserID, now); err != nil {
+	eligibility, err := s.buildDrawEligibility(txCtx, activity, state, input.UserID)
+	if err != nil {
 		return nil, err
+	}
+	if eligibility.ConsumeThresholdMet {
+		if _, err := s.tryGrantDefaultChances(txCtx, activity, state, input.UserID, now); err != nil {
+			return nil, err
+		}
+		eligibility, err = s.buildDrawEligibility(txCtx, activity, state, input.UserID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !eligibility.ConsumeThresholdMet {
+		return nil, infraerrors.Conflict("LOTTERY_CONSUME_THRESHOLD_UNMET", "lottery consume threshold not met")
+	}
+	if activity.WalletCostPerDraw <= 0 && state.AvailableDrawTimes <= 0 {
+		return nil, infraerrors.BadRequest("LOTTERY_WALLET_DISABLED", "wallet payment for lottery is disabled")
 	}
 
 	chanceSource := LotteryChanceSourceDefault
@@ -287,9 +314,6 @@ func (s *LotteryService) Draw(ctx context.Context, input LotteryDrawInput) (*Lot
 		state.TotalDrawnTimes++
 	} else {
 		if !input.UseWallet {
-			if activity.DefaultDrawTimes > 0 && !state.DefaultGranted && activity.ConsumeThresholdAmount > 0 {
-				return nil, infraerrors.Conflict("LOTTERY_CONSUME_THRESHOLD_UNMET", "lottery consume threshold not met")
-			}
 			return nil, infraerrors.Conflict("LOTTERY_NO_AVAILABLE_CHANCES", "no available lottery chances")
 		}
 		if activity.WalletCostPerDraw <= 0 {
@@ -391,6 +415,34 @@ func (s *LotteryService) Draw(ctx context.Context, input LotteryDrawInput) (*Lot
 		return nil, err
 	}
 	return result, nil
+}
+
+func (s *LotteryService) buildDrawEligibility(ctx context.Context, activity *LotteryActivity, state *LotteryUserState, userID int64) (*LotteryDrawEligibility, error) {
+	eligibility := &LotteryDrawEligibility{
+		ConsumeThresholdMet:     true,
+		RequiredThresholdAmount: activity.ConsumeThresholdAmount,
+		WalletDrawEnabled:       activity.WalletCostPerDraw > 0,
+	}
+	if activity.ConsumeThresholdAmount > 0 {
+		qualifiedAmount, err := s.consumeProgressRepo.GetQualifiedAmount(ctx, activity.ID, userID, activity.ConsumeThresholdAmount)
+		if err != nil {
+			return nil, err
+		}
+		eligibility.QualifiedAmount = qualifiedAmount
+		eligibility.ConsumeThresholdMet = qualifiedAmount >= activity.ConsumeThresholdAmount
+	}
+	eligibility.CanDrawWithWallet = eligibility.ConsumeThresholdMet && eligibility.WalletDrawEnabled
+	switch {
+	case !eligibility.ConsumeThresholdMet:
+		eligibility.BlockReason = "threshold_unmet"
+	case state != nil && state.AvailableDrawTimes > 0:
+		eligibility.BlockReason = ""
+	case !eligibility.WalletDrawEnabled:
+		eligibility.BlockReason = "wallet_disabled"
+	default:
+		eligibility.BlockReason = ""
+	}
+	return eligibility, nil
 }
 
 func (s *LotteryService) ListUserDrawRecords(ctx context.Context, userID, activityID int64, params pagination.PaginationParams) ([]LotteryDrawRecord, *pagination.PaginationResult, error) {

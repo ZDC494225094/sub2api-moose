@@ -7264,6 +7264,8 @@ export default {
     placeholderMeta: '管理员尚未填满九宫格',
     drawSuccess: '抽奖成功',
     drawFailed: '抽奖失败',
+    thresholdNotMet: '未达到抽奖门槛，当前无法参与抽奖',
+    walletDrawDisabled: '当前活动不支持自费抽奖',
     availableCoupons: '可用优惠券',
     couponHint: '优惠券可与其他优惠叠加，抵扣后最低支付 0.01 元',
     noCoupon: '不使用优惠券',

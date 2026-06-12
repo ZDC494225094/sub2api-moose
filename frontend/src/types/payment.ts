@@ -336,6 +336,8 @@ export interface LotteryDrawRecord {
   wallet_amount: number
   reward_reference: string
   created_at: string
+  user_name?: string
+  user_email?: string
 }
 
 export interface LotteryOverview {
@@ -348,6 +350,14 @@ export interface LotteryOverview {
     total_granted_times: number
     total_drawn_times: number
     total_wallet_paid_amount: number
+  }
+  draw_eligibility?: {
+    consume_threshold_met: boolean
+    qualified_amount: number
+    required_threshold_amount: number
+    wallet_draw_enabled: boolean
+    can_draw_with_wallet: boolean
+    block_reason?: string
   }
   recent_winners?: Array<{
     id: number

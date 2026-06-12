@@ -104,9 +104,19 @@ type LotteryDrawRecord struct {
 }
 
 type LotteryOverview struct {
-	Activity      *LotteryActivity    `json:"activity,omitempty"`
-	UserState     *LotteryUserState   `json:"user_state,omitempty"`
-	RecentWinners []LotteryDrawRecord `json:"recent_winners,omitempty"`
+	Activity        *LotteryActivity       `json:"activity,omitempty"`
+	UserState       *LotteryUserState      `json:"user_state,omitempty"`
+	RecentWinners   []LotteryDrawRecord    `json:"recent_winners,omitempty"`
+	DrawEligibility *LotteryDrawEligibility `json:"draw_eligibility,omitempty"`
+}
+
+type LotteryDrawEligibility struct {
+	ConsumeThresholdMet   bool    `json:"consume_threshold_met"`
+	QualifiedAmount       float64 `json:"qualified_amount"`
+	RequiredThresholdAmount float64 `json:"required_threshold_amount"`
+	WalletDrawEnabled     bool    `json:"wallet_draw_enabled"`
+	CanDrawWithWallet     bool    `json:"can_draw_with_wallet"`
+	BlockReason           string  `json:"block_reason,omitempty"`
 }
 
 type CreateLotteryActivityInput struct {

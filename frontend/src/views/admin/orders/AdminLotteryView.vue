@@ -210,42 +210,44 @@
       <!-- Participants drawer -->
       <Transition enter-active-class="transition-opacity duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100" leave-active-class="transition-opacity duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
         <div v-if="participantsOpen" class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center" @click.self="participantsOpen = false">
-          <div class="mx-0 h-[80vh] w-full max-w-4xl overflow-hidden rounded-t-3xl bg-white shadow-2xl dark:bg-dark-900 sm:mx-4 sm:h-auto sm:max-h-[80vh] sm:rounded-2xl">
+          <div class="mx-0 h-[82vh] w-full max-w-6xl overflow-hidden rounded-t-3xl border border-gray-200 bg-white shadow-2xl dark:border-dark-700 dark:bg-dark-900 sm:mx-4 sm:h-auto sm:max-h-[82vh] sm:rounded-2xl">
             <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-dark-700">
               <p class="text-base font-bold text-gray-900 dark:text-white">{{ t('adminLottery.viewParticipants') }} — {{ participantsActivity?.name }}</p>
               <button type="button" class="rounded-lg p-1 hover:bg-gray-100 dark:hover:bg-dark-700" @click="participantsOpen = false">
                 <svg class="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
-            <div class="overflow-y-auto" style="max-height: calc(80vh - 65px);">
-              <div v-if="participantsLoading" class="py-10 text-center text-sm text-gray-400">...</div>
-              <div v-else-if="participantRecords.length === 0" class="py-10 text-center text-sm text-gray-400 dark:text-gray-500">{{ t('adminLottery.noParticipants') }}</div>
-              <table v-else class="w-full text-sm">
-                <thead class="border-b border-gray-100 bg-gray-50 dark:border-dark-700 dark:bg-dark-800">
-                  <tr class="text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                    <th class="whitespace-nowrap px-5 py-2">用户邮箱</th>
-                    <th class="whitespace-nowrap px-5 py-2">奖品名称</th>
-                    <th class="whitespace-nowrap px-5 py-2">奖品类型</th>
-                    <th class="whitespace-nowrap px-5 py-2">奖励凭证</th>
-                    <th class="whitespace-nowrap px-5 py-2">抽奖来源</th>
-                    <th class="whitespace-nowrap px-5 py-2">钱包扣费</th>
-                    <th class="whitespace-nowrap px-5 py-2">抽奖时间</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="rec in participantRecords" :key="rec.id" class="border-b border-gray-50 hover:bg-gray-50/60 dark:border-dark-800 dark:hover:bg-dark-800/50">
-                    <td class="px-5 py-2.5 text-gray-700 dark:text-gray-300">{{ rec.user_email || rec.user_id }}</td>
-                    <td class="whitespace-nowrap px-5 py-2.5 font-medium text-gray-900 dark:text-white">{{ rec.prize_name }}</td>
-                    <td class="whitespace-nowrap px-5 py-2.5">
-                      <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold" :class="prizeTypeClass(rec.prize_type)">{{ prizeTypeLabel(rec.prize_type) }}</span>
-                    </td>
-                    <td class="px-5 py-2.5 font-mono text-xs text-gray-500 dark:text-gray-400">{{ rec.reward_reference || '—' }}</td>
-                    <td class="whitespace-nowrap px-5 py-2.5 text-gray-600 dark:text-gray-300">{{ rec.chance_source === 'wallet' ? '自费抽奖' : '免费次数' }}</td>
-                    <td class="whitespace-nowrap px-5 py-2.5 text-gray-500 dark:text-gray-400">{{ rec.chance_source === 'wallet' ? `¥${rec.wallet_amount.toFixed(2)}` : '—' }}</td>
-                    <td class="whitespace-nowrap px-5 py-2.5 text-gray-400">{{ rec.created_at.replace('T', ' ').slice(0, 16) }}</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="overflow-y-auto px-5 py-5 sm:px-6" style="max-height: calc(82vh - 65px);">
+              <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-950">
+                <div v-if="participantsLoading" class="py-10 text-center text-sm text-gray-400">...</div>
+                <div v-else-if="participantRecords.length === 0" class="py-10 text-center text-sm text-gray-400 dark:text-gray-500">{{ t('adminLottery.noParticipants') }}</div>
+                <table v-else class="w-full text-sm">
+                  <thead class="border-b border-gray-100 bg-gray-50 dark:border-dark-700 dark:bg-dark-800">
+                    <tr class="text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                      <th class="whitespace-nowrap px-6 py-3">用户邮箱</th>
+                      <th class="whitespace-nowrap px-6 py-3">奖品名称</th>
+                      <th class="whitespace-nowrap px-6 py-3">奖品类型</th>
+                      <th class="whitespace-nowrap px-6 py-3">奖励凭证</th>
+                      <th class="whitespace-nowrap px-6 py-3">抽奖来源</th>
+                      <th class="whitespace-nowrap px-6 py-3">钱包扣费</th>
+                      <th class="whitespace-nowrap px-6 py-3">抽奖时间</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="rec in participantRecords" :key="rec.id" class="border-b border-gray-50 hover:bg-gray-50/60 dark:border-dark-800 dark:hover:bg-dark-800/50">
+                      <td class="px-6 py-3 text-gray-700 dark:text-gray-300">{{ displayParticipantEmail(rec) }}</td>
+                      <td class="whitespace-nowrap px-6 py-3 font-medium text-gray-900 dark:text-white">{{ rec.prize_name }}</td>
+                      <td class="whitespace-nowrap px-6 py-3">
+                        <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold" :class="prizeTypeClass(rec.prize_type)">{{ prizeTypeLabel(rec.prize_type) }}</span>
+                      </td>
+                      <td class="px-6 py-3 font-mono text-xs text-gray-500 dark:text-gray-400">{{ rec.reward_reference || '—' }}</td>
+                      <td class="whitespace-nowrap px-6 py-3 text-gray-600 dark:text-gray-300">{{ rec.chance_source === 'wallet' ? '自费抽奖' : '免费次数' }}</td>
+                      <td class="whitespace-nowrap px-6 py-3 text-gray-500 dark:text-gray-400">{{ rec.chance_source === 'wallet' ? `¥${rec.wallet_amount.toFixed(2)}` : '—' }}</td>
+                      <td class="whitespace-nowrap px-6 py-3 text-gray-400">{{ rec.created_at.replace('T', ' ').slice(0, 16) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -493,7 +495,7 @@ async function submitPrize() {
 
 const participantsOpen = ref(false)
 const participantsLoading = ref(false)
-const participantRecords = ref<LotteryDrawRecord & { user_email?: string }[]>([])
+const participantRecords = ref<Array<LotteryDrawRecord & { user_email?: string }>>([])
 const participantsActivity = ref<LotteryActivity | null>(null)
 
 async function openParticipants(activity: LotteryActivity) {
@@ -502,7 +504,7 @@ async function openParticipants(activity: LotteryActivity) {
   participantsLoading.value = true
   try {
     const r = await adminAPI.payment.getLotteryDrawRecords(activity.id, { page_size: 200 })
-    participantRecords.value = (r.data.items || []) as (LotteryDrawRecord & { user_email?: string })[]
+    participantRecords.value = (r.data.items || []) as Array<LotteryDrawRecord & { user_email?: string }>
   } catch (e) {
     console.error(e)
   } finally {
@@ -614,6 +616,12 @@ function prizeTypeClass(value: LotteryPrize['prize_type']) {
 
 function prizeStatusLabel(value: LotteryPrize['status']) {
   return value === 'active' ? t('common.enabled') : t('common.disabled')
+}
+
+function displayParticipantEmail(record: LotteryDrawRecord) {
+  if (record.user_email) return record.user_email
+  if (record.user_name) return record.user_name
+  return String(record.user_id)
 }
 
 function scopeLabel(scope: CouponTemplate['scope']) {
