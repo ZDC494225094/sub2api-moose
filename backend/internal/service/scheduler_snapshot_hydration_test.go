@@ -60,6 +60,10 @@ func (c *snapshotHydrationCache) SetOutboxWatermark(ctx context.Context, id int6
 	return nil
 }
 
+func (c *snapshotHydrationCache) Ping(ctx context.Context) error {
+	return nil
+}
+
 func TestOpenAISelectAccountWithLoadAwareness_HydratesSelectedAccountFromSchedulerSnapshot(t *testing.T) {
 	cache := &snapshotHydrationCache{
 		snapshot: []*Account{

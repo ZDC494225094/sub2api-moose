@@ -17,10 +17,9 @@ type CouponTemplateRepository interface {
 type UserCouponRepository interface {
 	Create(ctx context.Context, coupon *UserCoupon) error
 	GetByID(ctx context.Context, id int64) (*UserCoupon, error)
-	GetByIDForUpdate(ctx context.Context, id int64) (*UserCoupon, error)
 	GetByCode(ctx context.Context, code string) (*UserCoupon, error)
 	ListByUser(ctx context.Context, userID int64, params pagination.PaginationParams, filter UserCouponListFilter) ([]UserCoupon, *pagination.PaginationResult, error)
-	ReserveForOrder(ctx context.Context, couponID int64, orderID int64, reservedAt time.Time) error
+	ReserveForOrder(ctx context.Context, couponID int64, orderID int64, reservedAt time.Time) (bool, error)
 	ReleaseReservationByOrderID(ctx context.Context, orderID int64, releasedAt time.Time) error
 	MarkUsedByOrderID(ctx context.Context, orderID int64, usedAt time.Time) error
 }

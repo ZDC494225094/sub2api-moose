@@ -166,7 +166,7 @@ func (s *CouponService) PreviewCouponForOrder(ctx context.Context, input ApplyPa
 }
 
 func (s *CouponService) ReserveCouponForOrder(ctx context.Context, orderID int64, input ApplyPaymentCouponInput) (*ApplyPaymentCouponResult, error) {
-	coupon, err := s.userCouponRepo.GetByIDForUpdate(ctx, input.UserCouponID)
+	coupon, err := s.userCouponRepo.GetByID(ctx, input.UserCouponID)
 	if err != nil {
 		return nil, err
 	}
@@ -175,16 +175,21 @@ func (s *CouponService) ReserveCouponForOrder(ctx context.Context, orderID int64
 	if err != nil {
 		return nil, err
 	}
-	if err := s.userCouponRepo.ReserveForOrder(ctx, coupon.ID, orderID, now); err != nil {
+	reserved, err := s.userCouponRepo.ReserveForOrder(ctx, coupon.ID, orderID, now)
+	if err != nil {
 		return nil, err
 	}
+	if !reserved {
+		return nil, ErrUserCouponUnavailable
+	}
+	actualDiscountAmount := result.OriginalAmount - result.DiscountedAmount
 	discount := &PaymentOrderDiscount{
 		OrderID:          orderID,
 		UserCouponID:     &coupon.ID,
 		CouponTemplateID: &coupon.TemplateID,
 		CouponCode:       coupon.CouponCode,
 		Scope:            coupon.Scope,
-		DiscountAmount:   coupon.DiscountAmount,
+		DiscountAmount:   actualDiscountAmount,
 		ThresholdAmount:  coupon.ThresholdAmount,
 		OriginalAmount:   input.OrderAmount,
 		DiscountedAmount: result.DiscountedAmount,
@@ -192,8 +197,11 @@ func (s *CouponService) ReserveCouponForOrder(ctx context.Context, orderID int64
 		ReservedAt:       now,
 	}
 	if err := s.orderDiscountRepo.Create(ctx, discount); err != nil {
+		_ = s.userCouponRepo.ReleaseReservationByOrderID(ctx, orderID, now)
 		return nil, err
 	}
+	result.DiscountAmount = actualDiscountAmount
+	coupon.DiscountAmount = actualDiscountAmount
 	result.UserCoupon = coupon
 	return result, nil
 }
@@ -241,7 +249,7 @@ func (s *CouponService) evaluateCouponForOrder(coupon *UserCoupon, input ApplyPa
 	return &ApplyPaymentCouponResult{
 		UserCoupon:       coupon,
 		OriginalAmount:   input.OrderAmount,
-		DiscountAmount:   coupon.DiscountAmount,
+		DiscountAmount:   input.OrderAmount - discountedAmount,
 		DiscountedAmount: discountedAmount,
 	}, nil
 }

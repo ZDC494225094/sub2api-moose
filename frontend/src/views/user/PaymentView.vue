@@ -82,7 +82,7 @@
                 </div>
                 <div v-if="selectedCoupon" class="flex justify-between">
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.discountCoupon') }}</span>
-                  <span class="text-emerald-600 dark:text-emerald-400">-{{ formatSelectedPaymentAmount(selectedCoupon.discount_amount) }}</span>
+                  <span class="text-emerald-600 dark:text-emerald-400">-{{ formatSelectedPaymentAmount(actualRechargeDiscount) }}</span>
                 </div>
                 <div v-if="balanceRechargeMultiplier !== 1" class="flex justify-between" :class="{ 'border-t border-gray-200 pt-2 dark:border-dark-600': feeRate <= 0 }">
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.creditedBalance') }}</span>
@@ -184,7 +184,7 @@
                   </div>
                   <div v-if="selectedCoupon" class="flex justify-between">
                     <span class="text-gray-500 dark:text-gray-400">{{ t('payment.discountCoupon') }}</span>
-                    <span class="text-emerald-600 dark:text-emerald-400">-{{ formatSelectedPaymentAmount(selectedCoupon.discount_amount) }}</span>
+                    <span class="text-emerald-600 dark:text-emerald-400">-{{ formatSelectedPaymentAmount(actualSubscriptionDiscount) }}</span>
                   </div>
                 </div>
               </div>
@@ -601,6 +601,10 @@ const discountedRechargeAmount = computed(() => {
   const amount = totalAmount.value - selectedCoupon.value.discount_amount
   return amount < 0.01 ? 0.01 : Math.round(amount * 100) / 100
 })
+const actualRechargeDiscount = computed(() => {
+  if (!selectedCoupon.value) return 0
+  return Math.round((totalAmount.value - discountedRechargeAmount.value) * 100) / 100
+})
 
 const amountError = computed(() => {
   if (validAmount.value <= 0) return ''
@@ -651,6 +655,10 @@ const discountedSubscriptionAmount = computed(() => {
   if (!selectedCoupon.value) return subTotalAmount.value
   const amount = subTotalAmount.value - selectedCoupon.value.discount_amount
   return amount < 0.01 ? 0.01 : Math.round(amount * 100) / 100
+})
+const actualSubscriptionDiscount = computed(() => {
+  if (!selectedCoupon.value) return 0
+  return Math.round((subTotalAmount.value - discountedSubscriptionAmount.value) * 100) / 100
 })
 
 const canSubmitSubscription = computed(() =>

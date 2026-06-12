@@ -7163,6 +7163,7 @@ export default {
     deleteActivityConfirm: 'Delete this activity? This cannot be undone.',
     deleteActivitySuccess: 'Activity deleted',
     deleteActivityFailed: 'Failed to delete activity',
+    deleteActivityBlocked: 'This activity already has participant records and cannot be deleted.',
     viewParticipants: 'View Participants',
     startLottery: 'Go to Lottery',
     noParticipants: 'No draw records yet.',

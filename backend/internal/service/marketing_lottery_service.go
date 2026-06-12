@@ -64,6 +64,13 @@ func NewLotteryService(
 }
 
 func (s *LotteryService) DeleteActivity(ctx context.Context, id int64) error {
+	hasRecords, err := s.drawRecordRepo.ExistsByActivity(ctx, id)
+	if err != nil {
+		return err
+	}
+	if hasRecords {
+		return infraerrors.Conflict("LOTTERY_ACTIVITY_HAS_RECORDS", "lottery activity with draw records cannot be deleted")
+	}
 	return s.activityRepo.Delete(ctx, id)
 }
 

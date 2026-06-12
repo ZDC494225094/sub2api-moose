@@ -521,6 +521,10 @@ async function deleteActivity(activity: LotteryActivity) {
     await loadActivities()
   } catch (error: any) {
     console.error(error)
+    if (error?.code === 'LOTTERY_ACTIVITY_HAS_RECORDS') {
+      appStore.showError(t('adminLottery.deleteActivityBlocked'))
+      return
+    }
     appStore.showError(errorMessage(error) || t('adminLottery.deleteActivityFailed'))
   }
 }

@@ -40,6 +40,7 @@ type LotteryDrawRecordRepository interface {
 	Create(ctx context.Context, record *LotteryDrawRecord) error
 	ListByUser(ctx context.Context, userID int64, activityID int64, params pagination.PaginationParams) ([]LotteryDrawRecord, *pagination.PaginationResult, error)
 	ListRecentByActivity(ctx context.Context, activityID int64, limit int) ([]LotteryDrawRecord, error)
+	ExistsByActivity(ctx context.Context, activityID int64) (bool, error)
 }
 
 type LotteryConsumeProgressRepository interface {

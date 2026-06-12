@@ -497,6 +497,20 @@ LIMIT $2`, activityID, limit)
 	return items, rows.Err()
 }
 
+func (r *lotteryDrawRecordRepository) ExistsByActivity(ctx context.Context, activityID int64) (bool, error) {
+	var exists bool
+	err := scanSingleRow(ctx, r.sql, `
+SELECT EXISTS(
+  SELECT 1
+  FROM lottery_draw_records
+  WHERE activity_id = $1
+)`, []any{activityID}, &exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 func (r *lotteryConsumeProgressRepository) GetQualifiedAmount(ctx context.Context, activityID, userID int64, threshold float64) (float64, error) {
 	exec := r.sql
 	var amount float64

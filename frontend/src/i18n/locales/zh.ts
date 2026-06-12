@@ -7342,6 +7342,7 @@ export default {
     deleteActivityConfirm: '确定删除该活动？删除后不可恢复。',
     deleteActivitySuccess: '活动已删除',
     deleteActivityFailed: '删除活动失败',
+    deleteActivityBlocked: '该活动已有用户参与记录，不能删除，请改为停用或结束活动。',
     viewParticipants: '查看参与情况',
     startLottery: '前往抽奖',
     noParticipants: '暂无抽奖记录',

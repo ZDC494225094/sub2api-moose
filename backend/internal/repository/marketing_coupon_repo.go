@@ -188,10 +188,6 @@ func (r *userCouponRepository) GetByID(ctx context.Context, id int64) (*service.
 	return r.getBy(ctx, "id = $1", id, false)
 }
 
-func (r *userCouponRepository) GetByIDForUpdate(ctx context.Context, id int64) (*service.UserCoupon, error) {
-	return r.getBy(ctx, "id = $1", id, true)
-}
-
 func (r *userCouponRepository) GetByCode(ctx context.Context, code string) (*service.UserCoupon, error) {
 	return r.getBy(ctx, "coupon_code = $1", code, false)
 }
@@ -333,15 +329,22 @@ WHERE ` + whereClause + fmt.Sprintf(" ORDER BY created_at DESC, id DESC LIMIT %d
 	return items, paginationResultFromTotal(total, params), nil
 }
 
-func (r *userCouponRepository) ReserveForOrder(ctx context.Context, couponID int64, orderID int64, reservedAt time.Time) error {
-	_, err := r.sql.ExecContext(ctx, `
+func (r *userCouponRepository) ReserveForOrder(ctx context.Context, couponID int64, orderID int64, reservedAt time.Time) (bool, error) {
+	result, err := r.sql.ExecContext(ctx, `
 UPDATE user_coupons
 SET status = $3,
     reserved_order_id = $2,
     reserved_at = $4,
     updated_at = NOW()
 WHERE id = $1 AND status = 'unused'`, couponID, orderID, service.UserCouponStatusReserved, reservedAt.UTC())
-	return err
+	if err != nil {
+		return false, err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return rowsAffected > 0, nil
 }
 
 func (r *userCouponRepository) ReleaseReservationByOrderID(ctx context.Context, orderID int64, releasedAt time.Time) error {
