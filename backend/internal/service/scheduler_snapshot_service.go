@@ -68,6 +68,13 @@ func (s *SchedulerSnapshotService) Start() {
 	if s == nil || s.cache == nil {
 		return
 	}
+	healthCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	cacheErr := s.cache.Ping(healthCtx)
+	cancel()
+	if cacheErr != nil {
+		logger.LegacyPrintf("service.scheduler_snapshot", "[Scheduler] cache unavailable at startup, snapshot workers disabled: %v", cacheErr)
+		return
+	}
 
 	s.wg.Add(1)
 	go func() {

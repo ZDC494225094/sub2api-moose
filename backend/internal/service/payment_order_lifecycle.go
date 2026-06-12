@@ -136,6 +136,9 @@ func (s *PaymentService) cancelCore(ctx context.Context, o *dbent.PaymentOrder, 
 		if fs == OrderStatusExpired {
 			auditAction = "ORDER_EXPIRED"
 		}
+		if s.couponService != nil {
+			_ = s.couponService.ReleaseCouponReservationByOrderID(ctx, o.ID)
+		}
 		s.writeAuditLog(ctx, o.ID, auditAction, op, map[string]any{"detail": ad})
 	}
 	return checkPaidResultCancelled, nil

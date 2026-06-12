@@ -93,6 +93,13 @@ func newSchedulerCacheWithChunkSizes(rdb *redis.Client, mgetChunkSize, writeChun
 	}
 }
 
+func (c *schedulerCache) Ping(ctx context.Context) error {
+	if c == nil || c.rdb == nil {
+		return fmt.Errorf("redis client is not configured")
+	}
+	return c.rdb.Ping(ctx).Err()
+}
+
 func (c *schedulerCache) GetSnapshot(ctx context.Context, bucket service.SchedulerBucket) ([]*service.Account, bool, error) {
 	readyKey := schedulerBucketKey(schedulerReadyPrefix, bucket)
 	readyVal, err := c.rdb.Get(ctx, readyKey).Result()

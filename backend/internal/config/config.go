@@ -1673,7 +1673,7 @@ func setDefaults() {
 	viper.SetDefault("database.user_platform_quota_flush_batch_size", 1000)
 
 	// Redis
-	viper.SetDefault("redis.host", "localhost")
+	viper.SetDefault("redis.host", "127.0.0.1")
 	viper.SetDefault("redis.port", 6379)
 	viper.SetDefault("redis.password", "")
 	viper.SetDefault("redis.db", 0)

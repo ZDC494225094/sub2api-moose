@@ -35,7 +35,15 @@
       <div
         v-for="(row, index) in sortedData"
         :key="resolveRowKey(row, index)"
-        class="rounded-lg border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900"
+        :class="[
+          'rounded-lg border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900',
+          props.rowClickable ? 'cursor-pointer transition hover:border-primary-200 hover:bg-primary-50/40 dark:hover:border-primary-800/40 dark:hover:bg-primary-950/10' : '',
+          getRowClass(row, index)
+        ]"
+        :tabindex="props.rowClickable ? 0 : undefined"
+        :role="props.rowClickable ? 'button' : undefined"
+        @click="handleRowClick(row)"
+        @keydown="handleRowKeydown($event, row)"
       >
         <div class="space-y-3">
           <div
@@ -162,7 +170,15 @@
             :data-row-id="resolveRowKey(sortedData[virtualRow.index], virtualRow.index)"
             :data-index="virtualRow.index"
             :ref="measureElement"
-            class="hover:bg-gray-50 dark:hover:bg-dark-800"
+            :class="[
+              'hover:bg-gray-50 dark:hover:bg-dark-800',
+              props.rowClickable ? 'cursor-pointer' : '',
+              getRowClass(sortedData[virtualRow.index], virtualRow.index)
+            ]"
+            :tabindex="props.rowClickable ? 0 : undefined"
+            :role="props.rowClickable ? 'button' : undefined"
+            @click="handleRowClick(sortedData[virtualRow.index])"
+            @keydown="handleRowKeydown($event, sortedData[virtualRow.index])"
           >
             <td
               v-for="(column, colIndex) in columns"
@@ -211,6 +227,7 @@ const isDesktopViewport = ref(
 
 const emit = defineEmits<{
   sort: [key: string, order: 'asc' | 'desc']
+  rowClick: [row: any]
 }>()
 
 // 表格容器引用
@@ -361,6 +378,10 @@ interface Props {
   estimateRowHeight?: number
   /** Number of rows to render beyond the visible area (default 5) */
   overscan?: number
+  /** Optional row class callback for selected/highlighted row states. */
+  rowClass?: string | ((row: any, index: number) => string)
+  /** Enables row click styling and emits rowClick when a row is clicked. */
+  rowClickable?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -500,6 +521,25 @@ const resolveRowKey = (row: any, index: number) => {
   }
   const key = row?.id
   return key ?? index
+}
+
+const getRowClass = (row: any, index: number) => {
+  if (typeof props.rowClass === 'function') {
+    return props.rowClass(row, index)
+  }
+  return props.rowClass || ''
+}
+
+const handleRowClick = (row: any) => {
+  if (!props.rowClickable) return
+  emit('rowClick', row)
+}
+
+const handleRowKeydown = (event: KeyboardEvent, row: any) => {
+  if (!props.rowClickable) return
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  emit('rowClick', row)
 }
 
 const dataColumns = computed(() => props.columns.filter((column) => column.key !== 'actions'))

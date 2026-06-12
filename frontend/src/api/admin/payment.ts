@@ -9,7 +9,10 @@ import type {
   PaymentOrder,
   PaymentChannel,
   SubscriptionPlan,
-  ProviderInstance
+  ProviderInstance,
+  CouponTemplate,
+  LotteryActivity,
+  LotteryPrize
 } from '@/types/payment'
 import type { BasePaginationResponse } from '@/types'
 
@@ -155,6 +158,61 @@ export const adminPaymentAPI = {
   /** Delete a subscription plan */
   deletePlan(id: number) {
     return apiClient.delete(`/admin/payment/plans/${id}`)
+  },
+
+  // ==================== Coupon Templates ====================
+
+  getCouponTemplates(params?: {
+    page?: number
+    page_size?: number
+    status?: string
+    scope?: string
+    search?: string
+  }) {
+    return apiClient.get<BasePaginationResponse<CouponTemplate>>('/admin/payment/coupon-templates', { params })
+  },
+
+  createCouponTemplate(data: Partial<CouponTemplate>) {
+    return apiClient.post<CouponTemplate>('/admin/payment/coupon-templates', data)
+  },
+
+  updateCouponTemplate(id: number, data: Partial<CouponTemplate>) {
+    return apiClient.put<CouponTemplate>(`/admin/payment/coupon-templates/${id}`, data)
+  },
+
+  // ==================== Lottery ====================
+
+  getLotteryActivities(params?: {
+    page?: number
+    page_size?: number
+    status?: string
+    search?: string
+  }) {
+    return apiClient.get<BasePaginationResponse<LotteryActivity>>('/admin/payment/lottery/activities', { params })
+  },
+
+  createLotteryActivity(data: Partial<LotteryActivity>) {
+    return apiClient.post<LotteryActivity>('/admin/payment/lottery/activities', data)
+  },
+
+  updateLotteryActivity(id: number, data: Partial<LotteryActivity>) {
+    return apiClient.put<LotteryActivity>(`/admin/payment/lottery/activities/${id}`, data)
+  },
+
+  deleteLotteryActivity(id: number) {
+    return apiClient.delete(`/admin/payment/lottery/activities/${id}`)
+  },
+
+  createLotteryPrize(data: Partial<LotteryPrize>) {
+    return apiClient.post<LotteryPrize>('/admin/payment/lottery/prizes', data)
+  },
+
+  updateLotteryPrize(id: number, data: Partial<LotteryPrize>) {
+    return apiClient.put<LotteryPrize>(`/admin/payment/lottery/prizes/${id}`, data)
+  },
+
+  getLotteryDrawRecords(activityId: number, params?: { page?: number; page_size?: number }) {
+    return apiClient.get<import('@/types').BasePaginationResponse<import('@/types/payment').LotteryDrawRecord>>(`/admin/payment/lottery/activities/${activityId}/draw-records`, { params })
   },
 
   // ==================== Provider Instances ====================

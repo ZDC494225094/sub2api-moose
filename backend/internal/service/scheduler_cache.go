@@ -45,6 +45,7 @@ func ParseSchedulerBucket(raw string) (SchedulerBucket, bool) {
 
 // SchedulerCache 负责调度快照与账号快照的缓存读写。
 type SchedulerCache interface {
+	Ping(ctx context.Context) error
 	// GetSnapshot 读取快照并返回命中与否（ready + active + 数据完整）。
 	GetSnapshot(ctx context.Context, bucket SchedulerBucket) ([]*Account, bool, error)
 	// SetSnapshot 写入快照并切换激活版本。

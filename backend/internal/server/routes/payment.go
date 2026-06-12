@@ -30,6 +30,10 @@ func RegisterPaymentRoutes(
 		authenticated.GET("/plans", paymentHandler.GetPlans)
 		authenticated.GET("/channels", paymentHandler.GetChannels)
 		authenticated.GET("/limits", paymentHandler.GetLimits)
+		authenticated.GET("/coupons", paymentHandler.GetMyCoupons)
+		authenticated.GET("/lottery/active", paymentHandler.GetActiveLottery)
+		authenticated.POST("/lottery/draw", paymentHandler.DrawLottery)
+		authenticated.GET("/lottery/my-records", paymentHandler.ListMyDrawRecords)
 
 		orders := authenticated.Group("/orders")
 		{
@@ -95,6 +99,24 @@ func RegisterPaymentRoutes(
 			plans.POST("/bulk-increase-display-purchase-count", adminPaymentHandler.BulkIncrementPlanDisplayPurchaseCount)
 			plans.PUT("/:id", adminPaymentHandler.UpdatePlan)
 			plans.DELETE("/:id", adminPaymentHandler.DeletePlan)
+		}
+
+		couponTemplates := adminGroup.Group("/coupon-templates")
+		{
+			couponTemplates.GET("", adminPaymentHandler.ListCouponTemplates)
+			couponTemplates.POST("", adminPaymentHandler.CreateCouponTemplate)
+			couponTemplates.PUT("/:id", adminPaymentHandler.UpdateCouponTemplate)
+		}
+
+		lottery := adminGroup.Group("/lottery")
+		{
+			lottery.GET("/activities", adminPaymentHandler.ListLotteryActivities)
+			lottery.POST("/activities", adminPaymentHandler.CreateLotteryActivity)
+			lottery.PUT("/activities/:id", adminPaymentHandler.UpdateLotteryActivity)
+			lottery.DELETE("/activities/:id", adminPaymentHandler.DeleteLotteryActivity)
+			lottery.GET("/activities/:id/draw-records", adminPaymentHandler.ListActivityDrawRecords)
+			lottery.POST("/prizes", adminPaymentHandler.CreateLotteryPrize)
+			lottery.PUT("/prizes/:id", adminPaymentHandler.UpdateLotteryPrize)
 		}
 
 		// Provider Instances

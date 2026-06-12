@@ -161,6 +161,7 @@ export interface CreateOrderRequest {
   payment_type: string
   order_type: string
   plan_id?: number
+  user_coupon_id?: number
   return_url?: string
   payment_source?: string
   openid?: string
@@ -220,4 +221,144 @@ export interface DashboardStats {
   daily_series: { date: string; amount: number; count: number }[]
   payment_methods: { type: string; amount: number; count: number }[]
   top_users: { user_id: number; email: string; amount: number }[]
+}
+
+export type CouponScope = 'balance' | 'subscription' | 'universal'
+
+export interface CouponTemplate {
+  id: number
+  name: string
+  description: string
+  scope: CouponScope
+  discount_amount: number
+  threshold_amount: number
+  valid_days?: number | null
+  valid_from?: string | null
+  valid_until?: string | null
+  status: 'active' | 'disabled'
+  notes: string
+  created_at: string
+  updated_at: string
+}
+
+export interface UserCoupon {
+  id: number
+  template_id: number
+  user_id: number
+  coupon_code: string
+  source_type: string
+  scope: CouponScope
+  discount_amount: number
+  threshold_amount: number
+  valid_from?: string | null
+  valid_until?: string | null
+  status: 'unused' | 'reserved' | 'used' | 'expired' | 'disabled'
+  created_at: string
+  updated_at: string
+}
+
+export interface LotteryActivity {
+  id: number
+  name: string
+  description: string
+  status: 'draft' | 'active' | 'inactive' | 'ended'
+  default_draw_times: number
+  consume_threshold_amount: number
+  wallet_cost_per_draw: number
+  starts_at?: string | null
+  ends_at?: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+  prizes?: LotteryPrize[]
+}
+
+export interface LotteryPrize {
+  id: number
+  activity_id: number
+  name: string
+  prize_type: 'balance_redeem' | 'coupon' | 'thanks'
+  stock: number
+  remaining_stock: number
+  balance_amount?: number | null
+  coupon_template_id?: number | null
+  coupon_template?: CouponTemplate | null
+  display_order: number
+  status: 'active' | 'inactive'
+  created_at: string
+  updated_at: string
+}
+
+export interface LotteryDrawResult {
+  activity?: LotteryActivity
+  prize?: LotteryPrize
+  user_state?: {
+    activity_id: number
+    user_id: number
+    default_granted: boolean
+    available_draw_times: number
+    total_granted_times: number
+    total_drawn_times: number
+    total_wallet_paid_amount: number
+  }
+  record?: {
+    id: number
+    activity_id: number
+    user_id: number
+    prize_name: string
+    prize_type: 'balance_redeem' | 'coupon' | 'thanks'
+    result_code: 'win' | 'thanks'
+    chance_source: 'default' | 'wallet'
+    wallet_amount: number
+    reward_reference: string
+    created_at: string
+  }
+  user_coupon?: UserCoupon
+  redeem_code?: {
+    id: number
+    code: string
+    type: string
+    value: number
+    status: string
+    created_at?: string
+  }
+}
+
+export interface LotteryDrawRecord {
+  id: number
+  activity_id: number
+  user_id: number
+  prize_id?: number
+  prize_name: string
+  prize_type: 'balance_redeem' | 'coupon' | 'thanks'
+  result_code: 'win' | 'thanks'
+  chance_source: 'default' | 'wallet'
+  wallet_amount: number
+  reward_reference: string
+  created_at: string
+}
+
+export interface LotteryOverview {
+  activity?: LotteryActivity
+  user_state?: {
+    activity_id: number
+    user_id: number
+    default_granted: boolean
+    available_draw_times: number
+    total_granted_times: number
+    total_drawn_times: number
+    total_wallet_paid_amount: number
+  }
+  recent_winners?: Array<{
+    id: number
+    activity_id: number
+    user_id: number
+    prize_name: string
+    prize_type: 'balance_redeem' | 'coupon' | 'thanks'
+    result_code: 'win' | 'thanks'
+    reward_reference: string
+    created_at: string
+    user_name?: string
+    user_email?: string
+  }>
 }

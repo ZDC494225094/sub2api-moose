@@ -57,6 +57,15 @@
                 @select="selectedMethod = $event"
               />
             </div>
+            <div v-if="availableCoupons.length > 0" class="card p-6">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('userLottery.availableCoupons') }}</p>
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('userLottery.couponHint') }}</p>
+                </div>
+                <Select v-model="selectedCouponId" :options="couponOptions('balance')" class="w-72" />
+              </div>
+            </div>
             <div v-if="validAmount > 0" class="card p-6">
               <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
@@ -69,7 +78,11 @@
                 </div>
                 <div v-if="feeRate > 0" class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
                   <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.actualPay') }}</span>
-                  <span class="text-lg font-bold text-primary-600 dark:text-primary-400">{{ formatSelectedPaymentAmount(totalAmount) }}</span>
+                  <span class="text-lg font-bold text-primary-600 dark:text-primary-400">{{ formatSelectedPaymentAmount(discountedRechargeAmount) }}</span>
+                </div>
+                <div v-if="selectedCoupon" class="flex justify-between">
+                  <span class="text-gray-500 dark:text-gray-400">{{ t('payment.discountCoupon') }}</span>
+                  <span class="text-emerald-600 dark:text-emerald-400">-{{ formatSelectedPaymentAmount(selectedCoupon.discount_amount) }}</span>
                 </div>
                 <div v-if="balanceRechargeMultiplier !== 1" class="flex justify-between" :class="{ 'border-t border-gray-200 pt-2 dark:border-dark-600': feeRate <= 0 }">
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.creditedBalance') }}</span>
@@ -85,7 +98,7 @@
                 <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
                 {{ t('common.processing') }}
               </span>
-              <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(totalAmount) }}</span>
+              <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(discountedRechargeAmount) }}</span>
             </button>
             </template>
           </template>
@@ -146,6 +159,15 @@
                   @select="selectedMethod = $event"
                 />
               </div>
+              <div v-if="availableCoupons.length > 0" class="card p-6">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('userLottery.availableCoupons') }}</p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('userLottery.couponHint') }}</p>
+                  </div>
+                  <Select v-model="selectedCouponId" :options="couponOptions('subscription')" class="w-72" />
+                </div>
+              </div>
               <div v-if="feeRate > 0 && selectedPlan.price > 0" class="card p-6">
                 <div class="space-y-2 text-sm">
                   <div class="flex justify-between">
@@ -158,7 +180,11 @@
                   </div>
                   <div class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
                     <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.actualPay') }}</span>
-                    <span class="text-lg font-bold text-primary-600 dark:text-primary-400">{{ formatSelectedPaymentAmount(subTotalAmount) }}</span>
+                    <span class="text-lg font-bold text-primary-600 dark:text-primary-400">{{ formatSelectedPaymentAmount(discountedSubscriptionAmount) }}</span>
+                  </div>
+                  <div v-if="selectedCoupon" class="flex justify-between">
+                    <span class="text-gray-500 dark:text-gray-400">{{ t('payment.discountCoupon') }}</span>
+                    <span class="text-emerald-600 dark:text-emerald-400">-{{ formatSelectedPaymentAmount(selectedCoupon.discount_amount) }}</span>
                   </div>
                 </div>
               </div>
@@ -167,7 +193,7 @@
                   <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
                   {{ t('common.processing') }}
                 </span>
-                <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(feeRate > 0 ? subTotalAmount : selectedPlan.price) }}</span>
+                <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(feeRate > 0 ? discountedSubscriptionAmount : (selectedCoupon ? discountedSubscriptionAmount : selectedPlan.price)) }}</span>
               </button>
               <button class="btn btn-secondary w-full" @click="selectedPlan = null">{{ t('common.cancel') }}</button>
             </template>
@@ -255,7 +281,7 @@ import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/api/payment'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
-import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
+import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType, UserCoupon } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
@@ -275,6 +301,7 @@ import { platformAccentBarClass, platformBadgeLightClass, platformBadgeClass, pl
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
 import Icon from '@/components/icons/Icon.vue'
+import Select from '@/components/common/Select.vue'
 import { formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 import type { PaymentMethodOption } from '@/components/payment/PaymentMethodSelector.vue'
 import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './paymentUx'
@@ -306,6 +333,9 @@ const amount = ref<number | null>(null)
 const selectedMethod = ref('')
 const selectedPlan = ref<SubscriptionPlan | null>(null)
 const previewImage = ref('')
+const availableCoupons = ref<UserCoupon[]>([])
+const selectedCouponId = ref<number | null>(null)
+const selectedCoupon = computed(() => availableCoupons.value.find(coupon => coupon.id === selectedCouponId.value) || null)
 
 const paymentPhase = ref<'select' | 'paying'>('select')
 
@@ -566,6 +596,11 @@ const totalAmount = computed(() =>
     ? Math.round((validAmount.value + feeAmount.value) * 100) / 100
     : validAmount.value
 )
+const discountedRechargeAmount = computed(() => {
+  if (!selectedCoupon.value) return totalAmount.value
+  const amount = totalAmount.value - selectedCoupon.value.discount_amount
+  return amount < 0.01 ? 0.01 : Math.round(amount * 100) / 100
+})
 
 const amountError = computed(() => {
   if (validAmount.value <= 0) return ''
@@ -612,6 +647,11 @@ const subTotalAmount = computed(() => {
   if (feeRate.value <= 0 || price <= 0) return price
   return Math.round((price + subFeeAmount.value) * 100) / 100
 })
+const discountedSubscriptionAmount = computed(() => {
+  if (!selectedCoupon.value) return subTotalAmount.value
+  const amount = subTotalAmount.value - selectedCoupon.value.discount_amount
+  return amount < 0.01 ? 0.01 : Math.round(amount * 100) / 100
+})
 
 const canSubmitSubscription = computed(() =>
   selectedPlan.value !== null
@@ -619,11 +659,33 @@ const canSubmitSubscription = computed(() =>
     && selectedLimit.value?.available !== false
 )
 
+function couponOptions(orderType: OrderType): Array<{ value: number | null; label: string }> {
+  const options: Array<{ value: number | null; label: string }> = [{ value: null, label: t('userLottery.noCoupon') }]
+  availableCoupons.value
+    .filter((coupon) => coupon.status === 'unused' && (coupon.scope === 'universal' || coupon.scope === orderType))
+    .forEach((coupon) => {
+      const threshold = coupon.threshold_amount > 0 ? `满${coupon.threshold_amount.toFixed(2)}减` : '直减'
+      options.push({
+        value: coupon.id,
+        label: `${threshold}¥${coupon.discount_amount.toFixed(2)} (${coupon.coupon_code})`,
+      })
+    })
+  return options
+}
+
 // Auto-switch to first available method when current selection can't handle the amount
 watch(() => [validAmount.value, selectedMethod.value] as const, ([amt, method]) => {
   if (amt <= 0 || amountFitsMethod(amt, method)) return
   const available = enabledMethods.value.find((m) => amountFitsMethod(amt, m))
   if (available) selectedMethod.value = available
+})
+
+// Auto-clear coupon when amount drops below its threshold
+watch(validAmount, (amt) => {
+  if (!selectedCoupon.value) return
+  if (selectedCoupon.value.threshold_amount > 0 && amt < selectedCoupon.value.threshold_amount) {
+    selectedCouponId.value = null
+  }
 })
 
 // Payment button class: follows selected payment method color
@@ -705,6 +767,9 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
     }
     if (options.wechatResumeToken) {
       payload.wechat_resume_token = options.wechatResumeToken
+    }
+    if (selectedCouponId.value) {
+      payload.user_coupon_id = selectedCouponId.value
     }
 
     const result = await paymentStore.createOrder(payload) as CreateOrderResult & { resume_token?: string }
@@ -1018,6 +1083,8 @@ onMounted(async () => {
   try {
     const res = await paymentAPI.getCheckoutInfo()
     checkout.value = res.data
+    const coupons = await paymentAPI.getCoupons({ page: 1, page_size: 100, status: 'unused' })
+    availableCoupons.value = coupons.data.items
     if (enabledMethods.value.length) {
       const order: readonly string[] = METHOD_ORDER
       const sorted = [...enabledMethods.value].sort((a, b) => {

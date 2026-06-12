@@ -305,6 +305,11 @@ func (s *PaymentService) markCompleted(ctx context.Context, o *dbent.PaymentOrde
 	if err != nil {
 		return fmt.Errorf("mark completed: %w", err)
 	}
+	if s.couponService != nil {
+		if err := s.couponService.ConsumeReservedCouponByOrderID(ctx, o.ID); err != nil {
+			return fmt.Errorf("consume reserved coupon: %w", err)
+		}
+	}
 	s.writeAuditLog(ctx, o.ID, auditAction, "system", map[string]any{
 		"rechargeCode":   o.RechargeCode,
 		"creditedAmount": o.Amount,
@@ -600,6 +605,9 @@ func (s *PaymentService) markFailed(ctx context.Context, oid int64, cause error)
 		slog.Error("mark FAILED", "orderID", oid, "error", e)
 	}
 	if c > 0 {
+		if s.couponService != nil {
+			_ = s.couponService.ReleaseCouponReservationByOrderID(ctx, oid)
+		}
 		s.writeAuditLog(ctx, oid, "FULFILLMENT_FAILED", "system", map[string]any{"reason": r})
 	}
 }

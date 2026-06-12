@@ -59,6 +59,22 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	} else if req.OrderType == payment.OrderTypeBalance {
 		orderAmount = calculateCreditedBalance(req.Amount, cfg.BalanceRechargeMultiplier)
 	}
+	var couponResult *ApplyPaymentCouponResult
+	if req.UserCouponID > 0 {
+		if s.couponService == nil {
+			return nil, infraerrors.ServiceUnavailable("PAYMENT_COUPON_NOT_READY", "coupon service is not configured")
+		}
+		couponResult, err = s.couponService.PreviewCouponForOrder(ctx, ApplyPaymentCouponInput{
+			UserID:       req.UserID,
+			OrderType:    req.OrderType,
+			OrderAmount:  limitAmount,
+			UserCouponID: req.UserCouponID,
+		})
+		if err != nil {
+			return nil, err
+		}
+		limitAmount = couponResult.DiscountedAmount
+	}
 	feeRate := cfg.RechargeFeeRate
 	methodCurrency := payment.DefaultPaymentCurrency
 	if s.configService != nil {
@@ -101,6 +117,18 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	order, err := s.createOrderInTx(ctx, req, user, plan, cfg, orderAmount, limitAmount, feeRate, payAmount, sel)
 	if err != nil {
 		return nil, err
+	}
+	if couponResult != nil && s.couponService != nil {
+		if _, err := s.couponService.ReserveCouponForOrder(ctx, order.ID, ApplyPaymentCouponInput{
+			UserID:       req.UserID,
+			OrderType:    req.OrderType,
+			OrderAmount:  couponResult.OriginalAmount,
+			UserCouponID: req.UserCouponID,
+		}); err != nil {
+			_, _ = s.entClient.PaymentOrder.Delete().Where(paymentorder.IDEQ(order.ID)).Exec(ctx)
+			return nil, err
+		}
+		order.PayAmount = payAmount
 	}
 	resp, err := s.invokeProvider(ctx, order, req, cfg, limitAmount, payAmountStr, payAmount, plan, sel)
 	if err != nil {

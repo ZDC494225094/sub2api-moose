@@ -303,6 +303,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/lottery',
+    name: 'Lottery',
+    component: () => import('@/views/user/LotteryView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Lottery',
+      titleKey: 'nav.lottery',
+      requiresPayment: true
+    }
+  },
+  {
     path: '/orders',
     name: 'OrderList',
     component: () => import('@/views/user/UserOrdersView.vue'),
@@ -662,6 +674,30 @@ const routes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Subscription Plans',
       titleKey: 'nav.paymentPlans',
+      requiresPayment: true
+    }
+  },
+  {
+    path: '/admin/orders/coupons',
+    name: 'AdminPaymentCoupons',
+    component: () => import('@/views/admin/orders/AdminCouponTemplatesView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Coupon Templates',
+      titleKey: 'nav.couponTemplates',
+      requiresPayment: true
+    }
+  },
+  {
+    path: '/admin/orders/lottery',
+    name: 'AdminPaymentLottery',
+    component: () => import('@/views/admin/orders/AdminLotteryView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Lottery',
+      titleKey: 'nav.marketingLottery',
       requiresPayment: true
     }
   },

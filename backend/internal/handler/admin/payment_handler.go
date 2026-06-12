@@ -2,8 +2,10 @@ package admin
 
 import (
 	"strconv"
+	"strings"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
@@ -14,13 +16,17 @@ import (
 type PaymentHandler struct {
 	paymentService *service.PaymentService
 	configService  *service.PaymentConfigService
+	couponService  *service.CouponService
+	lotteryService *service.LotteryService
 }
 
 // NewPaymentHandler creates a new admin PaymentHandler.
-func NewPaymentHandler(paymentService *service.PaymentService, configService *service.PaymentConfigService) *PaymentHandler {
+func NewPaymentHandler(paymentService *service.PaymentService, configService *service.PaymentConfigService, couponService *service.CouponService, lotteryService *service.LotteryService) *PaymentHandler {
 	return &PaymentHandler{
 		paymentService: paymentService,
 		configService:  configService,
+		couponService:  couponService,
+		lotteryService: lotteryService,
 	}
 }
 
@@ -357,4 +363,200 @@ func (h *PaymentHandler) UpdateConfig(c *gin.Context) {
 		return
 	}
 	response.Success(c, gin.H{"message": "updated"})
+}
+
+func (h *PaymentHandler) ListCouponTemplates(c *gin.Context) {
+	if h.couponService == nil {
+		response.Success(c, gin.H{"items": []service.CouponTemplate{}, "total": 0})
+		return
+	}
+	page, pageSize := response.ParsePagination(c)
+	items, total, err := h.couponService.ListTemplates(c.Request.Context(), paginationParams(page, pageSize), service.CouponTemplateListFilter{
+		Status: strings.TrimSpace(c.Query("status")),
+		Scope:  strings.TrimSpace(c.Query("scope")),
+		Search: strings.TrimSpace(c.Query("search")),
+	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Paginated(c, items, total.Total, page, pageSize)
+}
+
+func (h *PaymentHandler) CreateCouponTemplate(c *gin.Context) {
+	if h.couponService == nil {
+		response.InternalError(c, "coupon service not configured")
+		return
+	}
+	var req service.CreateCouponTemplateInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	item, err := h.couponService.CreateTemplate(c.Request.Context(), &req)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Created(c, item)
+}
+
+func (h *PaymentHandler) UpdateCouponTemplate(c *gin.Context) {
+	if h.couponService == nil {
+		response.InternalError(c, "coupon service not configured")
+		return
+	}
+	id, ok := parseIDParam(c, "id")
+	if !ok {
+		return
+	}
+	var req service.UpdateCouponTemplateInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	item, err := h.couponService.UpdateTemplate(c.Request.Context(), id, &req)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, item)
+}
+
+func (h *PaymentHandler) ListLotteryActivities(c *gin.Context) {
+	if h.lotteryService == nil {
+		response.Success(c, gin.H{"items": []service.LotteryActivity{}, "total": 0})
+		return
+	}
+	page, pageSize := response.ParsePagination(c)
+	items, total, err := h.lotteryService.ListActivities(c.Request.Context(), paginationParams(page, pageSize), service.LotteryActivityListFilter{
+		Status: strings.TrimSpace(c.Query("status")),
+		Search: strings.TrimSpace(c.Query("search")),
+	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Paginated(c, items, total.Total, page, pageSize)
+}
+
+func (h *PaymentHandler) CreateLotteryActivity(c *gin.Context) {
+	if h.lotteryService == nil {
+		response.InternalError(c, "lottery service not configured")
+		return
+	}
+	var req service.CreateLotteryActivityInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	item, err := h.lotteryService.CreateActivity(c.Request.Context(), &req)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Created(c, item)
+}
+
+func (h *PaymentHandler) DeleteLotteryActivity(c *gin.Context) {
+	if h.lotteryService == nil {
+		response.InternalError(c, "lottery service not configured")
+		return
+	}
+	id, ok := parseIDParam(c, "id")
+	if !ok {
+		return
+	}
+	if err := h.lotteryService.DeleteActivity(c.Request.Context(), id); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{})
+}
+
+func (h *PaymentHandler) UpdateLotteryActivity(c *gin.Context) {
+	if h.lotteryService == nil {
+		response.InternalError(c, "lottery service not configured")
+		return
+	}
+	id, ok := parseIDParam(c, "id")
+	if !ok {
+		return
+	}
+	var req service.UpdateLotteryActivityInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	item, err := h.lotteryService.UpdateActivity(c.Request.Context(), id, &req)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, item)
+}
+
+func (h *PaymentHandler) ListActivityDrawRecords(c *gin.Context) {
+	if h.lotteryService == nil {
+		response.Success(c, gin.H{"items": []any{}, "total": 0})
+		return
+	}
+	id, ok := parseIDParam(c, "id")
+	if !ok {
+		return
+	}
+	page, pageSize := response.ParsePagination(c)
+	records, pg, err := h.lotteryService.ListUserDrawRecords(c.Request.Context(), 0, id, paginationParams(page, pageSize))
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Paginated(c, records, pg.Total, page, pageSize)
+}
+
+func (h *PaymentHandler) CreateLotteryPrize(c *gin.Context) {
+	if h.lotteryService == nil {
+		response.InternalError(c, "lottery service not configured")
+		return
+	}
+	var req service.CreateLotteryPrizeInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	item, err := h.lotteryService.CreatePrize(c.Request.Context(), &req)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Created(c, item)
+}
+
+func (h *PaymentHandler) UpdateLotteryPrize(c *gin.Context) {
+	if h.lotteryService == nil {
+		response.InternalError(c, "lottery service not configured")
+		return
+	}
+	id, ok := parseIDParam(c, "id")
+	if !ok {
+		return
+	}
+	var req service.UpdateLotteryPrizeInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	item, err := h.lotteryService.UpdatePrize(c.Request.Context(), id, &req)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, item)
+}
+
+func paginationParams(page, pageSize int) pagination.PaginationParams {
+	return pagination.PaginationParams{
+		Page:     page,
+		PageSize: pageSize,
+	}
 }

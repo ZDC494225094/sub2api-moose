@@ -12,7 +12,10 @@ import type {
   CheckoutInfoResponse,
   CreateOrderRequest,
   CreateOrderResult,
-  PaymentOrder
+  PaymentOrder,
+  UserCoupon,
+  LotteryDrawResult,
+  LotteryOverview
 } from '@/types/payment'
 import type { BasePaginationResponse } from '@/types'
 
@@ -40,6 +43,26 @@ export const paymentAPI = {
   /** Get payment method limits and fee rates */
   getLimits() {
     return apiClient.get<MethodLimitsResponse>('/payment/limits')
+  },
+
+  /** Get current user's usable coupons */
+  getCoupons(params?: { page?: number; page_size?: number; status?: string; scope?: string }) {
+    return apiClient.get<BasePaginationResponse<UserCoupon>>('/payment/coupons', { params })
+  },
+
+  /** Get active lottery activity */
+  getActiveLottery() {
+    return apiClient.get<LotteryOverview | Record<string, never>>('/payment/lottery/active')
+  },
+
+  /** Draw lottery */
+  drawLottery(data: { activity_id: number; use_wallet?: boolean }) {
+    return apiClient.post<LotteryDrawResult>('/payment/lottery/draw', data)
+  },
+
+  /** Get current user's draw history */
+  getMyDrawRecords(params?: { activity_id?: number; page?: number; page_size?: number }) {
+    return apiClient.get<{ items: import('@/types/payment').LotteryDrawRecord[]; total: number; page: number; page_size: number }>('/payment/lottery/my-records', { params })
   },
 
   /** Create a new payment order */
