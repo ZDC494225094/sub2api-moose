@@ -7105,6 +7105,8 @@ export default {
     confirmWalletDraw: 'This draw will deduct ¥{amount} from your wallet. Continue?',
     confirmDraw: 'Confirm',
     cancelDraw: 'Cancel',
+    couponThresholdPending: 'Available from ¥{amount}',
+    couponDirectDiscount: 'Direct discount',
   },
 
   adminCoupons: {

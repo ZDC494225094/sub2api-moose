@@ -7284,6 +7284,8 @@ export default {
     confirmWalletDraw: '本次抽奖将扣除钱包余额 ¥{amount}，是否继续？',
     confirmDraw: '确认抽奖',
     cancelDraw: '取消',
+    couponThresholdPending: '满 ¥{amount} 可用',
+    couponDirectDiscount: '直减',
   },
 
   adminCoupons: {

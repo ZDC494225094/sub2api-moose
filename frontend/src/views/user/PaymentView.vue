@@ -667,15 +667,23 @@ const canSubmitSubscription = computed(() =>
     && selectedLimit.value?.available !== false
 )
 
-function couponOptions(orderType: OrderType): Array<{ value: number | null; label: string }> {
-  const options: Array<{ value: number | null; label: string }> = [{ value: null, label: t('userLottery.noCoupon') }]
+function couponOptions(orderType: OrderType): Array<{ value: number | null; label: string; disabled?: boolean }> {
+  const options: Array<{ value: number | null; label: string; disabled?: boolean }> = [{ value: null, label: t('userLottery.noCoupon') }]
+  const currentAmount = orderType === 'balance' ? totalAmount.value : subTotalAmount.value
   availableCoupons.value
     .filter((coupon) => coupon.status === 'unused' && (coupon.scope === 'universal' || coupon.scope === orderType))
     .forEach((coupon) => {
-      const threshold = coupon.threshold_amount > 0 ? `满${coupon.threshold_amount.toFixed(2)}减` : '直减'
+      const thresholdMet = coupon.threshold_amount <= 0 || currentAmount >= coupon.threshold_amount
+      const thresholdLabel = coupon.threshold_amount > 0
+        ? `${t('userLottery.thresholdPrefix')}¥${coupon.threshold_amount.toFixed(2)}`
+        : t('userLottery.couponDirectDiscount')
+      const pendingLabel = !thresholdMet && coupon.threshold_amount > 0
+        ? ` · ${t('userLottery.couponThresholdPending', { amount: coupon.threshold_amount.toFixed(2) })}`
+        : ''
       options.push({
         value: coupon.id,
-        label: `${threshold}¥${coupon.discount_amount.toFixed(2)} (${coupon.coupon_code})`,
+        label: `${thresholdLabel} -¥${coupon.discount_amount.toFixed(2)} (${coupon.coupon_code})${pendingLabel}`,
+        disabled: !thresholdMet,
       })
     })
   return options
@@ -691,6 +699,13 @@ watch(() => [validAmount.value, selectedMethod.value] as const, ([amt, method]) 
 // Auto-clear coupon when amount drops below its threshold
 watch(validAmount, (amt) => {
   if (!selectedCoupon.value) return
+  if (selectedCoupon.value.threshold_amount > 0 && amt < selectedCoupon.value.threshold_amount) {
+    selectedCouponId.value = null
+  }
+})
+
+watch(subTotalAmount, (amt) => {
+  if (!selectedCoupon.value || activeTab.value !== 'subscription') return
   if (selectedCoupon.value.threshold_amount > 0 && amt < selectedCoupon.value.threshold_amount) {
     selectedCouponId.value = null
   }
