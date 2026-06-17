@@ -1,7 +1,8 @@
 <template>
-  <div class="flex items-center gap-2">
-    <span class="text-sm text-gray-900 dark:text-gray-100">{{ row.primary_model }}</span>
-    <HelpTooltip>
+  <div class="space-y-1">
+    <div class="flex items-center gap-2">
+      <span class="text-sm text-gray-900 dark:text-gray-100">{{ row.primary_model }}</span>
+      <HelpTooltip>
       <template #trigger>
         <span
           class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
@@ -51,8 +52,15 @@
             </tbody>
           </table>
         </div>
-      </div>
-    </HelpTooltip>
+        </div>
+      </HelpTooltip>
+    </div>
+    <div
+      v-if="row.primary_message && (row.primary_status === 'failed' || row.primary_status === 'error')"
+      class="max-w-[360px] whitespace-pre-wrap break-words rounded bg-rose-50 px-2 py-1 text-xs text-rose-700 dark:bg-rose-950/30 dark:text-rose-300"
+    >
+      {{ row.primary_message }}
+    </div>
   </div>
 </template>
 

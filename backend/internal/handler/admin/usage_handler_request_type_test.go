@@ -31,6 +31,10 @@ func (s *adminUsageRepoCapture) ListWithFilters(ctx context.Context, params pagi
 	}, nil
 }
 
+func (s *adminUsageRepoCapture) ListAdminWithFilters(ctx context.Context, params pagination.PaginationParams, filters usagestats.UsageLogFilters) ([]service.UsageLog, *pagination.PaginationResult, error) {
+	return s.ListWithFilters(ctx, params, filters)
+}
+
 func (s *adminUsageRepoCapture) GetStatsWithFilters(ctx context.Context, filters usagestats.UsageLogFilters) (*usagestats.UsageStats, error) {
 	s.statsFilters = filters
 	return &usagestats.UsageStats{}, nil

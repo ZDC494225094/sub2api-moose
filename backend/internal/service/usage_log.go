@@ -97,7 +97,10 @@ type UsageLog struct {
 	APIKeyID  int64
 	AccountID int64
 	RequestID string
-	Model     string
+	// RequestKind is "success" for usage_logs rows and "error" for synthesized
+	// admin-side rows merged from ops_error_logs.
+	RequestKind string
+	Model       string
 	// RequestedModel is the client-requested model name recorded for stable user/admin display.
 	// Empty should be treated as Model for backward compatibility with historical rows.
 	RequestedModel string
@@ -149,14 +152,18 @@ type UsageLog struct {
 	// AccountStatsCost 账号统计定价预计算费用（nil = 使用默认公式 total_cost × account_rate_multiplier）
 	AccountStatsCost *float64
 
-	BillingType  int8
-	RequestType  RequestType
-	Stream       bool
-	OpenAIWSMode bool
-	DurationMs   *int
-	FirstTokenMs *int
-	UserAgent    *string
-	IPAddress    *string
+	BillingType   int8
+	RequestType   RequestType
+	Stream        bool
+	OpenAIWSMode  bool
+	DurationMs    *int
+	FirstTokenMs  *int
+	StatusCode    *int
+	ErrorMessage  *string
+	ErrorPhase    *string
+	ErrorSeverity *string
+	UserAgent     *string
+	IPAddress     *string
 
 	// Cache TTL Override 标记（管理员强制替换了缓存 TTL 计费）
 	CacheTTLOverridden bool

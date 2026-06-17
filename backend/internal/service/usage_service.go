@@ -366,6 +366,15 @@ func (s *UsageService) ListWithFilters(ctx context.Context, params pagination.Pa
 	return logs, result, nil
 }
 
+// ListAdminWithFilters lists admin usage records, including failed requests.
+func (s *UsageService) ListAdminWithFilters(ctx context.Context, params pagination.PaginationParams, filters usagestats.UsageLogFilters) ([]UsageLog, *pagination.PaginationResult, error) {
+	logs, result, err := s.usageRepo.ListAdminWithFilters(ctx, params, filters)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list admin usage logs with filters: %w", err)
+	}
+	return logs, result, nil
+}
+
 // GetGlobalStats returns global usage stats for a time range.
 func (s *UsageService) GetGlobalStats(ctx context.Context, startTime, endTime time.Time) (*usagestats.UsageStats, error) {
 	stats, err := s.usageRepo.GetGlobalStats(ctx, startTime, endTime)

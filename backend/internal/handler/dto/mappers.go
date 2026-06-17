@@ -639,8 +639,17 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 	if l == nil {
 		return nil
 	}
+	var requestKind *string
+	if l.RequestKind != "" {
+		requestKind = &l.RequestKind
+	}
 	return &AdminUsageLog{
 		UsageLog:              usageLogFromServiceUser(l),
+		RequestKind:           requestKind,
+		StatusCode:            l.StatusCode,
+		ErrorMessage:          l.ErrorMessage,
+		ErrorPhase:            l.ErrorPhase,
+		ErrorSeverity:         l.ErrorSeverity,
 		UpstreamModel:         l.UpstreamModel,
 		ChannelID:             l.ChannelID,
 		ModelMappingChain:     l.ModelMappingChain,

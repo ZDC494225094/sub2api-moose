@@ -96,7 +96,8 @@ const (
 	// monitorTLSHandshakeTimeout HTTP transport TLS 握手超时。
 	monitorTLSHandshakeTimeout = 10 * time.Second
 	// monitorResponseHeaderTimeout HTTP transport 等待响应头超时。
-	monitorResponseHeaderTimeout = 30 * time.Second
+	// 置 0 交给 http.Client.Timeout 统一兜底，避免“首包较慢但仍能在总超时内成功”的渠道被 30s 过早打断。
+	monitorResponseHeaderTimeout = 0 * time.Second
 	// monitorPingDiscardMaxBytes ping 时丢弃响应体的最大字节数。
 	monitorPingDiscardMaxBytes = 1024
 

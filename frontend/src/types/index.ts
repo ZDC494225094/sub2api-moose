@@ -1265,6 +1265,11 @@ export interface UsageLogAccountSummary {
 }
 
 export interface AdminUsageLog extends UsageLog {
+  request_kind?: 'success' | 'error' | null
+  status_code?: number | null
+  error_message?: string | null
+  error_phase?: string | null
+  error_severity?: string | null
   upstream_model?: string | null
   model_mapping_chain?: string | null
 

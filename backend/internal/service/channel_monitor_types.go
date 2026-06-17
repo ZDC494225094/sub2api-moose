@@ -143,6 +143,7 @@ type ExtraModelStatus struct {
 	Model     string
 	Status    string
 	LatencyMs *int
+	Message   string
 }
 
 // UserMonitorDetail 用户只读视图：监控详情（含全部模型 7d/15d/30d 可用率与平均延迟）。
@@ -193,6 +194,7 @@ type ChannelMonitorLatest struct {
 	Status        string
 	LatencyMs     *int
 	PingLatencyMs *int
+	Message       string
 	CheckedAt     time.Time
 }
 
@@ -212,6 +214,7 @@ type ChannelMonitorAvailability struct {
 type MonitorStatusSummary struct {
 	PrimaryStatus    string // 空字符串表示无历史
 	PrimaryLatencyMs *int
+	PrimaryMessage   string
 	Availability7d   float64 // 0-100，无历史时为 0
 	ExtraModels      []ExtraModelStatus
 }

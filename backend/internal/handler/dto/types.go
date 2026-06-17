@@ -489,6 +489,12 @@ type UsageLog struct {
 type AdminUsageLog struct {
 	UsageLog
 
+	RequestKind   *string `json:"request_kind,omitempty"`
+	StatusCode    *int    `json:"status_code,omitempty"`
+	ErrorMessage  *string `json:"error_message,omitempty"`
+	ErrorPhase    *string `json:"error_phase,omitempty"`
+	ErrorSeverity *string `json:"error_severity,omitempty"`
+
 	// UpstreamModel is the actual model sent to the upstream provider after mapping.
 	// Omitted when no mapping was applied (requested model was used as-is).
 	UpstreamModel *string `json:"upstream_model,omitempty"`

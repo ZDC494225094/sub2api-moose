@@ -61,6 +61,7 @@ func runCheckForModel(ctx context.Context, provider, endpoint, apiKey, model str
 		Status:    MonitorStatusError,
 		CheckedAt: time.Now(),
 	}
+	targetLabel := monitorTargetLabel(provider, endpoint, model)
 
 	challenge := generateChallenge()
 	mode := bodyOverrideMode(opts)
@@ -73,7 +74,7 @@ func runCheckForModel(ctx context.Context, provider, endpoint, apiKey, model str
 
 	if err != nil {
 		res.Status = MonitorStatusError
-		res.Message = truncateMessage(sanitizeErrorMessage(err.Error()))
+		res.Message = truncateMessage(sanitizeErrorMessage(fmt.Sprintf("%s: %s", targetLabel, normalizeMonitorRequestError(err))))
 		return res
 	}
 	if statusCode < 200 || statusCode >= 300 {
@@ -81,7 +82,7 @@ func runCheckForModel(ctx context.Context, provider, endpoint, apiKey, model str
 		// 会丢掉真正的上游错误信息，例如 `{"error":{"message":"No available accounts ..."}}`）。
 		res.Status = MonitorStatusError
 		bodySnippet := truncateForErrorBody(rawBody)
-		res.Message = truncateMessage(sanitizeErrorMessage(fmt.Sprintf("upstream HTTP %d: %s", statusCode, bodySnippet)))
+		res.Message = truncateMessage(sanitizeErrorMessage(fmt.Sprintf("%s: upstream HTTP %d: %s", targetLabel, statusCode, bodySnippet)))
 		return res
 	}
 
@@ -91,7 +92,7 @@ func runCheckForModel(ctx context.Context, provider, endpoint, apiKey, model str
 	if mode == MonitorBodyOverrideModeReplace {
 		if strings.TrimSpace(respText) == "" {
 			res.Status = MonitorStatusFailed
-			res.Message = truncateMessage("replace-mode: upstream returned 2xx with empty text")
+			res.Message = truncateMessage(fmt.Sprintf("%s: replace-mode returned 2xx with empty text", targetLabel))
 			return res
 		}
 		return finalizeOperationalOrDegraded(res, latency, latencyMs)
@@ -99,11 +100,35 @@ func runCheckForModel(ctx context.Context, provider, endpoint, apiKey, model str
 
 	if !validateChallenge(respText, challenge.Expected) {
 		res.Status = MonitorStatusFailed
-		res.Message = truncateMessage(sanitizeErrorMessage(fmt.Sprintf("challenge mismatch (expected %s, got %q)", challenge.Expected, respText)))
+		res.Message = truncateMessage(sanitizeErrorMessage(fmt.Sprintf("%s: challenge mismatch (expected %s, got %q)", targetLabel, challenge.Expected, respText)))
 		return res
 	}
 
 	return finalizeOperationalOrDegraded(res, latency, latencyMs)
+}
+
+func monitorTargetLabel(provider, endpoint, model string) string {
+	u, err := url.Parse(strings.TrimSpace(endpoint))
+	host := strings.TrimSpace(endpoint)
+	if err == nil && u != nil && u.Host != "" {
+		host = u.Host
+	}
+	return fmt.Sprintf("channel[%s|%s|%s]", strings.TrimSpace(provider), host, strings.TrimSpace(model))
+}
+
+func normalizeMonitorRequestError(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "timeout awaiting response headers"):
+		return "upstream response headers timeout"
+	case strings.Contains(strings.ToLower(msg), "context deadline exceeded"):
+		return "upstream request timeout"
+	default:
+		return msg
+	}
 }
 
 // finalizeOperationalOrDegraded 负责走到最后一步的 operational/degraded 判定。

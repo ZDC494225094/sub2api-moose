@@ -80,9 +80,24 @@
         </template>
 
         <template #cell-stream="{ row }">
-          <span class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium" :class="getRequestTypeBadgeClass(row)">
-            {{ getRequestTypeLabel(row) }}
-          </span>
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium" :class="getRequestTypeBadgeClass(row)">
+                {{ getRequestTypeLabel(row) }}
+              </span>
+              <span class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium" :class="getRequestResultBadgeClass(row)">
+                {{ getRequestResultLabel(row) }}
+              </span>
+            </div>
+            <div v-if="row.error_message" class="max-w-[360px] whitespace-pre-wrap break-words rounded bg-rose-50 px-2 py-1 text-xs text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">
+              <div v-if="row.status_code != null || row.error_phase" class="mb-0.5 text-[11px] font-medium text-rose-600 dark:text-rose-300">
+                <span v-if="row.status_code != null">HTTP {{ row.status_code }}</span>
+                <span v-if="row.status_code != null && row.error_phase" class="mx-1">·</span>
+                <span v-if="row.error_phase">{{ t('admin.usage.errorPhase') }}: {{ row.error_phase }}</span>
+              </div>
+              {{ row.error_message }}
+            </div>
+          </div>
         </template>
 
         <template #cell-billing_mode="{ row }">
@@ -469,6 +484,17 @@ const getRequestTypeBadgeClass = (row: AdminUsageLog): string => {
   if (requestType === 'stream') return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
   if (requestType === 'sync') return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
   return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+}
+
+const getRequestResultLabel = (row: AdminUsageLog): string => {
+  return row.request_kind === 'error' ? t('admin.usage.requestFailed') : t('admin.usage.requestSuccess')
+}
+
+const getRequestResultBadgeClass = (row: AdminUsageLog): string => {
+  if (row.request_kind === 'error') {
+    return 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200'
+  }
+  return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
 }
 
 
