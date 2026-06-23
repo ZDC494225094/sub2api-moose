@@ -380,8 +380,8 @@ func (s *PaymentService) sendSubscriptionPurchaseSuccessNotification(ctx context
 			}
 		}
 		if s.subscriptionSvc != nil {
-			if sub, err := s.subscriptionSvc.GetActiveSubscription(ctx, o.UserID, *o.SubscriptionGroupID); err == nil && sub != nil {
-				variables["expiry_time"] = sub.ExpiresAt.Format("2006-01-02 15:04")
+			if sub, err := s.subscriptionForOrder(ctx, o); err == nil && sub != nil {
+				variables["expiry_time"] = sub.ExpiresAt.Format("2006-01-02 15:04:05")
 			}
 		}
 	}
@@ -434,18 +434,46 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder) error
 	if err != nil || g.Status != payment.EntityStatusActive {
 		return fmt.Errorf("group %d no longer exists or inactive", gid)
 	}
-	// Idempotency: check audit log to see if subscription was already assigned.
-	// Prevents double-extension on retry after markCompleted fails.
+	// Idempotency: if a prior attempt already recorded the exact subscription
+	// instance, do not create another one while retrying completion.
+	if paymentOrderHasRecordedSubscription(o) {
+		slog.Info("subscription already recorded for order, skipping assignment", "orderID", o.ID, "groupID", gid, "subscriptionID", *o.SubscriptionID)
+		return s.markCompleted(ctx, o, "SUBSCRIPTION_SUCCESS")
+	}
+	// Legacy idempotency: check audit log to see if subscription was already assigned.
 	if s.hasAuditLog(ctx, o.ID, "SUBSCRIPTION_SUCCESS") {
 		slog.Info("subscription already assigned for order, skipping", "orderID", o.ID, "groupID", gid)
 		return s.markCompleted(ctx, o, "SUBSCRIPTION_SUCCESS")
 	}
 	orderNote := fmt.Sprintf("payment order %d", o.ID)
-	_, _, err = s.subscriptionSvc.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{UserID: o.UserID, GroupID: gid, ValidityDays: days, AssignedBy: 0, Notes: orderNote})
+	sub, _, err := s.subscriptionSvc.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{UserID: o.UserID, GroupID: gid, ValidityDays: days, AssignedBy: 0, Notes: orderNote})
 	if err != nil {
 		return fmt.Errorf("assign subscription: %w", err)
 	}
+	if sub != nil && sub.ID > 0 {
+		if _, err := s.entClient.PaymentOrder.UpdateOneID(o.ID).SetSubscriptionID(sub.ID).Save(ctx); err != nil {
+			return fmt.Errorf("record subscription id: %w", err)
+		}
+		o.SubscriptionID = &sub.ID
+	}
 	return s.markCompleted(ctx, o, "SUBSCRIPTION_SUCCESS")
+}
+
+func paymentOrderHasRecordedSubscription(o *dbent.PaymentOrder) bool {
+	return o != nil && o.SubscriptionID != nil && *o.SubscriptionID > 0
+}
+
+func (s *PaymentService) subscriptionForOrder(ctx context.Context, o *dbent.PaymentOrder) (*UserSubscription, error) {
+	if s == nil || s.subscriptionSvc == nil || o == nil {
+		return nil, ErrSubscriptionNotFound
+	}
+	if o.SubscriptionID != nil && *o.SubscriptionID > 0 {
+		return s.subscriptionSvc.GetByID(ctx, *o.SubscriptionID)
+	}
+	if o.SubscriptionGroupID != nil {
+		return s.subscriptionSvc.GetActiveSubscription(ctx, o.UserID, *o.SubscriptionGroupID)
+	}
+	return nil, ErrSubscriptionNotFound
 }
 
 func (s *PaymentService) hasAuditLog(ctx context.Context, orderID int64, action string) bool {

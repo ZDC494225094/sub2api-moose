@@ -195,6 +195,23 @@ func (s *subscriptionUserSubRepoStub) ListActiveByUserIDAndGroupID(_ context.Con
 	return result, nil
 }
 
+func (s *subscriptionUserSubRepoStub) ListActiveByUserID(_ context.Context, userID int64) ([]UserSubscription, error) {
+	result := make([]UserSubscription, 0)
+	for _, sub := range s.byID {
+		if sub == nil || sub.UserID != userID {
+			continue
+		}
+		if sub.Status != "" && sub.Status != SubscriptionStatusActive {
+			continue
+		}
+		result = append(result, *sub)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ID < result[j].ID
+	})
+	return result, nil
+}
+
 func (s *subscriptionUserSubRepoStub) Create(_ context.Context, sub *UserSubscription) error {
 	if sub == nil {
 		return nil
@@ -238,19 +255,25 @@ func (s *subscriptionUserSubRepoStub) Update(_ context.Context, sub *UserSubscri
 	return nil
 }
 
-func TestAssignSubscriptionReuseWhenSemanticsMatch(t *testing.T) {
+func TestAssignSubscriptionCreatesAdditionalInstanceWhenSameGroupExists(t *testing.T) {
 	start := time.Date(2026, 2, 20, 10, 0, 0, 0, time.UTC)
+	windowStart := startOfDay(start)
 	groupRepo := &subscriptionGroupRepoStub{
 		group: &Group{ID: 1, SubscriptionType: SubscriptionTypeSubscription},
 	}
 	subRepo := newSubscriptionUserSubRepoStub()
 	subRepo.seed(&UserSubscription{
-		ID:        10,
-		UserID:    1001,
-		GroupID:   1,
-		StartsAt:  start,
-		ExpiresAt: start.AddDate(0, 0, 30),
-		Notes:     "init",
+		ID:                 10,
+		UserID:             1001,
+		GroupID:            1,
+		StartsAt:           start,
+		ExpiresAt:          start.AddDate(0, 0, 30),
+		Status:             SubscriptionStatusActive,
+		DailyWindowStart:   &windowStart,
+		WeeklyWindowStart:  &windowStart,
+		MonthlyWindowStart: &windowStart,
+		DailyUsageUSD:      7.5,
+		Notes:              "init",
 	})
 
 	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
@@ -258,14 +281,25 @@ func TestAssignSubscriptionReuseWhenSemanticsMatch(t *testing.T) {
 		UserID:       1001,
 		GroupID:      1,
 		ValidityDays: 30,
-		Notes:        "init",
+		Notes:        "second",
 	})
 	require.NoError(t, err)
-	require.Equal(t, int64(10), sub.ID)
-	require.Equal(t, 0, subRepo.createCalls, "reuse should not create new subscription")
+	require.NotEqual(t, int64(10), sub.ID)
+	require.Equal(t, 1, subRepo.createCalls, "same group assignment should create another independent subscription")
+	require.Equal(t, 0.0, sub.DailyUsageUSD)
+	require.Equal(t, "second", sub.Notes)
+
+	original, err := subRepo.GetByID(context.Background(), 10)
+	require.NoError(t, err)
+	require.Equal(t, 7.5, original.DailyUsageUSD)
+	require.Equal(t, "init", original.Notes)
+
+	active, err := subRepo.ListActiveByUserIDAndGroupID(context.Background(), 1001, 1)
+	require.NoError(t, err)
+	require.Len(t, active, 2)
 }
 
-func TestAssignSubscriptionConflictWhenSemanticsMismatch(t *testing.T) {
+func TestAssignSubscriptionDifferentNotesStillCreatesAdditionalInstance(t *testing.T) {
 	start := time.Date(2026, 2, 20, 10, 0, 0, 0, time.UTC)
 	groupRepo := &subscriptionGroupRepoStub{
 		group: &Group{ID: 1, SubscriptionType: SubscriptionTypeSubscription},
@@ -277,44 +311,51 @@ func TestAssignSubscriptionConflictWhenSemanticsMismatch(t *testing.T) {
 		GroupID:   1,
 		StartsAt:  start,
 		ExpiresAt: start.AddDate(0, 0, 30),
+		Status:    SubscriptionStatusActive,
 		Notes:     "old-note",
 	})
 
 	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
-	_, err := svc.AssignSubscription(context.Background(), &AssignSubscriptionInput{
+	sub, err := svc.AssignSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       2001,
 		GroupID:      1,
 		ValidityDays: 30,
 		Notes:        "new-note",
 	})
-	require.Error(t, err)
-	require.Equal(t, "SUBSCRIPTION_ASSIGN_CONFLICT", infraerrorsReason(err))
-	require.Equal(t, 0, subRepo.createCalls, "conflict should not create or mutate existing subscription")
+	require.NoError(t, err)
+	require.NotEqual(t, int64(11), sub.ID)
+	require.Equal(t, 1, subRepo.createCalls)
+	require.Equal(t, "new-note", sub.Notes)
+
+	original, err := subRepo.GetByID(context.Background(), 11)
+	require.NoError(t, err)
+	require.Equal(t, "old-note", original.Notes)
 }
 
-func TestBulkAssignSubscriptionCreatedReusedAndConflict(t *testing.T) {
+func TestBulkAssignSubscriptionCreatesIndependentInstancesForAllUsers(t *testing.T) {
 	start := time.Date(2026, 2, 20, 10, 0, 0, 0, time.UTC)
 	groupRepo := &subscriptionGroupRepoStub{
 		group: &Group{ID: 1, SubscriptionType: SubscriptionTypeSubscription},
 	}
 	subRepo := newSubscriptionUserSubRepoStub()
-	// user 1: 语义一致，可 reused
+	// Existing subscriptions must not block another assignment for the same group.
 	subRepo.seed(&UserSubscription{
 		ID:        21,
 		UserID:    1,
 		GroupID:   1,
 		StartsAt:  start,
 		ExpiresAt: start.AddDate(0, 0, 30),
+		Status:    SubscriptionStatusActive,
 		Notes:     "same-note",
 	})
-	// user 3: 语义冲突（有效期不一致），应 failed
 	subRepo.seed(&UserSubscription{
 		ID:        23,
 		UserID:    3,
 		GroupID:   1,
 		StartsAt:  start,
 		ExpiresAt: start.AddDate(0, 0, 60),
-		Notes:     "same-note",
+		Status:    SubscriptionStatusActive,
+		Notes:     "old-note",
 	})
 
 	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
@@ -326,14 +367,22 @@ func TestBulkAssignSubscriptionCreatedReusedAndConflict(t *testing.T) {
 		Notes:        "same-note",
 	})
 	require.NoError(t, err)
-	require.Equal(t, 2, result.SuccessCount)
-	require.Equal(t, 1, result.CreatedCount)
-	require.Equal(t, 1, result.ReusedCount)
-	require.Equal(t, 1, result.FailedCount)
-	require.Equal(t, "reused", result.Statuses[1])
+	require.Equal(t, 3, result.SuccessCount)
+	require.Equal(t, 3, result.CreatedCount)
+	require.Equal(t, 0, result.ReusedCount)
+	require.Equal(t, 0, result.FailedCount)
+	require.Equal(t, "created", result.Statuses[1])
 	require.Equal(t, "created", result.Statuses[2])
-	require.Equal(t, "failed", result.Statuses[3])
-	require.Equal(t, 1, subRepo.createCalls)
+	require.Equal(t, "created", result.Statuses[3])
+	require.Equal(t, 3, subRepo.createCalls)
+	require.Len(t, result.Subscriptions, 3)
+
+	user1Active, err := subRepo.ListActiveByUserIDAndGroupID(context.Background(), 1, 1)
+	require.NoError(t, err)
+	require.Len(t, user1Active, 2)
+	user3Active, err := subRepo.ListActiveByUserIDAndGroupID(context.Background(), 3, 1)
+	require.NoError(t, err)
+	require.Len(t, user3Active, 2)
 }
 
 func TestAssignSubscriptionKeepsWorkingWhenIdempotencyStoreUnavailable(t *testing.T) {
@@ -356,51 +405,6 @@ func TestAssignSubscriptionKeepsWorkingWhenIdempotencyStoreUnavailable(t *testin
 	require.NoError(t, err)
 	require.NotNil(t, sub)
 	require.Equal(t, 1, subRepo.createCalls, "semantic idempotent endpoint should not depend on idempotency store availability")
-}
-
-func TestNormalizeAssignValidityDays(t *testing.T) {
-	require.Equal(t, 30, normalizeAssignValidityDays(0))
-	require.Equal(t, 30, normalizeAssignValidityDays(-5))
-	require.Equal(t, MaxValidityDays, normalizeAssignValidityDays(MaxValidityDays+100))
-	require.Equal(t, 7, normalizeAssignValidityDays(7))
-}
-
-func TestDetectAssignSemanticConflictCases(t *testing.T) {
-	start := time.Date(2026, 2, 20, 10, 0, 0, 0, time.UTC)
-	base := &UserSubscription{
-		UserID:    1,
-		GroupID:   1,
-		StartsAt:  start,
-		ExpiresAt: start.AddDate(0, 0, 30),
-		Notes:     "same",
-	}
-
-	reason, conflict := detectAssignSemanticConflict(base, &AssignSubscriptionInput{
-		UserID:       1,
-		GroupID:      1,
-		ValidityDays: 30,
-		Notes:        "same",
-	})
-	require.False(t, conflict)
-	require.Equal(t, "", reason)
-
-	reason, conflict = detectAssignSemanticConflict(base, &AssignSubscriptionInput{
-		UserID:       1,
-		GroupID:      1,
-		ValidityDays: 60,
-		Notes:        "same",
-	})
-	require.True(t, conflict)
-	require.Equal(t, "validity_days_mismatch", reason)
-
-	reason, conflict = detectAssignSemanticConflict(base, &AssignSubscriptionInput{
-		UserID:       1,
-		GroupID:      1,
-		ValidityDays: 30,
-		Notes:        "other",
-	})
-	require.True(t, conflict)
-	require.Equal(t, "notes_mismatch", reason)
 }
 
 func TestAssignSubscriptionGroupTypeValidation(t *testing.T) {

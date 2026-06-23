@@ -966,8 +966,21 @@ func (s *BillingCacheService) checkSubscriptionEligibility(ctx context.Context, 
 	}
 
 	// 检查是否过期
-	if time.Now().After(subData.ExpiresAt) {
+	now := time.Now()
+	if !now.Before(subData.ExpiresAt) {
 		return ErrSubscriptionInvalid
+	}
+
+	// 缓存中的订阅用量可能仍停留在旧窗口；请求中间件已按订阅实体判断窗口，
+	// 这里也使用同一实体做内存修正，避免旧缓存把应当刷新的窗口继续拦截。
+	if subscription.NeedsDailyResetAt(now) {
+		subData.DailyUsage = 0
+	}
+	if subscription.NeedsWeeklyResetAt(now) {
+		subData.WeeklyUsage = 0
+	}
+	if subscription.NeedsMonthlyResetAt(now) {
+		subData.MonthlyUsage = 0
 	}
 
 	// 检查限额（使用传入的Group限额配置）

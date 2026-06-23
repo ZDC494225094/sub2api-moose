@@ -5,12 +5,25 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/stretchr/testify/require"
 )
 
 type apiKeySelectionGroupRepo struct {
 	groupRepoNoop
 	groups map[int64]*Group
+}
+
+func (r *apiKeySelectionGroupRepo) ListActive(_ context.Context) ([]Group, error) {
+	out := make([]Group, 0, len(r.groups))
+	for _, group := range r.groups {
+		if group == nil || !group.IsActive() {
+			continue
+		}
+		cp := *group
+		out = append(out, cp)
+	}
+	return out, nil
 }
 
 func (r *apiKeySelectionGroupRepo) GetByID(_ context.Context, id int64) (*Group, error) {
@@ -20,6 +33,100 @@ func (r *apiKeySelectionGroupRepo) GetByID(_ context.Context, id int64) (*Group,
 	}
 	cp := *group
 	return &cp, nil
+}
+
+type apiKeySelectionUserRepo struct {
+	user *User
+}
+
+func (r *apiKeySelectionUserRepo) GetByID(_ context.Context, id int64) (*User, error) {
+	if r.user == nil || r.user.ID != id {
+		return nil, ErrUserNotFound
+	}
+	cp := *r.user
+	return &cp, nil
+}
+
+func (r *apiKeySelectionUserRepo) Create(context.Context, *User) error {
+	panic("unexpected Create call")
+}
+func (r *apiKeySelectionUserRepo) GetByEmail(context.Context, string) (*User, error) {
+	panic("unexpected GetByEmail call")
+}
+func (r *apiKeySelectionUserRepo) GetFirstAdmin(context.Context) (*User, error) {
+	panic("unexpected GetFirstAdmin call")
+}
+func (r *apiKeySelectionUserRepo) Update(context.Context, *User) error {
+	panic("unexpected Update call")
+}
+func (r *apiKeySelectionUserRepo) Delete(context.Context, int64) error {
+	panic("unexpected Delete call")
+}
+func (r *apiKeySelectionUserRepo) GetUserAvatar(context.Context, int64) (*UserAvatar, error) {
+	panic("unexpected GetUserAvatar call")
+}
+func (r *apiKeySelectionUserRepo) UpsertUserAvatar(context.Context, int64, UpsertUserAvatarInput) (*UserAvatar, error) {
+	panic("unexpected UpsertUserAvatar call")
+}
+func (r *apiKeySelectionUserRepo) DeleteUserAvatar(context.Context, int64) error {
+	panic("unexpected DeleteUserAvatar call")
+}
+func (r *apiKeySelectionUserRepo) List(context.Context, pagination.PaginationParams) ([]User, *pagination.PaginationResult, error) {
+	panic("unexpected List call")
+}
+func (r *apiKeySelectionUserRepo) ListWithFilters(context.Context, pagination.PaginationParams, UserListFilters) ([]User, *pagination.PaginationResult, error) {
+	panic("unexpected ListWithFilters call")
+}
+func (r *apiKeySelectionUserRepo) GetLatestUsedAtByUserIDs(context.Context, []int64) (map[int64]*time.Time, error) {
+	panic("unexpected GetLatestUsedAtByUserIDs call")
+}
+func (r *apiKeySelectionUserRepo) GetLatestUsedAtByUserID(context.Context, int64) (*time.Time, error) {
+	panic("unexpected GetLatestUsedAtByUserID call")
+}
+func (r *apiKeySelectionUserRepo) UpdateUserLastActiveAt(context.Context, int64, time.Time) error {
+	panic("unexpected UpdateUserLastActiveAt call")
+}
+func (r *apiKeySelectionUserRepo) UpdateBalance(context.Context, int64, float64) error {
+	panic("unexpected UpdateBalance call")
+}
+func (r *apiKeySelectionUserRepo) DeductBalance(context.Context, int64, float64) error {
+	panic("unexpected DeductBalance call")
+}
+func (r *apiKeySelectionUserRepo) UpdateConcurrency(context.Context, int64, int) error {
+	panic("unexpected UpdateConcurrency call")
+}
+func (r *apiKeySelectionUserRepo) BatchSetConcurrency(context.Context, []int64, int) (int, error) {
+	panic("unexpected BatchSetConcurrency call")
+}
+func (r *apiKeySelectionUserRepo) BatchAddConcurrency(context.Context, []int64, int) (int, error) {
+	panic("unexpected BatchAddConcurrency call")
+}
+func (r *apiKeySelectionUserRepo) ExistsByEmail(context.Context, string) (bool, error) {
+	panic("unexpected ExistsByEmail call")
+}
+func (r *apiKeySelectionUserRepo) RemoveGroupFromAllowedGroups(context.Context, int64) (int64, error) {
+	panic("unexpected RemoveGroupFromAllowedGroups call")
+}
+func (r *apiKeySelectionUserRepo) AddGroupToAllowedGroups(context.Context, int64, int64) error {
+	panic("unexpected AddGroupToAllowedGroups call")
+}
+func (r *apiKeySelectionUserRepo) RemoveGroupFromUserAllowedGroups(context.Context, int64, int64) error {
+	panic("unexpected RemoveGroupFromUserAllowedGroups call")
+}
+func (r *apiKeySelectionUserRepo) ListUserAuthIdentities(context.Context, int64) ([]UserAuthIdentityRecord, error) {
+	panic("unexpected ListUserAuthIdentities call")
+}
+func (r *apiKeySelectionUserRepo) UnbindUserAuthProvider(context.Context, int64, string) error {
+	panic("unexpected UnbindUserAuthProvider call")
+}
+func (r *apiKeySelectionUserRepo) UpdateTotpSecret(context.Context, int64, *string) error {
+	panic("unexpected UpdateTotpSecret call")
+}
+func (r *apiKeySelectionUserRepo) EnableTotp(context.Context, int64) error {
+	panic("unexpected EnableTotp call")
+}
+func (r *apiKeySelectionUserRepo) DisableTotp(context.Context, int64) error {
+	panic("unexpected DisableTotp call")
 }
 
 func TestSelectUsableGroupForAPIKeyBalanceFirstFallsBackToSubscription(t *testing.T) {
@@ -196,4 +303,38 @@ func TestValidateBindableGroupIDsRejectsPlatformMismatch(t *testing.T) {
 	platform, err := apiKeySvc.validateBindableGroupIDs(context.Background(), &User{ID: 706}, PlatformGemini, []int64{openai.ID})
 	require.ErrorIs(t, err, ErrAPIKeyGroupPlatformMismatch)
 	require.Empty(t, platform)
+}
+
+func TestGetAvailableGroupsMergesMultipleSubscriptionsForSameGroup(t *testing.T) {
+	now := time.Now()
+	subscription := &Group{ID: 70, Name: "sub", Platform: PlatformOpenAI, Status: StatusActive, SubscriptionType: SubscriptionTypeSubscription}
+	standard := &Group{ID: 71, Name: "standard", Platform: PlatformOpenAI, Status: StatusActive, SubscriptionType: SubscriptionTypeStandard}
+	groupRepo := &apiKeySelectionGroupRepo{groups: map[int64]*Group{
+		subscription.ID: subscription,
+		standard.ID:     standard,
+	}}
+	subRepo := newSubscriptionUserSubRepoStub()
+	for _, id := range []int64{7001, 7002} {
+		subRepo.seed(&UserSubscription{
+			ID:                 id,
+			UserID:             707,
+			GroupID:            subscription.ID,
+			Status:             SubscriptionStatusActive,
+			StartsAt:           now.Add(-time.Hour),
+			ExpiresAt:          now.Add(24 * time.Hour),
+			DailyWindowStart:   &now,
+			WeeklyWindowStart:  &now,
+			MonthlyWindowStart: &now,
+		})
+	}
+	apiKeySvc := NewAPIKeyService(nil, &apiKeySelectionUserRepo{user: &User{ID: 707, Status: StatusActive}}, groupRepo, subRepo, nil, nil, nil)
+
+	groups, err := apiKeySvc.GetAvailableGroups(context.Background(), 707)
+
+	require.NoError(t, err)
+	groupIDs := make([]int64, 0, len(groups))
+	for _, group := range groups {
+		groupIDs = append(groupIDs, group.ID)
+	}
+	require.ElementsMatch(t, []int64{subscription.ID, standard.ID}, groupIDs)
 }

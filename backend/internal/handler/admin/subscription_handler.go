@@ -144,19 +144,26 @@ func (h *SubscriptionHandler) Assign(c *gin.Context) {
 	// Get admin user ID from context
 	adminID := getAdminIDFromContext(c)
 
-	subscription, err := h.subscriptionService.AssignSubscription(c.Request.Context(), &service.AssignSubscriptionInput{
-		UserID:       req.UserID,
-		GroupID:      req.GroupID,
-		ValidityDays: req.ValidityDays,
-		AssignedBy:   adminID,
-		Notes:        req.Notes,
-	})
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
+	idempotencyPayload := struct {
+		AdminID int64                     `json:"admin_id"`
+		Body    AssignSubscriptionRequest `json:"body"`
+	}{
+		AdminID: adminID,
+		Body:    req,
 	}
-
-	response.Success(c, dto.UserSubscriptionFromServiceAdmin(subscription))
+	executeAdminIdempotentJSON(c, "admin.subscriptions.assign", idempotencyPayload, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		subscription, execErr := h.subscriptionService.AssignSubscription(ctx, &service.AssignSubscriptionInput{
+			UserID:       req.UserID,
+			GroupID:      req.GroupID,
+			ValidityDays: req.ValidityDays,
+			AssignedBy:   adminID,
+			Notes:        req.Notes,
+		})
+		if execErr != nil {
+			return nil, execErr
+		}
+		return dto.UserSubscriptionFromServiceAdmin(subscription), nil
+	})
 }
 
 // BulkAssign handles bulk assigning subscriptions to multiple users
@@ -171,19 +178,26 @@ func (h *SubscriptionHandler) BulkAssign(c *gin.Context) {
 	// Get admin user ID from context
 	adminID := getAdminIDFromContext(c)
 
-	result, err := h.subscriptionService.BulkAssignSubscription(c.Request.Context(), &service.BulkAssignSubscriptionInput{
-		UserIDs:      req.UserIDs,
-		GroupID:      req.GroupID,
-		ValidityDays: req.ValidityDays,
-		AssignedBy:   adminID,
-		Notes:        req.Notes,
-	})
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
+	idempotencyPayload := struct {
+		AdminID int64                         `json:"admin_id"`
+		Body    BulkAssignSubscriptionRequest `json:"body"`
+	}{
+		AdminID: adminID,
+		Body:    req,
 	}
-
-	response.Success(c, dto.BulkAssignResultFromService(result))
+	executeAdminIdempotentJSON(c, "admin.subscriptions.bulk_assign", idempotencyPayload, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		result, execErr := h.subscriptionService.BulkAssignSubscription(ctx, &service.BulkAssignSubscriptionInput{
+			UserIDs:      req.UserIDs,
+			GroupID:      req.GroupID,
+			ValidityDays: req.ValidityDays,
+			AssignedBy:   adminID,
+			Notes:        req.Notes,
+		})
+		if execErr != nil {
+			return nil, execErr
+		}
+		return dto.BulkAssignResultFromService(result), nil
+	})
 }
 
 // Extend handles adjusting a subscription (extend or shorten)

@@ -283,7 +283,7 @@
                       d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  <span>{{ formatResetTime(row.weekly_window_start, 'weekly') }}</span>
+                  <span>{{ formatResetTime(row, 'weekly') }}</span>
                 </div>
               </div>
 
@@ -320,7 +320,7 @@
                       d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  <span>{{ formatResetTime(row.monthly_window_start, 'monthly') }}</span>
+                  <span>{{ formatResetTime(row, 'monthly') }}</span>
                 </div>
               </div>
 
@@ -351,7 +351,7 @@
                     : 'text-gray-700 dark:text-gray-300'
                 "
               >
-                {{ formatDateOnly(value) }}
+                {{ formatDateTime(value) }}
               </span>
               <div v-if="getDaysRemaining(value) !== null" class="text-xs text-gray-500">
                 {{ getDaysRemaining(value) }} {{ t('admin.subscriptions.daysRemaining') }}
@@ -590,7 +590,7 @@
             <span class="font-medium text-gray-900 dark:text-white">
               {{
                 extendingSubscription.expires_at
-                  ? formatDateOnly(extendingSubscription.expires_at)
+                  ? formatDateTime(extendingSubscription.expires_at)
                   : t('admin.subscriptions.noExpiration')
               }}
             </span>
@@ -745,7 +745,7 @@ import { adminAPI } from '@/api/admin'
 import type { UserSubscription, Group, GroupPlatform, SubscriptionType } from '@/types'
 import type { SimpleUser } from '@/api/admin/usage'
 import type { Column } from '@/components/common/types'
-import { formatDateOnly } from '@/utils/format'
+import { formatDateTime } from '@/utils/format'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -758,7 +758,9 @@ import Select from '@/components/common/Select.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { getRemainingDurationParts, isOneTimeDailyQuota, type RemainingDurationParts } from '@/utils/subscriptionQuota'
+import { isOneTimeDailyQuota } from '@/utils/subscriptionQuota'
+
+const RESET_AFTER_EXPIRY_BOUNDARY_DELAY_MS = 60 * 1000
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -1314,47 +1316,25 @@ const getProgressClass = (used: number | null | undefined, limit: number | null)
   return 'bg-green-500'
 }
 
-const formatResetDuration = (parts: RemainingDurationParts): string => {
-  if (parts.days > 0) {
-    return t('admin.subscriptions.resetInDaysHours', { days: parts.days, hours: parts.hours })
-  }
-
-  if (parts.hours > 0) {
-    return t('admin.subscriptions.resetInHoursMinutes', { hours: parts.hours, minutes: parts.minutes })
-  }
-
-  return t('admin.subscriptions.resetInMinutes', { minutes: parts.minutes })
-}
-
-const formatQuotaEndDuration = (parts: RemainingDurationParts): string => {
-  if (parts.days > 0) {
-    return t('admin.subscriptions.quotaEndsInDaysHours', { days: parts.days, hours: parts.hours })
-  }
-
-  if (parts.hours > 0) {
-    return t('admin.subscriptions.quotaEndsInHoursMinutes', { hours: parts.hours, minutes: parts.minutes })
-  }
-
-  return t('admin.subscriptions.quotaEndsInMinutes', { minutes: parts.minutes })
-}
-
 const formatDailyUsageWindow = (subscription: UserSubscription): string => {
   if (isOneTimeDailyQuota(subscription) && subscription.expires_at) {
-    const parts = getRemainingDurationParts(subscription.expires_at)
-    return parts ? formatQuotaEndDuration(parts) : t('admin.subscriptions.windowNotActive')
+    return t('admin.subscriptions.quotaEndsAt', { time: formatDateTime(subscription.expires_at) })
   }
 
-  return formatResetTime(subscription.daily_window_start, 'daily')
+  return formatResetTime(subscription, 'daily')
 }
 
 // Format reset time based on window start and period type
-const formatResetTime = (windowStart: string | null, period: 'daily' | 'weekly' | 'monthly'): string => {
-  if (!windowStart) return t('admin.subscriptions.windowNotActive')
+const formatResetTime = (subscription: UserSubscription, period: 'daily' | 'weekly' | 'monthly'): string => {
+  const windowStart =
+    period === 'daily'
+      ? subscription.daily_window_start
+      : period === 'weekly'
+        ? subscription.weekly_window_start
+        : subscription.monthly_window_start
+  const start = effectiveWindowStart(subscription, windowStart)
+  if (!start) return t('admin.subscriptions.windowNotActive')
 
-  const start = new Date(windowStart)
-  const now = new Date()
-
-  // Calculate reset time based on period
   let resetTime: Date
   switch (period) {
     case 'daily':
@@ -1368,9 +1348,35 @@ const formatResetTime = (windowStart: string | null, period: 'daily' | 'weekly' 
       break
   }
 
-  const parts = getRemainingDurationParts(resetTime, now)
+  const expiresAt = parseValidDate(subscription.expires_at)
+  if (expiresAt && resetTime.getTime() === expiresAt.getTime()) {
+    resetTime.setTime(expiresAt.getTime() + RESET_AFTER_EXPIRY_BOUNDARY_DELAY_MS)
+  }
 
-  return parts ? formatResetDuration(parts) : t('admin.subscriptions.windowNotActive')
+  return Number.isFinite(resetTime.getTime())
+    ? t('admin.subscriptions.resetsAt', { time: formatDateTime(resetTime) })
+    : t('admin.subscriptions.windowNotActive')
+}
+
+const effectiveWindowStart = (
+  subscription: UserSubscription,
+  windowStart: string | null
+): Date | null => {
+  const start = parseValidDate(windowStart)
+  if (!start) return null
+
+  const startsAt = parseValidDate(subscription.starts_at)
+  if (startsAt && start < startsAt) {
+    return startsAt
+  }
+
+  return start
+}
+
+const parseValidDate = (value: string | null | undefined): Date | null => {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isFinite(date.getTime()) ? date : null
 }
 
 // Handle click outside to close dropdowns

@@ -189,6 +189,19 @@ func TestResolveRedeemAction_IsUsedCanUseConsistency(t *testing.T) {
 	assert.Equal(t, redeemActionRedeem, resolveRedeemAction(unusedCode, nil))
 }
 
+func TestPaymentOrderHasRecordedSubscription(t *testing.T) {
+	t.Parallel()
+
+	assert.False(t, paymentOrderHasRecordedSubscription(nil))
+	assert.False(t, paymentOrderHasRecordedSubscription(&dbent.PaymentOrder{}))
+
+	zero := int64(0)
+	assert.False(t, paymentOrderHasRecordedSubscription(&dbent.PaymentOrder{SubscriptionID: &zero}))
+
+	subID := int64(123)
+	assert.True(t, paymentOrderHasRecordedSubscription(&dbent.PaymentOrder{SubscriptionID: &subID}))
+}
+
 func TestExpectedNotificationProviderKeyPrefersOrderInstanceProvider(t *testing.T) {
 	t.Parallel()
 

@@ -141,7 +141,7 @@ func (s *SubscriptionExpiryService) sendExpiryReminderIfDue(ctx context.Context,
 		ReminderKey:    fmt.Sprintf("%dd", daysRemaining),
 		Variables: map[string]string{
 			"subscription_group": sub.Group.Name,
-			"expiry_time":        sub.ExpiresAt.Format("2006-01-02 15:04"),
+			"expiry_time":        sub.ExpiresAt.Format("2006-01-02 15:04:05"),
 			"days_remaining":     strconv.Itoa(daysRemaining),
 		},
 	}); err != nil {

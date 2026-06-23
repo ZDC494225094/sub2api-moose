@@ -339,7 +339,7 @@ func TestNotificationEmailSendDeduplicatesSubscriptionExpiryReminder(t *testing.
 		ReminderKey:    "7d",
 		Variables: map[string]string{
 			"subscription_group": "Codex",
-			"expiry_time":        "2026-05-27 12:00",
+			"expiry_time":        "2026-05-27 12:00:00",
 			"days_remaining":     "7",
 		},
 	}

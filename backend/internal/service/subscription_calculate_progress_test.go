@@ -140,6 +140,52 @@ func TestCalculateProgress_MonthlyUsage(t *testing.T) {
 	assert.Equal(t, 80.0, progress.Monthly.Percentage)
 }
 
+func TestCalculateProgress_MonthlyResetOnExpiryBoundaryMovesAfterExpiry(t *testing.T) {
+	svc := newTestSubscriptionService()
+	start := time.Date(2026, 6, 1, 15, 30, 45, 0, time.UTC)
+	expiresAt := start.Add(30 * 24 * time.Hour)
+
+	sub := &UserSubscription{
+		ID:                 1,
+		StartsAt:           start,
+		ExpiresAt:          expiresAt,
+		MonthlyUsageUSD:    80.0,
+		MonthlyWindowStart: ptrTime(start),
+	}
+	group := &Group{
+		Name:            "Short",
+		MonthlyLimitUSD: ptrFloat64(100.0),
+	}
+
+	progress := svc.calculateProgress(sub, group)
+
+	require.NotNil(t, progress.Monthly)
+	assert.Equal(t, expiresAt.Add(time.Minute), progress.Monthly.ResetsAt)
+}
+
+func TestCalculateProgress_ResetTimeUsesStartsAtForLegacyMidnightWindow(t *testing.T) {
+	svc := newTestSubscriptionService()
+	start := time.Date(2026, 6, 1, 15, 30, 45, 0, time.UTC)
+	midnight := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+
+	sub := &UserSubscription{
+		ID:                 1,
+		StartsAt:           start,
+		ExpiresAt:          start.Add(60 * 24 * time.Hour),
+		MonthlyUsageUSD:    80.0,
+		MonthlyWindowStart: ptrTime(midnight),
+	}
+	group := &Group{
+		Name:            "Legacy",
+		MonthlyLimitUSD: ptrFloat64(100.0),
+	}
+
+	progress := svc.calculateProgress(sub, group)
+
+	require.NotNil(t, progress.Monthly)
+	assert.Equal(t, start.Add(30*24*time.Hour), progress.Monthly.ResetsAt)
+}
+
 func TestCalculateProgress_OverLimit_ClampedTo100Percent(t *testing.T) {
 	svc := newTestSubscriptionService()
 	now := time.Now()
