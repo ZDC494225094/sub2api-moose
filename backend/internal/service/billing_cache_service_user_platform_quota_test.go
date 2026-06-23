@@ -536,6 +536,16 @@ func (f *fakeZeroQuotaCache) GetSubscriptionCache(_ context.Context, _ int64, _ 
 	}, nil
 }
 
+func (f *fakeZeroQuotaCache) GetSubscriptionCacheByID(_ context.Context, _ int64) (*SubscriptionCacheData, error) {
+	return &SubscriptionCacheData{
+		Status:       SubscriptionStatusActive,
+		ExpiresAt:    time.Now().Add(30 * 24 * time.Hour),
+		DailyUsage:   0,
+		WeeklyUsage:  0,
+		MonthlyUsage: 0,
+	}, nil
+}
+
 func (f *fakeZeroQuotaCache) GetUserBalanceCache(_ context.Context, _ int64) (float64, bool, error) {
 	return 100.0, true, nil
 }

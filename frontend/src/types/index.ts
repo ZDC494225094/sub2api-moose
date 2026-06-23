@@ -566,12 +566,17 @@ export interface ModelsListConfig {
   models: string[]
 }
 
+export type BillingPriority = 'balance_first' | 'subscription_first'
+
 export interface ApiKey {
   id: number
   user_id: number
   key: string
   name: string
+  platform: GroupPlatform
   group_id: number | null
+  group_ids?: number[]
+  billing_priority?: BillingPriority
   status: 'active' | 'inactive' | 'quota_exhausted' | 'expired'
   ip_whitelist: string[]
   ip_blacklist: string[]
@@ -598,7 +603,10 @@ export interface ApiKey {
 
 export interface CreateApiKeyRequest {
   name: string
+  platform?: GroupPlatform
   group_id?: number | null
+  group_ids?: number[]
+  billing_priority?: BillingPriority
   custom_key?: string // Optional custom API Key
   ip_whitelist?: string[]
   ip_blacklist?: string[]
@@ -611,7 +619,10 @@ export interface CreateApiKeyRequest {
 
 export interface UpdateApiKeyRequest {
   name?: string
+  platform?: GroupPlatform
   group_id?: number | null
+  group_ids?: number[]
+  billing_priority?: BillingPriority
   status?: 'active' | 'inactive'
   ip_whitelist?: string[]
   ip_blacklist?: string[]

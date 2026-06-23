@@ -446,6 +446,22 @@ func (s *billingCacheStub) InvalidateSubscriptionCache(ctx context.Context, user
 	return nil
 }
 
+func (s *billingCacheStub) GetSubscriptionCacheByID(ctx context.Context, subscriptionID int64) (*SubscriptionCacheData, error) {
+	panic("unexpected GetSubscriptionCacheByID call")
+}
+
+func (s *billingCacheStub) SetSubscriptionCacheByID(ctx context.Context, subscriptionID int64, data *SubscriptionCacheData) error {
+	panic("unexpected SetSubscriptionCacheByID call")
+}
+
+func (s *billingCacheStub) UpdateSubscriptionUsageByID(ctx context.Context, subscriptionID int64, cost float64) error {
+	panic("unexpected UpdateSubscriptionUsageByID call")
+}
+
+func (s *billingCacheStub) InvalidateSubscriptionCacheByID(ctx context.Context, subscriptionID int64) error {
+	return nil
+}
+
 func (s *billingCacheStub) GetAPIKeyRateLimit(ctx context.Context, keyID int64) (*APIKeyRateLimitCacheData, error) {
 	panic("unexpected GetAPIKeyRateLimit call")
 }

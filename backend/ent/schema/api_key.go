@@ -44,6 +44,17 @@ func (APIKey) Fields() []ent.Field {
 		field.Int64("group_id").
 			Optional().
 			Nillable(),
+		field.String("platform").
+			MaxLen(32).
+			Default(domain.PlatformAnthropic).
+			Comment("Vendor/platform category this API key can route to"),
+		field.JSON("group_ids", []int64{}).
+			Optional().
+			Comment("Candidate group IDs for automatic billing/routing selection"),
+		field.String("billing_priority").
+			MaxLen(32).
+			Default("balance_first").
+			Comment("Billing preference: balance_first or subscription_first"),
 		field.String("status").
 			MaxLen(20).
 			Default(domain.StatusActive),
@@ -138,6 +149,7 @@ func (APIKey) Indexes() []ent.Index {
 		// key 字段已在 Fields() 中声明 Unique()，无需重复索引
 		index.Fields("user_id"),
 		index.Fields("group_id"),
+		index.Fields("platform"),
 		index.Fields("status"),
 		index.Fields("deleted_at"),
 		index.Fields("last_used_at"),

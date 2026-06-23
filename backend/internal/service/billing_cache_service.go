@@ -85,6 +85,7 @@ type cacheWriteTask struct {
 	kind             cacheWriteKind
 	userID           int64
 	groupID          int64
+	subscriptionID   int64
 	apiKeyID         int64
 	balance          float64
 	amount           float64
@@ -216,11 +217,21 @@ func (s *BillingCacheService) cacheWriteWorker(ch <-chan cacheWriteTask) {
 		case cacheWriteSetBalance:
 			s.setBalanceCache(ctx, task.userID, task.balance)
 		case cacheWriteSetSubscription:
-			s.setSubscriptionCache(ctx, task.userID, task.groupID, task.subscriptionData)
+			if task.subscriptionID > 0 {
+				s.setSubscriptionCacheByID(ctx, task.subscriptionID, task.subscriptionData)
+			} else {
+				s.setSubscriptionCache(ctx, task.userID, task.groupID, task.subscriptionData)
+			}
 		case cacheWriteUpdateSubscriptionUsage:
 			if s.cache != nil {
-				if err := s.cache.UpdateSubscriptionUsage(ctx, task.userID, task.groupID, task.amount); err != nil {
-					logger.LegacyPrintf("service.billing_cache", "Warning: update subscription cache failed for user %d group %d: %v", task.userID, task.groupID, err)
+				var err error
+				if task.subscriptionID > 0 {
+					err = s.cache.UpdateSubscriptionUsageByID(ctx, task.subscriptionID, task.amount)
+				} else {
+					err = s.cache.UpdateSubscriptionUsage(ctx, task.userID, task.groupID, task.amount)
+				}
+				if err != nil {
+					logger.LegacyPrintf("service.billing_cache", "Warning: update subscription cache failed for user %d group %d sub %d: %v", task.userID, task.groupID, task.subscriptionID, err)
 				}
 			}
 		case cacheWriteDeductBalance:
@@ -435,6 +446,31 @@ func (s *BillingCacheService) GetSubscriptionStatus(ctx context.Context, userID,
 	return data, nil
 }
 
+func (s *BillingCacheService) GetSubscriptionStatusByID(ctx context.Context, subscription *UserSubscription) (*subscriptionCacheData, error) {
+	if subscription == nil {
+		return nil, ErrSubscriptionInvalid
+	}
+	if s.cache == nil {
+		return s.getSubscriptionFromDBByID(ctx, subscription.ID)
+	}
+	cacheData, err := s.cache.GetSubscriptionCacheByID(ctx, subscription.ID)
+	if err == nil && cacheData != nil {
+		return s.convertFromPortsData(cacheData), nil
+	}
+	data, err := s.getSubscriptionFromDBByID(ctx, subscription.ID)
+	if err != nil {
+		return nil, err
+	}
+	_ = s.enqueueCacheWrite(cacheWriteTask{
+		kind:             cacheWriteSetSubscription,
+		userID:           subscription.UserID,
+		groupID:          subscription.GroupID,
+		subscriptionID:   subscription.ID,
+		subscriptionData: data,
+	})
+	return data, nil
+}
+
 func (s *BillingCacheService) convertFromPortsData(data *SubscriptionCacheData) *subscriptionCacheData {
 	return &subscriptionCacheData{
 		Status:       data.Status,
@@ -474,6 +510,21 @@ func (s *BillingCacheService) getSubscriptionFromDB(ctx context.Context, userID,
 	}, nil
 }
 
+func (s *BillingCacheService) getSubscriptionFromDBByID(ctx context.Context, subscriptionID int64) (*subscriptionCacheData, error) {
+	sub, err := s.subRepo.GetByID(ctx, subscriptionID)
+	if err != nil {
+		return nil, fmt.Errorf("get subscription: %w", err)
+	}
+	return &subscriptionCacheData{
+		Status:       sub.Status,
+		ExpiresAt:    sub.ExpiresAt,
+		DailyUsage:   sub.DailyUsageUSD,
+		WeeklyUsage:  sub.WeeklyUsageUSD,
+		MonthlyUsage: sub.MonthlyUsageUSD,
+		Version:      sub.UpdatedAt.Unix(),
+	}, nil
+}
+
 // setSubscriptionCache 设置订阅缓存
 func (s *BillingCacheService) setSubscriptionCache(ctx context.Context, userID, groupID int64, data *subscriptionCacheData) {
 	if s.cache == nil || data == nil {
@@ -481,6 +532,15 @@ func (s *BillingCacheService) setSubscriptionCache(ctx context.Context, userID, 
 	}
 	if err := s.cache.SetSubscriptionCache(ctx, userID, groupID, s.convertToPortsData(data)); err != nil {
 		logger.LegacyPrintf("service.billing_cache", "Warning: set subscription cache failed for user %d group %d: %v", userID, groupID, err)
+	}
+}
+
+func (s *BillingCacheService) setSubscriptionCacheByID(ctx context.Context, subscriptionID int64, data *subscriptionCacheData) {
+	if s.cache == nil || data == nil || subscriptionID <= 0 {
+		return
+	}
+	if err := s.cache.SetSubscriptionCacheByID(ctx, subscriptionID, s.convertToPortsData(data)); err != nil {
+		logger.LegacyPrintf("service.billing_cache", "Warning: set subscription cache failed for subscription %d: %v", subscriptionID, err)
 	}
 }
 
@@ -513,6 +573,26 @@ func (s *BillingCacheService) QueueUpdateSubscriptionUsage(userID, groupID int64
 	}
 }
 
+func (s *BillingCacheService) QueueUpdateSubscriptionUsageByID(userID, groupID, subscriptionID int64, costUSD float64) {
+	if s.cache == nil {
+		return
+	}
+	if s.enqueueCacheWrite(cacheWriteTask{
+		kind:           cacheWriteUpdateSubscriptionUsage,
+		userID:         userID,
+		groupID:        groupID,
+		subscriptionID: subscriptionID,
+		amount:         costUSD,
+	}) {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), cacheWriteTimeout)
+	defer cancel()
+	if err := s.cache.UpdateSubscriptionUsageByID(ctx, subscriptionID, costUSD); err != nil {
+		logger.LegacyPrintf("service.billing_cache", "Warning: update subscription cache fallback failed for subscription %d: %v", subscriptionID, err)
+	}
+}
+
 // InvalidateSubscription 失效指定订阅缓存
 func (s *BillingCacheService) InvalidateSubscription(ctx context.Context, userID, groupID int64) error {
 	if s.cache == nil {
@@ -520,6 +600,17 @@ func (s *BillingCacheService) InvalidateSubscription(ctx context.Context, userID
 	}
 	if err := s.cache.InvalidateSubscriptionCache(ctx, userID, groupID); err != nil {
 		logger.LegacyPrintf("service.billing_cache", "Warning: invalidate subscription cache failed for user %d group %d: %v", userID, groupID, err)
+		return err
+	}
+	return nil
+}
+
+func (s *BillingCacheService) InvalidateSubscriptionByID(ctx context.Context, subscriptionID int64) error {
+	if s.cache == nil || subscriptionID <= 0 {
+		return nil
+	}
+	if err := s.cache.InvalidateSubscriptionCacheByID(ctx, subscriptionID); err != nil {
+		logger.LegacyPrintf("service.billing_cache", "Warning: invalidate subscription cache failed for subscription %d: %v", subscriptionID, err)
 		return err
 	}
 	return nil
@@ -857,7 +948,7 @@ func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userI
 // checkSubscriptionEligibility 检查订阅模式资格
 func (s *BillingCacheService) checkSubscriptionEligibility(ctx context.Context, userID int64, group *Group, subscription *UserSubscription) error {
 	// 获取订阅缓存数据
-	subData, err := s.GetSubscriptionStatus(ctx, userID, group.ID)
+	subData, err := s.GetSubscriptionStatusByID(ctx, subscription)
 	if err != nil {
 		if s.circuitBreaker != nil {
 			s.circuitBreaker.OnFailure(err)

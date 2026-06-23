@@ -90,6 +90,16 @@ func GroupID(v int64) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldGroupID, v))
 }
 
+// Platform applies equality check predicate on the "platform" field. It's identical to PlatformEQ.
+func Platform(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldPlatform, v))
+}
+
+// BillingPriority applies equality check predicate on the "billing_priority" field. It's identical to BillingPriorityEQ.
+func BillingPriority(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldBillingPriority, v))
+}
+
 // Status applies equality check predicate on the "status" field. It's identical to StatusEQ.
 func Status(v string) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldStatus, v))
@@ -468,6 +478,146 @@ func GroupIDIsNil() predicate.APIKey {
 // GroupIDNotNil applies the NotNil predicate on the "group_id" field.
 func GroupIDNotNil() predicate.APIKey {
 	return predicate.APIKey(sql.FieldNotNull(FieldGroupID))
+}
+
+// PlatformEQ applies the EQ predicate on the "platform" field.
+func PlatformEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldPlatform, v))
+}
+
+// PlatformNEQ applies the NEQ predicate on the "platform" field.
+func PlatformNEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldPlatform, v))
+}
+
+// PlatformIn applies the In predicate on the "platform" field.
+func PlatformIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldPlatform, vs...))
+}
+
+// PlatformNotIn applies the NotIn predicate on the "platform" field.
+func PlatformNotIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldPlatform, vs...))
+}
+
+// PlatformGT applies the GT predicate on the "platform" field.
+func PlatformGT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldPlatform, v))
+}
+
+// PlatformGTE applies the GTE predicate on the "platform" field.
+func PlatformGTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldPlatform, v))
+}
+
+// PlatformLT applies the LT predicate on the "platform" field.
+func PlatformLT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldPlatform, v))
+}
+
+// PlatformLTE applies the LTE predicate on the "platform" field.
+func PlatformLTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldPlatform, v))
+}
+
+// PlatformContains applies the Contains predicate on the "platform" field.
+func PlatformContains(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContains(FieldPlatform, v))
+}
+
+// PlatformHasPrefix applies the HasPrefix predicate on the "platform" field.
+func PlatformHasPrefix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasPrefix(FieldPlatform, v))
+}
+
+// PlatformHasSuffix applies the HasSuffix predicate on the "platform" field.
+func PlatformHasSuffix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasSuffix(FieldPlatform, v))
+}
+
+// PlatformEqualFold applies the EqualFold predicate on the "platform" field.
+func PlatformEqualFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEqualFold(FieldPlatform, v))
+}
+
+// PlatformContainsFold applies the ContainsFold predicate on the "platform" field.
+func PlatformContainsFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContainsFold(FieldPlatform, v))
+}
+
+// GroupIdsIsNil applies the IsNil predicate on the "group_ids" field.
+func GroupIdsIsNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldIsNull(FieldGroupIds))
+}
+
+// GroupIdsNotNil applies the NotNil predicate on the "group_ids" field.
+func GroupIdsNotNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotNull(FieldGroupIds))
+}
+
+// BillingPriorityEQ applies the EQ predicate on the "billing_priority" field.
+func BillingPriorityEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldBillingPriority, v))
+}
+
+// BillingPriorityNEQ applies the NEQ predicate on the "billing_priority" field.
+func BillingPriorityNEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldBillingPriority, v))
+}
+
+// BillingPriorityIn applies the In predicate on the "billing_priority" field.
+func BillingPriorityIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldBillingPriority, vs...))
+}
+
+// BillingPriorityNotIn applies the NotIn predicate on the "billing_priority" field.
+func BillingPriorityNotIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldBillingPriority, vs...))
+}
+
+// BillingPriorityGT applies the GT predicate on the "billing_priority" field.
+func BillingPriorityGT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldBillingPriority, v))
+}
+
+// BillingPriorityGTE applies the GTE predicate on the "billing_priority" field.
+func BillingPriorityGTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldBillingPriority, v))
+}
+
+// BillingPriorityLT applies the LT predicate on the "billing_priority" field.
+func BillingPriorityLT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldBillingPriority, v))
+}
+
+// BillingPriorityLTE applies the LTE predicate on the "billing_priority" field.
+func BillingPriorityLTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldBillingPriority, v))
+}
+
+// BillingPriorityContains applies the Contains predicate on the "billing_priority" field.
+func BillingPriorityContains(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContains(FieldBillingPriority, v))
+}
+
+// BillingPriorityHasPrefix applies the HasPrefix predicate on the "billing_priority" field.
+func BillingPriorityHasPrefix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasPrefix(FieldBillingPriority, v))
+}
+
+// BillingPriorityHasSuffix applies the HasSuffix predicate on the "billing_priority" field.
+func BillingPriorityHasSuffix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasSuffix(FieldBillingPriority, v))
+}
+
+// BillingPriorityEqualFold applies the EqualFold predicate on the "billing_priority" field.
+func BillingPriorityEqualFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEqualFold(FieldBillingPriority, v))
+}
+
+// BillingPriorityContainsFold applies the ContainsFold predicate on the "billing_priority" field.
+func BillingPriorityContainsFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContainsFold(FieldBillingPriority, v))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.

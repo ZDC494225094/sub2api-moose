@@ -117,6 +117,9 @@ func (s *UserSubscription) CheckDailyLimit(group *Group, additionalCost float64)
 	if !group.HasDailyLimit() {
 		return true
 	}
+	if additionalCost <= 0 {
+		return s.DailyUsageUSD < *group.DailyLimitUSD
+	}
 	return s.DailyUsageUSD+additionalCost <= *group.DailyLimitUSD
 }
 
@@ -124,12 +127,18 @@ func (s *UserSubscription) CheckWeeklyLimit(group *Group, additionalCost float64
 	if !group.HasWeeklyLimit() {
 		return true
 	}
+	if additionalCost <= 0 {
+		return s.WeeklyUsageUSD < *group.WeeklyLimitUSD
+	}
 	return s.WeeklyUsageUSD+additionalCost <= *group.WeeklyLimitUSD
 }
 
 func (s *UserSubscription) CheckMonthlyLimit(group *Group, additionalCost float64) bool {
 	if !group.HasMonthlyLimit() {
 		return true
+	}
+	if additionalCost <= 0 {
+		return s.MonthlyUsageUSD < *group.MonthlyLimitUSD
 	}
 	return s.MonthlyUsageUSD+additionalCost <= *group.MonthlyLimitUSD
 }

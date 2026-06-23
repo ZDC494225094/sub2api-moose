@@ -20,7 +20,7 @@ func (r *dailyResetTrackingUserSubRepo) ResetDailyUsage(context.Context, int64, 
 	return nil
 }
 
-func TestAssignOrExtendSubscription_ExpiredDailyCardStartsNewOneTimeQuota(t *testing.T) {
+func TestAssignOrExtendSubscription_ExpiredDailyCardCreatesIndependentOneTimeQuota(t *testing.T) {
 	groupRepo := &subscriptionGroupRepoStub{
 		group: &Group{ID: 1, SubscriptionType: SubscriptionTypeSubscription},
 	}
@@ -52,7 +52,8 @@ func TestAssignOrExtendSubscription_ExpiredDailyCardStartsNewOneTimeQuota(t *tes
 	})
 
 	require.NoError(t, err)
-	require.True(t, reused)
+	require.False(t, reused)
+	require.NotEqual(t, int64(100), renewed.ID)
 	require.True(t, renewed.HasOneTimeDailyQuota(), "过期后重新购买 1 日卡仍应被识别为一次性日额度")
 	require.Equal(t, SubscriptionStatusActive, renewed.Status)
 	require.True(t, renewed.StartsAt.After(oldStart), "重新购买过期订阅时应重置当前周期 StartsAt")
@@ -62,7 +63,13 @@ func TestAssignOrExtendSubscription_ExpiredDailyCardStartsNewOneTimeQuota(t *tes
 	require.Equal(t, 0.0, renewed.DailyUsageUSD)
 	require.Equal(t, 0.0, renewed.WeeklyUsageUSD)
 	require.Equal(t, 0.0, renewed.MonthlyUsageUSD)
-	require.Equal(t, "old\nnew", renewed.Notes)
+	require.Equal(t, "new", renewed.Notes)
+
+	oldSub, err := subRepo.GetByID(context.Background(), 100)
+	require.NoError(t, err)
+	require.Equal(t, SubscriptionStatusExpired, oldSub.Status)
+	require.Equal(t, 10.0, oldSub.DailyUsageUSD)
+	require.Equal(t, 2, len(subRepo.byID))
 }
 
 func TestUserSubscriptionNeedsDailyReset_DailyCardKeepsOneTimeQuota(t *testing.T) {

@@ -99,6 +99,40 @@ func (_c *APIKeyCreate) SetNillableGroupID(v *int64) *APIKeyCreate {
 	return _c
 }
 
+// SetPlatform sets the "platform" field.
+func (_c *APIKeyCreate) SetPlatform(v string) *APIKeyCreate {
+	_c.mutation.SetPlatform(v)
+	return _c
+}
+
+// SetNillablePlatform sets the "platform" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillablePlatform(v *string) *APIKeyCreate {
+	if v != nil {
+		_c.SetPlatform(*v)
+	}
+	return _c
+}
+
+// SetGroupIds sets the "group_ids" field.
+func (_c *APIKeyCreate) SetGroupIds(v []int64) *APIKeyCreate {
+	_c.mutation.SetGroupIds(v)
+	return _c
+}
+
+// SetBillingPriority sets the "billing_priority" field.
+func (_c *APIKeyCreate) SetBillingPriority(v string) *APIKeyCreate {
+	_c.mutation.SetBillingPriority(v)
+	return _c
+}
+
+// SetNillableBillingPriority sets the "billing_priority" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableBillingPriority(v *string) *APIKeyCreate {
+	if v != nil {
+		_c.SetBillingPriority(*v)
+	}
+	return _c
+}
+
 // SetStatus sets the "status" field.
 func (_c *APIKeyCreate) SetStatus(v string) *APIKeyCreate {
 	_c.mutation.SetStatus(v)
@@ -383,6 +417,14 @@ func (_c *APIKeyCreate) defaults() error {
 		v := apikey.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.Platform(); !ok {
+		v := apikey.DefaultPlatform
+		_c.mutation.SetPlatform(v)
+	}
+	if _, ok := _c.mutation.BillingPriority(); !ok {
+		v := apikey.DefaultBillingPriority
+		_c.mutation.SetBillingPriority(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := apikey.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -447,6 +489,22 @@ func (_c *APIKeyCreate) check() error {
 	if v, ok := _c.mutation.Name(); ok {
 		if err := apikey.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "APIKey.name": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.Platform(); !ok {
+		return &ValidationError{Name: "platform", err: errors.New(`ent: missing required field "APIKey.platform"`)}
+	}
+	if v, ok := _c.mutation.Platform(); ok {
+		if err := apikey.PlatformValidator(v); err != nil {
+			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "APIKey.platform": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.BillingPriority(); !ok {
+		return &ValidationError{Name: "billing_priority", err: errors.New(`ent: missing required field "APIKey.billing_priority"`)}
+	}
+	if v, ok := _c.mutation.BillingPriority(); ok {
+		if err := apikey.BillingPriorityValidator(v); err != nil {
+			return &ValidationError{Name: "billing_priority", err: fmt.Errorf(`ent: validator failed for field "APIKey.billing_priority": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
@@ -530,6 +588,18 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(apikey.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := _c.mutation.Platform(); ok {
+		_spec.SetField(apikey.FieldPlatform, field.TypeString, value)
+		_node.Platform = value
+	}
+	if value, ok := _c.mutation.GroupIds(); ok {
+		_spec.SetField(apikey.FieldGroupIds, field.TypeJSON, value)
+		_node.GroupIds = value
+	}
+	if value, ok := _c.mutation.BillingPriority(); ok {
+		_spec.SetField(apikey.FieldBillingPriority, field.TypeString, value)
+		_node.BillingPriority = value
 	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
@@ -778,6 +848,48 @@ func (u *APIKeyUpsert) UpdateGroupID() *APIKeyUpsert {
 // ClearGroupID clears the value of the "group_id" field.
 func (u *APIKeyUpsert) ClearGroupID() *APIKeyUpsert {
 	u.SetNull(apikey.FieldGroupID)
+	return u
+}
+
+// SetPlatform sets the "platform" field.
+func (u *APIKeyUpsert) SetPlatform(v string) *APIKeyUpsert {
+	u.Set(apikey.FieldPlatform, v)
+	return u
+}
+
+// UpdatePlatform sets the "platform" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdatePlatform() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldPlatform)
+	return u
+}
+
+// SetGroupIds sets the "group_ids" field.
+func (u *APIKeyUpsert) SetGroupIds(v []int64) *APIKeyUpsert {
+	u.Set(apikey.FieldGroupIds, v)
+	return u
+}
+
+// UpdateGroupIds sets the "group_ids" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateGroupIds() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldGroupIds)
+	return u
+}
+
+// ClearGroupIds clears the value of the "group_ids" field.
+func (u *APIKeyUpsert) ClearGroupIds() *APIKeyUpsert {
+	u.SetNull(apikey.FieldGroupIds)
+	return u
+}
+
+// SetBillingPriority sets the "billing_priority" field.
+func (u *APIKeyUpsert) SetBillingPriority(v string) *APIKeyUpsert {
+	u.Set(apikey.FieldBillingPriority, v)
+	return u
+}
+
+// UpdateBillingPriority sets the "billing_priority" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateBillingPriority() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldBillingPriority)
 	return u
 }
 
@@ -1203,6 +1315,55 @@ func (u *APIKeyUpsertOne) UpdateGroupID() *APIKeyUpsertOne {
 func (u *APIKeyUpsertOne) ClearGroupID() *APIKeyUpsertOne {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearGroupID()
+	})
+}
+
+// SetPlatform sets the "platform" field.
+func (u *APIKeyUpsertOne) SetPlatform(v string) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetPlatform(v)
+	})
+}
+
+// UpdatePlatform sets the "platform" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdatePlatform() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdatePlatform()
+	})
+}
+
+// SetGroupIds sets the "group_ids" field.
+func (u *APIKeyUpsertOne) SetGroupIds(v []int64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetGroupIds(v)
+	})
+}
+
+// UpdateGroupIds sets the "group_ids" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateGroupIds() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateGroupIds()
+	})
+}
+
+// ClearGroupIds clears the value of the "group_ids" field.
+func (u *APIKeyUpsertOne) ClearGroupIds() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearGroupIds()
+	})
+}
+
+// SetBillingPriority sets the "billing_priority" field.
+func (u *APIKeyUpsertOne) SetBillingPriority(v string) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetBillingPriority(v)
+	})
+}
+
+// UpdateBillingPriority sets the "billing_priority" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateBillingPriority() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateBillingPriority()
 	})
 }
 
@@ -1841,6 +2002,55 @@ func (u *APIKeyUpsertBulk) UpdateGroupID() *APIKeyUpsertBulk {
 func (u *APIKeyUpsertBulk) ClearGroupID() *APIKeyUpsertBulk {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearGroupID()
+	})
+}
+
+// SetPlatform sets the "platform" field.
+func (u *APIKeyUpsertBulk) SetPlatform(v string) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetPlatform(v)
+	})
+}
+
+// UpdatePlatform sets the "platform" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdatePlatform() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdatePlatform()
+	})
+}
+
+// SetGroupIds sets the "group_ids" field.
+func (u *APIKeyUpsertBulk) SetGroupIds(v []int64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetGroupIds(v)
+	})
+}
+
+// UpdateGroupIds sets the "group_ids" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateGroupIds() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateGroupIds()
+	})
+}
+
+// ClearGroupIds clears the value of the "group_ids" field.
+func (u *APIKeyUpsertBulk) ClearGroupIds() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearGroupIds()
+	})
+}
+
+// SetBillingPriority sets the "billing_priority" field.
+func (u *APIKeyUpsertBulk) SetBillingPriority(v string) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetBillingPriority(v)
+	})
+}
+
+// UpdateBillingPriority sets the "billing_priority" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateBillingPriority() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateBillingPriority()
 	})
 }
 

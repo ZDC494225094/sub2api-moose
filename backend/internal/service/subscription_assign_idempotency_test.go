@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -78,6 +79,9 @@ func (userSubRepoNoop) GetByUserIDAndGroupID(context.Context, int64, int64) (*Us
 }
 func (userSubRepoNoop) GetActiveByUserIDAndGroupID(context.Context, int64, int64) (*UserSubscription, error) {
 	panic("unexpected GetActiveByUserIDAndGroupID call")
+}
+func (userSubRepoNoop) ListActiveByUserIDAndGroupID(context.Context, int64, int64) ([]UserSubscription, error) {
+	panic("unexpected ListActiveByUserIDAndGroupID call")
 }
 func (userSubRepoNoop) Update(context.Context, *UserSubscription) error {
 	panic("unexpected Update call")
@@ -172,6 +176,23 @@ func (s *subscriptionUserSubRepoStub) GetByUserIDAndGroupID(_ context.Context, u
 	}
 	cp := *sub
 	return &cp, nil
+}
+
+func (s *subscriptionUserSubRepoStub) ListActiveByUserIDAndGroupID(_ context.Context, userID, groupID int64) ([]UserSubscription, error) {
+	result := make([]UserSubscription, 0)
+	for _, sub := range s.byID {
+		if sub == nil || sub.UserID != userID || sub.GroupID != groupID {
+			continue
+		}
+		if sub.Status != "" && sub.Status != SubscriptionStatusActive {
+			continue
+		}
+		result = append(result, *sub)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ID < result[j].ID
+	})
+	return result, nil
 }
 
 func (s *subscriptionUserSubRepoStub) Create(_ context.Context, sub *UserSubscription) error {
@@ -396,6 +417,52 @@ func TestAssignSubscriptionGroupTypeValidation(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.Equal(t, infraerrors.Code(ErrGroupNotSubscriptionType), infraerrors.Code(err))
+}
+
+func TestAssignOrExtendSubscriptionCreatesIndependentInstancesForSameGroup(t *testing.T) {
+	start := time.Now().Add(-time.Hour)
+	windowStart := startOfDay(start)
+	groupRepo := &subscriptionGroupRepoStub{
+		group: &Group{ID: 1, SubscriptionType: SubscriptionTypeSubscription},
+	}
+	subRepo := newSubscriptionUserSubRepoStub()
+	subRepo.seed(&UserSubscription{
+		ID:                 31,
+		UserID:             901,
+		GroupID:            1,
+		StartsAt:           start,
+		ExpiresAt:          start.AddDate(0, 0, 30),
+		Status:             SubscriptionStatusActive,
+		DailyWindowStart:   &windowStart,
+		WeeklyWindowStart:  &windowStart,
+		MonthlyWindowStart: &windowStart,
+		DailyUsageUSD:      9.5,
+		Notes:              "first",
+	})
+
+	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	created, reused, err := svc.AssignOrExtendSubscription(context.Background(), &AssignSubscriptionInput{
+		UserID:       901,
+		GroupID:      1,
+		ValidityDays: 30,
+		Notes:        "second",
+	})
+
+	require.NoError(t, err)
+	require.False(t, reused)
+	require.NotEqual(t, int64(31), created.ID)
+	require.Equal(t, 1, subRepo.createCalls)
+	require.Equal(t, 0.0, created.DailyUsageUSD)
+	require.Equal(t, "second", created.Notes)
+
+	original, err := subRepo.GetByID(context.Background(), 31)
+	require.NoError(t, err)
+	require.Equal(t, 9.5, original.DailyUsageUSD)
+	require.Equal(t, "first", original.Notes)
+
+	active, err := subRepo.ListActiveByUserIDAndGroupID(context.Background(), 901, 1)
+	require.NoError(t, err)
+	require.Len(t, active, 2)
 }
 
 func strconvFormatInt(v int64) string {

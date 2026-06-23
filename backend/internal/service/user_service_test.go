@@ -302,6 +302,18 @@ func (m *mockBillingCache) UpdateSubscriptionUsage(context.Context, int64, int64
 func (m *mockBillingCache) InvalidateSubscriptionCache(context.Context, int64, int64) error {
 	return nil
 }
+func (m *mockBillingCache) GetSubscriptionCacheByID(context.Context, int64) (*SubscriptionCacheData, error) {
+	return nil, nil
+}
+func (m *mockBillingCache) SetSubscriptionCacheByID(context.Context, int64, *SubscriptionCacheData) error {
+	return nil
+}
+func (m *mockBillingCache) UpdateSubscriptionUsageByID(context.Context, int64, float64) error {
+	return nil
+}
+func (m *mockBillingCache) InvalidateSubscriptionCacheByID(context.Context, int64) error {
+	return nil
+}
 func (m *mockBillingCache) GetAPIKeyRateLimit(context.Context, int64) (*APIKeyRateLimitCacheData, error) {
 	return nil, nil
 }

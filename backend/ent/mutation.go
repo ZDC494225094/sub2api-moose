@@ -108,6 +108,10 @@ type APIKeyMutation struct {
 	deleted_at         *time.Time
 	key                *string
 	name               *string
+	platform           *string
+	group_ids          *[]int64
+	appendgroup_ids    []int64
+	billing_priority   *string
 	status             *string
 	last_used_at       *time.Time
 	ip_whitelist       *[]string
@@ -521,6 +525,143 @@ func (m *APIKeyMutation) GroupIDCleared() bool {
 func (m *APIKeyMutation) ResetGroupID() {
 	m.group = nil
 	delete(m.clearedFields, apikey.FieldGroupID)
+}
+
+// SetPlatform sets the "platform" field.
+func (m *APIKeyMutation) SetPlatform(s string) {
+	m.platform = &s
+}
+
+// Platform returns the value of the "platform" field in the mutation.
+func (m *APIKeyMutation) Platform() (r string, exists bool) {
+	v := m.platform
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlatform returns the old "platform" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldPlatform(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlatform is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlatform requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlatform: %w", err)
+	}
+	return oldValue.Platform, nil
+}
+
+// ResetPlatform resets all changes to the "platform" field.
+func (m *APIKeyMutation) ResetPlatform() {
+	m.platform = nil
+}
+
+// SetGroupIds sets the "group_ids" field.
+func (m *APIKeyMutation) SetGroupIds(i []int64) {
+	m.group_ids = &i
+	m.appendgroup_ids = nil
+}
+
+// GroupIds returns the value of the "group_ids" field in the mutation.
+func (m *APIKeyMutation) GroupIds() (r []int64, exists bool) {
+	v := m.group_ids
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupIds returns the old "group_ids" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldGroupIds(ctx context.Context) (v []int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupIds: %w", err)
+	}
+	return oldValue.GroupIds, nil
+}
+
+// AppendGroupIds adds i to the "group_ids" field.
+func (m *APIKeyMutation) AppendGroupIds(i []int64) {
+	m.appendgroup_ids = append(m.appendgroup_ids, i...)
+}
+
+// AppendedGroupIds returns the list of values that were appended to the "group_ids" field in this mutation.
+func (m *APIKeyMutation) AppendedGroupIds() ([]int64, bool) {
+	if len(m.appendgroup_ids) == 0 {
+		return nil, false
+	}
+	return m.appendgroup_ids, true
+}
+
+// ClearGroupIds clears the value of the "group_ids" field.
+func (m *APIKeyMutation) ClearGroupIds() {
+	m.group_ids = nil
+	m.appendgroup_ids = nil
+	m.clearedFields[apikey.FieldGroupIds] = struct{}{}
+}
+
+// GroupIdsCleared returns if the "group_ids" field was cleared in this mutation.
+func (m *APIKeyMutation) GroupIdsCleared() bool {
+	_, ok := m.clearedFields[apikey.FieldGroupIds]
+	return ok
+}
+
+// ResetGroupIds resets all changes to the "group_ids" field.
+func (m *APIKeyMutation) ResetGroupIds() {
+	m.group_ids = nil
+	m.appendgroup_ids = nil
+	delete(m.clearedFields, apikey.FieldGroupIds)
+}
+
+// SetBillingPriority sets the "billing_priority" field.
+func (m *APIKeyMutation) SetBillingPriority(s string) {
+	m.billing_priority = &s
+}
+
+// BillingPriority returns the value of the "billing_priority" field in the mutation.
+func (m *APIKeyMutation) BillingPriority() (r string, exists bool) {
+	v := m.billing_priority
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBillingPriority returns the old "billing_priority" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldBillingPriority(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBillingPriority is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBillingPriority requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBillingPriority: %w", err)
+	}
+	return oldValue.BillingPriority, nil
+}
+
+// ResetBillingPriority resets all changes to the "billing_priority" field.
+func (m *APIKeyMutation) ResetBillingPriority() {
+	m.billing_priority = nil
 }
 
 // SetStatus sets the "status" field.
@@ -1524,7 +1665,7 @@ func (m *APIKeyMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *APIKeyMutation) Fields() []string {
-	fields := make([]string, 0, 23)
+	fields := make([]string, 0, 26)
 	if m.created_at != nil {
 		fields = append(fields, apikey.FieldCreatedAt)
 	}
@@ -1545,6 +1686,15 @@ func (m *APIKeyMutation) Fields() []string {
 	}
 	if m.group != nil {
 		fields = append(fields, apikey.FieldGroupID)
+	}
+	if m.platform != nil {
+		fields = append(fields, apikey.FieldPlatform)
+	}
+	if m.group_ids != nil {
+		fields = append(fields, apikey.FieldGroupIds)
+	}
+	if m.billing_priority != nil {
+		fields = append(fields, apikey.FieldBillingPriority)
 	}
 	if m.status != nil {
 		fields = append(fields, apikey.FieldStatus)
@@ -1616,6 +1766,12 @@ func (m *APIKeyMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case apikey.FieldGroupID:
 		return m.GroupID()
+	case apikey.FieldPlatform:
+		return m.Platform()
+	case apikey.FieldGroupIds:
+		return m.GroupIds()
+	case apikey.FieldBillingPriority:
+		return m.BillingPriority()
 	case apikey.FieldStatus:
 		return m.Status()
 	case apikey.FieldLastUsedAt:
@@ -1671,6 +1827,12 @@ func (m *APIKeyMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldName(ctx)
 	case apikey.FieldGroupID:
 		return m.OldGroupID(ctx)
+	case apikey.FieldPlatform:
+		return m.OldPlatform(ctx)
+	case apikey.FieldGroupIds:
+		return m.OldGroupIds(ctx)
+	case apikey.FieldBillingPriority:
+		return m.OldBillingPriority(ctx)
 	case apikey.FieldStatus:
 		return m.OldStatus(ctx)
 	case apikey.FieldLastUsedAt:
@@ -1760,6 +1922,27 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetGroupID(v)
+		return nil
+	case apikey.FieldPlatform:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlatform(v)
+		return nil
+	case apikey.FieldGroupIds:
+		v, ok := value.([]int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupIds(v)
+		return nil
+	case apikey.FieldBillingPriority:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBillingPriority(v)
 		return nil
 	case apikey.FieldStatus:
 		v, ok := value.(string)
@@ -2008,6 +2191,9 @@ func (m *APIKeyMutation) ClearedFields() []string {
 	if m.FieldCleared(apikey.FieldGroupID) {
 		fields = append(fields, apikey.FieldGroupID)
 	}
+	if m.FieldCleared(apikey.FieldGroupIds) {
+		fields = append(fields, apikey.FieldGroupIds)
+	}
 	if m.FieldCleared(apikey.FieldLastUsedAt) {
 		fields = append(fields, apikey.FieldLastUsedAt)
 	}
@@ -2048,6 +2234,9 @@ func (m *APIKeyMutation) ClearField(name string) error {
 		return nil
 	case apikey.FieldGroupID:
 		m.ClearGroupID()
+		return nil
+	case apikey.FieldGroupIds:
+		m.ClearGroupIds()
 		return nil
 	case apikey.FieldLastUsedAt:
 		m.ClearLastUsedAt()
@@ -2098,6 +2287,15 @@ func (m *APIKeyMutation) ResetField(name string) error {
 		return nil
 	case apikey.FieldGroupID:
 		m.ResetGroupID()
+		return nil
+	case apikey.FieldPlatform:
+		m.ResetPlatform()
+		return nil
+	case apikey.FieldGroupIds:
+		m.ResetGroupIds()
+		return nil
+	case apikey.FieldBillingPriority:
+		m.ResetBillingPriority()
 		return nil
 	case apikey.FieldStatus:
 		m.ResetStatus()

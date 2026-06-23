@@ -3,6 +3,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 )
 
 // APIKeyHandler handles API key-related requests
@@ -30,13 +32,16 @@ func NewAPIKeyHandler(apiKeyService *service.APIKeyService) *APIKeyHandler {
 
 // CreateAPIKeyRequest represents the create API key request payload
 type CreateAPIKeyRequest struct {
-	Name          string   `json:"name" binding:"required"`
-	GroupID       *int64   `json:"group_id"`        // nullable
-	CustomKey     *string  `json:"custom_key"`      // 可选的自定义key
-	IPWhitelist   []string `json:"ip_whitelist"`    // IP 白名单
-	IPBlacklist   []string `json:"ip_blacklist"`    // IP 黑名单
-	Quota         *float64 `json:"quota"`           // 配额限制 (USD)
-	ExpiresInDays *int     `json:"expires_in_days"` // 过期天数
+	Name            string   `json:"name" binding:"required"`
+	Platform        string   `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity"`
+	GroupID         *int64   `json:"group_id"` // nullable
+	GroupIDs        []int64  `json:"group_ids"`
+	BillingPriority string   `json:"billing_priority" binding:"omitempty,oneof=balance_first subscription_first"`
+	CustomKey       *string  `json:"custom_key"`      // 可选的自定义key
+	IPWhitelist     []string `json:"ip_whitelist"`    // IP 白名单
+	IPBlacklist     []string `json:"ip_blacklist"`    // IP 黑名单
+	Quota           *float64 `json:"quota"`           // 配额限制 (USD)
+	ExpiresInDays   *int     `json:"expires_in_days"` // 过期天数
 
 	// Rate limit fields (0 = unlimited)
 	RateLimit5h *float64 `json:"rate_limit_5h"`
@@ -46,14 +51,17 @@ type CreateAPIKeyRequest struct {
 
 // UpdateAPIKeyRequest represents the update API key request payload
 type UpdateAPIKeyRequest struct {
-	Name        string   `json:"name"`
-	GroupID     *int64   `json:"group_id"`
-	Status      string   `json:"status" binding:"omitempty,oneof=active inactive"`
-	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单
-	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单
-	Quota       *float64 `json:"quota"`        // 配额限制 (USD), 0=无限制
-	ExpiresAt   *string  `json:"expires_at"`   // 过期时间 (ISO 8601)
-	ResetQuota  *bool    `json:"reset_quota"`  // 重置已用配额
+	Name            string   `json:"name"`
+	Platform        string   `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity"`
+	GroupID         *int64   `json:"group_id"`
+	GroupIDs        []int64  `json:"group_ids"`
+	BillingPriority string   `json:"billing_priority" binding:"omitempty,oneof=balance_first subscription_first"`
+	Status          string   `json:"status" binding:"omitempty,oneof=active inactive"`
+	IPWhitelist     []string `json:"ip_whitelist"` // IP 白名单
+	IPBlacklist     []string `json:"ip_blacklist"` // IP 黑名单
+	Quota           *float64 `json:"quota"`        // 配额限制 (USD), 0=无限制
+	ExpiresAt       *string  `json:"expires_at"`   // 过期时间 (ISO 8601)
+	ResetQuota      *bool    `json:"reset_quota"`  // 重置已用配额
 
 	// Rate limit fields (nil = no change, 0 = unlimited)
 	RateLimit5h         *float64 `json:"rate_limit_5h"`
@@ -154,12 +162,15 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 	}
 
 	svcReq := service.CreateAPIKeyRequest{
-		Name:          req.Name,
-		GroupID:       req.GroupID,
-		CustomKey:     req.CustomKey,
-		IPWhitelist:   req.IPWhitelist,
-		IPBlacklist:   req.IPBlacklist,
-		ExpiresInDays: req.ExpiresInDays,
+		Name:            req.Name,
+		Platform:        req.Platform,
+		GroupID:         req.GroupID,
+		GroupIDs:        req.GroupIDs,
+		BillingPriority: req.BillingPriority,
+		CustomKey:       req.CustomKey,
+		IPWhitelist:     req.IPWhitelist,
+		IPBlacklist:     req.IPBlacklist,
+		ExpiresInDays:   req.ExpiresInDays,
 	}
 	if req.Quota != nil {
 		svcReq.Quota = *req.Quota
@@ -198,8 +209,13 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 		return
 	}
 
+	var raw map[string]json.RawMessage
+	if err := c.ShouldBindBodyWith(&raw, binding.JSON); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
 	var req UpdateAPIKeyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBindBodyWith(&req, binding.JSON); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
@@ -217,7 +233,17 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 	if req.Name != "" {
 		svcReq.Name = &req.Name
 	}
+	if _, ok := raw["platform"]; ok {
+		svcReq.Platform = &req.Platform
+	}
 	svcReq.GroupID = req.GroupID
+	if _, ok := raw["group_ids"]; ok {
+		svcReq.GroupIDs = req.GroupIDs
+		svcReq.GroupIDsSet = true
+	}
+	if req.BillingPriority != "" {
+		svcReq.BillingPriority = &req.BillingPriority
+	}
 	if req.Status != "" {
 		svcReq.Status = &req.Status
 	}

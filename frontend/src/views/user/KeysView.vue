@@ -41,7 +41,7 @@
         >
           <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
         </button>
-        <button @click="showCreateModal = true" class="btn btn-primary" data-tour="keys-create-btn">
+        <button @click="openCreateModal" class="btn btn-primary" data-tour="keys-create-btn">
           <Icon name="plus" size="md" class="mr-2" />
           {{ t('keys.createKey') }}
         </button>
@@ -102,21 +102,32 @@
               <button
                 :ref="(el) => setGroupButtonRef(row.id, el)"
                 @click="openGroupSelector(row)"
-                class="-mx-2 -my-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-dark-700"
+                class="-mx-2 -my-1 flex max-w-[320px] cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-dark-700"
                 :title="t('keys.clickToChangeGroup')"
               >
-                <GroupBadge
-                  v-if="row.group"
-                  :name="row.group.name"
-                  :platform="row.group.platform"
-                  :subscription-type="row.group.subscription_type"
-                  :rate-multiplier="row.group.rate_multiplier"
-                  :user-rate-multiplier="userGroupRates[row.group.id]"
-                />
+                <div v-if="getKeyGroupOptions(row).length > 0" class="flex min-w-0 flex-wrap items-center gap-1">
+                  <GroupBadge
+                    v-for="option in getKeyGroupOptions(row).slice(0, 2)"
+                    :key="option.value"
+                    :name="option.label"
+                    :platform="option.platform"
+                    :subscription-type="option.subscriptionType"
+                    :rate-multiplier="option.rate"
+                    :user-rate-multiplier="option.userRate"
+                  />
+                  <span
+                    v-if="getKeyGroupOptions(row).length > 2"
+                    class="rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-dark-700 dark:text-dark-200"
+                  >
+                    {{ t('keys.moreGroups', { count: getKeyGroupOptions(row).length - 2 }) }}
+                  </span>
+                </div>
                 <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{
                   t('keys.noGroup')
                 }}</span>
-                <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('keys.selectGroup') }}</span>
+                <span class="whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                  {{ billingPriorityLabel(row.billing_priority) }}
+                </span>
                 <svg
                   class="h-3.5 w-3.5 text-gray-400 opacity-60 transition-opacity group-hover/dropdown:opacity-100"
                   fill="none"
@@ -366,7 +377,7 @@
               :title="t('keys.noKeysYet')"
               :description="t('keys.createFirstKey')"
               :action-text="t('keys.createKey')"
-              @action="showCreateModal = true"
+              @action="openCreateModal"
             />
           </template>
         </DataTable>
@@ -405,38 +416,113 @@
         </div>
 
         <div>
-          <label class="input-label">{{ t('keys.groupLabel') }}</label>
-          <Select
-            v-model="formData.group_id"
-            :options="groupOptions"
-            :placeholder="t('keys.selectGroup')"
-            :searchable="true"
-            :search-placeholder="t('keys.searchGroup')"
-            data-tour="key-form-group"
-          >
-            <template #selected="{ option }">
-              <GroupBadge
-                v-if="option"
-                :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
-                :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                :rate-multiplier="(option as unknown as GroupOption).rate"
-                :user-rate-multiplier="(option as unknown as GroupOption).userRate"
-              />
-              <span v-else class="text-gray-400">{{ t('keys.selectGroup') }}</span>
-            </template>
-            <template #option="{ option, selected }">
-              <GroupOptionItem
-                :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
-                :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                :rate-multiplier="(option as unknown as GroupOption).rate"
-                :user-rate-multiplier="(option as unknown as GroupOption).userRate"
-                :description="(option as unknown as GroupOption).description"
-                :selected="selected"
-              />
-            </template>
-          </Select>
+          <label class="input-label">{{ t('keys.platformLabel') }}</label>
+          <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <button
+              v-for="option in platformOptions"
+              :key="option.value"
+              type="button"
+              @click="changeFormPlatform(option.value)"
+              :class="[
+                'inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                formData.platform === option.value
+                  ? 'border-primary-400 bg-primary-50 text-primary-700 dark:border-primary-600 dark:bg-primary-900/20 dark:text-primary-300'
+                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-dark-600 dark:bg-dark-800 dark:text-dark-200 dark:hover:bg-dark-700'
+              ]"
+            >
+              <PlatformIcon :platform="option.value" size="xs" />
+              <span>{{ option.label }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div class="mb-2 flex items-center justify-between gap-3">
+            <label class="input-label mb-0">{{ t('keys.groupLabel') }}</label>
+            <span class="text-xs text-gray-500 dark:text-gray-400">
+              {{ t('keys.selectedGroupCount', { count: formData.group_ids.length }) }}
+            </span>
+          </div>
+          <div class="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-dark-600 dark:bg-dark-800" data-tour="key-form-group">
+            <div class="border-b border-gray-100 p-2 dark:border-dark-700">
+              <div class="relative">
+                <svg class="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  v-model="groupSearchQuery"
+                  type="text"
+                  class="w-full rounded-md border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-3 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-primary-300 focus:ring-1 focus:ring-primary-300 dark:border-dark-600 dark:bg-dark-700 dark:text-white dark:placeholder-gray-500 dark:focus:border-primary-600 dark:focus:ring-primary-600"
+                  :placeholder="t('keys.searchGroup')"
+                />
+              </div>
+            </div>
+            <div v-if="selectedFormGroupOptions.length > 0" class="flex flex-wrap gap-1.5 border-b border-gray-100 p-2 dark:border-dark-700">
+              <span
+                v-for="option in selectedFormGroupOptions"
+                :key="option.value"
+                class="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-dark-700 dark:text-dark-100"
+              >
+                {{ option.label }}
+                <button
+                  type="button"
+                  class="text-gray-400 hover:text-red-500"
+                  :title="t('common.delete')"
+                  @click="toggleFormGroup(option.value)"
+                >
+                  <Icon name="x" size="xs" />
+                </button>
+              </span>
+            </div>
+            <div class="max-h-64 overflow-y-auto p-1.5">
+              <label
+                v-for="option in filteredFormGroupOptions"
+                :key="option.value"
+                class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-gray-100 dark:hover:bg-dark-700"
+                :title="option.description || undefined"
+              >
+                <input
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600"
+                  :checked="formData.group_ids.includes(option.value)"
+                  @change="toggleFormGroup(option.value)"
+                />
+                <GroupOptionItem
+                  :name="option.label"
+                  :platform="option.platform"
+                  :subscription-type="option.subscriptionType"
+                  :rate-multiplier="option.rate"
+                  :user-rate-multiplier="option.userRate"
+                  :description="option.description"
+                  :selected="formData.group_ids.includes(option.value)"
+                />
+              </label>
+              <div v-if="filteredFormGroupOptions.length === 0" class="py-4 text-center text-sm text-gray-400 dark:text-gray-500">
+                {{ t('keys.noGroupFound') }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="input-label">{{ t('keys.billingPriority.label') }}</label>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              v-for="option in billingPriorityOptions"
+              :key="option.value"
+              type="button"
+              @click="formData.billing_priority = option.value"
+              :class="[
+                'rounded-lg border px-3 py-2 text-left transition-colors',
+                formData.billing_priority === option.value
+                  ? 'border-primary-400 bg-primary-50 text-primary-700 dark:border-primary-600 dark:bg-primary-900/20 dark:text-primary-300'
+                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-dark-600 dark:bg-dark-800 dark:text-dark-200 dark:hover:bg-dark-700'
+              ]"
+            >
+              <span class="block text-sm font-medium">{{ option.label }}</span>
+              <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{{ option.description }}</span>
+            </button>
+          </div>
         </div>
 
         <!-- Custom Key Section (only for create) -->
@@ -925,7 +1011,7 @@
       :show="showUseKeyModal"
       :api-key="selectedKey?.key || ''"
       :base-url="publicSettings?.api_base_url || ''"
-      :platform="selectedKey?.group?.platform || null"
+      :platform="selectedKey ? getKeyPlatform(selectedKey) : null"
       :allow-messages-dispatch="selectedKey?.group?.allow_messages_dispatch || false"
       @close="closeUseKeyModal"
     />
@@ -1007,20 +1093,25 @@
         </div>
         <!-- Group list -->
         <div class="max-h-80 overflow-y-auto p-1.5">
-          <button
-            v-for="option in filteredGroupOptions"
-            :key="option.value ?? 'null'"
-            @click="changeGroup(selectedKeyForGroup!, option.value)"
+          <label
+            v-for="option in filteredSelectedKeyGroupOptions"
+            :key="option.value"
             :class="[
-              'flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors',
+              'flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
               'border-b border-gray-100 last:border-0 dark:border-dark-700',
-              selectedKeyForGroup?.group_id === option.value ||
-              (!selectedKeyForGroup?.group_id && option.value === null)
+              isKeyGroupSelected(selectedKeyForGroup, option.value)
                 ? 'bg-primary-50 dark:bg-primary-900/20'
                 : 'hover:bg-gray-100 dark:hover:bg-dark-700'
             ]"
             :title="option.description || undefined"
           >
+            <input
+              type="checkbox"
+              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600"
+              :checked="isKeyGroupSelected(selectedKeyForGroup, option.value)"
+              :disabled="isKeyGroupSelected(selectedKeyForGroup, option.value) && getApiKeyGroupIds(selectedKeyForGroup).length <= 1"
+              @change="selectedKeyForGroup && toggleKeyGroup(selectedKeyForGroup, option.value)"
+            />
             <GroupOptionItem
               :name="option.label"
               :platform="option.platform"
@@ -1028,15 +1119,30 @@
               :rate-multiplier="option.rate"
               :user-rate-multiplier="option.userRate"
               :description="option.description"
-              :selected="
-                selectedKeyForGroup?.group_id === option.value ||
-                (!selectedKeyForGroup?.group_id && option.value === null)
-              "
+              :selected="isKeyGroupSelected(selectedKeyForGroup, option.value)"
             />
-          </button>
+          </label>
           <!-- Empty state when search has no results -->
-          <div v-if="filteredGroupOptions.length === 0" class="py-4 text-center text-sm text-gray-400 dark:text-gray-500">
+          <div v-if="filteredSelectedKeyGroupOptions.length === 0" class="py-4 text-center text-sm text-gray-400 dark:text-gray-500">
             {{ t('keys.noGroupFound') }}
+          </div>
+        </div>
+        <div class="border-t border-gray-100 p-2 dark:border-dark-700">
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              v-for="option in billingPriorityOptions"
+              :key="option.value"
+              type="button"
+              @click.stop="selectedKeyForGroup && changeKeyBillingPriority(selectedKeyForGroup, option.value)"
+              :class="[
+                'rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors',
+                normalizeBillingPriority(selectedKeyForGroup?.billing_priority) === option.value
+                  ? 'border-primary-400 bg-primary-50 text-primary-700 dark:border-primary-600 dark:bg-primary-900/20 dark:text-primary-300'
+                  : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-dark-600 dark:text-dark-200 dark:hover:bg-dark-700'
+              ]"
+            >
+              {{ option.label }}
+            </button>
           </div>
         </div>
       </div>
@@ -1068,11 +1174,13 @@ import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 	import EndpointPopover from '@/components/keys/EndpointPopover.vue'
 	import GroupBadge from '@/components/common/GroupBadge.vue'
 	import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
-	import type { ApiKey, Group, PublicSettings, SubscriptionType, GroupPlatform } from '@/types'
+	import PlatformIcon from '@/components/common/PlatformIcon.vue'
+	import type { ApiKey, BillingPriority, Group, PublicSettings, SubscriptionType, GroupPlatform } from '@/types'
 import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
+import { platformLabel } from '@/utils/platformColors'
 import {
   buildCcSwitchImportDeeplink,
   type CcSwitchClientType
@@ -1098,6 +1206,9 @@ interface GroupOption {
 const appStore = useAppStore()
 const onboardingStore = useOnboardingStore()
 const { copyToClipboard: clipboardCopy } = useClipboard()
+
+const defaultBillingPriority: BillingPriority = 'balance_first'
+const defaultPlatform: GroupPlatform = 'anthropic'
 
 const columns = computed<Column[]>(() => [
   { key: 'name', label: t('common.name'), sortable: true },
@@ -1170,7 +1281,10 @@ const setGroupButtonRef = (keyId: number, el: Element | ComponentPublicInstance 
 
 const formData = ref({
   name: '',
+  platform: defaultPlatform as GroupPlatform,
   group_id: null as number | null,
+  group_ids: [] as number[],
+  billing_priority: defaultBillingPriority as BillingPriority,
   status: 'active' as 'active' | 'inactive',
   use_custom_key: false,
   custom_key: '',
@@ -1211,6 +1325,29 @@ const statusOptions = computed(() => [
   { value: 'inactive', label: t('common.inactive') }
 ])
 
+const billingPriorityOptions = computed(() => [
+  {
+    value: 'balance_first' as BillingPriority,
+    label: t('keys.billingPriority.balanceFirst'),
+    description: t('keys.billingPriority.balanceFirstDesc')
+  },
+  {
+    value: 'subscription_first' as BillingPriority,
+    label: t('keys.billingPriority.subscriptionFirst'),
+    description: t('keys.billingPriority.subscriptionFirstDesc')
+  }
+])
+
+const platformOptions = computed(() => {
+  const preferred: GroupPlatform[] = ['anthropic', 'openai', 'gemini', 'antigravity']
+  const available = new Set<GroupPlatform>(groups.value.map((group) => group.platform))
+  const values = preferred.filter((platform) => available.size === 0 || available.has(platform))
+  return values.map((value) => ({
+    value,
+    label: platformLabel(value)
+  }))
+})
+
 // Filter dropdown options
 const groupFilterOptions = computed(() => [
   { value: '', label: t('keys.allGroups') },
@@ -1242,7 +1379,7 @@ const onStatusFilterChange = (value: string | number | boolean | null) => {
 }
 
 // Convert groups to Select options format with rate multiplier and subscription type
-const groupOptions = computed(() =>
+const groupOptions = computed<GroupOption[]>(() =>
   groups.value.map((group) => ({
     value: group.id,
     label: group.name,
@@ -1256,14 +1393,129 @@ const groupOptions = computed(() =>
 
 // Group dropdown search
 const groupSearchQuery = ref('')
-const filteredGroupOptions = computed(() => {
+const filterGroupOptions = (options: GroupOption[]) => {
   const query = groupSearchQuery.value.trim().toLowerCase()
-  if (!query) return groupOptions.value
-  return groupOptions.value.filter((opt) => {
+  if (!query) return options
+  return options.filter((opt) => {
     return opt.label.toLowerCase().includes(query) ||
-      (opt.description && opt.description.toLowerCase().includes(query))
+      (opt.description && opt.description.toLowerCase().includes(query)) ||
+      platformLabel(opt.platform).toLowerCase().includes(query)
   })
+}
+
+const formPlatformGroupOptions = computed(() =>
+  groupOptions.value.filter((option) => option.platform === formData.value.platform)
+)
+
+const normalizeGroupPlatform = (platform?: string | null): GroupPlatform =>
+  platform === 'openai' || platform === 'gemini' || platform === 'antigravity' ? platform : defaultPlatform
+
+const normalizeBillingPriority = (priority?: string | null): BillingPriority =>
+  priority === 'subscription_first' ? 'subscription_first' : defaultBillingPriority
+
+const billingPriorityLabel = (priority?: string | null) =>
+  normalizeBillingPriority(priority) === 'subscription_first'
+    ? t('keys.billingPriority.subscriptionFirst')
+    : t('keys.billingPriority.balanceFirst')
+
+const getApiKeyGroupIds = (key: ApiKey | null | undefined): number[] => {
+  if (!key) return []
+  const ids = Array.isArray(key.group_ids) ? [...key.group_ids] : []
+  if (key.group_id && !ids.includes(key.group_id)) {
+    ids.unshift(key.group_id)
+  }
+  return [...new Set(ids.filter((id) => Number.isFinite(id) && id > 0))]
+}
+
+const getKeyGroupOptions = (key: ApiKey): GroupOption[] =>
+  getApiKeyGroupIds(key)
+    .map((groupId) => groupOptions.value.find((option) => option.value === groupId))
+    .filter((option): option is GroupOption => !!option)
+
+const getKeyPlatform = (key: ApiKey): GroupPlatform => {
+  if (key.platform) return normalizeGroupPlatform(key.platform)
+  const firstGroup = getKeyGroupOptions(key)[0]
+  return normalizeGroupPlatform(firstGroup?.platform || key.group?.platform)
+}
+
+const selectedKeyPlatformGroupOptions = computed<GroupOption[]>(() => {
+  const key = selectedKeyForGroup.value
+  if (!key) return []
+  const platform = getKeyPlatform(key)
+  return groupOptions.value.filter((option) => option.platform === platform)
 })
+
+const filteredFormGroupOptions = computed<GroupOption[]>(() => filterGroupOptions(formPlatformGroupOptions.value))
+const filteredSelectedKeyGroupOptions = computed<GroupOption[]>(() => filterGroupOptions(selectedKeyPlatformGroupOptions.value))
+
+const selectedFormGroupOptions = computed<GroupOption[]>(() =>
+  formData.value.group_ids
+    .map((groupId) => groupOptions.value.find((option) => option.value === groupId))
+    .filter((option): option is GroupOption => !!option)
+)
+
+const isKeyGroupSelected = (key: ApiKey | null | undefined, groupId: number) =>
+  getApiKeyGroupIds(key).includes(groupId)
+
+const syncPrimaryGroup = () => {
+  formData.value.group_ids = formData.value.group_ids.filter((groupId) =>
+    groupOptions.value.some((option) => option.value === groupId && option.platform === formData.value.platform)
+  )
+  formData.value.group_id = formData.value.group_ids[0] ?? null
+}
+
+const resetForm = (platform: GroupPlatform = defaultPlatform) => {
+  formData.value = {
+    name: '',
+    platform,
+    group_id: null,
+    group_ids: [],
+    billing_priority: defaultBillingPriority,
+    status: 'active',
+    use_custom_key: false,
+    custom_key: '',
+    enable_ip_restriction: false,
+    ip_whitelist: '',
+    ip_blacklist: '',
+    enable_quota: false,
+    quota: null,
+    enable_rate_limit: false,
+    rate_limit_5h: null,
+    rate_limit_1d: null,
+    rate_limit_7d: null,
+    enable_expiration: false,
+    expiration_preset: '30',
+    expiration_date: ''
+  }
+}
+
+const preferredCreatePlatform = (): GroupPlatform =>
+  normalizeGroupPlatform(groups.value[0]?.platform || platformOptions.value[0]?.value || defaultPlatform)
+
+const openCreateModal = () => {
+  resetForm(preferredCreatePlatform())
+  groupSearchQuery.value = ''
+  showCreateModal.value = true
+}
+
+const changeFormPlatform = (platform: GroupPlatform) => {
+  if (formData.value.platform === platform) return
+  formData.value.platform = platform
+  syncPrimaryGroup()
+}
+
+const toggleFormGroup = (groupId: number) => {
+  const option = groupOptions.value.find((item) => item.value === groupId)
+  if (!option || option.platform !== formData.value.platform) return
+  const ids = formData.value.group_ids
+  const index = ids.indexOf(groupId)
+  if (index >= 0) {
+    ids.splice(index, 1)
+  } else {
+    ids.push(groupId)
+  }
+  syncPrimaryGroup()
+}
 
 const copyToClipboard = async (text: string, keyId: number) => {
   const success = await clipboardCopy(text, t('keys.copied'))
@@ -1391,9 +1643,15 @@ const editKey = (key: ApiKey) => {
   selectedKey.value = key
   const hasIPRestriction = (key.ip_whitelist?.length > 0) || (key.ip_blacklist?.length > 0)
   const hasExpiration = !!key.expires_at
+  const platform = getKeyPlatform(key)
   formData.value = {
     name: key.name,
+    platform,
     group_id: key.group_id,
+    group_ids: getApiKeyGroupIds(key).filter((groupId) =>
+      groupOptions.value.some((option) => option.value === groupId && option.platform === platform)
+    ),
+    billing_priority: normalizeBillingPriority(key.billing_priority),
     status: key.status === 'quota_exhausted' || key.status === 'expired' ? 'inactive' : key.status,
     use_custom_key: false,
     custom_key: '',
@@ -1410,6 +1668,7 @@ const editKey = (key: ApiKey) => {
     expiration_preset: 'custom',
     expiration_date: key.expires_at ? formatDateTimeLocal(key.expires_at) : ''
   }
+  syncPrimaryGroup()
   showEditModal.value = true
 }
 
@@ -1457,18 +1716,48 @@ const openGroupSelector = (key: ApiKey) => {
   }
 }
 
-const changeGroup = async (key: ApiKey, newGroupId: number | null) => {
-  groupSelectorKeyId.value = null
-  dropdownPosition.value = null
-  if (key.group_id === newGroupId) return
-
+const updateKeyRouting = async (key: ApiKey, groupIds: number[], billingPriority?: BillingPriority) => {
+  const platform = getKeyPlatform(key)
+  const normalizedGroupIds = [...new Set(groupIds.filter((id) => {
+    if (id <= 0) return false
+    const option = groupOptions.value.find((item) => item.value === id)
+    return option?.platform === platform
+  }))]
+  if (normalizedGroupIds.length === 0) {
+    appStore.showError(t('keys.groupRequired'))
+    return
+  }
   try {
-    await keysAPI.update(key.id, { group_id: newGroupId })
+    await keysAPI.update(key.id, {
+      platform,
+      group_id: normalizedGroupIds[0] ?? null,
+      group_ids: normalizedGroupIds,
+      billing_priority: billingPriority ?? normalizeBillingPriority(key.billing_priority)
+    })
     appStore.showSuccess(t('keys.groupChangedSuccess'))
     loadApiKeys()
   } catch (error) {
     appStore.showError(t('keys.failedToChangeGroup'))
   }
+}
+
+const toggleKeyGroup = (key: ApiKey, groupId: number) => {
+  const groupIds = getApiKeyGroupIds(key)
+  const index = groupIds.indexOf(groupId)
+  if (index >= 0) {
+    if (groupIds.length <= 1) return
+    groupIds.splice(index, 1)
+  } else {
+    const option = groupOptions.value.find((item) => item.value === groupId)
+    if (!option || option.platform !== getKeyPlatform(key)) return
+    groupIds.push(groupId)
+  }
+  updateKeyRouting(key, groupIds)
+}
+
+const changeKeyBillingPriority = (key: ApiKey, priority: BillingPriority) => {
+  if (normalizeBillingPriority(key.billing_priority) === priority) return
+  updateKeyRouting(key, getApiKeyGroupIds(key), priority)
 }
 
 const closeGroupSelector = (event: MouseEvent) => {
@@ -1487,7 +1776,8 @@ const confirmDelete = (key: ApiKey) => {
 
 const handleSubmit = async () => {
   // Validate group_id is required
-  if (formData.value.group_id === null) {
+  syncPrimaryGroup()
+  if (formData.value.group_ids.length === 0 || formData.value.group_id === null) {
     appStore.showError(t('keys.groupRequired'))
     return
   }
@@ -1544,7 +1834,10 @@ const handleSubmit = async () => {
     if (showEditModal.value && selectedKey.value) {
       await keysAPI.update(selectedKey.value.id, {
         name: formData.value.name,
+        platform: formData.value.platform,
         group_id: formData.value.group_id,
+        group_ids: [...formData.value.group_ids],
+        billing_priority: formData.value.billing_priority,
         status: formData.value.status,
         ip_whitelist: ipWhitelist,
         ip_blacklist: ipBlacklist,
@@ -1559,13 +1852,16 @@ const handleSubmit = async () => {
       const customKey = formData.value.use_custom_key ? formData.value.custom_key : undefined
       await keysAPI.create(
         formData.value.name,
+        formData.value.platform,
         formData.value.group_id,
         customKey,
         ipWhitelist,
         ipBlacklist,
         quota,
         expiresInDays,
-        rateLimitData
+        rateLimitData,
+        [...formData.value.group_ids],
+        formData.value.billing_priority
       )
       appStore.showSuccess(t('keys.keyCreatedSuccess'))
       // Only advance tour if active, on submit step, and creation succeeded
@@ -1608,25 +1904,7 @@ const closeModals = () => {
   showCreateModal.value = false
   showEditModal.value = false
   selectedKey.value = null
-  formData.value = {
-    name: '',
-    group_id: null,
-    status: 'active',
-    use_custom_key: false,
-    custom_key: '',
-    enable_ip_restriction: false,
-    ip_whitelist: '',
-    ip_blacklist: '',
-    enable_quota: false,
-    quota: null,
-    enable_rate_limit: false,
-    rate_limit_5h: null,
-    rate_limit_1d: null,
-    rate_limit_7d: null,
-    enable_expiration: false,
-    expiration_preset: '30',
-    expiration_date: ''
-  }
+  resetForm()
 }
 
 // Show reset quota confirmation dialog
@@ -1691,7 +1969,7 @@ const resetRateLimitUsage = async () => {
 }
 
 const importToCcswitch = (row: ApiKey) => {
-  const platform = row.group?.platform || 'anthropic'
+  const platform = getKeyPlatform(row)
 
   // For antigravity platform, show client selection dialog
   if (platform === 'antigravity') {
@@ -1706,7 +1984,7 @@ const importToCcswitch = (row: ApiKey) => {
 
 const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
   const baseUrl = publicSettings.value?.api_base_url || window.location.origin
-  const platform = row.group?.platform || 'anthropic'
+  const platform = getKeyPlatform(row)
 
   const usageScript = `({
     request: {

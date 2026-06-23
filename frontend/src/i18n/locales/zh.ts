@@ -708,8 +708,18 @@ export default {
     disable: '禁用',
     nameLabel: '名称',
     namePlaceholder: '我的 API 密钥',
+    platformLabel: '厂商类别',
     groupLabel: '分组',
     selectGroup: '选择分组',
+    selectedGroupCount: '已选 {count} 个',
+    moreGroups: '+{count}',
+    billingPriority: {
+      label: '扣费优先级',
+      balanceFirst: '余额优先',
+      balanceFirstDesc: '优先使用余额分组，余额不足时自动切到订阅分组。',
+      subscriptionFirst: '订阅优先',
+      subscriptionFirstDesc: '优先使用订阅分组，订阅额度耗尽后自动切到余额分组。'
+    },
     statusLabel: '状态',
     selectStatus: '选择状态',
     saving: '保存中...',

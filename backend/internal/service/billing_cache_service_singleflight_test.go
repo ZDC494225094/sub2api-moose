@@ -51,6 +51,22 @@ func (s *billingCacheMissStub) InvalidateSubscriptionCache(ctx context.Context, 
 	return nil
 }
 
+func (s *billingCacheMissStub) GetSubscriptionCacheByID(ctx context.Context, subscriptionID int64) (*SubscriptionCacheData, error) {
+	return nil, errors.New("cache miss")
+}
+
+func (s *billingCacheMissStub) SetSubscriptionCacheByID(ctx context.Context, subscriptionID int64, data *SubscriptionCacheData) error {
+	return nil
+}
+
+func (s *billingCacheMissStub) UpdateSubscriptionUsageByID(ctx context.Context, subscriptionID int64, cost float64) error {
+	return nil
+}
+
+func (s *billingCacheMissStub) InvalidateSubscriptionCacheByID(ctx context.Context, subscriptionID int64) error {
+	return nil
+}
+
 func (s *billingCacheMissStub) GetAPIKeyRateLimit(ctx context.Context, keyID int64) (*APIKeyRateLimitCacheData, error) {
 	return nil, errors.New("cache miss")
 }

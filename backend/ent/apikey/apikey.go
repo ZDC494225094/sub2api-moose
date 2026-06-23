@@ -29,6 +29,12 @@ const (
 	FieldName = "name"
 	// FieldGroupID holds the string denoting the group_id field in the database.
 	FieldGroupID = "group_id"
+	// FieldPlatform holds the string denoting the platform field in the database.
+	FieldPlatform = "platform"
+	// FieldGroupIds holds the string denoting the group_ids field in the database.
+	FieldGroupIds = "group_ids"
+	// FieldBillingPriority holds the string denoting the billing_priority field in the database.
+	FieldBillingPriority = "billing_priority"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldLastUsedAt holds the string denoting the last_used_at field in the database.
@@ -102,6 +108,9 @@ var Columns = []string{
 	FieldKey,
 	FieldName,
 	FieldGroupID,
+	FieldPlatform,
+	FieldGroupIds,
+	FieldBillingPriority,
 	FieldStatus,
 	FieldLastUsedAt,
 	FieldIPWhitelist,
@@ -148,6 +157,14 @@ var (
 	KeyValidator func(string) error
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// DefaultPlatform holds the default value on creation for the "platform" field.
+	DefaultPlatform string
+	// PlatformValidator is a validator for the "platform" field. It is called by the builders before save.
+	PlatformValidator func(string) error
+	// DefaultBillingPriority holds the default value on creation for the "billing_priority" field.
+	DefaultBillingPriority string
+	// BillingPriorityValidator is a validator for the "billing_priority" field. It is called by the builders before save.
+	BillingPriorityValidator func(string) error
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
@@ -211,6 +228,16 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByGroupID orders the results by the group_id field.
 func ByGroupID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldGroupID, opts...).ToFunc()
+}
+
+// ByPlatform orders the results by the platform field.
+func ByPlatform(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPlatform, opts...).ToFunc()
+}
+
+// ByBillingPriority orders the results by the billing_priority field.
+func ByBillingPriority(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBillingPriority, opts...).ToFunc()
 }
 
 // ByStatus orders the results by the status field.

@@ -709,8 +709,18 @@ export default {
     disable: 'Disable',
     nameLabel: 'Name',
     namePlaceholder: 'My API Key',
+    platformLabel: 'Vendor Category',
     groupLabel: 'Group',
     selectGroup: 'Select a group',
+    selectedGroupCount: '{count} selected',
+    moreGroups: '+{count}',
+    billingPriority: {
+      label: 'Billing Priority',
+      balanceFirst: 'Balance first',
+      balanceFirstDesc: 'Use balance groups first, then switch to subscription groups when balance is unavailable.',
+      subscriptionFirst: 'Subscription first',
+      subscriptionFirstDesc: 'Use subscription groups first, then switch to balance groups when subscription quota is unavailable.'
+    },
     statusLabel: 'Status',
     selectStatus: 'Select status',
     saving: 'Saving...',

@@ -30,7 +30,10 @@ var (
 	// ErrAPIKeyExpired        = infraerrors.Forbidden("API_KEY_EXPIRED", "api key has expired")
 	ErrAPIKeyExpired = infraerrors.Forbidden("API_KEY_EXPIRED", "api key 已过期")
 	// ErrAPIKeyQuotaExhausted = infraerrors.TooManyRequests("API_KEY_QUOTA_EXHAUSTED", "api key quota exhausted")
-	ErrAPIKeyQuotaExhausted = infraerrors.TooManyRequests("API_KEY_QUOTA_EXHAUSTED", "api key 额度已用完")
+	ErrAPIKeyQuotaExhausted        = infraerrors.TooManyRequests("API_KEY_QUOTA_EXHAUSTED", "api key 额度已用完")
+	ErrNoUsableAPIKeyGroup         = infraerrors.Forbidden("NO_USABLE_API_KEY_GROUP", "no usable API key group is available")
+	ErrInvalidAPIKeyPlatform       = infraerrors.BadRequest("INVALID_API_KEY_PLATFORM", "invalid API key platform")
+	ErrAPIKeyGroupPlatformMismatch = infraerrors.BadRequest("API_KEY_GROUP_PLATFORM_MISMATCH", "api key platform must match all selected groups")
 
 	// Rate limit errors
 	ErrAPIKeyRateLimit5hExceeded = infraerrors.TooManyRequests("API_KEY_RATE_5H_EXCEEDED", "api key 5小时限额已用完")
@@ -149,11 +152,14 @@ type APIKeyAuthCacheInvalidator interface {
 
 // CreateAPIKeyRequest 创建API Key请求
 type CreateAPIKeyRequest struct {
-	Name        string   `json:"name"`
-	GroupID     *int64   `json:"group_id"`
-	CustomKey   *string  `json:"custom_key"`   // 可选的自定义key
-	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单
-	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单
+	Name            string   `json:"name"`
+	Platform        string   `json:"platform"`
+	GroupID         *int64   `json:"group_id"`
+	GroupIDs        []int64  `json:"group_ids"`
+	BillingPriority string   `json:"billing_priority"`
+	CustomKey       *string  `json:"custom_key"`   // 可选的自定义key
+	IPWhitelist     []string `json:"ip_whitelist"` // IP 白名单
+	IPBlacklist     []string `json:"ip_blacklist"` // IP 黑名单
 
 	// Quota fields
 	Quota         float64 `json:"quota"`           // Quota limit in USD (0 = unlimited)
@@ -167,11 +173,15 @@ type CreateAPIKeyRequest struct {
 
 // UpdateAPIKeyRequest 更新API Key请求
 type UpdateAPIKeyRequest struct {
-	Name        *string  `json:"name"`
-	GroupID     *int64   `json:"group_id"`
-	Status      *string  `json:"status"`
-	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单（空数组清空）
-	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单（空数组清空）
+	Name            *string  `json:"name"`
+	Platform        *string  `json:"platform"`
+	GroupID         *int64   `json:"group_id"`
+	GroupIDs        []int64  `json:"group_ids"`
+	GroupIDsSet     bool     `json:"-"`
+	BillingPriority *string  `json:"billing_priority"`
+	Status          *string  `json:"status"`
+	IPWhitelist     []string `json:"ip_whitelist"` // IP 白名单（空数组清空）
+	IPBlacklist     []string `json:"ip_blacklist"` // IP 黑名单（空数组清空）
 
 	// Quota fields
 	Quota           *float64   `json:"quota"`       // Quota limit in USD (nil = no change, 0 = unlimited)
@@ -325,6 +335,30 @@ func (s *APIKeyService) canUserBindGroup(ctx context.Context, user *User, group 
 	return user.CanBindGroup(group.ID, group.IsExclusive)
 }
 
+func (s *APIKeyService) validateBindableGroupIDs(ctx context.Context, user *User, requestedPlatform string, groupIDs []int64) (string, error) {
+	platform := NormalizeAPIKeyPlatform(requestedPlatform)
+	if strings.TrimSpace(requestedPlatform) != "" && platform == "" {
+		return "", ErrInvalidAPIKeyPlatform
+	}
+	for _, groupID := range NormalizeAPIKeyGroupIDs(nil, groupIDs) {
+		group, err := s.groupRepo.GetByID(ctx, groupID)
+		if err != nil {
+			return "", fmt.Errorf("get group: %w", err)
+		}
+		if !s.canUserBindGroup(ctx, user, group) {
+			return "", ErrGroupNotAllowed
+		}
+		groupPlatform := DefaultAPIKeyPlatform(group.Platform)
+		if platform == "" {
+			platform = groupPlatform
+		}
+		if groupPlatform != platform {
+			return "", ErrAPIKeyGroupPlatformMismatch
+		}
+	}
+	return DefaultAPIKeyPlatform(platform), nil
+}
+
 // Create 创建API Key
 func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIKeyRequest) (*APIKey, error) {
 	// 验证用户存在
@@ -347,17 +381,14 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		}
 	}
 
-	// 验证分组权限（如果指定了分组）
-	if req.GroupID != nil {
-		group, err := s.groupRepo.GetByID(ctx, *req.GroupID)
-		if err != nil {
-			return nil, fmt.Errorf("get group: %w", err)
-		}
-
-		// 检查用户是否可以绑定该分组
-		if !s.canUserBindGroup(ctx, user, group) {
-			return nil, ErrGroupNotAllowed
-		}
+	groupIDs := NormalizeAPIKeyGroupIDs(req.GroupID, req.GroupIDs)
+	platform, err := s.validateBindableGroupIDs(ctx, user, req.Platform, groupIDs)
+	if err != nil {
+		return nil, err
+	}
+	if req.GroupID == nil && len(groupIDs) > 0 {
+		gid := groupIDs[0]
+		req.GroupID = &gid
 	}
 
 	var key string
@@ -397,18 +428,21 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 
 	// 创建API Key记录
 	apiKey := &APIKey{
-		UserID:      userID,
-		Key:         key,
-		Name:        req.Name,
-		GroupID:     req.GroupID,
-		Status:      StatusActive,
-		IPWhitelist: req.IPWhitelist,
-		IPBlacklist: req.IPBlacklist,
-		Quota:       req.Quota,
-		QuotaUsed:   0,
-		RateLimit5h: req.RateLimit5h,
-		RateLimit1d: req.RateLimit1d,
-		RateLimit7d: req.RateLimit7d,
+		UserID:          userID,
+		Key:             key,
+		Name:            req.Name,
+		Platform:        platform,
+		GroupID:         req.GroupID,
+		GroupIDs:        groupIDs,
+		BillingPriority: NormalizeBillingPriority(req.BillingPriority),
+		Status:          StatusActive,
+		IPWhitelist:     req.IPWhitelist,
+		IPBlacklist:     req.IPBlacklist,
+		Quota:           req.Quota,
+		QuotaUsed:       0,
+		RateLimit5h:     req.RateLimit5h,
+		RateLimit1d:     req.RateLimit1d,
+		RateLimit7d:     req.RateLimit7d,
 	}
 
 	// Set expiration time if specified
@@ -541,23 +575,42 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		apiKey.Name = *req.Name
 	}
 
-	if req.GroupID != nil {
-		// 验证分组权限
+	if req.GroupID != nil || req.GroupIDsSet || req.Platform != nil {
 		user, err := s.userRepo.GetByID(ctx, userID)
 		if err != nil {
 			return nil, fmt.Errorf("get user: %w", err)
 		}
-
-		group, err := s.groupRepo.GetByID(ctx, *req.GroupID)
+		groupIDs := NormalizeAPIKeyGroupIDs(apiKey.GroupID, apiKey.GroupIDs)
+		requestedPlatform := apiKey.Platform
+		if req.GroupID != nil || req.GroupIDsSet {
+			groupIDs = NormalizeAPIKeyGroupIDs(req.GroupID, req.GroupIDs)
+			if req.Platform == nil {
+				requestedPlatform = ""
+			}
+		}
+		if req.Platform != nil {
+			requestedPlatform = *req.Platform
+		}
+		platform, err := s.validateBindableGroupIDs(ctx, user, requestedPlatform, groupIDs)
 		if err != nil {
-			return nil, fmt.Errorf("get group: %w", err)
+			return nil, err
 		}
-
-		if !s.canUserBindGroup(ctx, user, group) {
-			return nil, ErrGroupNotAllowed
+		apiKey.Platform = platform
+		apiKey.GroupIDs = groupIDs
+		if req.GroupID != nil {
+			apiKey.GroupID = req.GroupID
+		} else if req.GroupIDsSet {
+			if len(groupIDs) > 0 {
+				gid := groupIDs[0]
+				apiKey.GroupID = &gid
+			} else {
+				apiKey.GroupID = nil
+			}
 		}
+	}
 
-		apiKey.GroupID = req.GroupID
+	if req.BillingPriority != nil {
+		apiKey.BillingPriority = NormalizeBillingPriority(*req.BillingPriority)
 	}
 
 	if req.Status != nil {
@@ -804,6 +857,98 @@ func (s *APIKeyService) GetUserGroupRates(ctx context.Context, userID int64) (ma
 		return nil, fmt.Errorf("get user group rates: %w", err)
 	}
 	return rates, nil
+}
+
+type APIKeyGroupSelection struct {
+	Group        *Group
+	Subscription *UserSubscription
+}
+
+func (s *APIKeyService) SelectUsableGroupForAPIKey(ctx context.Context, apiKey *APIKey, subscriptionSvc *SubscriptionService) (*APIKeyGroupSelection, error) {
+	if apiKey == nil {
+		return nil, ErrAPIKeyNotFound
+	}
+	groupIDs := NormalizeAPIKeyGroupIDs(apiKey.GroupID, apiKey.GroupIDs)
+	if len(groupIDs) == 0 {
+		return &APIKeyGroupSelection{Group: nil}, nil
+	}
+
+	type candidate struct {
+		group *Group
+		sub   *UserSubscription
+	}
+	var balanceCandidates []candidate
+	var subscriptionCandidates []candidate
+	var balanceFallbacks []candidate
+	var subscriptionFallbacks []candidate
+	var unavailableFallbacks []candidate
+
+	for _, groupID := range groupIDs {
+		group, err := s.resolveAPIKeyCandidateGroup(ctx, apiKey, groupID)
+		if err != nil || group == nil {
+			continue
+		}
+		groupPlatform := DefaultAPIKeyPlatform(group.Platform)
+		keyPlatform := NormalizeAPIKeyPlatform(apiKey.Platform)
+		if keyPlatform == "" {
+			keyPlatform = groupPlatform
+			apiKey.Platform = keyPlatform
+		}
+		if groupPlatform != keyPlatform {
+			continue
+		}
+		if !group.IsActive() {
+			unavailableFallbacks = append(unavailableFallbacks, candidate{group: group})
+			continue
+		}
+		if group.IsSubscriptionType() {
+			subscriptionFallbacks = append(subscriptionFallbacks, candidate{group: group})
+			if subscriptionSvc == nil {
+				continue
+			}
+			subs, err := subscriptionSvc.ListUsableSubscriptionsForGroup(ctx, apiKey.UserID, group)
+			if err != nil || len(subs) == 0 {
+				continue
+			}
+			sub := subs[0]
+			subscriptionCandidates = append(subscriptionCandidates, candidate{group: group, sub: &sub})
+			continue
+		}
+		balanceFallbacks = append(balanceFallbacks, candidate{group: group})
+		if apiKey.User == nil || apiKey.User.Balance > 0 {
+			balanceCandidates = append(balanceCandidates, candidate{group: group})
+		}
+	}
+
+	ordered := balanceCandidates
+	if NormalizeBillingPriority(apiKey.BillingPriority) == BillingPrioritySubscriptionFirst {
+		ordered = append(subscriptionCandidates, balanceCandidates...)
+	} else {
+		ordered = append(balanceCandidates, subscriptionCandidates...)
+	}
+	if len(ordered) == 0 {
+		if NormalizeBillingPriority(apiKey.BillingPriority) == BillingPrioritySubscriptionFirst {
+			ordered = append(subscriptionFallbacks, balanceFallbacks...)
+		} else {
+			ordered = append(balanceFallbacks, subscriptionFallbacks...)
+		}
+	}
+	if len(ordered) == 0 {
+		ordered = unavailableFallbacks
+	}
+	if len(ordered) == 0 {
+		return nil, ErrNoUsableAPIKeyGroup
+	}
+	apiKey.GroupID = &ordered[0].group.ID
+	apiKey.Group = ordered[0].group
+	return &APIKeyGroupSelection{Group: ordered[0].group, Subscription: ordered[0].sub}, nil
+}
+
+func (s *APIKeyService) resolveAPIKeyCandidateGroup(ctx context.Context, apiKey *APIKey, groupID int64) (*Group, error) {
+	if apiKey != nil && apiKey.Group != nil && apiKey.Group.ID == groupID {
+		return apiKey.Group, nil
+	}
+	return s.groupRepo.GetByID(ctx, groupID)
 }
 
 // CheckAPIKeyQuotaAndExpiry checks if the API key is valid for use (not expired, quota not exhausted)

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
@@ -12,6 +13,11 @@ const (
 	StatusAPIKeyDisabled       = "disabled"
 	StatusAPIKeyQuotaExhausted = "quota_exhausted"
 	StatusAPIKeyExpired        = "expired"
+)
+
+const (
+	BillingPriorityBalanceFirst      = "balance_first"
+	BillingPrioritySubscriptionFirst = "subscription_first"
 )
 
 // Rate limit window durations
@@ -28,14 +34,17 @@ func IsWindowExpired(windowStart *time.Time, duration time.Duration) bool {
 }
 
 type APIKey struct {
-	ID          int64
-	UserID      int64
-	Key         string
-	Name        string
-	GroupID     *int64
-	Status      string
-	IPWhitelist []string
-	IPBlacklist []string
+	ID              int64
+	UserID          int64
+	Key             string
+	Name            string
+	Platform        string
+	GroupID         *int64
+	GroupIDs        []int64
+	BillingPriority string
+	Status          string
+	IPWhitelist     []string
+	IPBlacklist     []string
 	// 预编译的 IP 规则，用于认证热路径避免重复 ParseIP/ParseCIDR。
 	CompiledIPWhitelist *ip.CompiledIPRules `json:"-"`
 	CompiledIPBlacklist *ip.CompiledIPRules `json:"-"`
@@ -60,6 +69,57 @@ type APIKey struct {
 	Window5hStart *time.Time // Start of current 5h window
 	Window1dStart *time.Time // Start of current 1d window
 	Window7dStart *time.Time // Start of current 7d window
+}
+
+func NormalizeBillingPriority(priority string) string {
+	switch priority {
+	case BillingPrioritySubscriptionFirst:
+		return BillingPrioritySubscriptionFirst
+	default:
+		return BillingPriorityBalanceFirst
+	}
+}
+
+func NormalizeAPIKeyPlatform(platform string) string {
+	switch strings.ToLower(strings.TrimSpace(platform)) {
+	case PlatformAnthropic:
+		return PlatformAnthropic
+	case PlatformOpenAI:
+		return PlatformOpenAI
+	case PlatformGemini:
+		return PlatformGemini
+	case PlatformAntigravity:
+		return PlatformAntigravity
+	default:
+		return ""
+	}
+}
+
+func DefaultAPIKeyPlatform(platform string) string {
+	if normalized := NormalizeAPIKeyPlatform(platform); normalized != "" {
+		return normalized
+	}
+	return PlatformAnthropic
+}
+
+func NormalizeAPIKeyGroupIDs(primary *int64, groupIDs []int64) []int64 {
+	seen := make(map[int64]struct{}, len(groupIDs)+1)
+	out := make([]int64, 0, len(groupIDs)+1)
+	if primary != nil && *primary > 0 {
+		seen[*primary] = struct{}{}
+		out = append(out, *primary)
+	}
+	for _, id := range groupIDs {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
 }
 
 func (k *APIKey) IsActive() bool {

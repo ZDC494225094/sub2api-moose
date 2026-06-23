@@ -52,6 +52,24 @@ func (b *billingCacheWorkerStub) InvalidateSubscriptionCache(ctx context.Context
 	return nil
 }
 
+func (b *billingCacheWorkerStub) GetSubscriptionCacheByID(ctx context.Context, subscriptionID int64) (*SubscriptionCacheData, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (b *billingCacheWorkerStub) SetSubscriptionCacheByID(ctx context.Context, subscriptionID int64, data *SubscriptionCacheData) error {
+	atomic.AddInt64(&b.subscriptionUpdates, 1)
+	return nil
+}
+
+func (b *billingCacheWorkerStub) UpdateSubscriptionUsageByID(ctx context.Context, subscriptionID int64, cost float64) error {
+	atomic.AddInt64(&b.subscriptionUpdates, 1)
+	return nil
+}
+
+func (b *billingCacheWorkerStub) InvalidateSubscriptionCacheByID(ctx context.Context, subscriptionID int64) error {
+	return nil
+}
+
 func (b *billingCacheWorkerStub) GetAPIKeyRateLimit(ctx context.Context, keyID int64) (*APIKeyRateLimitCacheData, error) {
 	return nil, errors.New("not implemented")
 }

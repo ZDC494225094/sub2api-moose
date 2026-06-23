@@ -112,6 +112,20 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			AbortWithError(c, 401, "USER_INACTIVE", "User account is not active")
 			return
 		}
+		selection, selectErr := apiKeyService.SelectUsableGroupForAPIKey(c.Request.Context(), apiKey, subscriptionService)
+		if selectErr != nil {
+			AbortWithError(c, 403, "NO_USABLE_API_KEY_GROUP", selectErr.Error())
+			return
+		}
+		if selection != nil {
+			apiKey.Group = selection.Group
+			if selection.Group != nil {
+				gid := selection.Group.ID
+				apiKey.GroupID = &gid
+			} else {
+				apiKey.GroupID = nil
+			}
+		}
 		if abortIfAPIKeyGroupUnavailable(c, apiKey) {
 			return
 		}
@@ -137,9 +151,12 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 		skipBilling := c.Request.URL.Path == "/v1/usage"
 
 		var subscription *service.UserSubscription
+		if selection != nil && selection.Subscription != nil {
+			subscription = selection.Subscription
+		}
 		isSubscriptionType := apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
 
-		if isSubscriptionType && subscriptionService != nil {
+		if subscription == nil && isSubscriptionType && subscriptionService != nil {
 			sub, subErr := subscriptionService.GetActiveSubscription(
 				c.Request.Context(),
 				apiKey.User.ID,

@@ -273,6 +273,40 @@ func TestAPIKeyService_SnapshotRoundTrip_PreservesMessagesDispatchModelConfig(t 
 	require.Equal(t, apiKey.Group.MessagesDispatchModelConfig, roundTrip.Group.MessagesDispatchModelConfig)
 }
 
+func TestAPIKeyService_SnapshotInfersPlatformFromLoadedGroup(t *testing.T) {
+	svc := NewAPIKeyService(nil, nil, nil, nil, nil, nil, &config.Config{})
+	groupID := int64(12)
+	apiKey := &APIKey{
+		ID:      12,
+		UserID:  22,
+		GroupID: &groupID,
+		Key:     "k-group-platform",
+		Name:    "Group Platform Key",
+		Status:  StatusActive,
+		User: &User{
+			ID:          22,
+			Status:      StatusActive,
+			Role:        RoleUser,
+			Balance:     10,
+			Concurrency: 3,
+		},
+		Group: &Group{
+			ID:               groupID,
+			Name:             "gemini",
+			Platform:         PlatformGemini,
+			Status:           StatusActive,
+			SubscriptionType: SubscriptionTypeStandard,
+			RateMultiplier:   1,
+		},
+	}
+
+	snapshot := svc.snapshotFromAPIKey(context.Background(), apiKey)
+	roundTrip := svc.snapshotToAPIKey(apiKey.Key, snapshot)
+
+	require.Equal(t, PlatformGemini, snapshot.Platform)
+	require.Equal(t, PlatformGemini, roundTrip.Platform)
+}
+
 func TestAPIKeyService_GetByKey_IgnoresLegacyAuthCacheSnapshotWithoutMessagesDispatchConfig(t *testing.T) {
 	cache := &authCacheStub{}
 	var repoCalls int32
