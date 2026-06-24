@@ -202,20 +202,25 @@ type RateLimitCacheInvalidator interface {
 	InvalidateAPIKeyRateLimit(ctx context.Context, keyID int64) error
 }
 
+type APIKeyBalanceResolver interface {
+	GetUserBalance(ctx context.Context, userID int64) (float64, error)
+}
+
 type APIKeyService struct {
-	apiKeyRepo            APIKeyRepository
-	userRepo              UserRepository
-	groupRepo             GroupRepository
-	userSubRepo           UserSubscriptionRepository
-	userGroupRateRepo     UserGroupRateRepository
-	cache                 APIKeyCache
-	rateLimitCacheInvalid RateLimitCacheInvalidator // optional: invalidate Redis rate limit cache
-	cfg                   *config.Config
-	authCacheL1           *ristretto.Cache
-	authCfg               apiKeyAuthCacheConfig
-	authGroup             singleflight.Group
-	lastUsedTouchL1       sync.Map // keyID -> nextAllowedAt(time.Time)
-	lastUsedTouchSF       singleflight.Group
+	apiKeyRepo             APIKeyRepository
+	userRepo               UserRepository
+	groupRepo              GroupRepository
+	userSubRepo            UserSubscriptionRepository
+	userGroupRateRepo      UserGroupRateRepository
+	cache                  APIKeyCache
+	rateLimitCacheInvalid  RateLimitCacheInvalidator // optional: invalidate Redis rate limit cache
+	billingBalanceResolver APIKeyBalanceResolver     // optional: live balance for multi-group runtime routing
+	cfg                    *config.Config
+	authCacheL1            *ristretto.Cache
+	authCfg                apiKeyAuthCacheConfig
+	authGroup              singleflight.Group
+	lastUsedTouchL1        sync.Map // keyID -> nextAllowedAt(time.Time)
+	lastUsedTouchSF        singleflight.Group
 }
 
 // NewAPIKeyService 创建API Key服务实例
@@ -245,6 +250,10 @@ func NewAPIKeyService(
 // Called after construction (e.g. in wire) to avoid circular dependencies.
 func (s *APIKeyService) SetRateLimitCacheInvalidator(inv RateLimitCacheInvalidator) {
 	s.rateLimitCacheInvalid = inv
+}
+
+func (s *APIKeyService) SetBillingBalanceResolver(resolver APIKeyBalanceResolver) {
+	s.billingBalanceResolver = resolver
 }
 
 func (s *APIKeyService) compileAPIKeyIPRules(apiKey *APIKey) {
@@ -882,6 +891,29 @@ func (s *APIKeyService) SelectUsableGroupForAPIKey(ctx context.Context, apiKey *
 	var balanceFallbacks []candidate
 	var subscriptionFallbacks []candidate
 	var unavailableFallbacks []candidate
+	var balanceKnown bool
+	var balanceValue float64
+	hasPositiveBalance := func() bool {
+		if balanceKnown {
+			return balanceValue > 0
+		}
+		balanceKnown = true
+		if s.billingBalanceResolver != nil && apiKey.UserID > 0 {
+			if balance, err := s.billingBalanceResolver.GetUserBalance(ctx, apiKey.UserID); err == nil {
+				balanceValue = balance
+				if apiKey.User != nil {
+					apiKey.User.Balance = balance
+				}
+				return balanceValue > 0
+			}
+		}
+		if apiKey.User == nil {
+			balanceValue = 1
+			return true
+		}
+		balanceValue = apiKey.User.Balance
+		return balanceValue > 0
+	}
 
 	for _, groupID := range groupIDs {
 		group, err := s.resolveAPIKeyCandidateGroup(ctx, apiKey, groupID)
@@ -915,8 +947,13 @@ func (s *APIKeyService) SelectUsableGroupForAPIKey(ctx context.Context, apiKey *
 			continue
 		}
 		balanceFallbacks = append(balanceFallbacks, candidate{group: group})
-		if apiKey.User == nil || apiKey.User.Balance > 0 {
-			balanceCandidates = append(balanceCandidates, candidate{group: group})
+	}
+
+	if len(balanceFallbacks) > 0 {
+		// Only pay the live-balance lookup cost when it can change routing to a
+		// subscription group. Pure balance keys are checked by billing preflight.
+		if len(subscriptionFallbacks) == 0 || hasPositiveBalance() {
+			balanceCandidates = append(balanceCandidates, balanceFallbacks...)
 		}
 	}
 
@@ -948,7 +985,7 @@ func (s *APIKeyService) resolveAPIKeyCandidateGroup(ctx context.Context, apiKey 
 	if apiKey != nil && apiKey.Group != nil && apiKey.Group.ID == groupID {
 		return apiKey.Group, nil
 	}
-	return s.groupRepo.GetByID(ctx, groupID)
+	return s.groupRepo.GetByIDLite(ctx, groupID)
 }
 
 // CheckAPIKeyQuotaAndExpiry checks if the API key is valid for use (not expired, quota not exhausted)

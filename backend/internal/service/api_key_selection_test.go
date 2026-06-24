@@ -11,7 +11,9 @@ import (
 
 type apiKeySelectionGroupRepo struct {
 	groupRepoNoop
-	groups map[int64]*Group
+	groups       map[int64]*Group
+	getByIDCalls int
+	getLiteCalls int
 }
 
 func (r *apiKeySelectionGroupRepo) ListActive(_ context.Context) ([]Group, error) {
@@ -27,12 +29,34 @@ func (r *apiKeySelectionGroupRepo) ListActive(_ context.Context) ([]Group, error
 }
 
 func (r *apiKeySelectionGroupRepo) GetByID(_ context.Context, id int64) (*Group, error) {
+	r.getByIDCalls++
 	group := r.groups[id]
 	if group == nil {
 		return nil, ErrGroupNotFound
 	}
 	cp := *group
 	return &cp, nil
+}
+
+func (r *apiKeySelectionGroupRepo) GetByIDLite(_ context.Context, id int64) (*Group, error) {
+	r.getLiteCalls++
+	group := r.groups[id]
+	if group == nil {
+		return nil, ErrGroupNotFound
+	}
+	cp := *group
+	return &cp, nil
+}
+
+type apiKeySelectionBalanceResolver struct {
+	balance float64
+	err     error
+	calls   int
+}
+
+func (r *apiKeySelectionBalanceResolver) GetUserBalance(_ context.Context, _ int64) (float64, error) {
+	r.calls++
+	return r.balance, r.err
 }
 
 type apiKeySelectionUserRepo struct {
@@ -279,6 +303,70 @@ func TestSelectUsableGroupForAPIKeySkipsGroupsFromOtherPlatforms(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, openai.ID, selection.Group.ID)
 	require.Equal(t, PlatformOpenAI, apiKey.Group.Platform)
+}
+
+func TestSelectUsableGroupForAPIKeyUsesLiveBalanceForFallback(t *testing.T) {
+	now := time.Now()
+	standard := &Group{ID: 42, Name: "balance", Platform: PlatformOpenAI, Status: StatusActive, SubscriptionType: SubscriptionTypeStandard}
+	subscription := &Group{ID: 43, Name: "sub", Platform: PlatformOpenAI, Status: StatusActive, SubscriptionType: SubscriptionTypeSubscription}
+	groupRepo := &apiKeySelectionGroupRepo{groups: map[int64]*Group{
+		standard.ID:     standard,
+		subscription.ID: subscription,
+	}}
+	subRepo := newSubscriptionUserSubRepoStub()
+	subRepo.seed(&UserSubscription{
+		ID:                 4301,
+		UserID:             708,
+		GroupID:            subscription.ID,
+		Status:             SubscriptionStatusActive,
+		StartsAt:           now.Add(-time.Hour),
+		ExpiresAt:          now.Add(24 * time.Hour),
+		DailyWindowStart:   &now,
+		WeeklyWindowStart:  &now,
+		MonthlyWindowStart: &now,
+	})
+	apiKeySvc := NewAPIKeyService(nil, nil, groupRepo, nil, nil, nil, nil)
+	balanceResolver := &apiKeySelectionBalanceResolver{balance: 0}
+	apiKeySvc.SetBillingBalanceResolver(balanceResolver)
+	subscriptionSvc := NewSubscriptionService(nil, subRepo, nil, nil, nil)
+	apiKey := &APIKey{
+		ID:              5,
+		UserID:          708,
+		Platform:        PlatformOpenAI,
+		User:            &User{ID: 708, Status: StatusActive, Balance: 10},
+		GroupIDs:        []int64{standard.ID, subscription.ID},
+		BillingPriority: BillingPriorityBalanceFirst,
+	}
+
+	selection, err := apiKeySvc.SelectUsableGroupForAPIKey(context.Background(), apiKey, subscriptionSvc)
+	require.NoError(t, err)
+	require.Equal(t, subscription.ID, selection.Group.ID)
+	require.NotNil(t, selection.Subscription)
+	require.Equal(t, int64(4301), selection.Subscription.ID)
+	require.Equal(t, 1, balanceResolver.calls)
+	require.Zero(t, apiKey.User.Balance)
+}
+
+func TestSelectUsableGroupForAPIKeyUsesLiteGroupLookup(t *testing.T) {
+	standard := &Group{ID: 44, Name: "balance", Platform: PlatformOpenAI, Status: StatusActive, SubscriptionType: SubscriptionTypeStandard}
+	groupRepo := &apiKeySelectionGroupRepo{groups: map[int64]*Group{standard.ID: standard}}
+	apiKeySvc := NewAPIKeyService(nil, nil, groupRepo, nil, nil, nil, nil)
+	balanceResolver := &apiKeySelectionBalanceResolver{balance: 5}
+	apiKeySvc.SetBillingBalanceResolver(balanceResolver)
+	apiKey := &APIKey{
+		ID:       6,
+		UserID:   709,
+		Platform: PlatformOpenAI,
+		User:     &User{ID: 709, Status: StatusActive, Balance: 5},
+		GroupIDs: []int64{standard.ID},
+	}
+
+	selection, err := apiKeySvc.SelectUsableGroupForAPIKey(context.Background(), apiKey, nil)
+	require.NoError(t, err)
+	require.Equal(t, standard.ID, selection.Group.ID)
+	require.Equal(t, 1, groupRepo.getLiteCalls)
+	require.Zero(t, groupRepo.getByIDCalls)
+	require.Zero(t, balanceResolver.calls)
 }
 
 func TestValidateBindableGroupIDsRejectsMixedPlatforms(t *testing.T) {
