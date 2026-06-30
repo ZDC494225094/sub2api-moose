@@ -1,3 +1,5 @@
+import { apiClient } from './client'
+
 export interface PlaygroundModel {
   id: string
   label: string
@@ -62,6 +64,44 @@ export interface PlaygroundImageResult {
 export interface PlaygroundImageResponse {
   images: PlaygroundImageResult[]
   raw: unknown
+}
+
+export type PlaygroundRunStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled'
+
+export interface PlaygroundRunRequest {
+  id?: string
+  mode: 'chat' | 'image'
+  apiKey: string
+  endpointBase?: string
+  displayEndpoint?: string
+  model: string
+  messages?: PlaygroundChatMessage[]
+  temperature?: number
+  maxTokens?: number | null
+  topP?: number | null
+  presencePenalty?: number | null
+  frequencyPenalty?: number | null
+  prompt?: string
+  size?: string
+  n?: number
+  quality?: string
+  background?: string
+  outputFormat?: string
+}
+
+export interface PlaygroundRun {
+  id: string
+  mode: 'chat' | 'image'
+  status: PlaygroundRunStatus
+  model?: string
+  content?: string
+  images?: PlaygroundImageResult[]
+  error?: string
+  raw?: unknown
+  createdAt?: string
+  updatedAt?: string
+  completedAt?: string
+  durationMs?: number
 }
 
 function normalizeImageGenerationSize(size: string): string {
@@ -312,6 +352,14 @@ function parseSSEBlock(block: string): string {
     .join('\n')
 }
 
+function parseJSONOrNull(value: string): unknown | null {
+  try {
+    return JSON.parse(value)
+  } catch {
+    return null
+  }
+}
+
 export async function runChatCompletion(request: PlaygroundChatRequest): Promise<PlaygroundChatResponse> {
   const payload = buildChatPayload(request, false)
 
@@ -344,8 +392,7 @@ export async function streamChatCompletion(request: PlaygroundChatStreamRequest)
     throw await parseError(response)
   }
 
-  const contentType = response.headers.get('content-type') || ''
-  if (!response.body || contentType.includes('application/json') || contentType.includes('text/json')) {
+  if (!response.body) {
     const raw = await parseJSONResponse(response)
     return {
       content: extractChatText(raw),
@@ -358,40 +405,72 @@ export async function streamChatCompletion(request: PlaygroundChatStreamRequest)
   const rawEvents: unknown[] = []
   let buffer = ''
   let content = ''
+  let rawText = ''
+  let parsedStreamEvent = false
+  const contentType = response.headers.get('content-type') || ''
+  const looksLikeSSE = () => contentType.includes('event-stream') || /^data:/m.test(buffer)
+
+  const processStreamData = (data: string) => {
+    const trimmed = data.trim()
+    if (!trimmed || trimmed === '[DONE]') return
+    const event = parseJSONOrNull(trimmed)
+    if (!event) return
+    parsedStreamEvent = true
+    rawEvents.push(event)
+    request.onEvent?.(event)
+    const delta = extractStreamText(event) || extractChatText(event)
+    if (delta) {
+      content += delta
+      request.onDelta?.(delta, event)
+    }
+  }
+
+  const processStreamBlock = (block: string) => {
+    const trimmed = block.trim()
+    if (!trimmed) return
+    processStreamData(/^data:/m.test(trimmed) ? parseSSEBlock(trimmed) : trimmed)
+  }
 
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
 
-    buffer += decoder.decode(value, { stream: true })
-    const blocks = buffer.split(/\r?\n\r?\n/)
-    buffer = blocks.pop() || ''
+    const chunk = decoder.decode(value, { stream: true })
+    rawText += chunk
+    buffer += chunk
 
-    for (const block of blocks) {
-      const data = parseSSEBlock(block)
-      if (!data || data === '[DONE]') continue
-
-      const event = JSON.parse(data)
-      rawEvents.push(event)
-      request.onEvent?.(event)
-
-      const delta = extractStreamText(event)
-      if (delta) {
-        content += delta
-        request.onDelta?.(delta, event)
+    if (looksLikeSSE()) {
+      const blocks = buffer.split(/\r?\n\r?\n/)
+      buffer = blocks.pop() || ''
+      for (const block of blocks) {
+        processStreamBlock(block)
+      }
+    } else {
+      const lines = buffer.split(/\r?\n/)
+      buffer = lines.pop() || ''
+      for (const line of lines) {
+        processStreamBlock(line)
       }
     }
   }
 
-  const trailing = parseSSEBlock(buffer)
-  if (trailing && trailing !== '[DONE]') {
-    const event = JSON.parse(trailing)
-    rawEvents.push(event)
-    request.onEvent?.(event)
-    const delta = extractStreamText(event)
-    if (delta) {
-      content += delta
-      request.onDelta?.(delta, event)
+  const trailingChunk = decoder.decode()
+  if (trailingChunk) {
+    rawText += trailingChunk
+    buffer += trailingChunk
+  }
+
+  processStreamBlock(buffer)
+
+  if (!parsedStreamEvent) {
+    const raw = parseJSONOrNull(rawText)
+    const finalContent = raw ? extractChatText(raw) : content
+    if (finalContent && !content) {
+      request.onDelta?.(finalContent, raw)
+    }
+    return {
+      content: finalContent,
+      raw
     }
   }
 
@@ -449,4 +528,23 @@ export async function generateImage(request: PlaygroundImageRequest): Promise<Pl
     .filter((item: PlaygroundImageResult) => item.url)
 
   return { images, raw }
+}
+
+export async function startPlaygroundRun(request: PlaygroundRunRequest): Promise<PlaygroundRun> {
+  const { data } = await apiClient.post<PlaygroundRun>('/playground/runs', request, { timeout: 60000 })
+  return data
+}
+
+export async function getPlaygroundRun(id: string): Promise<PlaygroundRun> {
+  const { data } = await apiClient.get<PlaygroundRun>(`/playground/runs/${encodeURIComponent(id)}`, {
+    timeout: 60000
+  })
+  return data
+}
+
+export async function cancelPlaygroundRun(id: string): Promise<PlaygroundRun> {
+  const { data } = await apiClient.delete<PlaygroundRun>(`/playground/runs/${encodeURIComponent(id)}`, {
+    timeout: 60000
+  })
+  return data
 }

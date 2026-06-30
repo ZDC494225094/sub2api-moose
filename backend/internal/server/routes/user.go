@@ -127,5 +127,13 @@ func RegisterUserRoutes(
 			monitors.GET("", h.ChannelMonitor.List)
 			monitors.GET("/:id/status", h.ChannelMonitor.GetStatus)
 		}
+
+		// 体验中心后台任务：请求由后端继续执行，前端刷新后可通过 run id 恢复结果。
+		playground := authenticated.Group("/playground")
+		{
+			playground.POST("/runs", h.Playground.StartRun)
+			playground.GET("/runs/:id", h.Playground.GetRun)
+			playground.DELETE("/runs/:id", h.Playground.CancelRun)
+		}
 	}
 }
