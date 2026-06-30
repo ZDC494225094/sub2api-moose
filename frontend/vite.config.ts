@@ -34,11 +34,50 @@ function injectPublicSettings(backendUrl: string): Plugin {
   }
 }
 
+function normalizeDevBackendUrl(value: string | undefined): string {
+  return (value || '').trim().replace(/\/+$/, '')
+}
+
+async function isSub2APIBackend(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${url}/health`, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(1200)
+    })
+    if (!response.ok) return false
+    const text = await response.text()
+    const data = JSON.parse(text) as { status?: unknown }
+    return data.status === 'ok'
+  } catch {
+    return false
+  }
+}
+
+async function resolveDevBackendUrl(preferredUrl: string | undefined): Promise<string> {
+  const candidates = [
+    normalizeDevBackendUrl(preferredUrl),
+    'http://127.0.0.1:6200',
+    'http://127.0.0.1:8080',
+    'http://localhost:8080',
+    'http://127.0.0.1:8090'
+  ].filter((item, index, arr) => item && arr.indexOf(item) === index)
+
+  for (const candidate of candidates) {
+    if (await isSub2APIBackend(candidate)) {
+      return candidate
+    }
+  }
+
+  const fallback = candidates[0] || 'http://127.0.0.1:6200'
+  console.warn(`[vite] 未能探测到 Sub2API 后端，将继续使用: ${fallback}`)
+  return fallback
+}
+
 export default defineConfig(async ({ mode }) => {
   // 加载环境变量
   const env = loadEnv(mode, process.cwd(), '')
-  const backendUrl = env.VITE_DEV_PROXY_TARGET || 'http://127.0.0.1:8080'
-  const devPort = Number(env.VITE_DEV_PORT || 6200)
+  const backendUrl = await resolveDevBackendUrl(env.VITE_DEV_PROXY_TARGET)
+  const devPort = Number(env.VITE_DEV_PORT || 5173)
   const enableChecker = env.VITE_ENABLE_CHECKER === 'true'
 
   const plugins: Plugin[] = [vue()]
@@ -122,7 +161,23 @@ export default defineConfig(async ({ mode }) => {
           target: backendUrl,
           changeOrigin: true
         },
+        '/v1beta': {
+          target: backendUrl,
+          changeOrigin: true
+        },
+        '/openai': {
+          target: backendUrl,
+          changeOrigin: true
+        },
+        '/antigravity': {
+          target: backendUrl,
+          changeOrigin: true
+        },
         '/setup': {
+          target: backendUrl,
+          changeOrigin: true
+        },
+        '/health': {
           target: backendUrl,
           changeOrigin: true
         }

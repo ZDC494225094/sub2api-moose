@@ -480,6 +480,16 @@ func TestOpenAIModelMappedBodyCache(t *testing.T) {
 	require.Same(t, &first[0], &second[0])
 }
 
+func TestOpenAIAccountSelectionUnavailableMessage(t *testing.T) {
+	assert.Equal(t, "No available accounts", openAIAccountSelectionUnavailableMessage(service.ErrNoAvailableAccounts))
+	assert.Equal(
+		t,
+		"No available accounts: no available OpenAI accounts supporting model: gpt-5",
+		openAIAccountSelectionUnavailableMessage(errors.New("no available OpenAI accounts supporting model: gpt-5")),
+	)
+	assert.Equal(t, "Service temporarily unavailable", openAIAccountSelectionUnavailableMessage(errors.New("query accounts failed")))
+}
+
 func TestOpenAIResponses_MissingDependencies_ReturnsServiceUnavailable(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
