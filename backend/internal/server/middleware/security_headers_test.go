@@ -344,6 +344,13 @@ func TestEnhanceCSPPolicy(t *testing.T) {
 		assert.Contains(t, enhanced, "frame-src 'self'")
 	})
 
+	t.Run("adds_blob_to_img_src_for_object_url_images", func(t *testing.T) {
+		policy := "default-src 'self'; img-src 'self' data: https:"
+		enhanced := enhanceCSPPolicy(policy)
+
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "img-src", CSPBlobScheme))
+	})
+
 	t.Run("does_not_duplicate_airwallex_domains", func(t *testing.T) {
 		policy := "default-src 'self'; script-src 'self' https://static.airwallex.com https://static-demo.airwallex.com; frame-src https://checkout.airwallex.com https://checkout-demo.airwallex.com"
 		enhanced := enhanceCSPPolicy(policy)
@@ -358,6 +365,13 @@ func TestEnhanceCSPPolicy(t *testing.T) {
 		assert.Equal(t, 1, countDirectiveValue(enhanced, "style-src", AirwallexDemoStaticDomain))
 		assert.Equal(t, 1, countDirectiveValue(enhanced, "style-src", AirwallexDemoCheckoutDomain))
 		assert.Equal(t, 1, countDirectiveValue(enhanced, "frame-src", AirwallexDemoCheckoutDomain))
+	})
+
+	t.Run("does_not_duplicate_blob_img_src", func(t *testing.T) {
+		policy := "default-src 'self'; img-src 'self' data: blob: https:"
+		enhanced := enhanceCSPPolicy(policy)
+
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "img-src", CSPBlobScheme))
 	})
 }
 
