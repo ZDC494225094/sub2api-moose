@@ -41,7 +41,9 @@ func (h *PaymentHandler) GetDashboard(c *gin.Context) {
 			days = v
 		}
 	}
-	stats, err := h.paymentService.GetDashboardStats(c.Request.Context(), days)
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+	stats, err := h.paymentService.GetDashboardStats(c.Request.Context(), days, startDate, endDate)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return

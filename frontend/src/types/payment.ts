@@ -212,13 +212,28 @@ export interface CreateOrderResult {
   jsapi_payload?: WechatJSAPIPayload
 }
 
+export interface DailyStatPoint {
+  date: string
+  amount: number
+  count: number
+  balance_amount: number
+  balance_count: number
+  subscription_amount: number
+  subscription_count: number
+  new_user_count: number
+  new_user_amount: number
+  returning_user_count: number
+  returning_user_amount: number
+}
+
 export interface DashboardStats {
   today_amount: number
   total_amount: number
   today_count: number
   total_count: number
   avg_amount: number
-  daily_series: { date: string; amount: number; count: number }[]
+  pending_orders: number
+  daily_series: DailyStatPoint[]
   payment_methods: { type: string; amount: number; count: number }[]
   top_users: { user_id: number; email: string; amount: number }[]
 }

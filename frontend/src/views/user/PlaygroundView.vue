@@ -255,14 +255,28 @@
                   </div>
 
                   <div v-if="message.attachments?.length" class="mt-3 flex flex-wrap gap-2">
-                    <span
+                    <button
                       v-for="attachment in message.attachments"
                       :key="attachment.id"
-                      class="inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-500 ring-1 ring-slate-200 dark:bg-dark-800 dark:text-dark-300 dark:ring-dark-700"
+                      type="button"
+                      class="playground-attachment-chip"
+                      :class="attachment.kind === 'image' && attachmentPreviewUrl(attachment) ? 'playground-attachment-chip-image' : ''"
+                      :title="attachment.name"
+                      @click="attachment.kind === 'image' && attachmentPreviewUrl(attachment) ? openAttachmentImagePreview(attachment) : undefined"
                     >
-                      <Icon name="document" size="xs" />
-                      <span class="truncate">{{ attachment.name }}</span>
-                    </span>
+                      <img
+                        v-if="attachment.kind === 'image' && attachmentPreviewUrl(attachment)"
+                        :src="attachmentPreviewUrl(attachment)"
+                        :alt="attachment.name"
+                        class="h-full w-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                      >
+                      <template v-else>
+                        <Icon name="document" size="xs" />
+                        <span class="truncate">{{ attachment.name }}</span>
+                      </template>
+                    </button>
                   </div>
 
                   <div
@@ -440,11 +454,23 @@
               <span
                 v-for="attachment in pendingAttachments"
                 :key="attachment.id"
-                class="inline-flex max-w-full items-center gap-1 rounded-full bg-white px-2 py-1 text-xs text-slate-600 ring-1 ring-slate-200 dark:bg-dark-800 dark:text-dark-300 dark:ring-dark-700"
+                class="playground-pending-attachment"
+                :class="attachment.kind === 'image' && attachmentPreviewUrl(attachment) ? 'playground-pending-attachment-image' : ''"
+                :title="attachment.name"
               >
-                <Icon name="document" size="xs" />
-                <span class="truncate">{{ attachment.name }}</span>
-                <button class="ml-1 text-slate-400 hover:text-red-500" @click="removeAttachment(attachment.id)">
+                <img
+                  v-if="attachment.kind === 'image' && attachmentPreviewUrl(attachment)"
+                  :src="attachmentPreviewUrl(attachment)"
+                  :alt="attachment.name"
+                  class="h-full w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                >
+                <template v-else>
+                  <Icon name="document" size="xs" />
+                  <span class="truncate">{{ attachment.name }}</span>
+                </template>
+                <button class="playground-attachment-remove" :title="t('common.delete')" @click="removeAttachment(attachment.id)">
                   <Icon name="x" size="xs" />
                 </button>
               </span>
@@ -890,6 +916,7 @@ import {
   startPlaygroundRun,
   streamChatCompletion,
   type PlaygroundChatMessage,
+  type PlaygroundImageInput,
   type PlaygroundImageResult,
   type PlaygroundModel,
   type PlaygroundRun,
@@ -918,6 +945,8 @@ interface PlaygroundAttachment {
   size: number
   kind: AttachmentKind
   dataUrl?: string
+  storageId?: string
+  thumbnailUrl?: string
   text?: string
 }
 
@@ -1042,6 +1071,11 @@ interface PlaygroundPersistedImage {
 }
 
 interface PlaygroundImagePersistBatch {
+  records: PlaygroundPersistedImage[]
+  applyThumbnails: () => void
+}
+
+interface PlaygroundAttachmentPersistBatch {
   records: PlaygroundPersistedImage[]
   applyThumbnails: () => void
 }
@@ -1530,13 +1564,25 @@ function storedImageIdFromURL(url: string): string {
 
 function ensureImageStorageIds() {
   for (const thread of threads.value) {
+    thread.pendingAttachments?.forEach((attachment) => {
+      ensureAttachmentStorageId(attachment)
+    })
     for (const message of thread.messages) {
+      message.attachments?.forEach((attachment) => {
+        ensureAttachmentStorageId(attachment)
+      })
       message.images?.forEach((image, index) => {
         if (!image.storageId) {
           image.storageId = uid(`image-${message.id}-${index}`)
         }
       })
     }
+  }
+}
+
+function ensureAttachmentStorageId(attachment: PlaygroundAttachment) {
+  if (attachment.kind === 'image' && !attachment.storageId) {
+    attachment.storageId = uid(`upload-${attachment.id || 'image'}`)
   }
 }
 
@@ -1555,6 +1601,12 @@ function revokeTrackedObjectURL(url?: string) {
 function revokeImageObjectURLs(images?: PlaygroundStoredImageResult[]) {
   for (const image of images || []) {
     revokeTrackedObjectURL(image.url)
+  }
+}
+
+function revokeAttachmentObjectURLs(attachments?: PlaygroundAttachment[]) {
+  for (const attachment of attachments || []) {
+    revokeTrackedObjectURL(attachment.thumbnailUrl)
   }
 }
 
@@ -1933,6 +1985,42 @@ async function collectPersistedImagesFromThreads(): Promise<PlaygroundImagePersi
   }
 }
 
+async function collectPersistedAttachmentsFromThreads(): Promise<PlaygroundAttachmentPersistBatch> {
+  const records: PlaygroundPersistedImage[] = []
+  const replacements: Array<{ attachment: PlaygroundAttachment; thumbnailBlob: Blob }> = []
+  for (const thread of threads.value) {
+    for (const attachment of [
+      ...(thread.pendingAttachments || []),
+      ...thread.messages.flatMap((message) => message.attachments || [])
+    ]) {
+      if (attachment.kind !== 'image') continue
+      ensureAttachmentStorageId(attachment)
+      if (!attachment.storageId || !attachment.dataUrl?.startsWith('data:')) continue
+      const blob = dataURLToBlob(attachment.dataUrl)
+      if (!blob) continue
+      const thumbnailBlob = await createImageThumbnailBlob(blob).catch(() => blob)
+      attachment.type = attachment.type || blob.type
+      replacements.push({ attachment, thumbnailBlob })
+      records.push({
+        id: attachment.storageId,
+        blob,
+        thumbnailBlob,
+        mimeType: attachment.type || blob.type,
+        savedAt: Date.now()
+      })
+    }
+  }
+  return {
+    records,
+    applyThumbnails() {
+      for (const replacement of replacements) {
+        revokeTrackedObjectURL(replacement.attachment.thumbnailUrl)
+        replacement.attachment.thumbnailUrl = createTrackedObjectURL(replacement.thumbnailBlob)
+      }
+    }
+  }
+}
+
 async function persistImageMessageAssets(message: PlaygroundMessage): Promise<PlaygroundPersistedImage[]> {
   const records: PlaygroundPersistedImage[] = []
   for (const [index, image] of (message.images || []).entries()) {
@@ -1978,6 +2066,7 @@ function serializeMessageForPersistence(message: PlaygroundMessage): PlaygroundM
   const recoverablePendingImage = isRecoverablePendingImageMessage(message)
   return {
     ...message,
+    attachments: message.attachments?.map(serializeAttachmentForPersistence),
     images: message.images?.map((image) => ({
       ...image,
       url: image.storageId ? storedImagePlaceholder(image.storageId) : image.url,
@@ -1989,6 +2078,15 @@ function serializeMessageForPersistence(message: PlaygroundMessage): PlaygroundM
       ? (message.progress || (message.imageConfig ? t('playground.generatingImages') : t('playground.streaming')))
       : '',
     content: normalizeRestoredMessageContent(message)
+  }
+}
+
+function serializeAttachmentForPersistence(attachment: PlaygroundAttachment): PlaygroundAttachment {
+  if (attachment.kind !== 'image') return attachment
+  return {
+    ...attachment,
+    dataUrl: attachment.storageId ? storedImagePlaceholder(attachment.storageId) : attachment.dataUrl,
+    thumbnailUrl: undefined
   }
 }
 
@@ -2033,6 +2131,58 @@ async function hydratePersistedImages() {
       if (originalLength > 0 && message.images.length === 0 && message.content === t('playground.imageGenerated')) {
         message.content = t('playground.imageCacheMissing')
       }
+    }
+  }
+}
+
+async function hydratePersistedAttachments() {
+  const restoreJobs: Array<Promise<void>> = []
+  for (const thread of threads.value) {
+    for (const attachment of [
+      ...(thread.pendingAttachments || []),
+      ...thread.messages.flatMap((message) => message.attachments || [])
+    ]) {
+      if (attachment.kind !== 'image') continue
+      const storageId = attachment.storageId || storedImageIdFromURL(attachment.dataUrl || '')
+      if (!storageId) continue
+      attachment.storageId = storageId
+      restoreJobs.push(loadPlaygroundImageFromDB(storageId)
+        .then(async (persisted) => {
+          if (!persisted) return
+          if (persisted.thumbnailBlob) {
+            attachment.thumbnailUrl = createTrackedObjectURL(persisted.thumbnailBlob)
+          } else if (persisted.blob) {
+            const thumbnailBlob = await createImageThumbnailBlob(persisted.blob).catch(() => persisted.blob as Blob)
+            attachment.thumbnailUrl = createTrackedObjectURL(thumbnailBlob)
+          }
+          if (persisted.blob) {
+            attachment.dataUrl = await blobToDataURL(persisted.blob)
+          } else if (!attachment.dataUrl || attachment.dataUrl.startsWith(PLAYGROUND_IMAGE_URL_PREFIX)) {
+            attachment.dataUrl = undefined
+          }
+          attachment.type = attachment.type || persisted.mimeType || persisted.blob?.type || ''
+        })
+        .catch((error) => {
+          console.warn('Failed to restore playground attachment image:', error)
+        }))
+    }
+  }
+  await Promise.all(restoreJobs)
+  for (const thread of threads.value) {
+    for (const message of thread.messages) {
+      if (!message.runRequest?.images?.length || !message.attachments?.length) continue
+      const imagesByStorageId = new Map(
+        message.attachments
+          .filter((attachment) => attachment.kind === 'image' && attachment.storageId && attachment.dataUrl?.startsWith('data:'))
+          .map((attachment) => [attachment.storageId as string, attachment])
+      )
+      message.runRequest.images = message.runRequest.images.map((image) => {
+        const storageId = image.storageId || storedImageIdFromURL(image.dataUrl || '')
+        const attachment = storageId ? imagesByStorageId.get(storageId) : undefined
+        return attachment?.dataUrl
+          ? { ...image, storageId, dataUrl: attachment.dataUrl }
+          : image
+      })
     }
   }
 }
@@ -2088,8 +2238,13 @@ function buildPlaygroundPayload(): PlaygroundPersistedPayload {
     threads: threads.value.map((thread) => ({
       ...thread,
       running: false,
+      pendingAttachments: (thread.pendingAttachments || []).map(serializeAttachmentForPersistence),
       messages: thread.messages.map((message) => ({
         ...message,
+        attachments: message.attachments?.map(serializeAttachmentForPersistence),
+        runRequest: Boolean(message.pending && message.runId) || isRecoverablePendingImageMessage(message)
+          ? message.runRequest
+          : undefined,
         images: message.images?.map((image) => ({
           ...image,
           url: image.storageId ? storedImagePlaceholder(image.storageId) : image.url
@@ -2110,13 +2265,36 @@ function buildLocalStoragePayload(payload: PlaygroundPersistedPayload): Playgrou
     ...payload,
     threads: payload.threads.map((thread) => ({
       ...thread,
+      pendingAttachments: (thread.pendingAttachments || []).map(stripAttachmentDataForLocalStorage),
       messages: thread.messages.map((message) => ({
         ...message,
+        attachments: message.attachments?.map(stripAttachmentDataForLocalStorage),
+        runRequest: stripRunRequestImageDataForLocalStorage(message.runRequest),
         images: message.images?.map((image) => ({
           ...image,
           url: image.storageId ? storedImagePlaceholder(image.storageId) : image.url
         })).filter((image) => image.url || image.storageId) || []
       }))
+    }))
+  }
+}
+
+function stripAttachmentDataForLocalStorage(attachment: PlaygroundAttachment): PlaygroundAttachment {
+  if (attachment.kind !== 'image') return attachment
+  return {
+    ...attachment,
+    dataUrl: attachment.storageId ? storedImagePlaceholder(attachment.storageId) : undefined,
+    thumbnailUrl: undefined
+  }
+}
+
+function stripRunRequestImageDataForLocalStorage(request?: PlaygroundRestorableRunRequest): PlaygroundRestorableRunRequest | undefined {
+  if (!request?.images?.length) return request
+  return {
+    ...request,
+    images: request.images.map((image) => ({
+      ...image,
+      dataUrl: image.storageId ? storedImagePlaceholder(image.storageId) : ''
     }))
   }
 }
@@ -2178,10 +2356,12 @@ async function writePlaygroundStateNow() {
   }
   ensureImageStorageIds()
   const imageBatch = await collectPersistedImagesFromThreads()
+  const attachmentBatch = await collectPersistedAttachmentsFromThreads()
   const payload = buildPlaygroundPayload()
   try {
-    await savePlaygroundImagesToDB(imageBatch.records)
+    await savePlaygroundImagesToDB([...imageBatch.records, ...attachmentBatch.records])
     imageBatch.applyThumbnails()
+    attachmentBatch.applyThumbnails()
     await savePlaygroundStateToDB(payload)
     localStorage.setItem(storageKey(), JSON.stringify(buildLocalStoragePayload(payload)))
     window.dispatchEvent(new CustomEvent(PLAYGROUND_STATE_UPDATED_EVENT, { detail: { key: storageKey(), source: playgroundInstanceId } }))
@@ -2249,12 +2429,14 @@ async function restorePlaygroundState() {
     if (dbPayload) {
       applyPlaygroundPayload(dbPayload as unknown as Record<string, unknown>)
       await hydratePersistedImages()
+      await hydratePersistedAttachments()
       return
     }
     const raw = localStorage.getItem(storageKey())
     if (!raw) return
     applyPlaygroundPayload(JSON.parse(raw) as Record<string, unknown>)
     await hydratePersistedImages()
+    await hydratePersistedAttachments()
   } catch (error) {
     console.warn('Failed to restore playground state:', error)
   } finally {
@@ -2275,6 +2457,7 @@ async function refreshPlaygroundStateFromStorage() {
     revokeAllImageObjectURLs()
     applyPlaygroundPayload(payload as unknown as Record<string, unknown>)
     await hydratePersistedImages()
+    await hydratePersistedAttachments()
     if (threads.value.some((thread) => thread.id === activeIdBeforeRefresh)) {
       activeThreadId.value = activeIdBeforeRefresh
       mode.value = modeBeforeRefresh
@@ -2786,6 +2969,20 @@ async function openImagePreview(image: PlaygroundStoredImageResult, index: numbe
   appStore.showError(t('playground.imageCacheMissing'))
 }
 
+function openAttachmentImagePreview(attachment: PlaygroundAttachment) {
+  const previewUrl = attachment.dataUrl?.startsWith('data:') ? attachment.dataUrl : attachment.thumbnailUrl
+  if (!previewUrl) return
+  closeImagePreview()
+  imagePreview.value = {
+    url: previewUrl,
+    title: attachment.name
+  }
+}
+
+function attachmentPreviewUrl(attachment: PlaygroundAttachment): string {
+  return attachment.thumbnailUrl || (attachment.dataUrl?.startsWith('data:') ? attachment.dataUrl : '')
+}
+
 function closeImagePreview() {
   if (imagePreview.value?.url.startsWith('blob:')) {
     revokeTrackedObjectURL(imagePreview.value.url)
@@ -2801,6 +2998,7 @@ function deleteMessage(messageId: string) {
   if (!thread) return
   const deleted = thread.messages.find((message) => message.id === messageId)
   revokeImageObjectURLs(deleted?.images)
+  revokeAttachmentObjectURLs(deleted?.attachments)
   thread.messages = thread.messages.filter((message) => message.id !== messageId)
   thread.updatedAt = Date.now()
 }
@@ -3017,6 +3215,7 @@ function buildChatRunRequest(
 function buildImageRunRequest(
   runId: string,
   prompt: string,
+  attachments: PlaygroundAttachment[],
   context: PlaygroundRunContext
 ): PlaygroundRunRequest {
   return {
@@ -3030,8 +3229,20 @@ function buildImageRunRequest(
     size: context.imageSize,
     n: context.imageCount,
     quality: context.imageQuality,
-    outputFormat: context.outputFormat
+    outputFormat: context.outputFormat,
+    images: buildImageEditInputs(attachments)
   }
+}
+
+function buildImageEditInputs(attachments: PlaygroundAttachment[]): PlaygroundImageInput[] {
+  return attachments
+    .filter((attachment) => attachment.kind === 'image' && typeof attachment.dataUrl === 'string' && attachment.dataUrl.startsWith('data:'))
+    .map((attachment) => ({
+      name: attachment.name || 'image.png',
+      type: attachment.type,
+      dataUrl: attachment.dataUrl || '',
+      storageId: attachment.storageId
+    }))
 }
 
 function stripRunAPIKey(request: PlaygroundRunRequest): PlaygroundRestorableRunRequest {
@@ -3276,7 +3487,7 @@ function attachmentPrompt(attachments: PlaygroundAttachment[]): string {
 }
 
 function buildUserMessageContent(prompt: string, attachments: PlaygroundAttachment[]): PlaygroundChatMessage['content'] {
-  const imageAttachments = attachments.filter((attachment) => attachment.kind === 'image' && attachment.dataUrl)
+  const imageAttachments = attachments.filter((attachment) => attachment.kind === 'image' && attachment.dataUrl?.startsWith('data:'))
   const text = `${prompt}${attachmentPrompt(attachments)}`.trim()
   if (imageAttachments.length === 0) return text
   return [
@@ -3361,7 +3572,7 @@ async function submitPrompt() {
 
   try {
     if (context.mode === 'image') {
-      await runImageGeneration(thread, prompt, context, imageConfig, controller, runId)
+      await runImageGeneration(thread, prompt, attachments, context, imageConfig, controller, runId)
     } else {
       await runStreamingChat(thread, prompt, attachments, context, controller, runId)
     }
@@ -3462,12 +3673,13 @@ async function runStreamingChat(
 async function runImageGeneration(
   thread: PlaygroundThread,
   prompt: string,
+  attachments: PlaygroundAttachment[],
   context: PlaygroundRunContext,
   imageConfig: PlaygroundImageConfig,
   controller: AbortController,
   runId: string
 ) {
-  const runRequest = buildImageRunRequest(runId, prompt, context)
+  const runRequest = buildImageRunRequest(runId, prompt, attachments, context)
   const assistantMessage: PlaygroundMessage = {
     id: uid('msg'),
     role: 'assistant',
@@ -3573,6 +3785,7 @@ function readFile(file: File): Promise<PlaygroundAttachment> {
         size: file.size,
         kind: isImage ? 'image' : isText ? 'text' : 'file',
         dataUrl: isImage ? String(reader.result || '') : undefined,
+        storageId: isImage ? uid(`upload-${id}`) : undefined,
         text: isText ? String(reader.result || '').slice(0, 12000) : undefined
       })
     }
@@ -3593,10 +3806,13 @@ async function handleFileChange(event: Event) {
   if (files.length === 0) return
   const attachments = await Promise.all(files.map(readFile))
   pendingAttachments.value = [...pendingAttachments.value, ...attachments]
+  persistPlaygroundState()
   input.value = ''
 }
 
 function removeAttachment(id: string) {
+  const removed = pendingAttachments.value.find((attachment) => attachment.id === id)
+  revokeAttachmentObjectURLs(removed ? [removed] : undefined)
   pendingAttachments.value = pendingAttachments.value.filter((attachment) => attachment.id !== id)
 }
 
@@ -3816,6 +4032,68 @@ onBeforeUnmount(() => {
 
 .playground-image-figure {
   width: min(22.5rem, calc(100vw - 7rem));
+}
+
+.playground-attachment-chip,
+.playground-pending-attachment {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  color: rgb(100 116 139);
+}
+
+.playground-pending-attachment {
+  position: relative;
+  background: rgb(255 255 255);
+}
+
+.playground-attachment-chip-image,
+.playground-pending-attachment-image {
+  height: 3.5rem;
+  width: 3.5rem;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  padding: 0;
+}
+
+.playground-attachment-chip-image {
+  cursor: zoom-in;
+}
+
+.playground-attachment-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgb(148 163 184);
+  transition: color 150ms ease;
+}
+
+.playground-pending-attachment-image .playground-attachment-remove {
+  position: absolute;
+  right: 0.125rem;
+  top: 0.125rem;
+  height: 1.125rem;
+  width: 1.125rem;
+  border-radius: 9999px;
+  background: rgb(15 23 42 / 0.72);
+  color: white;
+}
+
+.playground-attachment-remove:hover {
+  color: rgb(239 68 68);
+}
+
+.dark .playground-attachment-chip,
+.dark .playground-pending-attachment {
+  border-color: rgb(55 65 81);
+  background: rgb(30 41 59);
+  color: rgb(203 213 225);
 }
 
 .playground-markdown {

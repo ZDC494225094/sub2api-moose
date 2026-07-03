@@ -4,12 +4,16 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -47,11 +51,18 @@ type PlaygroundRunRequest struct {
 	Quality          string                     `json:"quality"`
 	Background       string                     `json:"background"`
 	OutputFormat     string                     `json:"outputFormat"`
+	Images           []PlaygroundRunImageInput  `json:"images"`
 }
 
 type PlaygroundRunChatMessage struct {
 	Role    string `json:"role"`
 	Content any    `json:"content"`
+}
+
+type PlaygroundRunImageInput struct {
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	DataURL string `json:"dataUrl"`
 }
 
 type PlaygroundRunImage struct {
@@ -339,6 +350,10 @@ func (s *PlaygroundRunService) executeImage(ctx context.Context, key string, req
 	if outputFormat == "" {
 		outputFormat = "png"
 	}
+	imageInputs := filterPlaygroundImageInputs(request.Images)
+	if len(imageInputs) > 0 {
+		return s.executeImageEdit(ctx, key, request, baseURL, started, imageInputs, outputFormat, n)
+	}
 	payload := map[string]any{
 		"model":           request.Model,
 		"prompt":          request.Prompt,
@@ -393,6 +408,95 @@ func (s *PlaygroundRunService) executeImage(ctx context.Context, key string, req
 	return json.RawMessage(raw), nil
 }
 
+func (s *PlaygroundRunService) executeImageEdit(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string, started time.Time, images []PlaygroundRunImageInput, outputFormat string, n int) (json.RawMessage, error) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+
+	if err := writer.WriteField("model", request.Model); err != nil {
+		return nil, err
+	}
+	if err := writer.WriteField("prompt", request.Prompt); err != nil {
+		return nil, err
+	}
+	if err := writer.WriteField("size", normalizePlaygroundImageSize(request.Size)); err != nil {
+		return nil, err
+	}
+	if err := writer.WriteField("n", fmt.Sprintf("%d", n)); err != nil {
+		return nil, err
+	}
+	if err := writer.WriteField("response_format", "b64_json"); err != nil {
+		return nil, err
+	}
+	if request.Quality != "" && request.Quality != "auto" {
+		if err := writer.WriteField("quality", request.Quality); err != nil {
+			return nil, err
+		}
+	}
+	if request.Background != "" && request.Background != "auto" {
+		if err := writer.WriteField("background", request.Background); err != nil {
+			return nil, err
+		}
+	}
+	if outputFormat != "" {
+		if err := writer.WriteField("output_format", outputFormat); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, image := range images {
+		data, contentType, err := decodePlaygroundImageDataURL(image.DataURL)
+		if err != nil {
+			return nil, err
+		}
+		if requestContentType := strings.TrimSpace(image.Type); strings.HasPrefix(strings.ToLower(requestContentType), "image/") {
+			contentType = requestContentType
+		}
+		fileName := sanitizePlaygroundUploadFileName(image.Name, contentType)
+		part, err := writer.CreatePart(playgroundImageMultipartHeader("image", fileName, contentType))
+		if err != nil {
+			return nil, err
+		}
+		if _, err := part.Write(data); err != nil {
+			return nil, err
+		}
+	}
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+
+	endpointURL, err := buildPlaygroundRunEndpointURL(baseURL, request.EndpointBase, "/v1/images/edits")
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpointURL, &body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+request.APIKey)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, parsePlaygroundUpstreamError(resp)
+	}
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	resultImages := extractPlaygroundImages(raw, outputFormat)
+	s.update(key, func(run *PlaygroundRun) {
+		run.Images = resultImages
+		run.Content = ""
+		run.DurationMs = time.Since(started).Milliseconds()
+		run.UpdatedAt = time.Now()
+	})
+	return json.RawMessage(raw), nil
+}
+
 func (s *PlaygroundRunService) update(key string, fn func(*PlaygroundRun)) {
 	s.mu.Lock()
 	if run := s.runs[key]; run != nil {
@@ -434,6 +538,73 @@ func clonePlaygroundRun(run *PlaygroundRun) *PlaygroundRun {
 
 func isTerminalPlaygroundRunStatus(status PlaygroundRunStatus) bool {
 	return status == PlaygroundRunSucceeded || status == PlaygroundRunFailed || status == PlaygroundRunCanceled
+}
+
+func filterPlaygroundImageInputs(images []PlaygroundRunImageInput) []PlaygroundRunImageInput {
+	out := make([]PlaygroundRunImageInput, 0, len(images))
+	for _, image := range images {
+		if strings.TrimSpace(image.DataURL) == "" {
+			continue
+		}
+		out = append(out, image)
+	}
+	return out
+}
+
+func decodePlaygroundImageDataURL(dataURL string) ([]byte, string, error) {
+	value := strings.TrimSpace(dataURL)
+	lower := strings.ToLower(value)
+	const prefix = "data:"
+	const marker = ";base64,"
+	comma := strings.Index(lower, marker)
+	if !strings.HasPrefix(lower, prefix+"image/") || comma < 0 {
+		return nil, "", errors.New("uploaded image must be a base64 image data URL")
+	}
+	mediaType := strings.TrimSpace(value[len(prefix):comma])
+	if semicolon := strings.Index(mediaType, ";"); semicolon >= 0 {
+		mediaType = strings.TrimSpace(mediaType[:semicolon])
+	}
+	if mediaType == "" {
+		mediaType = "image/png"
+	}
+	data, err := base64.StdEncoding.DecodeString(value[comma+len(marker):])
+	if err != nil {
+		return nil, "", fmt.Errorf("decode uploaded image: %w", err)
+	}
+	if len(data) == 0 {
+		return nil, "", errors.New("uploaded image is empty")
+	}
+	return data, mediaType, nil
+}
+
+func sanitizePlaygroundUploadFileName(name, contentType string) string {
+	cleaned := filepath.Base(strings.ReplaceAll(strings.TrimSpace(name), "\\", "/"))
+	cleaned = strings.Trim(cleaned, ". ")
+	if cleaned != "" && cleaned != "." && cleaned != string(filepath.Separator) {
+		return cleaned
+	}
+	switch strings.ToLower(strings.TrimSpace(contentType)) {
+	case "image/jpeg", "image/jpg":
+		return "image.jpg"
+	case "image/webp":
+		return "image.webp"
+	default:
+		return "image.png"
+	}
+}
+
+func playgroundImageMultipartHeader(fieldName, fileName, contentType string) textproto.MIMEHeader {
+	if strings.TrimSpace(contentType) == "" {
+		contentType = "application/octet-stream"
+	}
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, escapePlaygroundMultipartValue(fieldName), escapePlaygroundMultipartValue(fileName)))
+	header.Set("Content-Type", contentType)
+	return header
+}
+
+func escapePlaygroundMultipartValue(value string) string {
+	return strings.NewReplacer("\\", "\\\\", `"`, "\\\"").Replace(value)
 }
 
 func filterPlaygroundChatMessages(messages []PlaygroundRunChatMessage) []PlaygroundRunChatMessage {

@@ -16,12 +16,31 @@ import (
 
 // --- Dashboard & Analytics ---
 
-func (s *PaymentService) GetDashboardStats(ctx context.Context, days int) (*DashboardStats, error) {
-	if days <= 0 {
-		days = 30
-	}
+func (s *PaymentService) GetDashboardStats(ctx context.Context, days int, startDate, endDate string) (*DashboardStats, error) {
 	now := time.Now()
-	since := now.AddDate(0, 0, -days)
+	var since, until time.Time
+
+	if startDate != "" && endDate != "" {
+		var err error
+		since, err = time.ParseInLocation("2006-01-02", startDate, now.Location())
+		if err != nil {
+			since = time.Time{}
+		}
+		endDay, err := time.ParseInLocation("2006-01-02", endDate, now.Location())
+		if err != nil {
+			until = now
+		} else {
+			until = endDay.AddDate(0, 0, 1)
+		}
+		days = int(until.Sub(since).Hours()/24) + 1
+	} else {
+		if days <= 0 {
+			days = 30
+		}
+		since = now.AddDate(0, 0, -days)
+		until = now.AddDate(0, 0, 1)
+	}
+
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
 	paidStatuses := []string{OrderStatusCompleted, OrderStatusPaid, OrderStatusRecharging}
@@ -30,10 +49,42 @@ func (s *PaymentService) GetDashboardStats(ctx context.Context, days int) (*Dash
 		Where(
 			paymentorder.StatusIn(paidStatuses...),
 			paymentorder.PaidAtGTE(since),
+			paymentorder.PaidAtLT(until),
 		).
 		All(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	// collect unique user IDs to determine first-time payers
+	userIDs := make([]int64, 0)
+	seen := make(map[int64]struct{})
+	for _, o := range orders {
+		if _, ok := seen[o.UserID]; !ok {
+			seen[o.UserID] = struct{}{}
+			userIDs = append(userIDs, o.UserID)
+		}
+	}
+
+	// for each user, find their earliest ever paid order date
+	firstPayMap := make(map[int64]time.Time)
+	if len(userIDs) > 0 {
+		allPriorOrders, err2 := s.entClient.PaymentOrder.Query().
+			Where(
+				paymentorder.StatusIn(paidStatuses...),
+				paymentorder.UserIDIn(userIDs...),
+			).
+			All(ctx)
+		if err2 == nil {
+			for _, o := range allPriorOrders {
+				if o.PaidAt == nil {
+					continue
+				}
+				if t, ok := firstPayMap[o.UserID]; !ok || o.PaidAt.Before(t) {
+					firstPayMap[o.UserID] = *o.PaidAt
+				}
+			}
+		}
 	}
 
 	st := &DashboardStats{}
@@ -46,7 +97,7 @@ func (s *PaymentService) GetDashboardStats(ctx context.Context, days int) (*Dash
 		return nil, err
 	}
 
-	st.DailySeries = buildDailySeries(orders, since, days)
+	st.DailySeries = buildDailySeries(orders, since, days, firstPayMap)
 	st.PaymentMethods = buildMethodDistribution(orders)
 	st.TopUsers = buildTopUsers(orders)
 
@@ -72,8 +123,13 @@ func computeBasicStats(st *DashboardStats, orders []*dbent.PaymentOrder, todaySt
 	}
 }
 
-func buildDailySeries(orders []*dbent.PaymentOrder, since time.Time, days int) []DailyStats {
+func buildDailySeries(orders []*dbent.PaymentOrder, since time.Time, days int, firstPayMap map[int64]time.Time) []DailyStats {
 	dailyMap := make(map[string]*DailyStats)
+
+	// track which users already counted per day to avoid double-counting
+	type dayUser struct{ date string; userID int64 }
+	seenDayUser := make(map[dayUser]struct{})
+
 	for _, o := range orders {
 		if o.PaidAt == nil {
 			continue
@@ -86,12 +142,39 @@ func buildDailySeries(orders []*dbent.PaymentOrder, since time.Time, days int) [
 		}
 		ds.Amount += o.PayAmount
 		ds.Count++
+
+		if o.OrderType == "balance" {
+			ds.BalanceAmount += o.PayAmount
+			ds.BalanceCount++
+		} else {
+			ds.SubscriptionAmount += o.PayAmount
+			ds.SubscriptionCount++
+		}
+
+		du := dayUser{date: date, userID: o.UserID}
+		if _, alreadyCounted := seenDayUser[du]; !alreadyCounted {
+			seenDayUser[du] = struct{}{}
+			firstEver, exists := firstPayMap[o.UserID]
+			// new user if today is their first-ever paid order
+			if exists && firstEver.Format("2006-01-02") == date {
+				ds.NewUserCount++
+				ds.NewUserAmount += o.PayAmount
+			} else {
+				ds.ReturningUserCount++
+				ds.ReturningUserAmount += o.PayAmount
+			}
+		}
 	}
+
 	series := make([]DailyStats, 0, days)
 	for i := 0; i < days; i++ {
 		date := since.AddDate(0, 0, i+1).Format("2006-01-02")
 		if ds, ok := dailyMap[date]; ok {
 			ds.Amount = math.Round(ds.Amount*100) / 100
+			ds.BalanceAmount = math.Round(ds.BalanceAmount*100) / 100
+			ds.SubscriptionAmount = math.Round(ds.SubscriptionAmount*100) / 100
+			ds.NewUserAmount = math.Round(ds.NewUserAmount*100) / 100
+			ds.ReturningUserAmount = math.Round(ds.ReturningUserAmount*100) / 100
 			series = append(series, *ds)
 		} else {
 			series = append(series, DailyStats{Date: date})

@@ -56,6 +56,13 @@ export interface PlaygroundImageRequest {
   signal?: AbortSignal
 }
 
+export interface PlaygroundImageInput {
+  name: string
+  type?: string
+  dataUrl: string
+  storageId?: string
+}
+
 export interface PlaygroundImageResult {
   url: string
   revisedPrompt?: string
@@ -87,6 +94,7 @@ export interface PlaygroundRunRequest {
   quality?: string
   background?: string
   outputFormat?: string
+  images?: PlaygroundImageInput[]
 }
 
 export interface PlaygroundRun {
