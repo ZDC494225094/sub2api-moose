@@ -1,12 +1,21 @@
 <template>
   <AppLayout>
-    <div class="-m-4 flex h-[calc(100vh-4rem)] min-h-[720px] overflow-hidden bg-gray-50 text-slate-900 dark:bg-dark-950 dark:text-white md:-m-6 lg:-m-8 lg:h-[calc(100vh-4rem)]">
-      <aside class="hidden w-[320px] shrink-0 flex-col border-r border-slate-200 bg-white/80 px-3 py-4 dark:border-dark-800 dark:bg-dark-900/80 lg:flex">
+    <div class="-m-4 flex h-[calc(100vh-4rem)] min-h-[100svh] overflow-hidden bg-gray-50 text-slate-900 dark:bg-dark-950 dark:text-white md:-m-6 lg:-m-8 lg:h-[calc(100vh-4rem)] lg:min-h-[720px]">
+      <div
+        v-if="mobileHistoryOpen"
+        class="fixed inset-0 z-50 bg-black/45 backdrop-blur-[1px] lg:hidden"
+        @click="mobileHistoryOpen = false"
+      ></div>
+      <aside
+        class="fixed inset-y-0 left-0 z-50 flex w-[min(86vw,320px)] shrink-0 flex-col border-r border-slate-200 bg-white px-3 py-4 shadow-2xl transition-transform duration-200 ease-out dark:border-dark-800 dark:bg-dark-900 lg:static lg:z-auto lg:w-[320px] lg:translate-x-0 lg:bg-white/80 lg:shadow-none lg:dark:bg-dark-900/80"
+        :class="mobileHistoryOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+      >
         <div class="flex h-10 items-center gap-3 px-1">
           <button
             type="button"
             class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-white hover:text-slate-900 dark:text-dark-300 dark:hover:bg-dark-800 dark:hover:text-white"
             :title="t('common.back')"
+            @click="mobileHistoryOpen = false"
           >
             <Icon name="chevronLeft" size="sm" />
           </button>
@@ -146,11 +155,19 @@
           <div class="flex items-center gap-3">
             <button
               type="button"
-              class="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-100 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 dark:bg-dark-800 dark:text-dark-100 dark:hover:bg-dark-700"
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-slate-900 dark:bg-dark-900 dark:text-dark-200 dark:ring-dark-700 dark:hover:bg-dark-800 lg:hidden"
+              :title="t('playground.recentConversations')"
+              @click="mobileHistoryOpen = true"
+            >
+              <Icon name="menu" size="sm" />
+            </button>
+            <button
+              type="button"
+              class="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-100 px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 dark:bg-dark-800 dark:text-dark-100 dark:hover:bg-dark-700 sm:px-4"
               @click="createThread(mode)"
             >
               <Icon name="chatBubble" size="sm" />
-              {{ t('playground.newConversation') }}
+              <span class="hidden sm:inline">{{ t('playground.newConversation') }}</span>
             </button>
             <span class="hidden rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500 ring-1 ring-slate-200 dark:bg-dark-900 dark:text-dark-300 dark:ring-dark-700 md:inline-flex">
               {{ modeLabel(mode) }}
@@ -847,53 +864,49 @@
       </section>
     </div>
 
-    <div v-if="imagePreview" class="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4" @click.self="closeImagePreview">
-      <section class="flex h-[calc(100vh-2rem)] max-h-[900px] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-dark-900">
-        <header class="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 dark:border-dark-700">
-          <div class="min-w-0">
-            <h2 class="truncate text-sm font-semibold text-slate-900 dark:text-white">{{ t('playground.imagePreviewTitle') }}</h2>
-            <p v-if="imagePreview.revisedPrompt" class="truncate text-xs text-slate-400 dark:text-dark-400">{{ imagePreview.revisedPrompt }}</p>
-          </div>
-          <div class="flex shrink-0 items-center gap-2">
-            <span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500 dark:bg-dark-800 dark:text-dark-300">
-              {{ Math.round(imagePreviewZoom * 100) }}%
-            </span>
-            <button
-              type="button"
-              class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-dark-800 dark:hover:text-white"
-              :title="t('common.close')"
-              @click="closeImagePreview"
-            >
-              <Icon name="x" size="md" />
-            </button>
-          </div>
-        </header>
-        <div
-          ref="imagePreviewViewport"
-          class="relative min-h-0 flex-1 touch-none overflow-hidden bg-slate-950 select-none"
-          :class="imagePreviewCursorClass"
-          @wheel.prevent="handleImagePreviewWheel"
-          @pointerdown="handleImagePreviewPointerDown"
-          @pointermove="handleImagePreviewPointerMove"
-          @pointerup="handleImagePreviewPointerUp"
-          @pointercancel="handleImagePreviewPointerUp"
-          @dblclick="resetImagePreviewView"
+    <div
+      v-if="imagePreview"
+      ref="imagePreviewViewport"
+      class="fixed inset-0 z-[70] touch-none overflow-hidden bg-black/90 select-none"
+      :class="imagePreviewCursorClass"
+      @click="handleImagePreviewBackdropClick"
+      @wheel.prevent="handleImagePreviewWheel"
+      @pointerdown="handleImagePreviewPointerDown"
+      @pointermove="handleImagePreviewPointerMove"
+      @pointerup="handleImagePreviewPointerUp"
+      @pointercancel="handleImagePreviewPointerUp"
+      @dblclick="resetImagePreviewView"
+    >
+      <div class="pointer-events-none absolute left-4 right-16 top-4 z-10 min-w-0 text-white">
+        <h2 class="truncate text-sm font-semibold drop-shadow">{{ t('playground.imagePreviewTitle') }}</h2>
+        <p v-if="imagePreview.revisedPrompt" class="mt-1 truncate text-xs text-white/70 drop-shadow">{{ imagePreview.revisedPrompt }}</p>
+      </div>
+      <div class="absolute right-4 top-4 z-10 flex items-center gap-2" @pointerdown.stop>
+        <span class="rounded-full bg-black/45 px-2 py-1 text-xs font-semibold text-white backdrop-blur">
+          {{ Math.round(imagePreviewZoom * 100) }}%
+        </span>
+        <button
+          type="button"
+          class="rounded-full bg-black/45 p-2 text-white transition hover:bg-white/20"
+          :title="t('common.close')"
+          @click="closeImagePreview"
         >
-          <img
-            :src="imagePreview.url"
-            :alt="imagePreview.title"
-            class="pointer-events-none absolute left-1/2 top-1/2 block max-w-none object-contain will-change-transform"
-            :class="imagePreviewIsDragging ? 'transition-none' : 'transition-transform duration-100'"
-            :style="{
-              width: `${imagePreviewBaseSize.width}px`,
-              height: `${imagePreviewBaseSize.height}px`,
-              transform: `translate(calc(-50% + ${imagePreviewPanX}px), calc(-50% + ${imagePreviewPanY}px)) scale(${imagePreviewZoom})`
-            }"
-            draggable="false"
-            @load="handleImagePreviewLoad"
-          />
-        </div>
-      </section>
+          <Icon name="x" size="md" />
+        </button>
+      </div>
+      <img
+        :src="imagePreview.url"
+        :alt="imagePreview.title"
+        class="pointer-events-auto absolute left-1/2 top-1/2 block max-w-none object-contain will-change-transform"
+        :class="imagePreviewIsDragging ? 'transition-none' : 'transition-transform duration-100'"
+        :style="{
+          width: `${imagePreviewBaseSize.width}px`,
+          height: `${imagePreviewBaseSize.height}px`,
+          transform: `translate(calc(-50% + ${imagePreviewPanX}px), calc(-50% + ${imagePreviewPanY}px)) scale(${imagePreviewZoom})`
+        }"
+        draggable="false"
+        @load="handleImagePreviewLoad"
+      />
     </div>
   </AppLayout>
 </template>
@@ -1157,6 +1170,7 @@ const threads = ref<PlaygroundThread[]>([])
 const activeThreadId = ref('')
 const availableChannels = ref<UserAvailableChannel[]>([])
 const historySearch = ref('')
+const mobileHistoryOpen = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 const historyImportInput = ref<HTMLInputElement | null>(null)
 const messageScroller = ref<HTMLElement | null>(null)
@@ -1172,6 +1186,7 @@ const imagePreviewNaturalWidth = ref(0)
 const imagePreviewNaturalHeight = ref(0)
 const imagePreviewViewportWidth = ref(0)
 const imagePreviewViewportHeight = ref(0)
+const suppressNextImagePreviewBackdropClick = ref(false)
 let modelAbortController: AbortController | null = null
 const runAbortControllers = new Map<string, PlaygroundRunHandle>()
 let persistTimer: number | undefined
@@ -1281,8 +1296,8 @@ const effectiveImageSize = computed(() => {
 const imagePreviewBaseSize = computed(() => {
   const naturalWidth = imagePreviewNaturalWidth.value || 1024
   const naturalHeight = imagePreviewNaturalHeight.value || 1024
-  const viewportWidth = Math.max(imagePreviewViewportWidth.value - 32, 320)
-  const viewportHeight = Math.max(imagePreviewViewportHeight.value - 32, 240)
+  const viewportWidth = Math.max(imagePreviewViewportWidth.value, 320)
+  const viewportHeight = Math.max(imagePreviewViewportHeight.value, 240)
   const fitScale = Math.min(viewportWidth / naturalWidth, viewportHeight / naturalHeight, 1)
   return {
     width: Math.max(1, Math.round(naturalWidth * fitScale)),
@@ -2564,6 +2579,7 @@ function selectThread(id: string) {
   activeThreadId.value = id
   thread.unreadCount = 0
   mode.value = thread.mode
+  mobileHistoryOpen.value = false
   selectDefaultModel()
   scrollMessagesToBottom()
 }
@@ -2752,6 +2768,7 @@ function selectMode(nextMode: PlaygroundMode) {
   } else {
     createThread(nextMode)
   }
+  mobileHistoryOpen.value = false
   selectDefaultModel()
 }
 
@@ -2817,7 +2834,74 @@ function currentImageConfig(): PlaygroundImageConfig {
   }
 }
 
-function reuseImageConfig(message: PlaygroundMessage) {
+function findThreadForMessage(messageId: string): PlaygroundThread | null {
+  return threads.value.find((thread) => thread.messages.some((item) => item.id === messageId)) || activeThread.value || null
+}
+
+function findImageReuseSourceMessage(message: PlaygroundMessage): PlaygroundMessage | null {
+  const thread = findThreadForMessage(message.id)
+  if (!thread) return null
+  const messageIndex = thread.messages.findIndex((item) => item.id === message.id)
+  if (messageIndex <= 0) return null
+  for (let index = messageIndex - 1; index >= 0; index -= 1) {
+    const candidate = thread.messages[index]
+    if (candidate.role === 'user') return candidate
+  }
+  return null
+}
+
+function imageInputToReusableAttachment(image: PlaygroundImageInput, index: number): PlaygroundAttachment {
+  const storageId = image.storageId || storedImageIdFromURL(image.dataUrl || '')
+  return {
+    id: uid('file'),
+    name: image.name || `image-${index + 1}.png`,
+    type: image.type || '',
+    size: 0,
+    kind: 'image',
+    dataUrl: image.dataUrl,
+    storageId: storageId || undefined
+  }
+}
+
+async function cloneAttachmentForReuse(attachment: PlaygroundAttachment): Promise<PlaygroundAttachment> {
+  const clone: PlaygroundAttachment = {
+    ...attachment,
+    id: uid('file'),
+    thumbnailUrl: undefined
+  }
+  if (clone.kind !== 'image') return clone
+
+  const storageId = clone.storageId || storedImageIdFromURL(clone.dataUrl || '')
+  if (storageId) clone.storageId = storageId
+  let blob = clone.dataUrl?.startsWith('data:') ? dataURLToBlob(clone.dataUrl) : null
+
+  if (storageId && !blob) {
+    const persisted = await loadPlaygroundImageFromDB(storageId).catch((error) => {
+      console.warn('Failed to load reusable playground attachment:', error)
+      return null
+    })
+    if (persisted?.blob) {
+      blob = persisted.blob
+      clone.dataUrl = await blobToDataURL(persisted.blob).catch(() => clone.dataUrl || '')
+      clone.type = clone.type || persisted.mimeType || persisted.blob.type
+      if (persisted.thumbnailBlob) {
+        clone.thumbnailUrl = createTrackedObjectURL(persisted.thumbnailBlob)
+      }
+    } else if (clone.dataUrl?.startsWith(PLAYGROUND_IMAGE_URL_PREFIX)) {
+      clone.dataUrl = undefined
+    }
+  }
+
+  if (blob && !clone.thumbnailUrl) {
+    const thumbnailBlob = await createImageThumbnailBlob(blob).catch(() => blob as Blob)
+    clone.thumbnailUrl = createTrackedObjectURL(thumbnailBlob)
+    clone.type = clone.type || blob.type
+  }
+  if (!clone.storageId) clone.storageId = uid(`upload-${clone.id}`)
+  return clone
+}
+
+async function reuseImageConfig(message: PlaygroundMessage) {
   if (!message.imageConfig) return
   imageSizeMode.value = message.imageConfig.sizeMode
   imageResolution.value = message.imageConfig.resolution
@@ -2829,12 +2913,29 @@ function reuseImageConfig(message: PlaygroundMessage) {
   imageCount.value = message.imageConfig.count
   mode.value = 'image'
   if (message.model) selectedModel.value = message.model
-  if (activeThread.value) activeThread.value.mode = 'image'
+  const sourceMessage = findImageReuseSourceMessage(message)
+  const placeholderPrompt = t('playground.attachmentOnlyPrompt')
+  const reusablePrompt = typeof message.runRequest?.prompt === 'string'
+    ? message.runRequest.prompt
+    : (sourceMessage?.content && sourceMessage.content !== placeholderPrompt ? sourceMessage.content : '')
+  const sourceAttachments = sourceMessage?.attachments?.length
+    ? sourceMessage.attachments
+    : (message.runRequest?.images || []).map(imageInputToReusableAttachment)
+  const reusableAttachments = await Promise.all(sourceAttachments.map(cloneAttachmentForReuse))
+  revokeAttachmentObjectURLs(pendingAttachments.value)
+  draftPrompt.value = reusablePrompt
+  pendingAttachments.value = reusableAttachments
+  if (activeThread.value) {
+    activeThread.value.mode = 'image'
+    activeThread.value.updatedAt = Date.now()
+  }
+  await writePlaygroundStateNow()
   appStore.showSuccess(t('playground.imageConfigReused'))
 }
 
 function clampImagePreviewZoom(value: number): number {
-  return Math.min(Math.max(value, 0.2), 8)
+  if (!Number.isFinite(value)) return imagePreviewZoom.value || 1
+  return Math.max(value, 0.02)
 }
 
 function imagePreviewPanLimit() {
@@ -2909,8 +3010,22 @@ function handleImagePreviewPointerMove(event: PointerEvent) {
   clampImagePreviewPan()
 }
 
+function handleImagePreviewBackdropClick(event: MouseEvent) {
+  if (suppressNextImagePreviewBackdropClick.value) {
+    suppressNextImagePreviewBackdropClick.value = false
+    return
+  }
+  if (event.target === imagePreviewViewport.value) {
+    closeImagePreview()
+  }
+}
+
 function handleImagePreviewPointerUp(event: PointerEvent) {
   if (!imagePreviewDragState || imagePreviewDragState.pointerId !== event.pointerId) return
+  const moved = Math.hypot(event.clientX - imagePreviewDragState.startX, event.clientY - imagePreviewDragState.startY) > 3
+  if (moved) {
+    suppressNextImagePreviewBackdropClick.value = true
+  }
   const viewport = imagePreviewViewport.value
   if (viewport?.hasPointerCapture(event.pointerId)) {
     viewport.releasePointerCapture(event.pointerId)
@@ -2925,6 +3040,7 @@ function resetImagePreviewView() {
   imagePreviewPanY.value = 0
   imagePreviewDragState = null
   imagePreviewIsDragging.value = false
+  suppressNextImagePreviewBackdropClick.value = false
 }
 
 async function openImagePreview(image: PlaygroundStoredImageResult, index: number) {
