@@ -14,6 +14,10 @@ type outboxCleanupCache struct {
 	updateErr     error
 }
 
+func (c *outboxCleanupCache) Ping(ctx context.Context) error {
+	return nil
+}
+
 func (c *outboxCleanupCache) GetSnapshot(ctx context.Context, bucket SchedulerBucket) ([]*Account, bool, error) {
 	return nil, false, nil
 }

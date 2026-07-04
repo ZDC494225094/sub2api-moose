@@ -71,6 +71,10 @@ func (r *apiKeySelectionUserRepo) GetByID(_ context.Context, id int64) (*User, e
 	return &cp, nil
 }
 
+func (r *apiKeySelectionUserRepo) GetByIDIncludeDeleted(ctx context.Context, id int64) (*User, error) {
+	return r.GetByID(ctx, id)
+}
+
 func (r *apiKeySelectionUserRepo) Create(context.Context, *User) error {
 	panic("unexpected Create call")
 }
