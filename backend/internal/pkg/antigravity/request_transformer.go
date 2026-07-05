@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/imagemime"
 	"github.com/google/uuid"
 )
 
@@ -484,9 +485,13 @@ func buildParts(content json.RawMessage, toolIDToName map[string]string, allowDu
 
 		case "image":
 			if block.Source != nil && block.Source.Type == "base64" {
+				mediaType := imagemime.Normalize(block.Source.MediaType)
+				if actualMediaType := imagemime.SniffBase64Prefix(block.Source.Data); actualMediaType != "" {
+					mediaType = actualMediaType
+				}
 				parts = append(parts, GeminiPart{
 					InlineData: &GeminiInlineData{
-						MimeType: block.Source.MediaType,
+						MimeType: mediaType,
 						Data:     block.Source.Data,
 					},
 				})

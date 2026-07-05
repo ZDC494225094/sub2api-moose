@@ -1,12 +1,26 @@
 package antigravity
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestBuildParts_CorrectsImageMimeTypeFromBase64Bytes(t *testing.T) {
+	webpData := base64.StdEncoding.EncodeToString([]byte("RIFF1234WEBPpayload"))
+	content := json.RawMessage(`[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"` + webpData + `"}}]`)
+
+	parts, strippedThinking, err := buildParts(content, map[string]string{}, true)
+	require.NoError(t, err)
+	require.False(t, strippedThinking)
+	require.Len(t, parts, 1)
+	require.NotNil(t, parts[0].InlineData)
+	require.Equal(t, "image/webp", parts[0].InlineData.MimeType)
+	require.Equal(t, webpData, parts[0].InlineData.Data)
+}
 
 // TestBuildParts_ThinkingBlockWithoutSignature 测试thinking block无signature时的处理
 func TestBuildParts_ThinkingBlockWithoutSignature(t *testing.T) {

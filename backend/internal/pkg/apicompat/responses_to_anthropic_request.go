@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/Wei-Shaw/sub2api/internal/pkg/imagemime"
 )
 
 // ResponsesToAnthropicRequest converts a Responses API request into an
@@ -456,12 +458,15 @@ func dataURIToAnthropicImageSource(dataURI string) *AnthropicImageSource {
 	if semicolonIdx < 0 {
 		return nil
 	}
-	mediaType := rest[:semicolonIdx]
+	mediaType := imagemime.Normalize(rest[:semicolonIdx])
 	rest = rest[semicolonIdx+1:]
 	if !strings.HasPrefix(rest, "base64,") {
 		return nil
 	}
 	data := strings.TrimPrefix(rest, "base64,")
+	if actualMediaType := imagemime.SniffBase64Prefix(data); actualMediaType != "" {
+		mediaType = actualMediaType
+	}
 	return &AnthropicImageSource{
 		Type:      "base64",
 		MediaType: mediaType,

@@ -7817,7 +7817,6 @@ export default {
       rateMultiplier: '费率倍数',
       dashboardTitle: '支付概览',
       dashboardDesc: '充值订单统计与分析',
-      daySuffix: '天',
       paymentConfigTitle: '支付配置',
       paymentConfigDesc: '管理支付服务商与相关设置',
       plansPageTitle: '订阅套餐管理',

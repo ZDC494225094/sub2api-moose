@@ -1,6 +1,7 @@
 package apicompat
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"testing"
 
@@ -1312,6 +1313,24 @@ func TestAnthropicToResponses_ImageOnlyUserMessage(t *testing.T) {
 	require.Len(t, parts, 1)
 	assert.Equal(t, "input_image", parts[0].Type)
 	assert.Equal(t, "data:image/jpeg;base64,/9j/4AAQ", parts[0].ImageURL)
+}
+
+func TestResponsesToAnthropicRequest_CorrectsImageMediaTypeFromBytes(t *testing.T) {
+	webpData := base64.StdEncoding.EncodeToString([]byte("RIFF1234WEBPpayload"))
+	req := &ResponsesRequest{
+		Model: "gpt-5.2",
+		Input: json.RawMessage(`[{"role":"user","content":[{"type":"input_image","image_url":"data:image/png;base64,` + webpData + `"}]}]`),
+	}
+
+	resp, err := ResponsesToAnthropicRequest(req)
+	require.NoError(t, err)
+	require.Len(t, resp.Messages, 1)
+
+	blocks := parseContentBlocks(resp.Messages[0].Content)
+	require.Len(t, blocks, 1)
+	require.NotNil(t, blocks[0].Source)
+	assert.Equal(t, "image/webp", blocks[0].Source.MediaType)
+	assert.Equal(t, webpData, blocks[0].Source.Data)
 }
 
 func TestAnthropicToResponses_ToolResultWithImage(t *testing.T) {

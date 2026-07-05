@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	pkghttputil "github.com/Wei-Shaw/sub2api/internal/pkg/httputil"
@@ -336,6 +337,14 @@ func (h *GatewayHandler) handleCCFailoverExhausted(c *gin.Context, lastErr *serv
 		service.SetOpsUpstreamError(c, statusCode, service.OpenAISilentRefusalClientMessage(), "")
 		h.chatCompletionsErrorResponse(c, http.StatusBadGateway, "upstream_error", service.OpenAISilentRefusalClientMessage())
 		return
+	}
+	if lastErr != nil {
+		upstreamMessage := strings.TrimSpace(service.ExtractUpstreamErrorMessage(lastErr.ResponseBody))
+		if upstreamMessage != "" {
+			service.SetOpsUpstreamError(c, statusCode, upstreamMessage, "")
+			h.chatCompletionsErrorResponse(c, statusCode, "upstream_error", "Upstream error: "+upstreamMessage)
+			return
+		}
 	}
 	h.chatCompletionsErrorResponse(c, statusCode, "server_error", "All available accounts exhausted")
 }

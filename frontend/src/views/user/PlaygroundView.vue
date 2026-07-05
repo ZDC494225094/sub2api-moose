@@ -958,6 +958,7 @@ interface PlaygroundAttachment {
   size: number
   kind: AttachmentKind
   dataUrl?: string
+  chatDataUrl?: string
   storageId?: string
   thumbnailUrl?: string
   text?: string
@@ -1090,7 +1091,9 @@ interface PlaygroundImagePersistBatch {
 
 interface PlaygroundAttachmentPersistBatch {
   records: PlaygroundPersistedImage[]
+  persistedIds: string[]
   applyThumbnails: () => void
+  markPersisted: () => void
 }
 
 interface PlaygroundRunHandle {
@@ -1199,6 +1202,8 @@ let imagePreviewDragState: { pointerId: number; startX: number; startY: number; 
 let composerInputResizeState: { pointerId: number; startY: number; height: number } | null = null
 let playgroundDBPromise: Promise<IDBDatabase> | null = null
 const imageObjectURLs = new Set<string>()
+const persistedAttachmentStorageIds = new Set<string>()
+const attachmentThumbnailBlobCache = new Map<string, Blob>()
 
 const PLAYGROUND_STORAGE_VERSION = 1
 const PLAYGROUND_DB_NAME = 'sub2api-playground'
@@ -1210,6 +1215,9 @@ const PLAYGROUND_STATE_UPDATED_EVENT = 'sub2api:playground-state-updated'
 const PLAYGROUND_PENDING_IMAGE_TTL_MS = 60 * 60 * 1000
 const PLAYGROUND_RUN_POLL_INTERVAL_MS = 900
 const PLAYGROUND_RUN_POLL_MAX_MS = 45 * 60 * 1000
+const PLAYGROUND_CHAT_IMAGE_MAX_BYTES = 3.5 * 1024 * 1024
+const PLAYGROUND_CHAT_IMAGE_EDGE_STEPS = [1568, 1280, 1024, 768]
+const PLAYGROUND_CHAT_IMAGE_QUALITY_STEPS = [0.82, 0.72, 0.62, 0.52]
 const playgroundInstanceId = `playground-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 const imageResolutionEdges: Record<ImageResolution, number> = {
   '1K': 1024,
@@ -1558,10 +1566,69 @@ function dataURLToBlob(dataUrl: string): Blob | null {
   }
 }
 
+function normalizeImageMimeType(mimeType: string): string {
+  const normalized = mimeType.trim().toLowerCase()
+  return normalized === 'image/jpg' ? 'image/jpeg' : normalized
+}
+
+function detectImageMimeTypeFromBytes(bytes: Uint8Array): string {
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) return 'image/png'
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return 'image/jpeg'
+  }
+  const ascii = String.fromCharCode(...bytes.slice(0, Math.min(bytes.length, 12)))
+  if (ascii.startsWith('GIF87a') || ascii.startsWith('GIF89a')) return 'image/gif'
+  if (bytes.length >= 12 && ascii.slice(0, 4) === 'RIFF' && ascii.slice(8, 12) === 'WEBP') {
+    return 'image/webp'
+  }
+  return ''
+}
+
+function detectBase64ImageMimeType(base64Data: string): string {
+  const prefix = base64Data.replace(/\s/g, '').slice(0, 64)
+  if (!prefix) return ''
+  const padded = prefix.padEnd(Math.ceil(prefix.length / 4) * 4, '=')
+  try {
+    const binary = atob(padded)
+    const bytes = new Uint8Array(binary.length)
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index)
+    }
+    return detectImageMimeTypeFromBytes(bytes)
+  } catch {
+    return ''
+  }
+}
+
+function normalizeImageDataURLHeader(dataUrl: string): string {
+  const match = dataUrl.match(/^data:([^;,]+)?;base64,/i)
+  if (!match) return dataUrl
+  const declaredMimeType = normalizeImageMimeType(match[1] || '')
+  if (!declaredMimeType.startsWith('image/')) return dataUrl
+  const dataStart = match[0].length
+  const actualMimeType = detectBase64ImageMimeType(dataUrl.slice(dataStart))
+  if (!actualMimeType || actualMimeType === declaredMimeType) return dataUrl
+  return `data:${actualMimeType};base64,${dataUrl.slice(dataStart)}`
+}
+
+function isPreferredChatImageDataURL(dataUrl: string): boolean {
+  return /^data:image\/(?:jpeg|png);base64,/i.test(dataUrl)
+}
+
 function blobToDataURL(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onload = () => resolve(normalizeImageDataURLHeader(String(reader.result || '')))
     reader.onerror = () => reject(reader.error || new Error('Failed to read image data'))
     reader.readAsDataURL(blob)
   })
@@ -1622,6 +1689,7 @@ function revokeImageObjectURLs(images?: PlaygroundStoredImageResult[]) {
 function revokeAttachmentObjectURLs(attachments?: PlaygroundAttachment[]) {
   for (const attachment of attachments || []) {
     revokeTrackedObjectURL(attachment.thumbnailUrl)
+    if (attachment.storageId) attachmentThumbnailBlobCache.delete(attachment.storageId)
   }
 }
 
@@ -1633,7 +1701,16 @@ function revokeAllImageObjectURLs() {
 }
 
 async function createImageThumbnailBlob(blob: Blob, maxEdge = 640): Promise<Blob> {
-  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+  const image = await loadImageElement(blob)
+  return renderImageBlob(image, blob, {
+    maxEdge,
+    mimeType: 'image/webp',
+    quality: 0.82
+  })
+}
+
+function loadImageElement(blob: Blob): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
     const objectUrl = URL.createObjectURL(blob)
     const element = new Image()
     element.onload = () => {
@@ -1642,24 +1719,70 @@ async function createImageThumbnailBlob(blob: Blob, maxEdge = 640): Promise<Blob
     }
     element.onerror = () => {
       URL.revokeObjectURL(objectUrl)
-      reject(new Error('Failed to load image for thumbnail'))
+      reject(new Error('Failed to load image data'))
     }
     element.src = objectUrl
   })
+}
+
+function renderImageBlob(
+  image: HTMLImageElement,
+  fallbackBlob: Blob,
+  options: {
+    maxEdge: number
+    mimeType: string
+    quality: number
+    fillStyle?: string
+  }
+): Promise<Blob> {
   const ratio = image.naturalWidth > 0 && image.naturalHeight > 0
-    ? Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight))
+    ? Math.min(1, options.maxEdge / Math.max(image.naturalWidth, image.naturalHeight))
     : 1
-  const width = Math.max(1, Math.round((image.naturalWidth || maxEdge) * ratio))
-  const height = Math.max(1, Math.round((image.naturalHeight || maxEdge) * ratio))
+  const width = Math.max(1, Math.round((image.naturalWidth || options.maxEdge) * ratio))
+  const height = Math.max(1, Math.round((image.naturalHeight || options.maxEdge) * ratio))
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
   const context = canvas.getContext('2d')
-  if (!context) return blob
+  if (!context) return Promise.resolve(fallbackBlob)
+  if (options.fillStyle) {
+    context.fillStyle = options.fillStyle
+    context.fillRect(0, 0, width, height)
+  }
   context.drawImage(image, 0, 0, width, height)
-  return await new Promise((resolve) => {
-    canvas.toBlob((thumbnail) => resolve(thumbnail || blob), 'image/webp', 0.82)
+  return new Promise((resolve) => {
+    canvas.toBlob((resized) => resolve(resized || fallbackBlob), options.mimeType, options.quality)
   })
+}
+
+async function createChatImageBlob(blob: Blob): Promise<Blob> {
+  const image = await loadImageElement(blob)
+  let bestBlob: Blob | null = null
+  for (const maxEdge of PLAYGROUND_CHAT_IMAGE_EDGE_STEPS) {
+    for (const quality of PLAYGROUND_CHAT_IMAGE_QUALITY_STEPS) {
+      const candidate = await renderImageBlob(image, blob, {
+        maxEdge,
+        mimeType: 'image/jpeg',
+        quality,
+        fillStyle: '#fff'
+      })
+      if (!bestBlob || candidate.size < bestBlob.size) {
+        bestBlob = candidate
+      }
+      if (candidate.size <= PLAYGROUND_CHAT_IMAGE_MAX_BYTES) {
+        return candidate
+      }
+    }
+  }
+  return bestBlob || blob
+}
+
+async function createChatImageDataURL(blob: Blob, fallbackDataUrl = ''): Promise<string> {
+  const chatBlob = await createChatImageBlob(blob)
+  if (chatBlob === blob && fallbackDataUrl.startsWith('data:')) {
+    return normalizeImageDataURLHeader(fallbackDataUrl)
+  }
+  return blobToDataURL(chatBlob)
 }
 
 function normalizeEndpointBase(value: string): string {
@@ -2002,6 +2125,7 @@ async function collectPersistedImagesFromThreads(): Promise<PlaygroundImagePersi
 
 async function collectPersistedAttachmentsFromThreads(): Promise<PlaygroundAttachmentPersistBatch> {
   const records: PlaygroundPersistedImage[] = []
+  const persistedIds: string[] = []
   const replacements: Array<{ attachment: PlaygroundAttachment; thumbnailBlob: Blob }> = []
   for (const thread of threads.value) {
     for (const attachment of [
@@ -2010,12 +2134,20 @@ async function collectPersistedAttachmentsFromThreads(): Promise<PlaygroundAttac
     ]) {
       if (attachment.kind !== 'image') continue
       ensureAttachmentStorageId(attachment)
+      if (attachment.storageId && persistedAttachmentStorageIds.has(attachment.storageId)) continue
       if (!attachment.storageId || !attachment.dataUrl?.startsWith('data:')) continue
       const blob = dataURLToBlob(attachment.dataUrl)
       if (!blob) continue
-      const thumbnailBlob = await createImageThumbnailBlob(blob).catch(() => blob)
+      const cachedThumbnailBlob = attachmentThumbnailBlobCache.get(attachment.storageId)
+      const thumbnailBlob = cachedThumbnailBlob || (!attachment.thumbnailUrl
+        ? await createImageThumbnailBlob(blob).catch(() => blob)
+        : undefined)
       attachment.type = attachment.type || blob.type
-      replacements.push({ attachment, thumbnailBlob })
+      if (thumbnailBlob && !attachment.thumbnailUrl) {
+        attachmentThumbnailBlobCache.set(attachment.storageId, thumbnailBlob)
+        replacements.push({ attachment, thumbnailBlob })
+      }
+      persistedIds.push(attachment.storageId)
       records.push({
         id: attachment.storageId,
         blob,
@@ -2027,10 +2159,16 @@ async function collectPersistedAttachmentsFromThreads(): Promise<PlaygroundAttac
   }
   return {
     records,
+    persistedIds,
     applyThumbnails() {
       for (const replacement of replacements) {
-        revokeTrackedObjectURL(replacement.attachment.thumbnailUrl)
         replacement.attachment.thumbnailUrl = createTrackedObjectURL(replacement.thumbnailBlob)
+      }
+    },
+    markPersisted() {
+      for (const id of persistedIds) {
+        persistedAttachmentStorageIds.add(id)
+        attachmentThumbnailBlobCache.delete(id)
       }
     }
   }
@@ -2176,6 +2314,7 @@ async function hydratePersistedAttachments() {
             attachment.dataUrl = undefined
           }
           attachment.type = attachment.type || persisted.mimeType || persisted.blob?.type || ''
+          persistedAttachmentStorageIds.add(storageId)
         })
         .catch((error) => {
           console.warn('Failed to restore playground attachment image:', error)
@@ -2377,6 +2516,7 @@ async function writePlaygroundStateNow() {
     await savePlaygroundImagesToDB([...imageBatch.records, ...attachmentBatch.records])
     imageBatch.applyThumbnails()
     attachmentBatch.applyThumbnails()
+    attachmentBatch.markPersisted()
     await savePlaygroundStateToDB(payload)
     localStorage.setItem(storageKey(), JSON.stringify(buildLocalStoragePayload(payload)))
     window.dispatchEvent(new CustomEvent(PLAYGROUND_STATE_UPDATED_EVENT, { detail: { key: storageKey(), source: playgroundInstanceId } }))
@@ -2896,6 +3036,9 @@ async function cloneAttachmentForReuse(attachment: PlaygroundAttachment): Promis
     const thumbnailBlob = await createImageThumbnailBlob(blob).catch(() => blob as Blob)
     clone.thumbnailUrl = createTrackedObjectURL(thumbnailBlob)
     clone.type = clone.type || blob.type
+  }
+  if (blob && !clone.chatDataUrl) {
+    clone.chatDataUrl = await createChatImageDataURL(blob, clone.dataUrl || '').catch(() => clone.dataUrl || '')
   }
   if (!clone.storageId) clone.storageId = uid(`upload-${clone.id}`)
   return clone
@@ -3602,15 +3745,30 @@ function attachmentPrompt(attachments: PlaygroundAttachment[]): string {
     .join('')
 }
 
+function attachmentChatImageUrl(attachment: PlaygroundAttachment): string {
+  const chatDataUrl = attachment.chatDataUrl?.startsWith('data:')
+    ? normalizeImageDataURLHeader(attachment.chatDataUrl)
+    : ''
+  const dataUrl = attachment.dataUrl?.startsWith('data:')
+    ? normalizeImageDataURLHeader(attachment.dataUrl)
+    : ''
+  if (isPreferredChatImageDataURL(chatDataUrl)) return chatDataUrl
+  if (isPreferredChatImageDataURL(dataUrl)) return dataUrl
+  return chatDataUrl || dataUrl
+}
+
 function buildUserMessageContent(prompt: string, attachments: PlaygroundAttachment[]): PlaygroundChatMessage['content'] {
-  const imageAttachments = attachments.filter((attachment) => attachment.kind === 'image' && attachment.dataUrl?.startsWith('data:'))
+  const imageAttachments = attachments
+    .filter((attachment) => attachment.kind === 'image')
+    .map((attachment) => ({ attachment, url: attachmentChatImageUrl(attachment) }))
+    .filter((item) => item.url.startsWith('data:'))
   const text = `${prompt}${attachmentPrompt(attachments)}`.trim()
   if (imageAttachments.length === 0) return text
   return [
     { type: 'text', text: text || t('playground.attachedImagesOnly') },
-    ...imageAttachments.map((attachment) => ({
+    ...imageAttachments.map(({ url }) => ({
       type: 'image_url' as const,
-      image_url: { url: attachment.dataUrl || '' }
+      image_url: { url }
     }))
   ]
 }
@@ -3891,18 +4049,35 @@ function readFile(file: File): Promise<PlaygroundAttachment> {
     const id = uid('file')
     const isImage = file.type.startsWith('image/')
     const isText = file.type.startsWith('text/') || /\.(md|txt|json|csv|log|xml|yaml|yml)$/i.test(file.name)
+    const storageId = isImage ? uid(`upload-${id}`) : undefined
     const reader = new FileReader()
 
-    reader.onload = () => {
+    reader.onload = async () => {
+      let thumbnailUrl: string | undefined
+      let chatDataUrl: string | undefined
+      const dataUrl = normalizeImageDataURLHeader(String(reader.result || ''))
+      if (isImage && storageId) {
+        const [thumbnailBlob, chatBlob] = await Promise.all([
+          createImageThumbnailBlob(file).catch(() => file),
+          createChatImageBlob(file).catch(() => file)
+        ])
+        attachmentThumbnailBlobCache.set(storageId, thumbnailBlob)
+        thumbnailUrl = createTrackedObjectURL(thumbnailBlob)
+        chatDataUrl = chatBlob === file
+          ? dataUrl
+          : await blobToDataURL(chatBlob).catch(() => dataUrl)
+      }
       resolve({
         id,
         name: file.name,
         type: file.type,
         size: file.size,
         kind: isImage ? 'image' : isText ? 'text' : 'file',
-        dataUrl: isImage ? String(reader.result || '') : undefined,
-        storageId: isImage ? uid(`upload-${id}`) : undefined,
-        text: isText ? String(reader.result || '').slice(0, 12000) : undefined
+        dataUrl: isImage ? dataUrl : undefined,
+        chatDataUrl,
+        storageId,
+        thumbnailUrl,
+        text: isText ? dataUrl.slice(0, 12000) : undefined
       })
     }
 

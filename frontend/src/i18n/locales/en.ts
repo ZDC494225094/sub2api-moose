@@ -7639,7 +7639,6 @@ export default {
       rateMultiplier: 'Rate Multiplier',
       dashboardTitle: 'Payment Dashboard',
       dashboardDesc: 'Recharge order analytics and insights',
-      daySuffix: 'd',
       paymentConfigTitle: 'Payment Config',
       paymentConfigDesc: 'Configure payment providers and settings',
       plansPageTitle: 'Subscription Plans',
