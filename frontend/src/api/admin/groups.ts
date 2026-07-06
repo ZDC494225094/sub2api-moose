@@ -5,6 +5,7 @@
 
 import { apiClient } from '../client'
 import type {
+  Account,
   AdminGroup,
   GroupPlatform,
   CreateGroupRequest,
@@ -184,6 +185,24 @@ export async function getGroupApiKeys(
 }
 
 /**
+ * Get accounts assigned to a group in call-priority order.
+ */
+export async function getGroupAccounts(id: number): Promise<Account[]> {
+  const { data } = await apiClient.get<Account[]>(`/admin/groups/${id}/accounts`)
+  return data
+}
+
+/**
+ * Replace accounts assigned to a group. The ID order becomes the group call priority.
+ */
+export async function updateGroupAccounts(id: number, accountIds: number[]): Promise<Account[]> {
+  const { data } = await apiClient.put<Account[]>(`/admin/groups/${id}/accounts`, {
+    account_ids: accountIds
+  })
+  return data
+}
+
+/**
  * Rate multiplier entry for a user in a group
  */
 export interface GroupRateMultiplierEntry {
@@ -342,6 +361,8 @@ export const groupsAPI = {
   toggleStatus,
   getStats,
   getGroupApiKeys,
+  getGroupAccounts,
+  updateGroupAccounts,
   getGroupRateMultipliers,
   clearGroupRateMultipliers,
   batchSetGroupRateMultipliers,

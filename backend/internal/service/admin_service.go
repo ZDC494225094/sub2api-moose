@@ -61,6 +61,8 @@ type AdminService interface {
 	CreateGroup(ctx context.Context, input *CreateGroupInput) (*Group, error)
 	UpdateGroup(ctx context.Context, id int64, input *UpdateGroupInput) (*Group, error)
 	DeleteGroup(ctx context.Context, id int64) error
+	GetGroupAccounts(ctx context.Context, groupID int64) ([]Account, error)
+	UpdateGroupAccounts(ctx context.Context, groupID int64, accountIDs []int64) ([]Account, error)
 	GetGroupAPIKeys(ctx context.Context, groupID int64, page, pageSize int) ([]APIKey, int64, error)
 	GetGroupRateMultipliers(ctx context.Context, groupID int64) ([]UserGroupRateEntry, error)
 	ClearGroupRateMultipliers(ctx context.Context, groupID int64) error
@@ -559,6 +561,11 @@ const (
 )
 
 var ErrRPMStatusUnavailable = infraerrors.New(http.StatusNotImplemented, "RPM_STATUS_UNAVAILABLE", "RPM cache not available")
+
+type accountGroupManagementRepository interface {
+	ListGroupAccounts(ctx context.Context, groupID int64) ([]Account, error)
+	ReplaceGroupAccounts(ctx context.Context, groupID int64, accountIDs []int64) error
+}
 
 // adminServiceImpl implements AdminService
 type adminServiceImpl struct {
@@ -2340,6 +2347,89 @@ func (s *adminServiceImpl) DeleteGroup(ctx context.Context, id int64) error {
 	}
 
 	return nil
+}
+
+func (s *adminServiceImpl) GetGroupAccounts(ctx context.Context, groupID int64) ([]Account, error) {
+	if _, err := s.groupRepo.GetByID(ctx, groupID); err != nil {
+		return nil, err
+	}
+	repo, err := s.accountGroupManagementRepo()
+	if err != nil {
+		return nil, err
+	}
+	return repo.ListGroupAccounts(ctx, groupID)
+}
+
+func (s *adminServiceImpl) UpdateGroupAccounts(ctx context.Context, groupID int64, accountIDs []int64) ([]Account, error) {
+	group, err := s.groupRepo.GetByID(ctx, groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	uniqueIDs := make([]int64, 0, len(accountIDs))
+	seen := make(map[int64]struct{}, len(accountIDs))
+	for _, accountID := range accountIDs {
+		if accountID <= 0 {
+			continue
+		}
+		if _, ok := seen[accountID]; ok {
+			continue
+		}
+		seen[accountID] = struct{}{}
+		uniqueIDs = append(uniqueIDs, accountID)
+	}
+
+	if len(uniqueIDs) > 0 {
+		accounts, err := s.accountRepo.GetByIDs(ctx, uniqueIDs)
+		if err != nil {
+			return nil, err
+		}
+		accountsByID := make(map[int64]*Account, len(accounts))
+		for _, account := range accounts {
+			if account != nil {
+				accountsByID[account.ID] = account
+			}
+		}
+
+		for _, accountID := range uniqueIDs {
+			account := accountsByID[accountID]
+			if account == nil {
+				return nil, infraerrors.Newf(http.StatusBadRequest, "ACCOUNT_NOT_FOUND", "account %d not found", accountID)
+			}
+			if group.Platform != "" && account.Platform != group.Platform {
+				return nil, infraerrors.Newf(http.StatusBadRequest, "ACCOUNT_PLATFORM_MISMATCH", "account %d platform mismatch: expected %s, got %s", accountID, group.Platform, account.Platform)
+			}
+			if group.RequireOAuthOnly && isOAuthOnlyGroupPlatform(group.Platform) && account.Type == AccountTypeAPIKey {
+				return nil, infraerrors.Newf(http.StatusBadRequest, "GROUP_OAUTH_ONLY", "group %s only allows OAuth accounts", group.Name)
+			}
+		}
+	}
+
+	repo, err := s.accountGroupManagementRepo()
+	if err != nil {
+		return nil, err
+	}
+	if err := repo.ReplaceGroupAccounts(ctx, groupID, uniqueIDs); err != nil {
+		return nil, err
+	}
+	return repo.ListGroupAccounts(ctx, groupID)
+}
+
+func (s *adminServiceImpl) accountGroupManagementRepo() (accountGroupManagementRepository, error) {
+	repo, ok := s.accountRepo.(accountGroupManagementRepository)
+	if !ok {
+		return nil, errors.New("account repository does not support group account management")
+	}
+	return repo, nil
+}
+
+func isOAuthOnlyGroupPlatform(platform string) bool {
+	switch platform {
+	case PlatformOpenAI, PlatformAntigravity, PlatformAnthropic, PlatformGemini, PlatformGrok:
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *adminServiceImpl) GetGroupAPIKeys(ctx context.Context, groupID int64, page, pageSize int) ([]APIKey, int64, error) {

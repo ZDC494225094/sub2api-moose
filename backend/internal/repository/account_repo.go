@@ -692,6 +692,14 @@ func (r *accountRepository) ListByGroup(ctx context.Context, groupID int64) ([]s
 	return accounts, nil
 }
 
+func (r *accountRepository) ListGroupAccounts(ctx context.Context, groupID int64) ([]service.Account, error) {
+	accounts, err := r.queryAccountsByGroup(ctx, groupID, accountGroupQueryOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return accounts, nil
+}
+
 func (r *accountRepository) ListActive(ctx context.Context) ([]service.Account, error) {
 	accounts, err := r.client.Account.Query().
 		Where(dbaccount.StatusEQ(service.StatusActive)).
@@ -1031,6 +1039,68 @@ func (r *accountRepository) BindGroups(ctx context.Context, accountID int64, gro
 	payload := buildSchedulerGroupPayload(mergeGroupIDs(existingGroupIDs, groupIDs))
 	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountGroupsChanged, &accountID, nil, payload); err != nil {
 		logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue bind groups failed: account=%d err=%v", accountID, err)
+	}
+	return nil
+}
+
+func (r *accountRepository) ReplaceGroupAccounts(ctx context.Context, groupID int64, accountIDs []int64) error {
+	if groupID <= 0 {
+		return nil
+	}
+
+	uniqueIDs := make([]int64, 0, len(accountIDs))
+	seen := make(map[int64]struct{}, len(accountIDs))
+	for _, accountID := range accountIDs {
+		if accountID <= 0 {
+			continue
+		}
+		if _, ok := seen[accountID]; ok {
+			continue
+		}
+		seen[accountID] = struct{}{}
+		uniqueIDs = append(uniqueIDs, accountID)
+	}
+
+	tx, err := r.client.Tx(ctx)
+	if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
+		return err
+	}
+
+	var txClient *dbent.Client
+	if err == nil {
+		defer func() { _ = tx.Rollback() }()
+		txClient = tx.Client()
+	} else {
+		txClient = r.client
+	}
+
+	if _, err := txClient.AccountGroup.Delete().Where(dbaccountgroup.GroupIDEQ(groupID)).Exec(ctx); err != nil {
+		return err
+	}
+
+	if len(uniqueIDs) > 0 {
+		builders := make([]*dbent.AccountGroupCreate, 0, len(uniqueIDs))
+		for i, accountID := range uniqueIDs {
+			builders = append(builders, txClient.AccountGroup.Create().
+				SetAccountID(accountID).
+				SetGroupID(groupID).
+				SetPriority(i+1),
+			)
+		}
+		if _, err := txClient.AccountGroup.CreateBulk(builders...).Save(ctx); err != nil {
+			return err
+		}
+	}
+
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+	}
+
+	payload := buildSchedulerGroupPayload([]int64{groupID})
+	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountGroupsChanged, nil, nil, payload); err != nil {
+		logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue replace group accounts failed: group=%d err=%v", groupID, err)
 	}
 	return nil
 }
@@ -1765,6 +1835,7 @@ func (r *accountRepository) queryAccountsByGroup(ctx context.Context, groupID in
 
 	orderedIDs := make([]int64, 0, len(groups))
 	accountMap := make(map[int64]*dbent.Account, len(groups))
+	groupPriorityByAccountID := make(map[int64]int, len(groups))
 	for _, ag := range groups {
 		if ag.Edges.Account == nil {
 			continue
@@ -1773,6 +1844,7 @@ func (r *accountRepository) queryAccountsByGroup(ctx context.Context, groupID in
 			continue
 		}
 		accountMap[ag.AccountID] = ag.Edges.Account
+		groupPriorityByAccountID[ag.AccountID] = ag.Priority
 		orderedIDs = append(orderedIDs, ag.AccountID)
 	}
 
@@ -1783,7 +1855,16 @@ func (r *accountRepository) queryAccountsByGroup(ctx context.Context, groupID in
 		}
 	}
 
-	return r.accountsToService(ctx, accounts)
+	serviceAccounts, err := r.accountsToService(ctx, accounts)
+	if err != nil {
+		return nil, err
+	}
+	for i := range serviceAccounts {
+		if priority, ok := groupPriorityByAccountID[serviceAccounts[i].ID]; ok {
+			serviceAccounts[i].Priority = priority
+		}
+	}
+	return serviceAccounts, nil
 }
 
 func (r *accountRepository) accountsToService(ctx context.Context, accounts []*dbent.Account) ([]service.Account, error) {

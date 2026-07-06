@@ -56,7 +56,9 @@ async function isSub2APIBackend(url: string): Promise<boolean> {
 async function resolveDevBackendUrl(preferredUrl: string | undefined): Promise<string> {
   const candidates = [
     normalizeDevBackendUrl(preferredUrl),
+    'http://localhost:6200',
     'http://127.0.0.1:6200',
+    'http://[::1]:6200',
     'http://127.0.0.1:8080',
     'http://localhost:8080',
     'http://127.0.0.1:8090'
@@ -68,7 +70,7 @@ async function resolveDevBackendUrl(preferredUrl: string | undefined): Promise<s
     }
   }
 
-  const fallback = candidates[0] || 'http://127.0.0.1:6200'
+  const fallback = candidates[0] || 'http://localhost:6200'
   console.warn(`[vite] 未能探测到 Sub2API 后端，将继续使用: ${fallback}`)
   return fallback
 }

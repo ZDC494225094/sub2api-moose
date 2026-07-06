@@ -295,6 +295,28 @@ func (s *stubAdminService) DeleteGroup(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (s *stubAdminService) GetGroupAccounts(ctx context.Context, groupID int64) ([]service.Account, error) {
+	return s.accounts, nil
+}
+
+func (s *stubAdminService) UpdateGroupAccounts(ctx context.Context, groupID int64, accountIDs []int64) ([]service.Account, error) {
+	accountsByID := make(map[int64]service.Account, len(s.accounts))
+	for _, account := range s.accounts {
+		accountsByID[account.ID] = account
+	}
+	out := make([]service.Account, 0, len(accountIDs))
+	for i, accountID := range accountIDs {
+		account, ok := accountsByID[accountID]
+		if !ok {
+			account = service.Account{ID: accountID, Name: "account", Status: service.StatusActive}
+		}
+		account.Priority = i + 1
+		out = append(out, account)
+	}
+	s.accounts = out
+	return out, nil
+}
+
 func (s *stubAdminService) GetGroupAPIKeys(ctx context.Context, groupID int64, page, pageSize int) ([]service.APIKey, int64, error) {
 	return s.apiKeys, int64(len(s.apiKeys)), nil
 }

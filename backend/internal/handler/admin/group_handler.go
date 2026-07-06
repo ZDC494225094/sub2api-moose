@@ -169,6 +169,10 @@ type UpdateGroupRequest struct {
 	CopyAccountsFromGroupIDs []int64 `json:"copy_accounts_from_group_ids"`
 }
 
+type UpdateGroupAccountsRequest struct {
+	AccountIDs []int64 `json:"account_ids"`
+}
+
 // List handles listing all groups with pagination
 // GET /api/v1/admin/groups
 func (h *GroupHandler) List(c *gin.Context) {
@@ -274,6 +278,56 @@ func (h *GroupHandler) GetModelsListCandidates(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{"models": models})
+}
+
+// GetGroupAccounts handles getting accounts assigned to a group.
+// GET /api/v1/admin/groups/:id/accounts
+func (h *GroupHandler) GetGroupAccounts(c *gin.Context) {
+	groupID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || groupID <= 0 {
+		response.BadRequest(c, "Invalid group ID")
+		return
+	}
+
+	accounts, err := h.adminService.GetGroupAccounts(c.Request.Context(), groupID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	out := make([]*dto.Account, 0, len(accounts))
+	for i := range accounts {
+		out = append(out, dto.AccountFromServiceShallow(&accounts[i]))
+	}
+	response.Success(c, out)
+}
+
+// UpdateGroupAccounts replaces accounts assigned to a group and persists their order.
+// PUT /api/v1/admin/groups/:id/accounts
+func (h *GroupHandler) UpdateGroupAccounts(c *gin.Context) {
+	groupID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || groupID <= 0 {
+		response.BadRequest(c, "Invalid group ID")
+		return
+	}
+
+	var req UpdateGroupAccountsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	accounts, err := h.adminService.UpdateGroupAccounts(c.Request.Context(), groupID, req.AccountIDs)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	out := make([]*dto.Account, 0, len(accounts))
+	for i := range accounts {
+		out = append(out, dto.AccountFromServiceShallow(&accounts[i]))
+	}
+	response.Success(c, out)
 }
 
 // Create handles creating a new group
