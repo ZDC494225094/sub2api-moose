@@ -5262,6 +5262,34 @@
                 </p>
               </div>
 
+              <!-- Homepage Visibility -->
+              <div
+                class="grid grid-cols-1 gap-4 border-t border-gray-100 pt-4 dark:border-dark-700 md:grid-cols-2"
+              >
+                <div class="flex items-center justify-between gap-4">
+                  <div>
+                    <label class="font-medium text-gray-900 dark:text-white">{{
+                      t("admin.settings.site.homePricingCompareEnabled")
+                    }}</label>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.site.homePricingCompareEnabledHint") }}
+                    </p>
+                  </div>
+                  <Toggle v-model="form.home_pricing_compare_enabled" />
+                </div>
+                <div class="flex items-center justify-between gap-4">
+                  <div>
+                    <label class="font-medium text-gray-900 dark:text-white">{{
+                      t("admin.settings.site.homeDocsEnabled")
+                    }}</label>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.site.homeDocsEnabledHint") }}
+                    </p>
+                  </div>
+                  <Toggle v-model="form.home_docs_enabled" />
+                </div>
+              </div>
+
               <!-- Hide CCS Import Button -->
               <div
                 class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
@@ -5594,6 +5622,23 @@
                     </select>
                   </div>
 
+                  <!-- Open Mode -->
+                  <div>
+                    <label
+                      class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
+                    >
+                      {{ t("admin.settings.customMenu.openMode") }}
+                    </label>
+                    <select v-model="item.open_mode" class="input text-sm">
+                      <option value="iframe">
+                        {{ t("admin.settings.customMenu.openModeIframe") }}
+                      </option>
+                      <option value="new_tab">
+                        {{ t("admin.settings.customMenu.openModeNewTab") }}
+                      </option>
+                    </select>
+                  </div>
+
                   <!-- URL (full width) -->
                   <div class="sm:col-span-2">
                     <label
@@ -5611,6 +5656,45 @@
                     />
                   </div>
 
+                  <!-- Built-in Icon (full width) -->
+                  <div class="sm:col-span-2">
+                    <div class="mb-2 flex items-center justify-between gap-3">
+                      <label
+                        class="block text-xs font-medium text-gray-600 dark:text-gray-400"
+                      >
+                        {{ t("admin.settings.customMenu.icon") }}
+                      </label>
+                      <button
+                        type="button"
+                        class="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                        @click="selectCustomMenuIcon(item, '')"
+                      >
+                        {{ t("admin.settings.customMenu.useSvgIcon") }}
+                      </button>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
+                      <button
+                        v-for="option in customMenuIconOptions"
+                        :key="option.name"
+                        type="button"
+                        class="flex h-16 min-w-0 flex-col items-center justify-center gap-1 rounded-md border px-2 text-xs transition-colors"
+                        :class="
+                          item.icon === option.name
+                            ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-400 dark:bg-primary-900/30 dark:text-primary-200'
+                            : 'border-gray-200 text-gray-600 hover:border-primary-300 hover:bg-gray-50 dark:border-dark-600 dark:text-gray-300 dark:hover:border-primary-500 dark:hover:bg-dark-700'
+                        "
+                        :title="option.label"
+                        :aria-pressed="item.icon === option.name"
+                        @click="selectCustomMenuIcon(item, option.name)"
+                      >
+                        <Icon :name="option.name" size="md" />
+                        <span class="block max-w-full truncate leading-tight">
+                          {{ option.label }}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
                   <!-- SVG Icon (full width) -->
                   <div class="sm:col-span-2">
                     <label
@@ -5626,6 +5710,9 @@
                       :remove-label="t('admin.settings.customMenu.removeSvg')"
                       @update:model-value="(v: string) => (item.icon_svg = v)"
                     />
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.customMenu.iconSvgHint") }}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -7423,6 +7510,8 @@ import type {
 } from "@/api/admin/settings";
 import type {
   AdminGroup,
+  CustomMenuItem,
+  CustomMenuOpenMode,
   LoginAgreementDocument,
   NotifyEmailEntry,
   Proxy,
@@ -7439,6 +7528,11 @@ import GroupOptionItem from "@/components/common/GroupOptionItem.vue";
 import Toggle from "@/components/common/Toggle.vue";
 import ProxySelector from "@/components/common/ProxySelector.vue";
 import ImageUpload from "@/components/common/ImageUpload.vue";
+import {
+  customMenuIconNames,
+  normalizeCustomMenuIconName,
+  type CustomMenuIconName,
+} from "@/components/icons/registry";
 import BackupSettings from "@/views/admin/BackupView.vue";
 import EmailTemplateEditor from "@/views/admin/settings/EmailTemplateEditor.vue";
 import { useClipboard } from "@/composables/useClipboard";
@@ -7468,6 +7562,46 @@ const isZhLocale = computed(() => locale.value.startsWith("zh"));
 function localText(zh: string, en: string): string {
   return isZhLocale.value ? zh : en;
 }
+
+const customMenuIconLabels: Record<
+  CustomMenuIconName,
+  { zh: string; en: string }
+> = {
+  link: { zh: "链接", en: "Link" },
+  globe: { zh: "站点", en: "Site" },
+  document: { zh: "文档", en: "Document" },
+  book: { zh: "手册", en: "Guide" },
+  chat: { zh: "消息", en: "Chat" },
+  grid: { zh: "应用", en: "Apps" },
+  chart: { zh: "统计", en: "Stats" },
+  chartBar: { zh: "图表", en: "Chart" },
+  database: { zh: "数据", en: "Data" },
+  server: { zh: "服务", en: "Server" },
+  cloud: { zh: "云", en: "Cloud" },
+  terminal: { zh: "终端", en: "Terminal" },
+  cog: { zh: "设置", en: "Settings" },
+  key: { zh: "密钥", en: "Key" },
+  shield: { zh: "安全", en: "Security" },
+  users: { zh: "用户", en: "Users" },
+  user: { zh: "个人", en: "Profile" },
+  creditCard: { zh: "支付", en: "Payment" },
+  gift: { zh: "活动", en: "Campaign" },
+  bell: { zh: "通知", en: "Notice" },
+  calendar: { zh: "日程", en: "Calendar" },
+  calculator: { zh: "计算", en: "Calculator" },
+  sparkles: { zh: "推荐", en: "Featured" },
+  bolt: { zh: "快捷", en: "Quick" },
+};
+
+const customMenuIconOptions = computed(() =>
+  customMenuIconNames.map((name) => ({
+    name,
+    label: localText(
+      customMenuIconLabels[name].zh,
+      customMenuIconLabels[name].en,
+    ),
+  })),
+);
 
 const paymentGuideHref = computed(() =>
   locale.value.startsWith("zh")
@@ -8121,6 +8255,8 @@ const form = reactive<SettingsForm>({
   contact_info: "",
   doc_url: "",
   home_content: "",
+  home_pricing_compare_enabled: true,
+  home_docs_enabled: true,
   footer_content: "",
   footer_friend_links: [] as Array<{
     label: string;
@@ -8154,14 +8290,7 @@ const form = reactive<SettingsForm>({
   payment_alipay_force_qrcode: false,
   table_default_page_size: tablePageSizeDefault,
   table_page_size_options: [10, 20, 50, 100],
-  custom_menu_items: [] as Array<{
-    id: string;
-    label: string;
-    icon_svg: string;
-    url: string;
-    visibility: "user" | "admin";
-    sort_order: number;
-  }>,
+  custom_menu_items: [] as CustomMenuItem[],
   custom_endpoints: [] as Array<{
     name: string;
     endpoint: string;
@@ -8784,12 +8913,54 @@ async function setAndCopyOIDCRedirectUrl() {
 }
 
 // Custom menu item management
+function normalizeCustomMenuOpenMode(
+  value: CustomMenuItem["open_mode"],
+): CustomMenuOpenMode {
+  return value === "new_tab" ? "new_tab" : "iframe";
+}
+
+function normalizeCustomMenuItemsForForm(
+  items: CustomMenuItem[],
+): CustomMenuItem[] {
+  return items.map((item, index) => ({
+    ...item,
+    icon: normalizeCustomMenuIconName(item.icon),
+    icon_svg: item.icon_svg || "",
+    open_mode: normalizeCustomMenuOpenMode(item.open_mode),
+    visibility: item.visibility === "admin" ? "admin" : "user",
+    sort_order: Number.isFinite(item.sort_order) ? item.sort_order : index,
+  }));
+}
+
+function normalizeCustomMenuItemsForSave(): CustomMenuItem[] {
+  return form.custom_menu_items.map((item, index) => ({
+    ...item,
+    id: item.id.trim(),
+    label: item.label.trim(),
+    icon: normalizeCustomMenuIconName(item.icon),
+    icon_svg: item.icon_svg || "",
+    url: item.url.trim(),
+    open_mode: normalizeCustomMenuOpenMode(item.open_mode),
+    visibility: item.visibility === "admin" ? "admin" : "user",
+    sort_order: index,
+  }));
+}
+
+function selectCustomMenuIcon(
+  item: CustomMenuItem,
+  icon: CustomMenuIconName | "",
+) {
+  item.icon = icon;
+}
+
 function addMenuItem() {
   form.custom_menu_items.push({
     id: "",
     label: "",
+    icon: "link",
     icon_svg: "",
     url: "",
+    open_mode: "iframe",
     visibility: "user",
     sort_order: form.custom_menu_items.length,
   });
@@ -9003,6 +9174,9 @@ async function loadSettings() {
         (form as Record<string, unknown>)[key] = value;
       }
     }
+    form.custom_menu_items = normalizeCustomMenuItemsForForm(
+      Array.isArray(form.custom_menu_items) ? form.custom_menu_items : [],
+    );
     if (!form.claude_oauth_system_prompt_blocks?.trim()) {
       form.claude_oauth_system_prompt_blocks =
         defaultClaudeOAuthSystemPromptBlocks;
@@ -9357,6 +9531,8 @@ async function saveSettings() {
     form.claude_oauth_system_prompt_blocks =
       claudeOAuthSystemPromptBlocksJSON;
 
+    const normalizedCustomMenuItems = normalizeCustomMenuItemsForSave();
+
     const payload: UpdateSettingsRequest = {
       registration_enabled: form.registration_enabled,
       email_verify_enabled: form.email_verify_enabled,
@@ -9391,13 +9567,15 @@ async function saveSettings() {
       contact_info: form.contact_info,
       doc_url: form.doc_url,
       home_content: form.home_content,
+      home_pricing_compare_enabled: form.home_pricing_compare_enabled,
+      home_docs_enabled: form.home_docs_enabled,
       footer_content: form.footer_content,
       footer_friend_links: form.footer_friend_links,
       backend_mode_enabled: form.backend_mode_enabled,
       hide_ccs_import_button: form.hide_ccs_import_button,
       table_default_page_size: form.table_default_page_size,
       table_page_size_options: form.table_page_size_options,
-      custom_menu_items: form.custom_menu_items,
+      custom_menu_items: normalizedCustomMenuItems,
       custom_endpoints: form.custom_endpoints,
       frontend_url: form.frontend_url,
       smtp_host: form.smtp_host,

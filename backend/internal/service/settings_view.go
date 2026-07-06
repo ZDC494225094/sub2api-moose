@@ -134,6 +134,8 @@ type SystemSettings struct {
 	ContactInfo                 string
 	DocURL                      string
 	HomeContent                 string
+	HomePricingCompareEnabled   bool
+	HomeDocsEnabled             bool
 	FooterContent               string
 	FooterFriendLinks           string // JSON array of footer friend links
 	HideCcsImportButton         bool
@@ -269,6 +271,8 @@ type PublicSettings struct {
 	ContactInfo                      string
 	DocURL                           string
 	HomeContent                      string
+	HomePricingCompareEnabled        bool
+	HomeDocsEnabled                  bool
 	FooterContent                    string
 	FooterFriendLinks                string // JSON array of footer friend links
 	HideCcsImportButton              bool

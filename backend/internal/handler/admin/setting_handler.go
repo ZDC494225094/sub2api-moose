@@ -27,6 +27,9 @@ var semverPattern = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
 // menuItemIDPattern validates custom menu item IDs: alphanumeric, hyphens, underscores only.
 var menuItemIDPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
+// menuItemIconNamePattern validates built-in custom menu icon names from the frontend icon registry.
+var menuItemIconNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*$`)
+
 // generateMenuItemID generates a short random hex ID for a custom menu item.
 func generateMenuItemID() (string, error) {
 	b := make([]byte, 8)
@@ -218,6 +221,8 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ContactInfo:                            settings.ContactInfo,
 		DocURL:                                 settings.DocURL,
 		HomeContent:                            settings.HomeContent,
+		HomePricingCompareEnabled:              settings.HomePricingCompareEnabled,
+		HomeDocsEnabled:                        settings.HomeDocsEnabled,
 		FooterContent:                          settings.FooterContent,
 		FooterFriendLinks:                      dto.ParseFooterFriendLinks(settings.FooterFriendLinks),
 		HideCcsImportButton:                    settings.HideCcsImportButton,
@@ -512,6 +517,8 @@ type UpdateSettingsRequest struct {
 	ContactInfo                 string                  `json:"contact_info"`
 	DocURL                      string                  `json:"doc_url"`
 	HomeContent                 string                  `json:"home_content"`
+	HomePricingCompareEnabled   *bool                   `json:"home_pricing_compare_enabled"`
+	HomeDocsEnabled             *bool                   `json:"home_docs_enabled"`
 	FooterContent               string                  `json:"footer_content"`
 	FooterFriendLinks           *[]dto.FooterFriendLink `json:"footer_friend_links"`
 	HideCcsImportButton         bool                    `json:"hide_ccs_import_button"`
@@ -1300,6 +1307,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		maxCustomMenuItems    = 20
 		maxMenuItemLabelLen   = 50
 		maxMenuItemURLLen     = 2048
+		maxMenuItemIconLen    = 64
 		maxMenuItemIconSVGLen = 10 * 1024 // 10KB
 		maxMenuItemIDLen      = 32
 	)
@@ -1320,8 +1328,33 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 				response.BadRequest(c, "Custom menu item label is too long (max 50 characters)")
 				return
 			}
+			openMode := strings.TrimSpace(item.OpenMode)
+			if openMode == "" {
+				openMode = "iframe"
+			}
+			if openMode != "iframe" && openMode != "new_tab" {
+				response.BadRequest(c, "Custom menu item open mode must be 'iframe' or 'new_tab'")
+				return
+			}
+			items[i].OpenMode = openMode
+
+			iconName := strings.TrimSpace(item.Icon)
+			if len(iconName) > maxMenuItemIconLen {
+				response.BadRequest(c, "Custom menu item icon name is too long (max 64 characters)")
+				return
+			}
+			if iconName != "" && !menuItemIconNamePattern.MatchString(iconName) {
+				response.BadRequest(c, "Custom menu item icon name contains invalid characters")
+				return
+			}
+			items[i].Icon = iconName
+
 			urlTrimmed := strings.TrimSpace(item.URL)
 			if strings.HasPrefix(urlTrimmed, "md:") {
+				if openMode == "new_tab" {
+					response.BadRequest(c, "Custom menu item markdown pages can only open in iframe mode")
+					return
+				}
 				// Markdown page mode: URL = "md:<slug>"
 				slug := strings.TrimPrefix(urlTrimmed, "md:")
 				if slug == "" {
@@ -1679,6 +1712,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ContactInfo:                            req.ContactInfo,
 		DocURL:                                 req.DocURL,
 		HomeContent:                            req.HomeContent,
+		HomePricingCompareEnabled:              boolValueOrDefault(req.HomePricingCompareEnabled, previousSettings.HomePricingCompareEnabled),
+		HomeDocsEnabled:                        boolValueOrDefault(req.HomeDocsEnabled, previousSettings.HomeDocsEnabled),
 		FooterContent:                          req.FooterContent,
 		FooterFriendLinks:                      footerFriendLinksJSON,
 		HideCcsImportButton:                    req.HideCcsImportButton,
@@ -2165,6 +2200,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ContactInfo:                            updatedSettings.ContactInfo,
 		DocURL:                                 updatedSettings.DocURL,
 		HomeContent:                            updatedSettings.HomeContent,
+		HomePricingCompareEnabled:              updatedSettings.HomePricingCompareEnabled,
+		HomeDocsEnabled:                        updatedSettings.HomeDocsEnabled,
 		FooterContent:                          updatedSettings.FooterContent,
 		FooterFriendLinks:                      dto.ParseFooterFriendLinks(updatedSettings.FooterFriendLinks),
 		HideCcsImportButton:                    updatedSettings.HideCcsImportButton,
@@ -2577,6 +2614,12 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.HomeContent != after.HomeContent {
 		changed = append(changed, "home_content")
+	}
+	if before.HomePricingCompareEnabled != after.HomePricingCompareEnabled {
+		changed = append(changed, "home_pricing_compare_enabled")
+	}
+	if before.HomeDocsEnabled != after.HomeDocsEnabled {
+		changed = append(changed, "home_docs_enabled")
 	}
 	if before.FooterContent != after.FooterContent {
 		changed = append(changed, "footer_content")

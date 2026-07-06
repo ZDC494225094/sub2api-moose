@@ -322,7 +322,7 @@ curl $SUB2API_BASE/v1/images/generations \
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAppStore, useAuthStore } from '@/stores'
 import Icon from '@/components/icons/Icon.vue'
@@ -349,6 +349,7 @@ let systemThemeQuery: MediaQueryList | null = null
 
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'AI Hub')
 const siteLogo = computed(() => appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '')
+const homeDocsEnabled = computed(() => appStore.cachedPublicSettings?.home_docs_enabled !== false)
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const dashboardPath = computed(() => authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
 const user = computed(() => authStore.user)
@@ -468,6 +469,21 @@ function onSystemThemeChange(event: MediaQueryListEvent) {
   }
 }
 
+async function ensureDocsEnabled() {
+  if (!appStore.publicSettingsLoaded) {
+    await appStore.fetchPublicSettings()
+  }
+  if (!homeDocsEnabled.value) {
+    await router.replace('/')
+  }
+}
+
+watch(homeDocsEnabled, (enabled) => {
+  if (!enabled) {
+    router.replace('/').catch(() => {})
+  }
+})
+
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   document.addEventListener('click', onDocumentClick)
@@ -475,9 +491,7 @@ onMounted(() => {
   systemDark.value = systemThemeQuery.matches
   systemThemeQuery.addEventListener('change', onSystemThemeChange)
   applyThemeClass()
-  if (!appStore.publicSettingsLoaded) {
-    appStore.fetchPublicSettings().catch(() => {})
-  }
+  ensureDocsEnabled().catch(() => {})
   authStore.checkAuth()
 })
 

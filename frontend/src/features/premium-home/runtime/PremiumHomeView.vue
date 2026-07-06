@@ -17,7 +17,7 @@
           <a :class="{ active: activeHomeSection === 'top' }" href="#top" @click="setActiveHomeSection('top')">首页</a>
           <!-- <a :class="{ active: activeHomeSection === 'pricing' }" href="#pricing" @click="setActiveHomeSection('pricing')">充值与定价</a> -->
           <a :class="{ active: activeHomeSection === 'plans' }" href="#plans" @click="setActiveHomeSection('plans')">套餐服务</a>
-          <RouterLink to="/docs">文档中心</RouterLink>
+          <RouterLink v-if="homeDocsEnabled" to="/docs">文档中心</RouterLink>
         </div>
 
         <div class="nav-actions">
@@ -106,9 +106,9 @@
 
       <div class="mobile-menu" :class="{ 'is-open': menuOpen }">
         <a :class="{ active: activeHomeSection === 'top' }" href="#top" @click="handleHomeNavClick('top')">首页</a>
-        <a :class="{ active: activeHomeSection === 'pricing' }" href="#pricing" @click="handleHomeNavClick('pricing')">充值与定价</a>
+        <a v-if="homePricingCompareEnabled" :class="{ active: activeHomeSection === 'pricing' }" href="#pricing" @click="handleHomeNavClick('pricing')">充值与定价</a>
         <a :class="{ active: activeHomeSection === 'plans' }" href="#plans" @click="handleHomeNavClick('plans')">套餐服务</a>
-        <RouterLink to="/docs" @click="menuOpen = false">文档中心</RouterLink>
+        <RouterLink v-if="homeDocsEnabled" to="/docs" @click="menuOpen = false">文档中心</RouterLink>
         <button class="mobile-menu-entry" type="button" @click="openNoticePanelFromMenu">
           公告
         </button>
@@ -128,7 +128,7 @@
             <RouterLink class="primary-btn hero-btn" :to="isAuthenticated ? dashboardPath : '/register'">
               立即开始
             </RouterLink>
-            <a class="secondary-btn hero-btn" href="#pricing" @click="setActiveHomeSection('pricing')">套餐定价</a>
+            <a v-if="homePricingCompareEnabled" class="secondary-btn hero-btn" href="#pricing" @click="setActiveHomeSection('pricing')">套餐定价</a>
           </div>
         </div>
 
@@ -217,7 +217,7 @@
         </div>
       </section>
 
-      <section id="pricing" class="section pricing-compare-section">
+      <section v-if="homePricingCompareEnabled" id="pricing" class="section pricing-compare-section">
         <div class="section-head">
           <div class="section-title">
             <h2>费用对比</h2>
@@ -403,9 +403,9 @@
           <div class="footer-column">
             <h3>站点导航</h3>
             <a href="#top" @click="setActiveHomeSection('top')">首页</a>
-            <a href="#pricing" @click="setActiveHomeSection('pricing')">充值与定价</a>
+            <a v-if="homePricingCompareEnabled" href="#pricing" @click="setActiveHomeSection('pricing')">充值与定价</a>
             <a href="#plans" @click="setActiveHomeSection('plans')">套餐服务</a>
-            <RouterLink to="/docs">文档中心</RouterLink>
+            <RouterLink v-if="homeDocsEnabled" to="/docs">文档中心</RouterLink>
           </div>
           <div class="footer-column">
             <h3>服务支持</h3>
@@ -506,6 +506,8 @@ const siteSubtitle = computed(() =>
   appStore.cachedPublicSettings?.site_subtitle || '聚合最前沿的大模型 API，稳定高效的中转服务，助力开发者与企业快速构建智能应用'
 )
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
+const homePricingCompareEnabled = computed(() => appStore.cachedPublicSettings?.home_pricing_compare_enabled !== false)
+const homeDocsEnabled = computed(() => appStore.cachedPublicSettings?.home_docs_enabled !== false)
 const contactInfo = computed(() => appStore.cachedPublicSettings?.contact_info || appStore.contactInfo || '')
 const footerContent = computed(() => appStore.cachedPublicSettings?.footer_content?.trim() || siteSubtitle.value)
 const footerFriendLinks = computed(() => {
@@ -877,6 +879,10 @@ function onSystemThemeChange(event: MediaQueryListEvent) {
 }
 
 function setActiveHomeSection(section: HomeSection) {
+  if (section === 'pricing' && !homePricingCompareEnabled.value) {
+    activeHomeSection.value = 'top'
+    return
+  }
   activeHomeSection.value = section
 }
 
@@ -890,12 +896,18 @@ function syncActiveSectionFromHash() {
     activeHomeSection.value = 'plans'
     return
   }
-  if (window.location.hash === '#pricing') {
+  if (window.location.hash === '#pricing' && homePricingCompareEnabled.value) {
     activeHomeSection.value = 'pricing'
     return
   }
   activeHomeSection.value = 'top'
 }
+
+watch(homePricingCompareEnabled, (enabled) => {
+  if (!enabled && activeHomeSection.value === 'pricing') {
+    activeHomeSection.value = 'top'
+  }
+})
 
 watch(visiblePlanTabs, (tabs) => {
   if (tabs.length === 0) return

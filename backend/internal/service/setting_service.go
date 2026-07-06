@@ -793,6 +793,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyContactInfo,
 		SettingKeyDocURL,
 		SettingKeyHomeContent,
+		SettingKeyHomePricingCompareEnabled,
+		SettingKeyHomeDocsEnabled,
 		SettingKeyFooterContent,
 		SettingKeyFooterFriendLinks,
 		SettingKeyHideCcsImportButton,
@@ -920,6 +922,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		ContactInfo:                      settings[SettingKeyContactInfo],
 		DocURL:                           settings[SettingKeyDocURL],
 		HomeContent:                      settings[SettingKeyHomeContent],
+		HomePricingCompareEnabled:        !isFalseSettingValue(settings[SettingKeyHomePricingCompareEnabled]),
+		HomeDocsEnabled:                  !isFalseSettingValue(settings[SettingKeyHomeDocsEnabled]),
 		FooterContent:                    settings[SettingKeyFooterContent],
 		FooterFriendLinks:                settings[SettingKeyFooterFriendLinks],
 		HideCcsImportButton:              settings[SettingKeyHideCcsImportButton] == "true",
@@ -1446,6 +1450,8 @@ type PublicSettingsInjectionPayload struct {
 	ContactInfo                      string                   `json:"contact_info"`
 	DocURL                           string                   `json:"doc_url"`
 	HomeContent                      string                   `json:"home_content"`
+	HomePricingCompareEnabled        bool                     `json:"home_pricing_compare_enabled"`
+	HomeDocsEnabled                  bool                     `json:"home_docs_enabled"`
 	FooterContent                    string                   `json:"footer_content"`
 	FooterFriendLinks                json.RawMessage          `json:"footer_friend_links"`
 	HideCcsImportButton              bool                     `json:"hide_ccs_import_button"`
@@ -1517,6 +1523,8 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		ContactInfo:                      settings.ContactInfo,
 		DocURL:                           settings.DocURL,
 		HomeContent:                      settings.HomeContent,
+		HomePricingCompareEnabled:        settings.HomePricingCompareEnabled,
+		HomeDocsEnabled:                  settings.HomeDocsEnabled,
 		FooterContent:                    settings.FooterContent,
 		FooterFriendLinks:                safeRawJSONArray(settings.FooterFriendLinks),
 		HideCcsImportButton:              settings.HideCcsImportButton,
@@ -1754,7 +1762,8 @@ func safeRawJSONArray(raw string) json.RawMessage {
 }
 
 // GetFrameSrcOrigins returns deduplicated http(s) origins from home_content URL,
-// purchase_subscription_url, and all custom_menu_items URLs. Used by the router layer for CSP frame-src injection.
+// purchase_subscription_url, and custom_menu_items URLs that are opened in iframe mode.
+// Used by the router layer for CSP frame-src injection.
 func (s *SettingService) GetFrameSrcOrigins(ctx context.Context) ([]string, error) {
 	settings, err := s.GetPublicSettings(ctx)
 	if err != nil {
@@ -1806,20 +1815,24 @@ func extractOriginFromURL(rawURL string) string {
 	return u.Scheme + "://" + u.Host
 }
 
-// parseCustomMenuItemURLs extracts URLs from a raw JSON array of custom menu items.
+// parseCustomMenuItemURLs extracts iframe URLs from a raw JSON array of custom menu items.
 func parseCustomMenuItemURLs(raw string) []string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" || raw == "[]" {
 		return nil
 	}
 	var items []struct {
-		URL string `json:"url"`
+		URL      string `json:"url"`
+		OpenMode string `json:"open_mode"`
 	}
 	if err := json.Unmarshal([]byte(raw), &items); err != nil {
 		return nil
 	}
 	urls := make([]string, 0, len(items))
 	for _, item := range items {
+		if item.OpenMode == "new_tab" {
+			continue
+		}
 		if item.URL != "" {
 			urls = append(urls, item.URL)
 		}
@@ -2114,6 +2127,8 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyContactInfo] = settings.ContactInfo
 	updates[SettingKeyDocURL] = settings.DocURL
 	updates[SettingKeyHomeContent] = settings.HomeContent
+	updates[SettingKeyHomePricingCompareEnabled] = strconv.FormatBool(settings.HomePricingCompareEnabled)
+	updates[SettingKeyHomeDocsEnabled] = strconv.FormatBool(settings.HomeDocsEnabled)
 	updates[SettingKeyFooterContent] = settings.FooterContent
 	updates[SettingKeyFooterFriendLinks] = settings.FooterFriendLinks
 	updates[SettingKeyHideCcsImportButton] = strconv.FormatBool(settings.HideCcsImportButton)
@@ -3060,6 +3075,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyAPIKeyACLTrustForwardedIP:                 "false",
 		SettingKeySiteName:                                  "Sub2API",
 		SettingKeySiteLogo:                                  "",
+		SettingKeyHomePricingCompareEnabled:                 "true",
+		SettingKeyHomeDocsEnabled:                           "true",
 		SettingKeyPurchaseSubscriptionEnabled:               "false",
 		SettingKeyPurchaseSubscriptionURL:                   "",
 		SettingKeyTableDefaultPageSize:                      "20",
@@ -3270,6 +3287,8 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		ContactInfo:                      settings[SettingKeyContactInfo],
 		DocURL:                           settings[SettingKeyDocURL],
 		HomeContent:                      settings[SettingKeyHomeContent],
+		HomePricingCompareEnabled:        !isFalseSettingValue(settings[SettingKeyHomePricingCompareEnabled]),
+		HomeDocsEnabled:                  !isFalseSettingValue(settings[SettingKeyHomeDocsEnabled]),
 		FooterContent:                    settings[SettingKeyFooterContent],
 		FooterFriendLinks:                settings[SettingKeyFooterFriendLinks],
 		HideCcsImportButton:              settings[SettingKeyHideCcsImportButton] == "true",

@@ -433,6 +433,8 @@ export interface SystemSettings {
   contact_info: string;
   doc_url: string;
   home_content: string;
+  home_pricing_compare_enabled: boolean;
+  home_docs_enabled: boolean;
   footer_content: string;
   footer_friend_links: FooterFriendLink[];
   hide_ccs_import_button: boolean;
@@ -708,6 +710,8 @@ export interface UpdateSettingsRequest {
   contact_info?: string;
   doc_url?: string;
   home_content?: string;
+  home_pricing_compare_enabled?: boolean;
+  home_docs_enabled?: boolean;
   footer_content?: string;
   footer_friend_links?: FooterFriendLink[];
   hide_ccs_import_button?: boolean;

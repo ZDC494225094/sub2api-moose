@@ -253,6 +253,8 @@ const (
 	SettingKeyContactInfo                 = "contact_info"                  // 客服联系方式
 	SettingKeyDocURL                      = "doc_url"                       // 文档链接
 	SettingKeyHomeContent                 = "home_content"                  // 首页内容（支持 Markdown/HTML，或 URL 作为 iframe src）
+	SettingKeyHomePricingCompareEnabled   = "home_pricing_compare_enabled"  // 是否展示首页费用对比区域
+	SettingKeyHomeDocsEnabled             = "home_docs_enabled"             // 是否展示首页文档中心入口
 	SettingKeyFooterContent               = "footer_content"                // 首页页脚内容
 	SettingKeyFooterFriendLinks           = "footer_friend_links"           // 首页页脚友情链接（JSON 数组）
 	SettingKeyHideCcsImportButton         = "hide_ccs_import_button"        // 是否隐藏 API Keys 页面的导入 CCS 按钮

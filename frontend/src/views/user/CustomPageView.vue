@@ -27,6 +27,32 @@
           </div>
         </div>
 
+        <!-- New tab mode -->
+        <div v-else-if="isNewTabMode" class="flex h-full items-center justify-center p-10 text-center">
+          <div class="max-w-md">
+            <div
+              class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-dark-700"
+            >
+              <Icon name="externalLink" size="lg" class="text-gray-400" />
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('customPage.newTabModeTitle') }}
+            </h3>
+            <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+              {{ t('customPage.newTabModeDesc') }}
+            </p>
+            <a
+              :href="newTabUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn btn-primary btn-sm mt-5"
+            >
+              <Icon name="externalLink" size="sm" class="mr-1.5" :stroke-width="2" />
+              {{ t('customPage.openInNewTab') }}
+            </a>
+          </div>
+        </div>
+
         <!-- Markdown mode with TOC -->
         <div v-else-if="isMarkdownMode" class="flex h-full overflow-hidden">
           <!-- TOC Sidebar -->
@@ -173,6 +199,19 @@ const markdownSlug = computed(() => {
 
 const isMarkdownMode = computed(() => !!markdownSlug.value)
 
+function isHttpUrl(url: string): boolean {
+  return url.startsWith('http://') || url.startsWith('https://')
+}
+
+const newTabUrl = computed(() => {
+  const url = menuItem.value?.url?.trim() ?? ''
+  return isHttpUrl(url) ? url : ''
+})
+
+const isNewTabMode = computed(() => {
+  return menuItem.value?.open_mode === 'new_tab' && !!newTabUrl.value
+})
+
 const embeddedUrl = computed(() => {
   if (!menuItem.value || isMarkdownMode.value) return ''
   return buildEmbeddedUrl(
@@ -187,7 +226,7 @@ const embeddedUrl = computed(() => {
 const isValidUrl = computed(() => {
   if (isMarkdownMode.value) return false
   const url = embeddedUrl.value
-  return url.startsWith('http://') || url.startsWith('https://')
+  return isHttpUrl(url)
 })
 
 function generateHeadingId(text: string, index: number): string {

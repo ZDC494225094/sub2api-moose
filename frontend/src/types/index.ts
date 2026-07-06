@@ -164,12 +164,16 @@ export interface SendVerifyCodeResponse {
   countdown: number
 }
 
+export type CustomMenuOpenMode = 'iframe' | 'new_tab'
+
 export interface CustomMenuItem {
   id: string
   label: string
+  icon?: string
   icon_svg: string
   url: string
   page_slug?: string
+  open_mode?: CustomMenuOpenMode
   visibility: 'user' | 'admin'
   sort_order: number
 }
@@ -213,6 +217,8 @@ export interface PublicSettings {
   contact_info: string
   doc_url: string
   home_content: string
+  home_pricing_compare_enabled?: boolean
+  home_docs_enabled?: boolean
   footer_content: string
   footer_friend_links: FooterFriendLink[]
   hide_ccs_import_button: boolean

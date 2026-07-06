@@ -229,6 +229,9 @@ func TestAPIContracts(t *testing.T) {
 					"key": "sk_custom_1234567890",
 					"name": "Key One",
 					"group_id": null,
+					"group_ids": [],
+					"platform": "anthropic",
+					"billing_priority": "balance_first",
 					"status": "active",
 					"ip_whitelist": null,
 					"ip_blacklist": null,
@@ -278,6 +281,9 @@ func TestAPIContracts(t *testing.T) {
 							"key": "sk_custom_1234567890",
 							"name": "Key One",
 							"group_id": null,
+							"group_ids": null,
+							"platform": "anthropic",
+							"billing_priority": "balance_first",
 							"status": "active",
 							"ip_whitelist": null,
 							"ip_blacklist": null,
@@ -830,6 +836,10 @@ func TestAPIContracts(t *testing.T) {
 						"identity_patch_prompt": "",
 						"invitation_code_enabled": false,
 						"home_content": "",
+					"home_pricing_compare_enabled": true,
+					"home_docs_enabled": true,
+					"footer_content": "",
+					"footer_friend_links": [],
 					"hide_ccs_import_button": false,
 					"purchase_subscription_enabled": false,
 					"purchase_subscription_url": "",
@@ -1050,6 +1060,10 @@ func TestAPIContracts(t *testing.T) {
 					"contact_info": "",
 					"doc_url": "",
 					"home_content": "",
+					"home_pricing_compare_enabled": true,
+					"home_docs_enabled": true,
+					"footer_content": "",
+					"footer_friend_links": [],
 					"hide_ccs_import_button": false,
 					"purchase_subscription_enabled": false,
 					"purchase_subscription_url": "",
@@ -2033,6 +2047,19 @@ func (r *stubUserSubscriptionRepo) ListActiveByUserID(ctx context.Context, userI
 		return nil, nil
 	}
 	return append([]service.UserSubscription(nil), r.activeByUser[userID]...), nil
+}
+func (r *stubUserSubscriptionRepo) ListActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) ([]service.UserSubscription, error) {
+	subs, err := r.ListActiveByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]service.UserSubscription, 0, len(subs))
+	for _, sub := range subs {
+		if sub.GroupID == groupID {
+			filtered = append(filtered, sub)
+		}
+	}
+	return filtered, nil
 }
 func (stubUserSubscriptionRepo) ListByGroupID(ctx context.Context, groupID int64, params pagination.PaginationParams) ([]service.UserSubscription, *pagination.PaginationResult, error) {
 	return nil, nil, errors.New("not implemented")

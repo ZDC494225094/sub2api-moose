@@ -109,6 +109,16 @@ export const FeatureFlags = {
     mode: 'opt-out',
     label: 'Payment',
   }),
+  homePricingCompare: defineFlag({
+    key: 'home_pricing_compare_enabled',
+    mode: 'opt-out',
+    label: 'Home Pricing Compare',
+  }),
+  homeDocs: defineFlag({
+    key: 'home_docs_enabled',
+    mode: 'opt-out',
+    label: 'Home Docs',
+  }),
   riskControl: defineFlag({
     key: 'risk_control_enabled',
     mode: 'opt-in',

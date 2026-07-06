@@ -11,9 +11,11 @@ import (
 type CustomMenuItem struct {
 	ID         string `json:"id"`
 	Label      string `json:"label"`
+	Icon       string `json:"icon,omitempty"`
 	IconSVG    string `json:"icon_svg"`
 	URL        string `json:"url"`
 	PageSlug   string `json:"page_slug,omitempty"`
+	OpenMode   string `json:"open_mode,omitempty"`
 	Visibility string `json:"visibility"` // "user" or "admin"
 	SortOrder  int    `json:"sort_order"`
 }
@@ -140,6 +142,8 @@ type SystemSettings struct {
 	ContactInfo                 string             `json:"contact_info"`
 	DocURL                      string             `json:"doc_url"`
 	HomeContent                 string             `json:"home_content"`
+	HomePricingCompareEnabled   bool               `json:"home_pricing_compare_enabled"`
+	HomeDocsEnabled             bool               `json:"home_docs_enabled"`
 	FooterContent               string             `json:"footer_content"`
 	FooterFriendLinks           []FooterFriendLink `json:"footer_friend_links"`
 	HideCcsImportButton         bool               `json:"hide_ccs_import_button"`
@@ -308,6 +312,8 @@ type PublicSettings struct {
 	ContactInfo                      string                   `json:"contact_info"`
 	DocURL                           string                   `json:"doc_url"`
 	HomeContent                      string                   `json:"home_content"`
+	HomePricingCompareEnabled        bool                     `json:"home_pricing_compare_enabled"`
+	HomeDocsEnabled                  bool                     `json:"home_docs_enabled"`
 	FooterContent                    string                   `json:"footer_content"`
 	FooterFriendLinks                []FooterFriendLink       `json:"footer_friend_links"`
 	HideCcsImportButton              bool                     `json:"hide_ccs_import_button"`
