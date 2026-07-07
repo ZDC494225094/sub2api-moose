@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog :show="show" :title="t('admin.groups.manageAccounts')" width="wide" @close="handleClose">
+  <BaseDialog :show="show" :title="t('admin.groups.manageAccounts')" width="full" @close="handleClose">
     <div v-if="group" class="space-y-4">
       <div class="flex flex-wrap items-center gap-3 rounded-lg bg-gray-50 px-4 py-2.5 text-sm dark:bg-dark-700">
         <span class="inline-flex items-center gap-1.5" :class="platformColorClass">
@@ -14,7 +14,7 @@
         </span>
       </div>
 
-      <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_460px] xl:grid-cols-[minmax(0,1fr)_520px]">
         <div class="rounded-lg border border-gray-200 dark:border-dark-600">
           <div class="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-3 py-2 dark:border-dark-600 dark:bg-dark-700">
             <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">
