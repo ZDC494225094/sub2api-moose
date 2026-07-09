@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -62,6 +63,45 @@ func parseTimeRange(c *gin.Context) (time.Time, time.Time) {
 	}
 
 	return startTime, endTime
+}
+
+const (
+	operationsFunnelDefaultDays = 30
+	operationsFunnelMaxDays     = 90
+)
+
+func parseOperationsFunnelRange(c *gin.Context) (time.Time, time.Time, error) {
+	userTZ := c.Query("timezone")
+	now := timezone.NowInUserLocation(userTZ)
+	startDate := strings.TrimSpace(c.Query("start_date"))
+	endDate := strings.TrimSpace(c.Query("end_date"))
+
+	startTime := timezone.StartOfDayInUserLocation(now.AddDate(0, 0, -(operationsFunnelDefaultDays-1)), userTZ)
+	endTime := timezone.StartOfDayInUserLocation(now.AddDate(0, 0, 1), userTZ)
+
+	if startDate != "" {
+		parsed, err := timezone.ParseInUserLocation("2006-01-02", startDate, userTZ)
+		if err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("invalid start_date, use YYYY-MM-DD")
+		}
+		startTime = parsed
+	}
+	if endDate != "" {
+		parsed, err := timezone.ParseInUserLocation("2006-01-02", endDate, userTZ)
+		if err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("invalid end_date, use YYYY-MM-DD")
+		}
+		endTime = parsed.AddDate(0, 0, 1)
+	}
+	if !startTime.Before(endTime) {
+		return time.Time{}, time.Time{}, fmt.Errorf("start_date must be before or equal to end_date")
+	}
+
+	maxStart := endTime.AddDate(0, 0, -operationsFunnelMaxDays)
+	if startTime.Before(maxStart) {
+		startTime = maxStart
+	}
+	return startTime, endTime, nil
 }
 
 // GetStats handles getting dashboard statistics
@@ -478,6 +518,12 @@ type BatchUsersUsageRequest struct {
 var dashboardUsersRankingCache = newSnapshotCache(5 * time.Minute)
 var dashboardBatchUsersUsageCache = newSnapshotCache(30 * time.Second)
 var dashboardBatchAPIKeysUsageCache = newSnapshotCache(30 * time.Second)
+var dashboardOperationsFunnelCache = newSnapshotCache(30 * time.Second)
+
+type dashboardOperationsFunnelCacheKey struct {
+	StartTime string `json:"start_time"`
+	EndTime   string `json:"end_time"`
+}
 
 func parseRankingLimit(raw string) int {
 	limit, err := strconv.Atoi(strings.TrimSpace(raw))
@@ -488,6 +534,34 @@ func parseRankingLimit(raw string) int {
 		return 50
 	}
 	return limit
+}
+
+// GetOperationsFunnel handles read-only operations funnel analytics.
+// GET /api/v1/admin/dashboard/operations-funnel
+func (h *DashboardHandler) GetOperationsFunnel(c *gin.Context) {
+	startTime, endTime, err := parseOperationsFunnelRange(c)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	cacheKey := mustMarshalDashboardCacheKey(dashboardOperationsFunnelCacheKey{
+		StartTime: startTime.UTC().Format(time.RFC3339),
+		EndTime:   endTime.UTC().Format(time.RFC3339),
+	})
+	entry, hit, err := dashboardOperationsFunnelCache.GetOrLoad(cacheKey, func() (any, error) {
+		return h.dashboardService.GetOperationsFunnel(c.Request.Context(), startTime, endTime)
+	})
+	if err != nil {
+		response.Error(c, 500, "Failed to get operations funnel")
+		return
+	}
+	payload, err := snapshotPayloadAs[*service.OperationsFunnelResponse](entry.Payload)
+	if err != nil {
+		response.Error(c, 500, "Failed to get operations funnel")
+		return
+	}
+	c.Header("X-Snapshot-Cache", cacheStatusValue(hit))
+	response.Success(c, payload)
 }
 
 // GetUserSpendingRanking handles getting user spending ranking data.

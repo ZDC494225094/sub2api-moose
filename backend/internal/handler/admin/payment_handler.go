@@ -64,6 +64,14 @@ func (h *PaymentHandler) ListOrders(c *gin.Context) {
 			userID = v
 		}
 	}
+	startTime, endTime, ok := parseAdminPaymentOrderDateRange(c)
+	if !ok {
+		return
+	}
+	dateField, ok := parseAdminPaymentOrderDateField(c)
+	if !ok {
+		return
+	}
 	orders, total, err := h.paymentService.AdminListOrders(c.Request.Context(), userID, service.OrderListParams{
 		Page:        page,
 		PageSize:    pageSize,
@@ -71,12 +79,56 @@ func (h *PaymentHandler) ListOrders(c *gin.Context) {
 		OrderType:   c.Query("order_type"),
 		PaymentType: c.Query("payment_type"),
 		Keyword:     c.Query("keyword"),
+		DateField:   dateField,
+		StartTime:   startTime,
+		EndTime:     endTime,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 	response.Paginated(c, sanitizeAdminPaymentOrdersForResponse(orders), int64(total), page, pageSize)
+}
+
+func parseAdminPaymentOrderDateRange(c *gin.Context) (*time.Time, *time.Time, bool) {
+	startRaw := strings.TrimSpace(c.Query("start_date"))
+	endRaw := strings.TrimSpace(c.Query("end_date"))
+	var startTime, endTime *time.Time
+	if startRaw != "" {
+		parsed, err := time.ParseInLocation("2006-01-02", startRaw, time.Local)
+		if err != nil {
+			response.BadRequest(c, "Invalid start_date, use YYYY-MM-DD")
+			return nil, nil, false
+		}
+		startTime = &parsed
+	}
+	if endRaw != "" {
+		parsed, err := time.ParseInLocation("2006-01-02", endRaw, time.Local)
+		if err != nil {
+			response.BadRequest(c, "Invalid end_date, use YYYY-MM-DD")
+			return nil, nil, false
+		}
+		inclusiveEnd := parsed.AddDate(0, 0, 1)
+		endTime = &inclusiveEnd
+	}
+	if startTime != nil && endTime != nil && !startTime.Before(*endTime) {
+		response.BadRequest(c, "start_date must be before or equal to end_date")
+		return nil, nil, false
+	}
+	return startTime, endTime, true
+}
+
+func parseAdminPaymentOrderDateField(c *gin.Context) (string, bool) {
+	dateField := strings.TrimSpace(c.DefaultQuery("date_field", "created_at"))
+	switch dateField {
+	case "", "created_at":
+		return "created_at", true
+	case "paid_at":
+		return "paid_at", true
+	default:
+		response.BadRequest(c, "Invalid date_field, use created_at or paid_at")
+		return "", false
+	}
 }
 
 // GetOrderDetail returns detailed information about a single order.

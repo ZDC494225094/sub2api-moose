@@ -893,6 +893,21 @@ func (s *PaymentService) AdminListOrders(ctx context.Context, userID int64, p Or
 	if p.PaymentType != "" {
 		q = q.Where(paymentorder.PaymentTypeEQ(p.PaymentType))
 	}
+	if p.DateField == "paid_at" {
+		if p.StartTime != nil {
+			q = q.Where(paymentorder.PaidAtGTE(*p.StartTime))
+		}
+		if p.EndTime != nil {
+			q = q.Where(paymentorder.PaidAtLT(*p.EndTime))
+		}
+	} else {
+		if p.StartTime != nil {
+			q = q.Where(paymentorder.CreatedAtGTE(*p.StartTime))
+		}
+		if p.EndTime != nil {
+			q = q.Where(paymentorder.CreatedAtLT(*p.EndTime))
+		}
+	}
 	if p.Keyword != "" {
 		q = q.Where(paymentorder.Or(
 			paymentorder.OutTradeNoContainsFold(p.Keyword),

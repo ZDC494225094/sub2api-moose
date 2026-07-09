@@ -119,6 +119,9 @@ type OrderListParams struct {
 	OrderType   string
 	PaymentType string
 	Keyword     string
+	DateField   string
+	StartTime   *time.Time
+	EndTime     *time.Time
 }
 
 type RefundPlan struct {
@@ -161,14 +164,14 @@ type DailyStats struct {
 	Amount float64 `json:"amount"`
 	Count  int     `json:"count"`
 
-	BalanceAmount          float64 `json:"balance_amount"`
-	BalanceCount           int     `json:"balance_count"`
-	SubscriptionAmount     float64 `json:"subscription_amount"`
-	SubscriptionCount      int     `json:"subscription_count"`
-	NewUserCount           int     `json:"new_user_count"`
-	NewUserAmount          float64 `json:"new_user_amount"`
-	ReturningUserCount     int     `json:"returning_user_count"`
-	ReturningUserAmount    float64 `json:"returning_user_amount"`
+	BalanceAmount       float64 `json:"balance_amount"`
+	BalanceCount        int     `json:"balance_count"`
+	SubscriptionAmount  float64 `json:"subscription_amount"`
+	SubscriptionCount   int     `json:"subscription_count"`
+	NewUserCount        int     `json:"new_user_count"`
+	NewUserAmount       float64 `json:"new_user_amount"`
+	ReturningUserCount  int     `json:"returning_user_count"`
+	ReturningUserAmount float64 `json:"returning_user_amount"`
 }
 
 type PaymentMethodStat struct {

@@ -20,6 +20,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	dbuser "github.com/Wei-Shaw/sub2api/ent/user"
 	dbusersub "github.com/Wei-Shaw/sub2api/ent/usersubscription"
+	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
@@ -1640,6 +1641,126 @@ func (r *usageLogRepository) GetDashboardStatsWithRange(ctx context.Context, sta
 	stats.Rpm = rpm
 	stats.Tpm = tpm
 
+	return stats, nil
+}
+
+func (r *usageLogRepository) GetOperationsFunnel(ctx context.Context, startTime, endTime time.Time) (*service.OperationsFunnelStats, error) {
+	stats := &service.OperationsFunnelStats{}
+	query := `
+		WITH paid_statuses(status) AS (
+			VALUES ($3), ($4), ($5)
+		),
+		cohort AS (
+			SELECT id
+			FROM users
+			WHERE created_at >= $1
+				AND created_at < $2
+				AND deleted_at IS NULL
+		),
+		funnel_counts AS (
+			SELECT
+				(SELECT COUNT(*) FROM cohort) AS registered_users,
+				(
+					SELECT COUNT(DISTINCT ak.user_id)
+					FROM api_keys ak
+					JOIN cohort c ON c.id = ak.user_id
+					WHERE ak.deleted_at IS NULL
+						AND ak.created_at >= $1
+						AND ak.created_at < $2
+				) AS created_key_users,
+				(
+					SELECT COUNT(DISTINCT ul.user_id)
+					FROM usage_logs ul
+					JOIN cohort c ON c.id = ul.user_id
+					WHERE ul.created_at >= $1
+						AND ul.created_at < $2
+						AND ul.actual_cost > 0
+				) AS active_users,
+				(
+					SELECT COUNT(DISTINCT po.user_id)
+					FROM payment_orders po
+					JOIN cohort c ON c.id = po.user_id
+					WHERE po.status IN (SELECT status FROM paid_statuses)
+						AND po.paid_at IS NOT NULL
+						AND po.paid_at >= $1
+						AND po.paid_at < $2
+				) AS paying_users
+		),
+		period_orders AS (
+			SELECT
+				COALESCE(SUM(CASE WHEN status IN (SELECT status FROM paid_statuses) AND paid_at >= $1 AND paid_at < $2 THEN 1 ELSE 0 END), 0) AS paid_orders,
+				COUNT(DISTINCT CASE WHEN status IN (SELECT status FROM paid_statuses) AND paid_at >= $1 AND paid_at < $2 THEN user_id END) AS period_paying_users,
+				COALESCE(SUM(CASE WHEN status IN (SELECT status FROM paid_statuses) AND paid_at >= $1 AND paid_at < $2 THEN pay_amount ELSE 0 END), 0) AS total_revenue,
+				COALESCE(SUM(CASE WHEN status IN (SELECT status FROM paid_statuses) AND paid_at >= $1 AND paid_at < $2 AND order_type = $6 THEN pay_amount ELSE 0 END), 0) AS balance_revenue,
+				COALESCE(SUM(CASE WHEN status IN (SELECT status FROM paid_statuses) AND paid_at >= $1 AND paid_at < $2 AND order_type = $6 THEN 1 ELSE 0 END), 0) AS balance_orders,
+				COALESCE(SUM(CASE WHEN status IN (SELECT status FROM paid_statuses) AND paid_at >= $1 AND paid_at < $2 AND order_type = $7 THEN pay_amount ELSE 0 END), 0) AS subscription_revenue,
+				COALESCE(SUM(CASE WHEN status IN (SELECT status FROM paid_statuses) AND paid_at >= $1 AND paid_at < $2 AND order_type = $7 THEN 1 ELSE 0 END), 0) AS subscription_orders,
+				COALESCE(SUM(CASE WHEN created_at >= $1 AND created_at < $2 AND status = $8 THEN 1 ELSE 0 END), 0) AS pending_orders,
+				COALESCE(SUM(CASE WHEN created_at >= $1 AND created_at < $2 AND status = $9 THEN 1 ELSE 0 END), 0) AS failed_orders,
+				COALESCE(SUM(CASE WHEN created_at >= $1 AND created_at < $2 AND status = $10 THEN 1 ELSE 0 END), 0) AS refund_requested_orders,
+				COALESCE(SUM(CASE WHEN created_at >= $1 AND created_at < $2 AND status = $11 THEN 1 ELSE 0 END), 0) AS expired_orders,
+				COALESCE(SUM(CASE WHEN created_at >= $1 AND created_at < $2 AND status = $12 THEN 1 ELSE 0 END), 0) AS cancelled_orders
+			FROM payment_orders
+			WHERE (created_at >= $1 AND created_at < $2)
+				OR (paid_at >= $1 AND paid_at < $2)
+		)
+		SELECT
+			f.registered_users,
+			f.created_key_users,
+			f.active_users,
+			f.paying_users,
+			p.period_paying_users,
+			p.paid_orders,
+			p.total_revenue,
+			p.balance_revenue,
+			p.balance_orders,
+			p.subscription_revenue,
+			p.subscription_orders,
+			p.pending_orders,
+			p.failed_orders,
+			p.refund_requested_orders,
+			p.expired_orders,
+			p.cancelled_orders
+		FROM funnel_counts f
+		CROSS JOIN period_orders p
+	`
+	if err := scanSingleRow(
+		ctx,
+		r.sql,
+		query,
+		[]any{
+			startTime,
+			endTime,
+			service.OrderStatusCompleted,
+			service.OrderStatusPaid,
+			service.OrderStatusRecharging,
+			payment.OrderTypeBalance,
+			payment.OrderTypeSubscription,
+			service.OrderStatusPending,
+			service.OrderStatusFailed,
+			service.OrderStatusRefundRequested,
+			service.OrderStatusExpired,
+			service.OrderStatusCancelled,
+		},
+		&stats.RegisteredUsers,
+		&stats.CreatedKeyUsers,
+		&stats.ActiveUsers,
+		&stats.PayingUsers,
+		&stats.PeriodPayingUsers,
+		&stats.PaidOrders,
+		&stats.TotalRevenue,
+		&stats.BalanceRevenue,
+		&stats.BalanceOrders,
+		&stats.SubscriptionRevenue,
+		&stats.SubscriptionOrders,
+		&stats.PendingOrders,
+		&stats.FailedOrders,
+		&stats.RefundRequestedOrders,
+		&stats.ExpiredOrders,
+		&stats.CancelledOrders,
+	); err != nil {
+		return nil, err
+	}
 	return stats, nil
 }
 

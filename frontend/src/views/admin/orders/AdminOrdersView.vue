@@ -7,9 +7,15 @@
           <div class="flex-1 sm:max-w-64">
             <input v-model="orderSearch" type="text" :placeholder="t('payment.admin.searchOrders')" class="input" @input="debounceLoadOrders" />
           </div>
-          <Select v-model="orderFilters.status" :options="statusFilterOptions" class="w-36" @change="loadOrders" />
-          <Select v-model="orderFilters.payment_type" :options="paymentTypeFilterOptions" class="w-40" @change="loadOrders" />
-          <Select v-model="orderFilters.order_type" :options="orderTypeFilterOptions" class="w-36" @change="loadOrders" />
+          <Select v-model="orderFilters.status" :options="statusFilterOptions" class="w-36" @change="applyOrderFilters" />
+          <Select v-model="orderFilters.payment_type" :options="paymentTypeFilterOptions" class="w-40" @change="applyOrderFilters" />
+          <Select v-model="orderFilters.order_type" :options="orderTypeFilterOptions" class="w-36" @change="applyOrderFilters" />
+          <Select v-model="orderFilters.date_field" :options="dateFieldOptions" class="w-32" @change="applyOrderFilters" />
+          <div class="flex items-center gap-1.5">
+            <input v-model="orderDateFilters.start_date" type="date" class="input input-sm text-xs" @change="applyOrderFilters" />
+            <span class="text-xs text-gray-400">-</span>
+            <input v-model="orderDateFilters.end_date" type="date" class="input input-sm text-xs" @change="applyOrderFilters" />
+          </div>
           <div class="flex flex-1 flex-wrap items-center justify-end gap-2">
             <button @click="loadOrders" :disabled="ordersLoading" class="btn btn-secondary" :title="t('common.refresh')">
               <Icon name="refresh" size="md" :class="ordersLoading ? 'animate-spin' : ''" />
@@ -117,6 +123,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminPaymentAPI } from '@/api/admin/payment'
@@ -143,11 +150,13 @@ interface AuditLog {
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const route = useRoute()
 
 const ordersLoading = ref(false)
 const orders = ref<PaymentOrder[]>([])
 const orderSearch = ref('')
-const orderFilters = reactive({ status: '', payment_type: '', order_type: '' })
+const orderFilters = reactive({ status: '', payment_type: '', order_type: '', date_field: 'created_at' as 'created_at' | 'paid_at' })
+const orderDateFilters = reactive({ start_date: '', end_date: '' })
 const orderPagination = reactive({ page: 1, page_size: 20, total: 0 })
 const selectedOrder = ref<PaymentOrder | null>(null)
 const showDetailDialog = ref(false)
@@ -164,7 +173,15 @@ function paymentAmountSymbol(order: PaymentOrder | null | undefined): string {
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 function debounceLoadOrders() {
   if (debounceTimer) clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => loadOrders(), 300)
+  debounceTimer = setTimeout(() => {
+    orderPagination.page = 1
+    loadOrders()
+  }, 300)
+}
+
+function applyOrderFilters() {
+  orderPagination.page = 1
+  loadOrders()
 }
 
 async function loadOrders() {
@@ -174,6 +191,8 @@ async function loadOrders() {
       page: orderPagination.page, page_size: orderPagination.page_size,
       keyword: orderSearch.value || undefined, status: orderFilters.status || undefined,
       payment_type: orderFilters.payment_type || undefined, order_type: orderFilters.order_type || undefined,
+      date_field: orderFilters.date_field,
+      start_date: orderDateFilters.start_date || undefined, end_date: orderDateFilters.end_date || undefined,
     })
     orders.value = res.data.items || []
     orderPagination.total = res.data.total || 0
@@ -211,6 +230,11 @@ const orderTypeFilterOptions = computed(() => [
   { value: '', label: t('payment.admin.allOrderTypes') },
   { value: 'balance', label: t('payment.admin.balanceOrder') },
   { value: 'subscription', label: t('payment.admin.subscriptionOrder') },
+])
+
+const dateFieldOptions = computed(() => [
+  { value: 'created_at', label: t('payment.admin.createdAt') },
+  { value: 'paid_at', label: t('payment.admin.paidAt') },
 ])
 
 async function showOrderDetail(order: PaymentOrder) {
@@ -286,5 +310,23 @@ async function handleQueryRefund(order: PaymentOrder) {
 
 function formatDateTime(dateStr: string): string { return formatOrderDateTime(dateStr) }
 
-onMounted(() => loadOrders())
+function firstQueryValue(value: unknown): string {
+  if (Array.isArray(value)) return String(value[0] || '')
+  return typeof value === 'string' ? value : ''
+}
+
+function initFiltersFromRoute() {
+  orderSearch.value = firstQueryValue(route.query.keyword)
+  orderFilters.status = firstQueryValue(route.query.status)
+  orderFilters.payment_type = firstQueryValue(route.query.payment_type)
+  orderFilters.order_type = firstQueryValue(route.query.order_type)
+  orderFilters.date_field = firstQueryValue(route.query.date_field) === 'paid_at' ? 'paid_at' : 'created_at'
+  orderDateFilters.start_date = firstQueryValue(route.query.start_date)
+  orderDateFilters.end_date = firstQueryValue(route.query.end_date)
+}
+
+onMounted(() => {
+  initFiltersFromRoute()
+  loadOrders()
+})
 </script>

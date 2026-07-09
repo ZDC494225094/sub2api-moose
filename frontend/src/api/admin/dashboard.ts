@@ -240,6 +240,50 @@ export interface UserSpendingRankingParams
   limit?: number
 }
 
+export interface OperationsFunnelParams {
+  start_date?: string
+  end_date?: string
+  timezone?: string
+}
+
+export interface OperationsFunnelStep {
+  key: string
+  label: string
+  count: number
+  conversion_rate: number
+  overall_conversion_rate: number
+  dropoff_from_previous: number
+}
+
+export interface OperationsRevenueSummary {
+  total_revenue: number
+  paid_orders: number
+  paying_users: number
+  average_order_amount: number
+  balance_revenue: number
+  balance_orders: number
+  subscription_revenue: number
+  subscription_orders: number
+}
+
+export interface OperationsOrderSignals {
+  pending_orders: number
+  failed_orders: number
+  refund_requested_orders: number
+  expired_orders: number
+  cancelled_orders: number
+}
+
+export interface OperationsFunnelResponse {
+  start_date: string
+  end_date: string
+  range_days: number
+  generated_at: string
+  steps: OperationsFunnelStep[]
+  revenue: OperationsRevenueSummary
+  signals: OperationsOrderSignals
+}
+
 /**
  * Get user usage trend data
  * @param params - Query parameters for filtering
@@ -261,6 +305,15 @@ export async function getUserSpendingRanking(
   params?: UserSpendingRankingParams
 ): Promise<UserSpendingRankingResponse> {
   const { data } = await apiClient.get<UserSpendingRankingResponse>('/admin/dashboard/users-ranking', {
+    params
+  })
+  return data
+}
+
+export async function getOperationsFunnel(
+  params?: OperationsFunnelParams
+): Promise<OperationsFunnelResponse> {
+  const { data } = await apiClient.get<OperationsFunnelResponse>('/admin/dashboard/operations-funnel', {
     params
   })
   return data
@@ -332,6 +385,7 @@ export const dashboardAPI = {
   getApiKeyUsageTrend,
   getUserUsageTrend,
   getUserSpendingRanking,
+  getOperationsFunnel,
   getBatchUsersUsage,
   getBatchApiKeysUsage
 }

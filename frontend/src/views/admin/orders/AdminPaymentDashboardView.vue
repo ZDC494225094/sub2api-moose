@@ -43,7 +43,7 @@
         <LoadingSpinner />
       </div>
       <template v-else-if="stats">
-        <OrderStatsCards :stats="stats" />
+        <OrderStatsCards :stats="stats" :start-date="startDate" :end-date="endDate" />
 
         <!-- Daily revenue chart -->
         <DailyRevenueChart :data="stats.daily_series || []" :loading="loading" />

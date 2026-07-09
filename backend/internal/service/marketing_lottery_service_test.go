@@ -76,14 +76,22 @@ type lotteryPrizeRepoNoop struct{}
 
 func (lotteryPrizeRepoNoop) Create(context.Context, *LotteryPrize) error { panic("unexpected") }
 func (lotteryPrizeRepoNoop) Update(context.Context, *LotteryPrize) error { panic("unexpected") }
-func (lotteryPrizeRepoNoop) GetByID(context.Context, int64) (*LotteryPrize, error) { panic("unexpected") }
-func (lotteryPrizeRepoNoop) ListByActivity(context.Context, int64) ([]LotteryPrize, error) { panic("unexpected") }
-func (lotteryPrizeRepoNoop) ListActiveByActivityForUpdate(context.Context, int64) ([]LotteryPrize, error) { panic("unexpected") }
+func (lotteryPrizeRepoNoop) GetByID(context.Context, int64) (*LotteryPrize, error) {
+	panic("unexpected")
+}
+func (lotteryPrizeRepoNoop) ListByActivity(context.Context, int64) ([]LotteryPrize, error) {
+	panic("unexpected")
+}
+func (lotteryPrizeRepoNoop) ListActiveByActivityForUpdate(context.Context, int64) ([]LotteryPrize, error) {
+	panic("unexpected")
+}
 func (lotteryPrizeRepoNoop) DecrementStock(context.Context, int64) error { panic("unexpected") }
 
 type lotteryUserStateRepoNoop struct{}
 
-func (lotteryUserStateRepoNoop) GetOrCreate(context.Context, int64, int64) (*LotteryUserState, error) { panic("unexpected") }
+func (lotteryUserStateRepoNoop) GetOrCreate(context.Context, int64, int64) (*LotteryUserState, error) {
+	panic("unexpected")
+}
 func (lotteryUserStateRepoNoop) GetOrCreateForUpdate(context.Context, int64, int64) (*LotteryUserState, error) {
 	panic("unexpected")
 }
@@ -101,13 +109,18 @@ func (lotteryConsumeProgressRepoNoop) GetQualifiedAmount(context.Context, int64,
 
 type lotteryUserRepoNoop struct{}
 
-func (lotteryUserRepoNoop) Create(context.Context, *User) error { panic("unexpected") }
+func (lotteryUserRepoNoop) Create(context.Context, *User) error           { panic("unexpected") }
 func (lotteryUserRepoNoop) GetByID(context.Context, int64) (*User, error) { panic("unexpected") }
+func (lotteryUserRepoNoop) GetByIDIncludeDeleted(context.Context, int64) (*User, error) {
+	panic("unexpected")
+}
 func (lotteryUserRepoNoop) GetByEmail(context.Context, string) (*User, error) { panic("unexpected") }
-func (lotteryUserRepoNoop) GetFirstAdmin(context.Context) (*User, error) { panic("unexpected") }
-func (lotteryUserRepoNoop) Update(context.Context, *User) error { panic("unexpected") }
-func (lotteryUserRepoNoop) Delete(context.Context, int64) error { panic("unexpected") }
-func (lotteryUserRepoNoop) GetUserAvatar(context.Context, int64) (*UserAvatar, error) { panic("unexpected") }
+func (lotteryUserRepoNoop) GetFirstAdmin(context.Context) (*User, error)      { panic("unexpected") }
+func (lotteryUserRepoNoop) Update(context.Context, *User) error               { panic("unexpected") }
+func (lotteryUserRepoNoop) Delete(context.Context, int64) error               { panic("unexpected") }
+func (lotteryUserRepoNoop) GetUserAvatar(context.Context, int64) (*UserAvatar, error) {
+	panic("unexpected")
+}
 func (lotteryUserRepoNoop) UpsertUserAvatar(context.Context, int64, UpsertUserAvatarInput) (*UserAvatar, error) {
 	panic("unexpected")
 }
@@ -121,24 +134,42 @@ func (lotteryUserRepoNoop) ListWithFilters(context.Context, pagination.Paginatio
 func (lotteryUserRepoNoop) UpdateBalance(context.Context, int64, float64) error { panic("unexpected") }
 func (lotteryUserRepoNoop) DeductBalance(context.Context, int64, float64) error { panic("unexpected") }
 func (lotteryUserRepoNoop) UpdateConcurrency(context.Context, int64, int) error { panic("unexpected") }
-func (lotteryUserRepoNoop) BatchSetConcurrency(context.Context, []int64, int) (int, error) { panic("unexpected") }
-func (lotteryUserRepoNoop) BatchAddConcurrency(context.Context, []int64, int) (int, error) { panic("unexpected") }
+func (lotteryUserRepoNoop) BatchSetConcurrency(context.Context, []int64, int) (int, error) {
+	panic("unexpected")
+}
+func (lotteryUserRepoNoop) BatchAddConcurrency(context.Context, []int64, int) (int, error) {
+	panic("unexpected")
+}
 func (lotteryUserRepoNoop) ExistsByEmail(context.Context, string) (bool, error) { panic("unexpected") }
-func (lotteryUserRepoNoop) RemoveGroupFromAllowedGroups(context.Context, int64) (int64, error) { panic("unexpected") }
-func (lotteryUserRepoNoop) RemoveGroupFromUserAllowedGroups(context.Context, int64, int64) error { panic("unexpected") }
-func (lotteryUserRepoNoop) AddGroupToAllowedGroups(context.Context, int64, int64) error { panic("unexpected") }
+func (lotteryUserRepoNoop) RemoveGroupFromAllowedGroups(context.Context, int64) (int64, error) {
+	panic("unexpected")
+}
+func (lotteryUserRepoNoop) RemoveGroupFromUserAllowedGroups(context.Context, int64, int64) error {
+	panic("unexpected")
+}
+func (lotteryUserRepoNoop) AddGroupToAllowedGroups(context.Context, int64, int64) error {
+	panic("unexpected")
+}
 func (lotteryUserRepoNoop) ListUserAuthIdentities(context.Context, int64) ([]UserAuthIdentityRecord, error) {
 	panic("unexpected")
 }
-func (lotteryUserRepoNoop) UnbindUserAuthProvider(context.Context, int64, string) error { panic("unexpected") }
-func (lotteryUserRepoNoop) UpdateTotpSecret(context.Context, int64, *string) error { panic("unexpected") }
-func (lotteryUserRepoNoop) EnableTotp(context.Context, int64) error { panic("unexpected") }
+func (lotteryUserRepoNoop) UnbindUserAuthProvider(context.Context, int64, string) error {
+	panic("unexpected")
+}
+func (lotteryUserRepoNoop) UpdateTotpSecret(context.Context, int64, *string) error {
+	panic("unexpected")
+}
+func (lotteryUserRepoNoop) EnableTotp(context.Context, int64) error  { panic("unexpected") }
 func (lotteryUserRepoNoop) DisableTotp(context.Context, int64) error { panic("unexpected") }
 func (lotteryUserRepoNoop) GetLatestUsedAtByUserIDs(context.Context, []int64) (map[int64]*time.Time, error) {
 	panic("unexpected")
 }
-func (lotteryUserRepoNoop) GetLatestUsedAtByUserID(context.Context, int64) (*time.Time, error) { panic("unexpected") }
-func (lotteryUserRepoNoop) UpdateUserLastActiveAt(context.Context, int64, time.Time) error { panic("unexpected") }
+func (lotteryUserRepoNoop) GetLatestUsedAtByUserID(context.Context, int64) (*time.Time, error) {
+	panic("unexpected")
+}
+func (lotteryUserRepoNoop) UpdateUserLastActiveAt(context.Context, int64, time.Time) error {
+	panic("unexpected")
+}
 
 func TestLotteryServiceDeleteActivity_BlocksWhenDrawRecordsExist(t *testing.T) {
 	activityRepo := &lotteryActivityRepoStubForDelete{}

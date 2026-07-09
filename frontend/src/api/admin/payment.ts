@@ -94,6 +94,7 @@ export const adminPaymentAPI = {
     payment_type?: string
     user_id?: number
     keyword?: string
+    date_field?: 'created_at' | 'paid_at'
     start_date?: string
     end_date?: string
     order_type?: string
