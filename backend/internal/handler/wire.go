@@ -97,7 +97,7 @@ func ProvideAdminSettingHandler(settingService *service.SettingService, emailSer
 	return h
 }
 
-// ProvideAdminDashboardHandler creates DashboardHandler and attaches optional operations tools.
+// ProvideAdminDashboardHandler creates DashboardHandler and attaches operations marketing tools.
 func ProvideAdminDashboardHandler(dashboardService *service.DashboardService, aggregationService *service.DashboardAggregationService, marketingEmailService *service.OperationsMarketingEmailService) *admin.DashboardHandler {
 	h := admin.NewDashboardHandler(dashboardService, aggregationService)
 	h.SetOperationsMarketingEmailService(marketingEmailService)
@@ -123,6 +123,7 @@ func ProvideHandlers(
 	paymentWebhookHandler *PaymentWebhookHandler,
 	availableChannelHandler *AvailableChannelHandler,
 	playgroundHandler *PlaygroundHandler,
+	batchImageHandler *BatchImageHandler,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 ) *Handlers {
@@ -144,6 +145,7 @@ func ProvideHandlers(
 		PaymentWebhook:   paymentWebhookHandler,
 		AvailableChannel: availableChannelHandler,
 		Playground:       playgroundHandler,
+		BatchImage:       batchImageHandler,
 	}
 }
 
@@ -166,6 +168,7 @@ var ProviderSet = wire.NewSet(
 	NewPaymentWebhookHandler,
 	NewAvailableChannelHandler,
 	NewPlaygroundHandler,
+	NewBatchImageHandler,
 
 	// Admin handlers
 	ProvideAdminDashboardHandler,

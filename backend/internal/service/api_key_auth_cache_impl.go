@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 13 // v13: platform routing, exclusive group authorization, and group peak rate fields
+const apiKeyAuthSnapshotVersion = 15 // v15: custom platform/multi-group routing plus upstream video pricing fields
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -206,23 +206,20 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 		return nil
 	}
 	snapshot := &APIKeyAuthSnapshot{
-		Version:         apiKeyAuthSnapshotVersion,
-		APIKeyID:        apiKey.ID,
-		UserID:          apiKey.UserID,
-		Platform:        effectiveAPIKeySnapshotPlatform(apiKey),
-		GroupID:         apiKey.GroupID,
-		GroupIDs:        NormalizeAPIKeyGroupIDs(apiKey.GroupID, apiKey.GroupIDs),
-		BillingPriority: NormalizeBillingPriority(apiKey.BillingPriority),
-		Name:            apiKey.Name,
-		Status:          apiKey.Status,
-		IPWhitelist:     apiKey.IPWhitelist,
-		IPBlacklist:     apiKey.IPBlacklist,
-		Quota:           apiKey.Quota,
-		QuotaUsed:       apiKey.QuotaUsed,
-		ExpiresAt:       apiKey.ExpiresAt,
-		RateLimit5h:     apiKey.RateLimit5h,
-		RateLimit1d:     apiKey.RateLimit1d,
-		RateLimit7d:     apiKey.RateLimit7d,
+		Version:     apiKeyAuthSnapshotVersion,
+		APIKeyID:    apiKey.ID,
+		UserID:      apiKey.UserID,
+		GroupID:     apiKey.GroupID,
+		Name:        apiKey.Name,
+		Status:      apiKey.Status,
+		IPWhitelist: apiKey.IPWhitelist,
+		IPBlacklist: apiKey.IPBlacklist,
+		Quota:       apiKey.Quota,
+		QuotaUsed:   apiKey.QuotaUsed,
+		ExpiresAt:   apiKey.ExpiresAt,
+		RateLimit5h: apiKey.RateLimit5h,
+		RateLimit1d: apiKey.RateLimit1d,
+		RateLimit7d: apiKey.RateLimit7d,
 		User: APIKeyAuthUserSnapshot{
 			ID:                         apiKey.User.ID,
 			Status:                     apiKey.User.Status,
@@ -262,11 +259,17 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			WeeklyLimitUSD:                  apiKey.Group.WeeklyLimitUSD,
 			MonthlyLimitUSD:                 apiKey.Group.MonthlyLimitUSD,
 			AllowImageGeneration:            apiKey.Group.AllowImageGeneration,
+			AllowBatchImageGeneration:       apiKey.Group.AllowBatchImageGeneration,
 			ImageRateIndependent:            apiKey.Group.ImageRateIndependent,
 			ImageRateMultiplier:             apiKey.Group.ImageRateMultiplier,
 			ImagePrice1K:                    apiKey.Group.ImagePrice1K,
 			ImagePrice2K:                    apiKey.Group.ImagePrice2K,
 			ImagePrice4K:                    apiKey.Group.ImagePrice4K,
+			VideoRateIndependent:            apiKey.Group.VideoRateIndependent,
+			VideoRateMultiplier:             apiKey.Group.VideoRateMultiplier,
+			VideoPrice480P:                  apiKey.Group.VideoPrice480P,
+			VideoPrice720P:                  apiKey.Group.VideoPrice720P,
+			VideoPrice1080P:                 apiKey.Group.VideoPrice1080P,
 			ClaudeCodeOnly:                  apiKey.Group.ClaudeCodeOnly,
 			FallbackGroupID:                 apiKey.Group.FallbackGroupID,
 			FallbackGroupIDOnInvalidRequest: apiKey.Group.FallbackGroupIDOnInvalidRequest,
@@ -288,43 +291,25 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 	return snapshot
 }
 
-func effectiveAPIKeySnapshotPlatform(apiKey *APIKey) string {
-	if apiKey == nil {
-		return PlatformAnthropic
-	}
-	if platform := NormalizeAPIKeyPlatform(apiKey.Platform); platform != "" {
-		return platform
-	}
-	if apiKey.Group != nil {
-		if platform := NormalizeAPIKeyPlatform(apiKey.Group.Platform); platform != "" {
-			return platform
-		}
-	}
-	return PlatformAnthropic
-}
-
 func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapshot) *APIKey {
 	if snapshot == nil {
 		return nil
 	}
 	apiKey := &APIKey{
-		ID:              snapshot.APIKeyID,
-		UserID:          snapshot.UserID,
-		Platform:        DefaultAPIKeyPlatform(snapshot.Platform),
-		GroupID:         snapshot.GroupID,
-		GroupIDs:        NormalizeAPIKeyGroupIDs(snapshot.GroupID, snapshot.GroupIDs),
-		BillingPriority: NormalizeBillingPriority(snapshot.BillingPriority),
-		Key:             key,
-		Name:            snapshot.Name,
-		Status:          snapshot.Status,
-		IPWhitelist:     snapshot.IPWhitelist,
-		IPBlacklist:     snapshot.IPBlacklist,
-		Quota:           snapshot.Quota,
-		QuotaUsed:       snapshot.QuotaUsed,
-		ExpiresAt:       snapshot.ExpiresAt,
-		RateLimit5h:     snapshot.RateLimit5h,
-		RateLimit1d:     snapshot.RateLimit1d,
-		RateLimit7d:     snapshot.RateLimit7d,
+		ID:          snapshot.APIKeyID,
+		UserID:      snapshot.UserID,
+		GroupID:     snapshot.GroupID,
+		Key:         key,
+		Name:        snapshot.Name,
+		Status:      snapshot.Status,
+		IPWhitelist: snapshot.IPWhitelist,
+		IPBlacklist: snapshot.IPBlacklist,
+		Quota:       snapshot.Quota,
+		QuotaUsed:   snapshot.QuotaUsed,
+		ExpiresAt:   snapshot.ExpiresAt,
+		RateLimit5h: snapshot.RateLimit5h,
+		RateLimit1d: snapshot.RateLimit1d,
+		RateLimit7d: snapshot.RateLimit7d,
 		User: &User{
 			ID:                         snapshot.User.ID,
 			Status:                     snapshot.User.Status,
@@ -357,11 +342,17 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			WeeklyLimitUSD:                  snapshot.Group.WeeklyLimitUSD,
 			MonthlyLimitUSD:                 snapshot.Group.MonthlyLimitUSD,
 			AllowImageGeneration:            snapshot.Group.AllowImageGeneration,
+			AllowBatchImageGeneration:       snapshot.Group.AllowBatchImageGeneration,
 			ImageRateIndependent:            snapshot.Group.ImageRateIndependent,
 			ImageRateMultiplier:             snapshot.Group.ImageRateMultiplier,
 			ImagePrice1K:                    snapshot.Group.ImagePrice1K,
 			ImagePrice2K:                    snapshot.Group.ImagePrice2K,
 			ImagePrice4K:                    snapshot.Group.ImagePrice4K,
+			VideoRateIndependent:            snapshot.Group.VideoRateIndependent,
+			VideoRateMultiplier:             snapshot.Group.VideoRateMultiplier,
+			VideoPrice480P:                  snapshot.Group.VideoPrice480P,
+			VideoPrice720P:                  snapshot.Group.VideoPrice720P,
+			VideoPrice1080P:                 snapshot.Group.VideoPrice1080P,
 			ClaudeCodeOnly:                  snapshot.Group.ClaudeCodeOnly,
 			FallbackGroupID:                 snapshot.Group.FallbackGroupID,
 			FallbackGroupIDOnInvalidRequest: snapshot.Group.FallbackGroupIDOnInvalidRequest,
