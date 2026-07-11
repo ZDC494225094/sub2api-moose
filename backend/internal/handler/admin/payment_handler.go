@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
@@ -87,7 +88,12 @@ func (h *PaymentHandler) ListOrders(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Paginated(c, sanitizeAdminPaymentOrdersForResponse(orders), int64(total), page, pageSize)
+	planNames, err := h.loadPaymentOrderPlanNames(c.Request.Context(), orders)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Paginated(c, sanitizeAdminPaymentOrdersForResponse(orders, planNames), int64(total), page, pageSize)
 }
 
 func parseAdminPaymentOrderDateRange(c *gin.Context) (*time.Time, *time.Time, bool) {
@@ -144,7 +150,12 @@ func (h *PaymentHandler) GetOrderDetail(c *gin.Context) {
 		return
 	}
 	auditLogs, _ := h.paymentService.GetOrderAuditLogs(c.Request.Context(), orderID)
-	response.Success(c, gin.H{"order": sanitizeAdminPaymentOrderForResponse(order), "auditLogs": auditLogs})
+	planNames, err := h.loadPaymentOrderPlanNames(c.Request.Context(), []*dbent.PaymentOrder{order})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"order": sanitizeAdminPaymentOrderForResponseWithPlanNames(order, planNames), "auditLogs": auditLogs})
 }
 
 // CancelOrder cancels a pending order (admin).
@@ -194,7 +205,9 @@ type AdminPaymentOrderResult struct {
 	QRCode              *string    `json:"qr_code,omitempty"`
 	QRCodeImg           *string    `json:"qr_code_img,omitempty"`
 	OrderType           string     `json:"order_type"`
+	OrderTypeName       string     `json:"order_type_name"`
 	PlanID              *int64     `json:"plan_id,omitempty"`
+	PlanName            string     `json:"plan_name,omitempty"`
 	SubscriptionGroupID *int64     `json:"subscription_group_id,omitempty"`
 	SubscriptionDays    *int       `json:"subscription_days,omitempty"`
 	ProviderInstanceID  *string    `json:"provider_instance_id,omitempty"`
@@ -219,10 +232,10 @@ type AdminPaymentOrderResult struct {
 	UpdatedAt           time.Time  `json:"updated_at"`
 }
 
-func sanitizeAdminPaymentOrdersForResponse(orders []*dbent.PaymentOrder) []*AdminPaymentOrderResult {
+func sanitizeAdminPaymentOrdersForResponse(orders []*dbent.PaymentOrder, planNames map[int64]string) []*AdminPaymentOrderResult {
 	out := make([]*AdminPaymentOrderResult, 0, len(orders))
 	for _, order := range orders {
-		if item := sanitizeAdminPaymentOrderForResponse(order); item != nil {
+		if item := sanitizeAdminPaymentOrderForResponseWithPlanNames(order, planNames); item != nil {
 			out = append(out, item)
 		}
 	}
@@ -230,9 +243,14 @@ func sanitizeAdminPaymentOrdersForResponse(orders []*dbent.PaymentOrder) []*Admi
 }
 
 func sanitizeAdminPaymentOrderForResponse(order *dbent.PaymentOrder) *AdminPaymentOrderResult {
+	return sanitizeAdminPaymentOrderForResponseWithPlanNames(order, nil)
+}
+
+func sanitizeAdminPaymentOrderForResponseWithPlanNames(order *dbent.PaymentOrder, planNames map[int64]string) *AdminPaymentOrderResult {
 	if order == nil {
 		return nil
 	}
+	planName := paymentOrderPlanName(order, planNames)
 	return &AdminPaymentOrderResult{
 		ID:                  order.ID,
 		UserID:              order.UserID,
@@ -251,7 +269,9 @@ func sanitizeAdminPaymentOrderForResponse(order *dbent.PaymentOrder) *AdminPayme
 		QRCode:              order.QrCode,
 		QRCodeImg:           order.QrCodeImg,
 		OrderType:           order.OrderType,
+		OrderTypeName:       adminPaymentOrderTypeName(order, planName),
 		PlanID:              order.PlanID,
+		PlanName:            planName,
 		SubscriptionGroupID: order.SubscriptionGroupID,
 		SubscriptionDays:    order.SubscriptionDays,
 		ProviderInstanceID:  order.ProviderInstanceID,
@@ -274,6 +294,44 @@ func sanitizeAdminPaymentOrderForResponse(order *dbent.PaymentOrder) *AdminPayme
 		SrcURL:              order.SrcURL,
 		CreatedAt:           order.CreatedAt,
 		UpdatedAt:           order.UpdatedAt,
+	}
+}
+
+func (h *PaymentHandler) loadPaymentOrderPlanNames(ctx context.Context, orders []*dbent.PaymentOrder) (map[int64]string, error) {
+	if h == nil || h.configService == nil {
+		return map[int64]string{}, nil
+	}
+	ids := make([]int64, 0)
+	for _, order := range orders {
+		if order == nil || order.PlanID == nil || *order.PlanID <= 0 {
+			continue
+		}
+		ids = append(ids, *order.PlanID)
+	}
+	return h.configService.GetPlanNameMap(ctx, ids)
+}
+
+func paymentOrderPlanName(order *dbent.PaymentOrder, planNames map[int64]string) string {
+	if order == nil || order.PlanID == nil || planNames == nil {
+		return ""
+	}
+	return strings.TrimSpace(planNames[*order.PlanID])
+}
+
+func adminPaymentOrderTypeName(order *dbent.PaymentOrder, planName string) string {
+	if order == nil {
+		return ""
+	}
+	switch order.OrderType {
+	case "balance":
+		return "余额"
+	case "subscription":
+		if strings.TrimSpace(planName) != "" {
+			return strings.TrimSpace(planName)
+		}
+		return "订阅"
+	default:
+		return strings.TrimSpace(order.OrderType)
 	}
 }
 

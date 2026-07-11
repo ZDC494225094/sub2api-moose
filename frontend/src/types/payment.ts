@@ -91,6 +91,8 @@ export interface PaymentOrder {
   out_trade_no: string
   status: OrderStatus
   order_type: OrderType
+  order_type_name?: string
+  plan_name?: string
   created_at: string
   expires_at: string
   paid_at?: string

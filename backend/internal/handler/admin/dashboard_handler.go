@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
@@ -18,9 +20,10 @@ import (
 
 // DashboardHandler handles admin dashboard statistics
 type DashboardHandler struct {
-	dashboardService   *service.DashboardService
-	aggregationService *service.DashboardAggregationService
-	startTime          time.Time // Server start time for uptime calculation
+	dashboardService      *service.DashboardService
+	aggregationService    *service.DashboardAggregationService
+	marketingEmailService *service.OperationsMarketingEmailService
+	startTime             time.Time // Server start time for uptime calculation
 }
 
 // NewDashboardHandler creates a new admin dashboard handler
@@ -30,6 +33,10 @@ func NewDashboardHandler(dashboardService *service.DashboardService, aggregation
 		aggregationService: aggregationService,
 		startTime:          time.Now(),
 	}
+}
+
+func (h *DashboardHandler) SetOperationsMarketingEmailService(marketingEmailService *service.OperationsMarketingEmailService) {
+	h.marketingEmailService = marketingEmailService
 }
 
 // parseTimeRange parses start_date, end_date query parameters
@@ -552,16 +559,142 @@ func (h *DashboardHandler) GetOperationsFunnel(c *gin.Context) {
 		return h.dashboardService.GetOperationsFunnel(c.Request.Context(), startTime, endTime)
 	})
 	if err != nil {
+		slog.Error("operations_funnel_failed", "error", err, "start", startTime, "end", endTime)
 		response.Error(c, 500, "Failed to get operations funnel")
 		return
 	}
 	payload, err := snapshotPayloadAs[*service.OperationsFunnelResponse](entry.Payload)
 	if err != nil {
+		slog.Error("operations_funnel_payload_failed", "error", err)
 		response.Error(c, 500, "Failed to get operations funnel")
 		return
 	}
 	c.Header("X-Snapshot-Cache", cacheStatusValue(hit))
 	response.Success(c, payload)
+}
+
+// GetOperationsUserDetails handles paginated drill-down rows for operations metrics.
+// GET /api/v1/admin/dashboard/operations-users
+func (h *DashboardHandler) GetOperationsUserDetails(c *gin.Context) {
+	startTime, endTime, err := parseOperationsFunnelRange(c)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	page, pageSize := response.ParsePagination(c)
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	items, total, err := h.dashboardService.ListOperationsUserDetails(c.Request.Context(), service.OperationsUserDetailFilter{
+		Segment:   strings.ToLower(strings.TrimSpace(c.DefaultQuery("segment", "all"))),
+		StartTime: startTime,
+		EndTime:   endTime,
+		Pagination: pagination.PaginationParams{
+			Page:     page,
+			PageSize: pageSize,
+		},
+	})
+	if err != nil {
+		response.Error(c, 500, "Failed to get operations user details")
+		return
+	}
+	response.Paginated(c, items, total, page, pageSize)
+}
+
+// SendOperationsMarketingEmail previews or sends a limited marketing email batch.
+// POST /api/v1/admin/dashboard/operations-marketing-email
+func (h *DashboardHandler) SendOperationsMarketingEmail(c *gin.Context) {
+	if h.marketingEmailService == nil {
+		response.InternalError(c, "Operations marketing email service not available")
+		return
+	}
+	var req service.OperationsMarketingEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	result, err := h.marketingEmailService.Send(c.Request.Context(), req)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+// ListOperationsMarketingRecipients lists selectable marketing email recipients.
+// GET /api/v1/admin/dashboard/operations-marketing-recipients
+func (h *DashboardHandler) ListOperationsMarketingRecipients(c *gin.Context) {
+	if h.marketingEmailService == nil {
+		response.InternalError(c, "Operations marketing email service not available")
+		return
+	}
+	page, pageSize := response.ParsePagination(c)
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	query := service.OperationsMarketingRecipientQuery{
+		Keyword:           strings.TrimSpace(c.Query("keyword")),
+		Audience:          strings.ToLower(strings.TrimSpace(c.DefaultQuery("audience", "all"))),
+		Status:            strings.ToLower(strings.TrimSpace(c.DefaultQuery("status", service.StatusActive))),
+		ActiveDays:        parsePositiveIntQuery(c, "active_days", marketingEmailDefaultActiveDaysForHandler),
+		MinBalance:        parseOptionalFloatQuery(c, "min_balance"),
+		MaxBalance:        parseOptionalFloatQuery(c, "max_balance"),
+		MinTotalRecharged: parseOptionalFloatQuery(c, "min_total_recharged"),
+		MaxTotalRecharged: parseOptionalFloatQuery(c, "max_total_recharged"),
+		Page:              page,
+		PageSize:          pageSize,
+	}
+	items, total, err := h.marketingEmailService.ListRecipients(c.Request.Context(), query)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Paginated(c, items, total, page, pageSize)
+}
+
+// ListOperationsMarketingEmailRecords lists previous marketing email send records.
+// GET /api/v1/admin/dashboard/operations-marketing-email-records
+func (h *DashboardHandler) ListOperationsMarketingEmailRecords(c *gin.Context) {
+	if h.marketingEmailService == nil {
+		response.InternalError(c, "Operations marketing email service not available")
+		return
+	}
+	page, pageSize := response.ParsePagination(c)
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	items, total, err := h.marketingEmailService.ListRecords(c.Request.Context(), page, pageSize)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Paginated(c, items, total, page, pageSize)
+}
+
+const marketingEmailDefaultActiveDaysForHandler = 30
+
+func parsePositiveIntQuery(c *gin.Context, key string, fallback int) int {
+	raw := strings.TrimSpace(c.Query(key))
+	if raw == "" {
+		return fallback
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value <= 0 {
+		return fallback
+	}
+	return value
+}
+
+func parseOptionalFloatQuery(c *gin.Context, key string) *float64 {
+	raw := strings.TrimSpace(c.Query(key))
+	if raw == "" {
+		return nil
+	}
+	value, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
+		return nil
+	}
+	return &value
 }
 
 // GetUserSpendingRanking handles getting user spending ranking data.

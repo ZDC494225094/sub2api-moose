@@ -5,27 +5,52 @@ import (
 	"errors"
 	"math"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 )
 
 var ErrOperationsFunnelUnsupported = errors.New("operations funnel repository is not configured")
 
 type OperationsFunnelStats struct {
-	RegisteredUsers       int64
-	CreatedKeyUsers       int64
-	ActiveUsers           int64
-	PayingUsers           int64
-	PeriodPayingUsers     int64
-	PaidOrders            int64
-	TotalRevenue          float64
-	BalanceRevenue        float64
-	BalanceOrders         int64
-	SubscriptionRevenue   float64
-	SubscriptionOrders    int64
-	PendingOrders         int64
-	FailedOrders          int64
-	RefundRequestedOrders int64
-	ExpiredOrders         int64
-	CancelledOrders       int64
+	RegisteredUsers              int64
+	CreatedKeyUsers              int64
+	ActiveUsers                  int64
+	PayingUsers                  int64
+	TotalUsers                   int64
+	AllActiveUsers               int64
+	AllInactiveUsers             int64
+	PeriodPayingUsers            int64
+	PaidOrders                   int64
+	TotalRevenue                 float64
+	BalanceRevenue               float64
+	BalanceOrders                int64
+	SubscriptionRevenue          float64
+	SubscriptionOrders           int64
+	TotalRechargeAmount          float64
+	RemainingBalance             float64
+	GiftedAmount                 float64
+	ActiveSubscriptions          int64
+	ActiveSubscriptionUsers      int64
+	LimitedSubscriptions         int64
+	SubscriptionDailyRemaining   float64
+	SubscriptionWeeklyRemaining  float64
+	SubscriptionMonthlyRemaining float64
+	PendingOrders                int64
+	FailedOrders                 int64
+	RefundRequestedOrders        int64
+	ExpiredOrders                int64
+	CancelledOrders              int64
+	ActiveStatusUsers            int64
+	DisabledStatusUsers          int64
+	RechargedUsers               int64
+	BalanceRechargeUsers         int64
+	SubscriptionPurchaseUsers    int64
+	SubscriptionDailyLimit       float64
+	SubscriptionWeeklyLimit      float64
+	SubscriptionMonthlyLimit     float64
+	SubscriptionDailyUsed        float64
+	SubscriptionWeeklyUsed       float64
+	SubscriptionMonthlyUsed      float64
 }
 
 type OperationsFunnelStep struct {
@@ -56,18 +81,101 @@ type OperationsOrderSignals struct {
 	CancelledOrders       int64 `json:"cancelled_orders"`
 }
 
+type OperationsUserSummary struct {
+	TotalUsers    int64   `json:"total_users"`
+	ActiveUsers   int64   `json:"active_users"`
+	InactiveUsers int64   `json:"inactive_users"`
+	ActiveRate    float64 `json:"active_rate"`
+}
+
+type OperationsCreditSummary struct {
+	TotalRechargeAmount float64 `json:"total_recharge_amount"`
+	RemainingBalance    float64 `json:"remaining_balance"`
+	GiftedAmount        float64 `json:"gifted_amount"`
+}
+
+type OperationsSubscriptionSummary struct {
+	ActiveSubscriptions     int64   `json:"active_subscriptions"`
+	ActiveSubscriptionUsers int64   `json:"active_subscription_users"`
+	LimitedSubscriptions    int64   `json:"limited_subscriptions"`
+	DailyRemainingUSD       float64 `json:"daily_remaining_usd"`
+	WeeklyRemainingUSD      float64 `json:"weekly_remaining_usd"`
+	MonthlyRemainingUSD     float64 `json:"monthly_remaining_usd"`
+}
+
+type OperationsBreakdownItem struct {
+	Key     string  `json:"key"`
+	Label   string  `json:"label"`
+	Count   int64   `json:"count"`
+	Amount  float64 `json:"amount"`
+	Percent float64 `json:"percent"`
+}
+
+type OperationsSubscriptionQuotaBreakdown struct {
+	Key             string  `json:"key"`
+	Label           string  `json:"label"`
+	LimitUSD        float64 `json:"limit_usd"`
+	UsedUSD         float64 `json:"used_usd"`
+	RemainingUSD    float64 `json:"remaining_usd"`
+	UtilizationRate float64 `json:"utilization_rate"`
+}
+
+type OperationsBreakdownSummary struct {
+	Users         []OperationsBreakdownItem              `json:"users"`
+	Credits       []OperationsBreakdownItem              `json:"credits"`
+	Revenue       []OperationsBreakdownItem              `json:"revenue"`
+	Subscriptions []OperationsSubscriptionQuotaBreakdown `json:"subscriptions"`
+}
+
 type OperationsFunnelResponse struct {
-	StartDate   string                   `json:"start_date"`
-	EndDate     string                   `json:"end_date"`
-	RangeDays   int                      `json:"range_days"`
-	GeneratedAt string                   `json:"generated_at"`
-	Steps       []OperationsFunnelStep   `json:"steps"`
-	Revenue     OperationsRevenueSummary `json:"revenue"`
-	Signals     OperationsOrderSignals   `json:"signals"`
+	StartDate     string                        `json:"start_date"`
+	EndDate       string                        `json:"end_date"`
+	RangeDays     int                           `json:"range_days"`
+	GeneratedAt   string                        `json:"generated_at"`
+	Steps         []OperationsFunnelStep        `json:"steps"`
+	Revenue       OperationsRevenueSummary      `json:"revenue"`
+	Signals       OperationsOrderSignals        `json:"signals"`
+	Users         OperationsUserSummary         `json:"users"`
+	Credits       OperationsCreditSummary       `json:"credits"`
+	Subscriptions OperationsSubscriptionSummary `json:"subscriptions"`
+	Breakdown     OperationsBreakdownSummary    `json:"breakdown"`
+}
+
+type OperationsUserDetailFilter struct {
+	Segment    string
+	StartTime  time.Time
+	EndTime    time.Time
+	Pagination pagination.PaginationParams
+}
+
+type OperationsUserDetail struct {
+	UserID                          int64      `json:"user_id"`
+	Email                           string     `json:"email"`
+	UserName                        string     `json:"user_name,omitempty"`
+	Status                          string     `json:"status"`
+	Balance                         float64    `json:"balance"`
+	TotalRecharged                  float64    `json:"total_recharged"`
+	GiftedAmountEstimate            float64    `json:"gifted_amount_estimate"`
+	LastActiveAt                    *time.Time `json:"last_active_at,omitempty"`
+	CreatedAt                       time.Time  `json:"created_at"`
+	PeriodRequests                  int64      `json:"period_requests"`
+	PeriodUsageCost                 float64    `json:"period_usage_cost"`
+	PaidOrderCount                  int64      `json:"paid_order_count"`
+	PaidOrderAmount                 float64    `json:"paid_order_amount"`
+	BalanceOrderAmount              float64    `json:"balance_order_amount"`
+	SubscriptionOrderAmount         float64    `json:"subscription_order_amount"`
+	ActiveSubscriptionCount         int64      `json:"active_subscription_count"`
+	SubscriptionDailyRemainingUSD   float64    `json:"subscription_daily_remaining_usd"`
+	SubscriptionWeeklyRemainingUSD  float64    `json:"subscription_weekly_remaining_usd"`
+	SubscriptionMonthlyRemainingUSD float64    `json:"subscription_monthly_remaining_usd"`
 }
 
 type operationsFunnelReader interface {
 	GetOperationsFunnel(ctx context.Context, startTime, endTime time.Time) (*OperationsFunnelStats, error)
+}
+
+type operationsUserDetailReader interface {
+	ListOperationsUserDetails(ctx context.Context, filter OperationsUserDetailFilter) ([]OperationsUserDetail, int64, error)
 }
 
 func (s *DashboardService) GetOperationsFunnel(ctx context.Context, startTime, endTime time.Time) (*OperationsFunnelResponse, error) {
@@ -106,7 +214,61 @@ func (s *DashboardService) GetOperationsFunnel(ctx context.Context, startTime, e
 			ExpiredOrders:         stats.ExpiredOrders,
 			CancelledOrders:       stats.CancelledOrders,
 		},
+		Users: OperationsUserSummary{
+			TotalUsers:    stats.TotalUsers,
+			ActiveUsers:   stats.AllActiveUsers,
+			InactiveUsers: stats.AllInactiveUsers,
+			ActiveRate:    percent(stats.AllActiveUsers, stats.TotalUsers),
+		},
+		Credits: OperationsCreditSummary{
+			TotalRechargeAmount: round2(stats.TotalRechargeAmount),
+			RemainingBalance:    round2(stats.RemainingBalance),
+			GiftedAmount:        round2(stats.GiftedAmount),
+		},
+		Subscriptions: OperationsSubscriptionSummary{
+			ActiveSubscriptions:     stats.ActiveSubscriptions,
+			ActiveSubscriptionUsers: stats.ActiveSubscriptionUsers,
+			LimitedSubscriptions:    stats.LimitedSubscriptions,
+			DailyRemainingUSD:       round2(stats.SubscriptionDailyRemaining),
+			WeeklyRemainingUSD:      round2(stats.SubscriptionWeeklyRemaining),
+			MonthlyRemainingUSD:     round2(stats.SubscriptionMonthlyRemaining),
+		},
+		Breakdown: buildOperationsBreakdown(stats),
 	}, nil
+}
+
+func (s *DashboardService) ListOperationsUserDetails(ctx context.Context, filter OperationsUserDetailFilter) ([]OperationsUserDetail, int64, error) {
+	reader, ok := s.usageRepo.(operationsUserDetailReader)
+	if !ok {
+		return nil, 0, ErrOperationsFunnelUnsupported
+	}
+	filter.Segment = normalizeOperationsUserSegment(filter.Segment)
+	if filter.Pagination.Page <= 0 {
+		filter.Pagination.Page = 1
+	}
+	if filter.Pagination.PageSize <= 0 {
+		filter.Pagination.PageSize = 20
+	}
+	if filter.Pagination.PageSize > 100 {
+		filter.Pagination.PageSize = 100
+	}
+	items, total, err := reader.ListOperationsUserDetails(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+	for i := range items {
+		items[i].Balance = round2(items[i].Balance)
+		items[i].TotalRecharged = round2(items[i].TotalRecharged)
+		items[i].GiftedAmountEstimate = round2(items[i].GiftedAmountEstimate)
+		items[i].PeriodUsageCost = round2(items[i].PeriodUsageCost)
+		items[i].PaidOrderAmount = round2(items[i].PaidOrderAmount)
+		items[i].BalanceOrderAmount = round2(items[i].BalanceOrderAmount)
+		items[i].SubscriptionOrderAmount = round2(items[i].SubscriptionOrderAmount)
+		items[i].SubscriptionDailyRemainingUSD = round2(items[i].SubscriptionDailyRemainingUSD)
+		items[i].SubscriptionWeeklyRemainingUSD = round2(items[i].SubscriptionWeeklyRemainingUSD)
+		items[i].SubscriptionMonthlyRemainingUSD = round2(items[i].SubscriptionMonthlyRemainingUSD)
+	}
+	return items, total, nil
 }
 
 func buildOperationsFunnelSteps(stats *OperationsFunnelStats) []OperationsFunnelStep {
@@ -145,11 +307,67 @@ func buildOperationsFunnelSteps(stats *OperationsFunnelStats) []OperationsFunnel
 	return steps
 }
 
+func buildOperationsBreakdown(stats *OperationsFunnelStats) OperationsBreakdownSummary {
+	consumedCredit := math.Max(stats.TotalRechargeAmount+stats.GiftedAmount-stats.RemainingBalance, 0)
+	return OperationsBreakdownSummary{
+		Users: []OperationsBreakdownItem{
+			{Key: "active_period", Label: "周期活跃用户", Count: stats.AllActiveUsers, Percent: percent(stats.AllActiveUsers, stats.TotalUsers)},
+			{Key: "inactive_period", Label: "周期非活跃用户", Count: stats.AllInactiveUsers, Percent: percent(stats.AllInactiveUsers, stats.TotalUsers)},
+			{Key: "status_active", Label: "启用账号", Count: stats.ActiveStatusUsers, Percent: percent(stats.ActiveStatusUsers, stats.TotalUsers)},
+			{Key: "status_disabled", Label: "禁用账号", Count: stats.DisabledStatusUsers, Percent: percent(stats.DisabledStatusUsers, stats.TotalUsers)},
+			{Key: "recharged", Label: "有充值记录用户", Count: stats.RechargedUsers, Percent: percent(stats.RechargedUsers, stats.TotalUsers)},
+		},
+		Credits: []OperationsBreakdownItem{
+			{Key: "balance_recharge", Label: "余额充值额度", Count: stats.BalanceRechargeUsers, Amount: round2(stats.TotalRechargeAmount)},
+			{Key: "remaining_balance", Label: "用户剩余额度", Amount: round2(stats.RemainingBalance)},
+			{Key: "gifted", Label: "赠送额度估算", Amount: round2(stats.GiftedAmount)},
+			{Key: "consumed", Label: "已消耗额度估算", Amount: round2(consumedCredit)},
+		},
+		Revenue: []OperationsBreakdownItem{
+			{Key: "balance", Label: "周期余额订单", Count: stats.BalanceOrders, Amount: round2(stats.BalanceRevenue)},
+			{Key: "subscription", Label: "周期订阅订单", Count: stats.SubscriptionOrders, Amount: round2(stats.SubscriptionRevenue)},
+			{Key: "subscription_purchase_users", Label: "历史订阅购买用户", Count: stats.SubscriptionPurchaseUsers},
+		},
+		Subscriptions: []OperationsSubscriptionQuotaBreakdown{
+			buildSubscriptionQuotaBreakdown("daily", "日额度", stats.SubscriptionDailyLimit, stats.SubscriptionDailyUsed, stats.SubscriptionDailyRemaining),
+			buildSubscriptionQuotaBreakdown("weekly", "周额度", stats.SubscriptionWeeklyLimit, stats.SubscriptionWeeklyUsed, stats.SubscriptionWeeklyRemaining),
+			buildSubscriptionQuotaBreakdown("monthly", "月额度", stats.SubscriptionMonthlyLimit, stats.SubscriptionMonthlyUsed, stats.SubscriptionMonthlyRemaining),
+		},
+	}
+}
+
+func buildSubscriptionQuotaBreakdown(key, label string, limit, used, remaining float64) OperationsSubscriptionQuotaBreakdown {
+	return OperationsSubscriptionQuotaBreakdown{
+		Key:             key,
+		Label:           label,
+		LimitUSD:        round2(limit),
+		UsedUSD:         round2(used),
+		RemainingUSD:    round2(remaining),
+		UtilizationRate: percentFloat(used, limit),
+	}
+}
+
+func normalizeOperationsUserSegment(segment string) string {
+	switch segment {
+	case "active", "inactive", "balance", "recharge", "subscription":
+		return segment
+	default:
+		return "all"
+	}
+}
+
 func percent(value, base int64) float64 {
 	if base <= 0 {
 		return 0
 	}
 	return round2(float64(value) * 100 / float64(base))
+}
+
+func percentFloat(value, base float64) float64 {
+	if base <= 0 {
+		return 0
+	}
+	return round2(value * 100 / base)
 }
 
 func averageOrderAmount(total float64, count int64) float64 {

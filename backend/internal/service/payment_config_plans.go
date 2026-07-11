@@ -123,6 +123,36 @@ func (s *PaymentConfigService) ListPlansForSale(ctx context.Context) ([]*dbent.S
 	return s.entClient.SubscriptionPlan.Query().Where(subscriptionplan.ForSaleEQ(true)).Order(subscriptionplan.BySortOrder()).All(ctx)
 }
 
+func (s *PaymentConfigService) GetPlanNameMap(ctx context.Context, ids []int64) (map[int64]string, error) {
+	seen := make(map[int64]struct{}, len(ids))
+	uniqueIDs := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		uniqueIDs = append(uniqueIDs, id)
+	}
+	if len(uniqueIDs) == 0 {
+		return map[int64]string{}, nil
+	}
+
+	plans, err := s.entClient.SubscriptionPlan.Query().
+		Where(subscriptionplan.IDIn(uniqueIDs...)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[int64]string, len(plans))
+	for _, plan := range plans {
+		names[int64(plan.ID)] = strings.TrimSpace(plan.Name)
+	}
+	return names, nil
+}
+
 func (s *PaymentConfigService) GetPlanPurchaseCountMap(ctx context.Context, plans []*dbent.SubscriptionPlan) map[int64]int {
 	counts := make(map[int64]int, len(plans))
 	for _, p := range plans {

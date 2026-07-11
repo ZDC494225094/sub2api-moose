@@ -97,6 +97,13 @@ func ProvideAdminSettingHandler(settingService *service.SettingService, emailSer
 	return h
 }
 
+// ProvideAdminDashboardHandler creates DashboardHandler and attaches optional operations tools.
+func ProvideAdminDashboardHandler(dashboardService *service.DashboardService, aggregationService *service.DashboardAggregationService, marketingEmailService *service.OperationsMarketingEmailService) *admin.DashboardHandler {
+	h := admin.NewDashboardHandler(dashboardService, aggregationService)
+	h.SetOperationsMarketingEmailService(marketingEmailService)
+	return h
+}
+
 // ProvideHandlers creates the Handlers struct
 func ProvideHandlers(
 	authHandler *AuthHandler,
@@ -161,7 +168,7 @@ var ProviderSet = wire.NewSet(
 	NewPlaygroundHandler,
 
 	// Admin handlers
-	admin.NewDashboardHandler,
+	ProvideAdminDashboardHandler,
 	admin.NewUserHandler,
 	admin.NewGroupHandler,
 	admin.NewAccountHandler,

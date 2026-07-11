@@ -26,6 +26,9 @@
     <template #cell-payment_type="{ value }">
       <span class="text-sm text-gray-700 dark:text-gray-300">{{ t('payment.methods.' + value, value) }}</span>
     </template>
+    <template #cell-order_type_name="{ row }">
+      <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ orderTypeName(row) }}</span>
+    </template>
     <template #cell-status="{ value }">
       <OrderStatusBadge :status="value" />
     </template>
@@ -63,6 +66,14 @@ function paymentAmountSymbol(order: PaymentOrder): string {
   return currencySymbol(order.currency)
 }
 
+function orderTypeName(order: PaymentOrder): string {
+  if (order.order_type_name) return order.order_type_name
+  if (order.plan_name) return order.plan_name
+  if (order.order_type === 'balance') return t('payment.admin.balanceOrder')
+  if (order.order_type === 'subscription') return t('payment.admin.subscriptionOrder')
+  return order.order_type
+}
+
 const columns = computed((): Column[] => {
   const cols: Column[] = [
     { key: 'id', label: t('payment.orders.orderId') },
@@ -74,6 +85,7 @@ const columns = computed((): Column[] => {
   cols.push(
     { key: 'pay_amount', label: t('payment.orders.payAmount') },
     { key: 'payment_type', label: t('payment.orders.paymentMethod') },
+    { key: 'order_type_name', label: t('payment.admin.orderType') },
     { key: 'status', label: t('payment.orders.status') },
     { key: 'created_at', label: t('payment.orders.createdAt') },
     { key: 'actions', label: t('common.actions') },
