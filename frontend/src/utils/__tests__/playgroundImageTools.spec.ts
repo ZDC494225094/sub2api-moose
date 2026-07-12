@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mapClientPointToCanvas, wrapGalleryIndex } from '../playgroundImageTools'
+import { firstImageDescription, mapClientPointToCanvas, wrapGalleryIndex } from '../playgroundImageTools'
 
 describe('playground image tools', () => {
   it('maps scaled pointer coordinates to the canvas backing pixels', () => {
@@ -33,5 +33,14 @@ describe('playground image tools', () => {
     expect(wrapGalleryIndex(3, 1, 4)).toBe(0)
     expect(wrapGalleryIndex(0, -1, 4)).toBe(3)
     expect(wrapGalleryIndex(1, 1, 4)).toBe(2)
+  })
+
+  it('uses one non-empty description for an image generation group', () => {
+    expect(firstImageDescription([
+      { revisedPrompt: '  ' },
+      { revisedPrompt: 'Shared generation prompt' },
+      { revisedPrompt: 'A different upstream revision' }
+    ])).toBe('Shared generation prompt')
+    expect(firstImageDescription([])).toBe('')
   })
 })

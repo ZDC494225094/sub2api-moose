@@ -150,7 +150,7 @@ export default {
     "imagePreviewTitle": "Original image preview",
     "previousImage": "Previous image",
     "nextImage": "Next image",
-    "imageDescriptions": "Image descriptions",
+    "imageDescriptions": "Image description",
     "redrawImage": "Redraw",
     "redrawImageAdded": "Image added as an attachment. Enter your redraw instructions.",
     "redrawImageFailed": "Failed to load image for redraw",

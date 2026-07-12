@@ -232,12 +232,10 @@
               </div>
 
               <div
-                class="min-w-0"
+                class="w-fit min-w-0 max-w-full"
                 :class="message.role === 'user'
                   ? 'max-w-[78%]'
-                  : message.images?.length
-                    ? 'w-fit max-w-full sm:max-w-[760px]'
-                    : 'max-w-[760px]'"
+                  : 'sm:max-w-[760px]'"
               >
                 <div
                   v-if="showAssistantDetails || message.role === 'user'"
@@ -251,9 +249,10 @@
                 </div>
 
                 <div
-                  class="rounded-lg border shadow-sm"
+                  class="inline-block w-fit max-w-full rounded-lg border shadow-sm"
                   :class="[
-                    message.images?.length ? 'inline-block p-2' : 'px-4 py-3',
+                    message.images?.length ? 'p-2' : 'px-4 py-3',
+                    message.role === 'user' ? 'ml-auto' : '',
                     message.role === 'user'
                       ? 'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-950/50 dark:text-sky-200'
                       : message.error
@@ -351,23 +350,23 @@
                     </figure>
                   </div>
 
-                  <div v-if="message.images?.some((image) => image.revisedPrompt)" class="mt-2 max-w-[36rem]">
+                  <div v-if="firstImageDescription(message.images)" class="mt-2 max-w-[36rem]">
                     <button
                       type="button"
                       class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 transition hover:text-sky-600 dark:text-dark-400 dark:hover:text-sky-300"
                       :aria-expanded="isImageDescriptionExpanded(message.id)"
+                      :aria-controls="`image-description-${message.id}`"
                       @click="toggleImageDescription(message.id)"
                     >
                       <Icon :name="isImageDescriptionExpanded(message.id) ? 'chevronDown' : 'chevronRight'" size="xs" />
                       {{ t('playground.imageDescriptions') }}
                     </button>
-                    <div v-if="isImageDescriptionExpanded(message.id)" class="mt-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600 dark:border-dark-700 dark:bg-dark-950 dark:text-dark-300">
-                      <template v-for="(image, index) in message.images" :key="`${message.id}-description-${index}`">
-                        <p v-if="image.revisedPrompt">
-                          <span class="mr-1 font-semibold text-slate-400">{{ index + 1 }}.</span>
-                          {{ image.revisedPrompt }}
-                        </p>
-                      </template>
+                    <div
+                      v-if="isImageDescriptionExpanded(message.id)"
+                      :id="`image-description-${message.id}`"
+                      class="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600 dark:border-dark-700 dark:bg-dark-950 dark:text-dark-300"
+                    >
+                      <p>{{ firstImageDescription(message.images) }}</p>
                     </div>
                   </div>
 
@@ -416,12 +415,13 @@
         </main>
 
         <footer ref="composerDock" class="pointer-events-none absolute bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent px-4 pb-4 pt-10 dark:from-dark-950 dark:via-dark-950 md:px-10 xl:px-16">
-          <div class="pointer-events-auto mx-auto max-w-[1220px] rounded-lg border border-slate-200 bg-white/95 p-3 shadow-[0_20px_60px_-28px_rgba(15,23,42,0.35)] backdrop-blur dark:border-dark-700 dark:bg-dark-900/95">
-            <div class="flex flex-wrap items-center gap-3 px-1 pb-3" :class="showComposerConfig ? '' : 'justify-end'">
-              <template v-if="showComposerConfig">
+          <div class="playground-composer-shell pointer-events-auto mx-auto max-w-[1220px] rounded-lg border border-slate-200 bg-white/95 p-3 shadow-[0_20px_60px_-28px_rgba(15,23,42,0.35)] backdrop-blur dark:border-dark-700 dark:bg-dark-900/95">
+            <div v-if="showComposerConfig" class="composer-config-panel px-1 pb-3">
+              <div class="composer-runtime-row">
+                <div class="composer-runtime-grid">
                 <Select
                   v-model="selectedKeyId"
-                  class="playground-compact-select w-full sm:w-[180px]"
+                  class="playground-compact-select"
                   :options="keySelectOptions"
                   :placeholder="t('playground.selectKey')"
                   searchable
@@ -449,15 +449,15 @@
                 <Select
                   v-model="selectedEndpointBase"
                   class="playground-compact-select playground-endpoint-select"
-                  :style="{ '--endpoint-select-width': endpointSelectWidth }"
                   :options="endpointSelectOptions"
                   :placeholder="t('playground.selectEndpoint')"
+                  :title="selectedEndpointLabel"
                   searchable
                 />
 
                 <Select
                   v-model="selectedModel"
-                  class="playground-compact-select w-full sm:w-[240px]"
+                  class="playground-compact-select composer-model-select"
                   :options="modelSelectOptions"
                   :placeholder="t('playground.selectModel')"
                   searchable
@@ -481,25 +481,103 @@
                     </div>
                   </template>
                 </Select>
+                </div>
 
+                <div class="composer-config-actions">
                 <button
                   type="button"
-                  class="ml-auto flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-dark-300 dark:hover:bg-dark-800 dark:hover:text-white"
+                  class="composer-config-icon-button"
                   :title="t('playground.refreshModels')"
                   :disabled="!selectedKey || loadingModels"
                   @click="loadModels"
                 >
                   <Icon name="refresh" size="sm" :class="loadingModels ? 'animate-spin' : ''" />
                 </button>
-              </template>
 
+                  <button
+                    type="button"
+                    class="composer-config-icon-button"
+                    :title="t('playground.hideComposerConfig')"
+                    @click="showComposerConfig = false"
+                  >
+                    <Icon name="eyeOff" size="sm" />
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="mode === 'image'" class="composer-image-grid">
+                <button
+                  type="button"
+                  class="image-option-button"
+                  @click="showImageSizeModal = true"
+                >
+                  <Icon name="sparkles" size="xs" />
+                  <span>{{ t('playground.imageSizeButton') }}</span>
+                  <strong>{{ effectiveImageSize }}</strong>
+                </button>
+
+                <div class="image-count-control" role="group" :aria-label="t('playground.imageCount')">
+                  <Icon name="grid" size="xs" />
+                  <span>{{ t('playground.imageCount') }}</span>
+                  <div class="image-count-segments">
+                    <button
+                      v-for="count in 4"
+                      :key="count"
+                      type="button"
+                      :class="imageCount === count ? 'is-active' : ''"
+                      :aria-pressed="imageCount === count"
+                      @click="imageCount = count"
+                    >
+                      {{ count }}
+                    </button>
+                  </div>
+                </div>
+
+                <Select
+                  v-model="imageQuality"
+                  class="image-option-select"
+                  :options="imageQualitySelectOptions"
+                  :placeholder="t('playground.quality')"
+                  :searchable="false"
+                />
+
+                <div class="image-format-control" role="group" :aria-label="t('playground.outputFormat')">
+                  <span>{{ t('playground.outputFormat') }}</span>
+                  <div class="image-format-segments">
+                    <button
+                      v-for="format in outputFormatSegmentOptions"
+                      :key="format.value"
+                      type="button"
+                      :class="outputFormat === format.value ? 'is-active' : ''"
+                      :aria-pressed="outputFormat === format.value"
+                      @click="outputFormat = format.value"
+                    >
+                      {{ format.label }}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  class="image-option-button"
+                  :disabled="optimizingPrompt"
+                  @click="showPromptOptimizerModal = true"
+                >
+                  <Icon :name="optimizingPrompt ? 'refresh' : 'brain'" size="xs" :class="optimizingPrompt ? 'animate-spin' : ''" />
+                  <span>{{ optimizingPrompt ? t('playground.optimizingPrompt') : t('playground.promptOptimizerSettings') }}</span>
+                  <strong>{{ imagePromptStyleLabel() }}</strong>
+                </button>
+              </div>
+            </div>
+
+            <div v-else class="flex justify-end px-1 pb-3">
               <button
                 type="button"
-                class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white hover:text-slate-900 dark:text-dark-300 dark:hover:bg-dark-800 dark:hover:text-white"
-                :title="showComposerConfig ? t('playground.hideComposerConfig') : t('playground.showComposerConfig')"
-                @click="showComposerConfig = !showComposerConfig"
+                class="composer-config-icon-button"
+                :title="t('playground.showComposerConfig')"
+                @click="showComposerConfig = true"
               >
-                <Icon :name="showComposerConfig ? 'eyeOff' : 'eye'" size="sm" />
+                <Icon name="eye" size="sm" />
               </button>
             </div>
 
@@ -545,62 +623,6 @@
             >
               <Icon :name="playgroundNotice.type === 'error' ? 'exclamationCircle' : 'infoCircle'" size="sm" class="mt-0.5 shrink-0" />
               <span class="min-w-0 break-words">{{ playgroundNotice.message }}</span>
-            </div>
-
-            <div v-if="showComposerConfig && mode === 'image'" class="mb-2 flex flex-wrap items-center gap-2 px-1">
-              <button
-                type="button"
-                class="image-option-button"
-                @click="showImageSizeModal = true"
-              >
-                <Icon name="sparkles" size="xs" />
-                <span>{{ t('playground.imageSizeButton') }}</span>
-                <strong>{{ effectiveImageSize }}</strong>
-              </button>
-
-              <div class="image-count-control" :aria-label="t('playground.imageCount')">
-                <Icon name="grid" size="xs" />
-                <span>{{ t('playground.imageCount') }}</span>
-                <div class="image-count-segments">
-                  <button
-                    v-for="count in 4"
-                    :key="count"
-                    type="button"
-                    :class="imageCount === count ? 'is-active' : ''"
-                    :aria-pressed="imageCount === count"
-                    @click="imageCount = count"
-                  >
-                    {{ count }}
-                  </button>
-                </div>
-              </div>
-
-              <Select
-                v-model="imageQuality"
-                class="image-option-select w-[142px]"
-                :options="imageQualitySelectOptions"
-                :placeholder="t('playground.quality')"
-                :searchable="false"
-              />
-
-              <Select
-                v-model="outputFormat"
-                class="image-option-select w-[168px]"
-                :options="outputFormatSelectOptions"
-                :placeholder="t('playground.outputFormat')"
-                :searchable="false"
-              />
-
-              <button
-                type="button"
-                class="image-option-button"
-                :disabled="optimizingPrompt"
-                @click="showPromptOptimizerModal = true"
-              >
-                <Icon :name="optimizingPrompt ? 'refresh' : 'brain'" size="xs" :class="optimizingPrompt ? 'animate-spin' : ''" />
-                <span>{{ optimizingPrompt ? t('playground.optimizingPrompt') : t('playground.optimizePrompt') }}</span>
-                <strong>{{ imagePromptStyleLabel() }}</strong>
-              </button>
             </div>
 
             <div
@@ -679,10 +701,6 @@
               </div>
             </div>
 
-            <p v-if="showComposerConfig" class="mt-2 px-1 text-xs text-slate-500 dark:text-dark-400">
-              {{ t('playground.composerHint') }}
-              <span v-if="selectedEndpointLabel" class="ml-2 break-all text-slate-400">{{ selectedEndpointLabel }}</span>
-            </p>
           </div>
         </footer>
       </section>
@@ -1023,8 +1041,12 @@
     <div
       v-if="imagePreview"
       ref="imagePreviewViewport"
-      class="fixed inset-0 z-[70] touch-none overflow-hidden bg-black/90 select-none"
+      class="fixed inset-0 z-[70] touch-none select-none overflow-hidden bg-black/90 focus:outline-none"
       :class="imagePreviewCursorClass"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="t('playground.imagePreviewTitle')"
+      tabindex="-1"
       @click="handleImagePreviewBackdropClick"
       @wheel.prevent="handleImagePreviewWheel"
       @pointerdown="handleImagePreviewPointerDown"
@@ -1033,10 +1055,6 @@
       @pointercancel="handleImagePreviewPointerUp"
       @dblclick="resetImagePreviewView"
     >
-      <div class="pointer-events-none absolute left-4 right-16 top-4 z-10 min-w-0 text-white">
-        <h2 class="truncate text-sm font-semibold drop-shadow">{{ t('playground.imagePreviewTitle') }}</h2>
-        <p v-if="imagePreview.revisedPrompt" class="mt-1 truncate text-xs text-white/70 drop-shadow">{{ imagePreview.revisedPrompt }}</p>
-      </div>
       <div class="absolute right-4 top-4 z-10 flex items-center gap-2" @pointerdown.stop>
         <span v-if="imagePreview.total && imagePreview.total > 1" class="rounded-full bg-black/45 px-2.5 py-1 text-xs font-semibold tabular-nums text-white backdrop-blur">
           {{ imagePreview.index + 1 }} / {{ imagePreview.total }}
@@ -1046,7 +1064,7 @@
         </span>
         <button
           type="button"
-          class="rounded-full bg-black/45 p-2 text-white transition hover:bg-white/20"
+          class="rounded-full bg-black/45 p-2 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
           :title="t('common.close')"
           @click="closeImagePreview"
         >
@@ -1056,7 +1074,7 @@
       <button
         v-if="imagePreview.total && imagePreview.total > 1"
         type="button"
-        class="absolute left-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-white/20 sm:left-6"
+        class="absolute left-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 sm:left-6"
         :title="t('playground.previousImage')"
         :aria-label="t('playground.previousImage')"
         @pointerdown.stop
@@ -1067,7 +1085,7 @@
       <button
         v-if="imagePreview.total && imagePreview.total > 1"
         type="button"
-        class="absolute right-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-white/20 sm:right-6"
+        class="absolute right-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 sm:right-6"
         :title="t('playground.nextImage')"
         :aria-label="t('playground.nextImage')"
         @pointerdown.stop
@@ -1122,7 +1140,7 @@ import { useAppStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateOnly, formatRelativeTime, formatTime } from '@/utils/format'
 import { platformIconClass } from '@/utils/platformColors'
-import { mapClientPointToCanvas, wrapGalleryIndex } from '@/utils/playgroundImageTools'
+import { firstImageDescription, mapClientPointToCanvas, wrapGalleryIndex } from '@/utils/playgroundImageTools'
 import {
   isRecoverablePlaygroundError,
   isRetryablePlaygroundRequestError,
@@ -1620,12 +1638,6 @@ const selectedEndpointLabel = computed(() => {
   if (!selectedEndpoint.value) return ''
   return `${t('playground.endpoint')}: ${selectedEndpoint.value.value} (${t('playground.requestPath')}: ${selectedEndpoint.value.requestBase})`
 })
-const endpointSelectWidth = computed(() => {
-  const label = selectedEndpoint.value?.displayLabel || t('playground.selectEndpoint')
-  const length = Array.from(label).length
-  return `${Math.min(Math.max(length + 3, 12), 42)}ch`
-})
-
 const playgroundNotice = computed(() => {
   if (lastRunError.value) {
     return { type: 'error' as const, message: lastRunError.value }
@@ -1733,11 +1745,11 @@ const imageQualitySettingOptions = computed<SelectOption[]>(() => [
   { value: 'high', label: t('playground.qualityHigh') }
 ])
 
-const outputFormatSelectOptions = computed<SelectOption[]>(() => [
-  { value: 'png', label: `${t('playground.outputFormat')}：PNG` },
-  { value: 'webp', label: `${t('playground.outputFormat')}：WEBP` },
-  { value: 'jpeg', label: `${t('playground.outputFormat')}：JPEG` }
-])
+const outputFormatSegmentOptions = [
+  { value: 'png', label: 'PNG' },
+  { value: 'webp', label: 'WEBP' },
+  { value: 'jpeg', label: 'JPEG' }
+] as const
 
 const imagePromptStyleSelectOptions = computed<SelectOption[]>(() => [
   { value: 'auto', label: `${t('playground.promptStyle')}：${t('playground.promptStyleAuto')}` },
@@ -3581,6 +3593,8 @@ async function openImagePreview(message: PlaygroundMessage, index: number) {
     total: images.length,
     ownsObjectUrl
   }
+  await nextTick()
+  imagePreviewViewport.value?.focus({ preventScroll: true })
 }
 
 function openAttachmentImagePreview(attachment: PlaygroundAttachment) {
@@ -3595,6 +3609,7 @@ function openAttachmentImagePreview(attachment: PlaygroundAttachment) {
     total: 1,
     ownsObjectUrl: false
   }
+  void nextTick(() => imagePreviewViewport.value?.focus({ preventScroll: true }))
 }
 
 async function navigateImagePreview(direction: -1 | 1) {
@@ -5175,9 +5190,96 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.playground-composer-shell {
+  container-name: playground-composer;
+  container-type: inline-size;
+}
+
+.composer-config-panel {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.composer-runtime-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.composer-runtime-grid {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  grid-template-columns: minmax(9.5rem, 0.8fr) minmax(11.5rem, 1fr) minmax(14rem, 1.4fr);
+  gap: 0.5rem;
+}
+
+.composer-runtime-grid > *,
+.composer-image-grid > * {
+  min-width: 0;
+  width: 100%;
+}
+
+.composer-config-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.composer-config-icon-button {
+  display: inline-flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  flex: 0 0 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  color: rgb(100 116 139);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.composer-config-icon-button:hover {
+  background: rgb(248 250 252);
+  color: rgb(15 23 42);
+}
+
+.composer-config-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.dark .composer-config-icon-button {
+  color: rgb(148 163 184);
+}
+
+.dark .composer-config-icon-button:hover {
+  background: rgb(30 41 59);
+  color: rgb(248 250 252);
+}
+
+.composer-image-grid {
+  display: grid;
+  grid-template-columns:
+    minmax(8.5rem, 0.82fr)
+    minmax(11.5rem, 1.05fr)
+    minmax(8rem, 0.72fr)
+    minmax(11rem, 1fr)
+    minmax(10.5rem, 0.95fr);
+  gap: 0.5rem;
+  align-items: stretch;
+  border-top: 1px solid rgb(226 232 240);
+  padding-top: 0.5rem;
+}
+
+.dark .composer-image-grid {
+  border-top-color: rgb(51 65 85);
+}
+
 .image-option-button {
   display: inline-flex;
-  min-height: 2rem;
+  min-height: 2.25rem;
   max-width: 100%;
   align-items: center;
   gap: 0.375rem;
@@ -5189,6 +5291,13 @@ onBeforeUnmount(() => {
   font-weight: 600;
   color: rgb(71 85 105);
   transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+
+.image-option-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .image-option-button:hover {
@@ -5209,13 +5318,16 @@ onBeforeUnmount(() => {
 }
 
 .image-option-button strong {
+  margin-left: auto;
+  flex-shrink: 0;
   font-weight: 700;
   color: rgb(37 99 235);
 }
 
-.image-count-control {
+.image-count-control,
+.image-format-control {
   display: inline-flex;
-  min-height: 2rem;
+  min-height: 2.25rem;
   align-items: center;
   gap: 0.375rem;
   border: 1px solid rgb(226 232 240);
@@ -5227,56 +5339,83 @@ onBeforeUnmount(() => {
   color: rgb(71 85 105);
 }
 
-.image-count-segments {
+.image-count-control > span,
+.image-format-control > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-count-segments,
+.image-format-segments {
   display: inline-grid;
-  grid-template-columns: repeat(4, 1.75rem);
+  flex: 0 0 auto;
+  margin-left: auto;
   overflow: hidden;
   border: 1px solid rgb(226 232 240);
   border-radius: 0.375rem;
 }
 
-.image-count-segments button {
-  height: 1.5rem;
+.image-count-segments {
+  grid-template-columns: repeat(4, 1.75rem);
+}
+
+.image-format-segments {
+  grid-template-columns: repeat(3, minmax(2.75rem, 1fr));
+}
+
+.image-count-segments button,
+.image-format-segments button {
+  height: 1.75rem;
   border-right: 1px solid rgb(226 232 240);
   color: rgb(100 116 139);
   transition: background-color 150ms ease, color 150ms ease;
 }
 
-.image-count-segments button:last-child {
+.image-count-segments button:last-child,
+.image-format-segments button:last-child {
   border-right: 0;
 }
 
-.image-count-segments button:hover {
+.image-count-segments button:hover,
+.image-format-segments button:hover {
   background: rgb(240 249 255);
   color: rgb(2 132 199);
 }
 
-.image-count-segments button.is-active {
+.image-count-segments button.is-active,
+.image-format-segments button.is-active {
   background: rgb(14 165 233);
   color: rgb(255 255 255);
 }
 
-.dark .image-count-control {
+.dark .image-count-control,
+.dark .image-format-control {
   border-color: rgb(55 65 81);
   background: rgb(15 23 42);
   color: rgb(203 213 225);
 }
 
-.dark .image-count-segments {
+.dark .image-count-segments,
+.dark .image-format-segments {
   border-color: rgb(55 65 81);
 }
 
-.dark .image-count-segments button {
+.dark .image-count-segments button,
+.dark .image-format-segments button {
   border-color: rgb(55 65 81);
   color: rgb(203 213 225);
 }
 
-.dark .image-count-segments button:hover {
+.dark .image-count-segments button:hover,
+.dark .image-format-segments button:hover {
   background: rgb(12 74 110 / 0.32);
   color: rgb(125 211 252);
 }
 
-.dark .image-count-segments button.is-active {
+.dark .image-count-segments button.is-active,
+.dark .image-format-segments button.is-active {
   background: rgb(14 165 233);
   color: rgb(255 255 255);
 }
@@ -5305,8 +5444,8 @@ onBeforeUnmount(() => {
 
 .playground-image-strip {
   display: flex;
-  width: min(38rem, calc(100vw - 7rem));
-  max-width: 100%;
+  width: max-content;
+  max-width: min(38rem, calc(100vw - 7rem));
   gap: 0.5rem;
   overflow-x: auto;
   padding-bottom: 0.25rem;
@@ -5397,7 +5536,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 640px) {
   .playground-image-strip {
-    width: calc(100vw - 5.5rem);
+    max-width: calc(100vw - 5.5rem);
   }
 
   .playground-image-thumbnail {
@@ -5634,7 +5773,7 @@ onBeforeUnmount(() => {
 
 .playground-compact-select :deep(.select-trigger),
 .image-option-select :deep(.select-trigger) {
-  min-height: 2rem;
+  min-height: 2.25rem;
   border-radius: 0.5rem;
   padding: 0.375rem 0.625rem;
   font-size: 0.75rem;
@@ -5642,12 +5781,115 @@ onBeforeUnmount(() => {
 }
 
 .playground-compact-select :deep(.select-trigger) {
-  height: 2rem;
+  height: 2.25rem;
 }
 
 .playground-endpoint-select {
-  width: min(max(var(--endpoint-select-width, 14ch), 9rem), 26rem);
+  width: 100%;
   max-width: 100%;
+}
+
+@container playground-composer (max-width: 860px) {
+  .composer-image-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .composer-image-grid > :nth-child(-n + 3) {
+    grid-column: span 2;
+  }
+
+  .composer-image-grid > :nth-child(n + 4) {
+    grid-column: span 3;
+  }
+}
+
+@container playground-composer (max-width: 720px) {
+  .composer-runtime-row {
+    align-items: flex-start;
+  }
+
+  .composer-runtime-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .composer-model-select {
+    grid-column: 1 / -1;
+  }
+}
+
+@container playground-composer (max-width: 640px) {
+  .composer-runtime-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .composer-runtime-grid {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .composer-model-select {
+    grid-column: 1 / -1;
+  }
+
+  .composer-config-actions {
+    order: -1;
+    align-self: flex-end;
+  }
+
+  .composer-config-icon-button,
+  .image-option-button,
+  .image-count-control,
+  .image-format-control {
+    min-height: 2.5rem;
+  }
+
+  .composer-config-icon-button {
+    height: 2.5rem;
+    width: 2.5rem;
+    flex-basis: 2.5rem;
+  }
+
+  .composer-image-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .composer-image-grid > :nth-child(1),
+  .composer-image-grid > :nth-child(3) {
+    grid-column: span 1;
+  }
+
+  .composer-image-grid > :nth-child(2),
+  .composer-image-grid > :nth-child(4),
+  .composer-image-grid > :nth-child(5) {
+    grid-column: 1 / -1;
+  }
+
+  .playground-compact-select :deep(.select-trigger),
+  .image-option-select :deep(.select-trigger) {
+    min-height: 2.5rem;
+  }
+
+  .playground-compact-select :deep(.select-trigger) {
+    height: 2.5rem;
+  }
+
+  .image-count-segments button,
+  .image-format-segments button {
+    height: 2rem;
+  }
+}
+
+@container playground-composer (max-width: 420px) {
+  .composer-runtime-grid,
+  .composer-image-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .composer-model-select,
+  .composer-image-grid > :nth-child(n) {
+    grid-column: auto;
+  }
 }
 
 :global(.select-dropdown-portal .playground-select-option) {

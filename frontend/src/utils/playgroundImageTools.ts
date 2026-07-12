@@ -10,6 +10,10 @@ export interface CanvasClientRect {
   height: number
 }
 
+export interface ImageDescriptionLike {
+  revisedPrompt?: unknown
+}
+
 export function mapClientPointToCanvas(
   clientX: number,
   clientY: number,
@@ -27,4 +31,14 @@ export function mapClientPointToCanvas(
 export function wrapGalleryIndex(index: number, direction: -1 | 1, total: number): number {
   if (total <= 0) return 0
   return (index + direction + total) % total
+}
+
+export function firstImageDescription(images: ImageDescriptionLike[] | undefined): string {
+  if (!images?.length) return ''
+  for (const image of images) {
+    if (typeof image.revisedPrompt !== 'string') continue
+    const description = image.revisedPrompt.trim()
+    if (description) return description
+  }
+  return ''
 }
