@@ -66,6 +66,8 @@ export interface PlaygroundImageInput {
 export interface PlaygroundImageResult {
   url: string
   revisedPrompt?: string
+  assetIndex?: number
+  mimeType?: string
 }
 
 export interface PlaygroundImageResponse {
@@ -538,14 +540,27 @@ export async function generateImage(request: PlaygroundImageRequest): Promise<Pl
   return { images, raw }
 }
 
-export async function startPlaygroundRun(request: PlaygroundRunRequest): Promise<PlaygroundRun> {
-  const { data } = await apiClient.post<PlaygroundRun>('/playground/runs', request, { timeout: 60000 })
+export async function startPlaygroundRun(request: PlaygroundRunRequest, signal?: AbortSignal): Promise<PlaygroundRun> {
+  const { data } = await apiClient.post<PlaygroundRun>('/playground/runs', request, {
+    timeout: 120000,
+    signal
+  })
   return data
 }
 
-export async function getPlaygroundRun(id: string): Promise<PlaygroundRun> {
+export async function getPlaygroundRun(id: string, signal?: AbortSignal): Promise<PlaygroundRun> {
   const { data } = await apiClient.get<PlaygroundRun>(`/playground/runs/${encodeURIComponent(id)}`, {
-    timeout: 60000
+    timeout: 30000,
+    signal
+  })
+  return data
+}
+
+export async function getPlaygroundRunImage(id: string, index: number, signal?: AbortSignal): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/playground/runs/${encodeURIComponent(id)}/images/${index}`, {
+    responseType: 'blob',
+    timeout: 300000,
+    signal
   })
   return data
 }

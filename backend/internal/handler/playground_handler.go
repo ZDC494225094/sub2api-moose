@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"net"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
@@ -63,6 +65,36 @@ func (h *PlaygroundHandler) GetRun(c *gin.Context) {
 	response.Success(c, run)
 }
 
+func (h *PlaygroundHandler) GetRunImage(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	if h.runService == nil {
+		response.InternalError(c, "Playground run service is not available")
+		return
+	}
+
+	index, err := strconv.Atoi(c.Param("index"))
+	if err != nil || index < 0 {
+		response.BadRequest(c, "Invalid image index")
+		return
+	}
+	asset, found, err := h.runService.GetImage(subject.UserID, c.Param("id"), index)
+	if !found {
+		response.NotFound(c, "Playground image not found")
+		return
+	}
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	c.Header("Cache-Control", "private, no-store")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Data(http.StatusOK, asset.ContentType, asset.Data)
+}
+
 func (h *PlaygroundHandler) CancelRun(c *gin.Context) {
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {
@@ -87,6 +119,21 @@ func (h *PlaygroundHandler) CancelRun(c *gin.Context) {
 }
 
 func playgroundRequestBaseURL(c *gin.Context) string {
+	// Playground jobs call this server's gateway asynchronously. Use the actual
+	// listener address so long image requests do not hairpin through a CDN.
+	if c.Request != nil {
+		if localAddr, ok := c.Request.Context().Value(http.LocalAddrContextKey).(net.Addr); ok {
+			address := strings.TrimSpace(localAddr.String())
+			if address != "" {
+				scheme := "http"
+				if c.Request.TLS != nil {
+					scheme = "https"
+				}
+				return scheme + "://" + address
+			}
+		}
+	}
+
 	scheme := strings.TrimSpace(c.GetHeader("X-Forwarded-Proto"))
 	if scheme == "" {
 		scheme = strings.TrimSpace(c.GetHeader("X-Forwarded-Scheme"))

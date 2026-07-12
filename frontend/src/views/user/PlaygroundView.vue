@@ -298,41 +298,77 @@
 
                   <div
                     v-if="message.images?.length"
-                    class="mt-3 inline-grid max-w-full gap-3"
-                    :class="message.images.length > 1 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'"
+                    class="playground-image-strip mt-3"
                   >
                     <figure
                       v-for="(image, index) in message.images"
                       :key="`${image.url}-${index}`"
-                      class="playground-image-figure overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-dark-700 dark:bg-dark-950"
+                      class="playground-image-thumbnail group/thumbnail"
                     >
-                      <button
-                        type="button"
-                        class="group/image relative isolate block w-full bg-slate-100 text-left dark:bg-dark-900"
-                        :title="t('playground.viewOriginalImage')"
-                        @click="openImagePreview(image, index)"
-                      >
-                        <img
-                          :src="image.url"
-                          :alt="t('playground.generatedImageAlt', { n: index + 1 })"
-                          class="block w-full object-contain"
-                          loading="lazy"
-                          decoding="async"
-                        />
-                        <span class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/0 opacity-0 transition group-hover/image:bg-black/20 group-hover/image:opacity-100">
-                          <span class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm dark:bg-dark-900/90 dark:text-white">
-                            <Icon name="eye" size="sm" />
-                          </span>
+                      <div class="relative h-full w-full overflow-hidden rounded-lg">
+                        <button
+                          type="button"
+                          class="absolute inset-0 block h-full w-full bg-slate-100 text-left dark:bg-dark-900"
+                          :title="t('playground.viewOriginalImage')"
+                          @click="openImagePreview(message, index)"
+                        >
+                          <img
+                            :src="image.url"
+                            :alt="t('playground.generatedImageAlt', { n: index + 1 })"
+                            class="h-full w-full object-contain transition duration-200 group-hover/thumbnail:scale-[1.03]"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        </button>
+                        <span class="pointer-events-none absolute left-1.5 top-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
+                          {{ index + 1 }}
                         </span>
-                        <span class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-3 pb-2 pt-8 text-[11px] font-semibold leading-none text-white">
-                          <span class="min-w-0 truncate">{{ imageMessageSizeLabel(message) }}</span>
+                        <div class="playground-thumbnail-actions pointer-events-none absolute inset-0 flex items-center justify-center gap-2 bg-black/35 opacity-0 transition-opacity group-hover/thumbnail:opacity-100 group-focus-within/thumbnail:opacity-100">
+                          <button
+                            type="button"
+                            class="pointer-events-auto inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-sm transition hover:text-sky-600"
+                            :title="t('playground.redrawImage')"
+                            :aria-label="t('playground.redrawImage')"
+                            @click.stop="redrawGeneratedImage(message, image, index)"
+                          >
+                            <Icon name="edit" size="xs" />
+                          </button>
+                          <button
+                            type="button"
+                            class="pointer-events-auto inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-sm transition hover:text-sky-600"
+                            :title="t('playground.viewOriginalImage')"
+                            :aria-label="t('playground.viewOriginalImage')"
+                            @click.stop="openImagePreview(message, index)"
+                          >
+                            <Icon name="eye" size="xs" />
+                          </button>
+                        </div>
+                        <span class="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/75 to-transparent px-2 pb-1.5 pt-5 text-[10px] font-semibold text-white">
+                          <span class="truncate">{{ imageMessageSizeLabel(message) }}</span>
                           <span class="shrink-0">{{ formatImageGenerationDuration(message.durationMs) }}</span>
                         </span>
-                      </button>
-                      <figcaption v-if="image.revisedPrompt" class="border-t border-slate-200 p-3 text-xs leading-5 text-slate-500 dark:border-dark-700 dark:text-dark-400">
-                        {{ image.revisedPrompt }}
-                      </figcaption>
+                      </div>
                     </figure>
+                  </div>
+
+                  <div v-if="message.images?.some((image) => image.revisedPrompt)" class="mt-2 max-w-[36rem]">
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 transition hover:text-sky-600 dark:text-dark-400 dark:hover:text-sky-300"
+                      :aria-expanded="isImageDescriptionExpanded(message.id)"
+                      @click="toggleImageDescription(message.id)"
+                    >
+                      <Icon :name="isImageDescriptionExpanded(message.id) ? 'chevronDown' : 'chevronRight'" size="xs" />
+                      {{ t('playground.imageDescriptions') }}
+                    </button>
+                    <div v-if="isImageDescriptionExpanded(message.id)" class="mt-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600 dark:border-dark-700 dark:bg-dark-950 dark:text-dark-300">
+                      <template v-for="(image, index) in message.images" :key="`${message.id}-description-${index}`">
+                        <p v-if="image.revisedPrompt">
+                          <span class="mr-1 font-semibold text-slate-400">{{ index + 1 }}.</span>
+                          {{ image.revisedPrompt }}
+                        </p>
+                      </template>
+                    </div>
                   </div>
 
                   <div v-if="message.images?.length && message.imageConfig" class="mt-3 flex justify-end">
@@ -475,14 +511,21 @@
                 :class="attachment.kind === 'image' && attachmentPreviewUrl(attachment) ? 'playground-pending-attachment-image' : ''"
                 :title="attachment.name"
               >
-                <img
+                <button
                   v-if="attachment.kind === 'image' && attachmentPreviewUrl(attachment)"
-                  :src="attachmentPreviewUrl(attachment)"
-                  :alt="attachment.name"
-                  class="h-full w-full object-cover"
-                  loading="lazy"
-                  decoding="async"
+                  type="button"
+                  class="h-full w-full"
+                  :title="t('playground.editAttachmentImage')"
+                  @click="openDoodleEditor(attachment)"
                 >
+                  <img
+                    :src="attachmentPreviewUrl(attachment)"
+                    :alt="attachment.name"
+                    class="h-full w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  >
+                </button>
                 <template v-else>
                   <Icon name="document" size="xs" />
                   <span class="truncate">{{ attachment.name }}</span>
@@ -515,6 +558,23 @@
                 <strong>{{ effectiveImageSize }}</strong>
               </button>
 
+              <div class="image-count-control" :aria-label="t('playground.imageCount')">
+                <Icon name="grid" size="xs" />
+                <span>{{ t('playground.imageCount') }}</span>
+                <div class="image-count-segments">
+                  <button
+                    v-for="count in 4"
+                    :key="count"
+                    type="button"
+                    :class="imageCount === count ? 'is-active' : ''"
+                    :aria-pressed="imageCount === count"
+                    @click="imageCount = count"
+                  >
+                    {{ count }}
+                  </button>
+                </div>
+              </div>
+
               <Select
                 v-model="imageQuality"
                 class="image-option-select w-[142px]"
@@ -544,10 +604,23 @@
             </div>
 
             <div
-              class="relative flex min-h-[96px] items-stretch gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-dark-700 dark:bg-dark-950"
-              :class="composerInputResizing ? 'select-none' : ''"
+              class="relative flex min-h-[96px] items-stretch gap-3 overflow-hidden rounded-lg border border-slate-200 bg-white px-4 py-3 transition-colors dark:border-dark-700 dark:bg-dark-950"
+              :class="[
+                composerInputResizing ? 'select-none' : '',
+                composerDragActive ? 'border-sky-400 bg-sky-50/80 ring-2 ring-sky-200 dark:border-sky-500 dark:bg-sky-950/40 dark:ring-sky-900' : ''
+              ]"
               :style="{ height: `${composerInputHeight}px` }"
+              @dragenter.prevent="handleComposerDragEnter"
+              @dragover.prevent="handleComposerDragOver"
+              @dragleave.prevent="handleComposerDragLeave"
+              @drop.prevent="handleComposerDrop"
             >
+              <div v-if="composerDragActive" class="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-white/90 text-sky-600 backdrop-blur-sm dark:bg-dark-950/90 dark:text-sky-300">
+                <div class="flex items-center gap-2 text-sm font-semibold">
+                  <Icon name="upload" size="md" />
+                  <span>{{ mode === 'image' ? t('playground.dropImagesToUpload') : t('playground.dropFilesToUpload') }}</span>
+                </div>
+              </div>
               <button
                 type="button"
                 class="absolute left-1/2 top-0 z-20 flex h-4 w-16 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-500 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-400 dark:hover:border-sky-800 dark:hover:bg-sky-950/40 dark:hover:text-sky-300"
@@ -571,10 +644,11 @@
                 class="min-h-[74px] flex-1 resize-none overflow-y-auto bg-transparent pr-10 text-sm leading-6 text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
                 :placeholder="composerPlaceholder"
                 @keydown.enter.exact.prevent="submitPrompt"
+                @paste="handleComposerPaste"
               ></textarea>
 
               <div class="flex shrink-0 items-end gap-2">
-                <input ref="fileInput" type="file" multiple class="hidden" @change="handleFileChange" />
+                <input ref="fileInput" type="file" multiple class="hidden" :accept="mode === 'image' ? 'image/*' : undefined" @change="handleFileChange" />
                 <button
                   type="button"
                   class="flex h-10 w-10 items-center justify-center rounded-lg text-sky-500 transition hover:bg-sky-50 disabled:opacity-50 dark:hover:bg-sky-950/40"
@@ -593,11 +667,11 @@
                   <Icon name="x" size="md" />
                 </button>
                 <button
-                  v-else
+                  v-if="!running || mode === 'image'"
                   type="button"
                   class="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-500 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-sky-950/40 dark:text-sky-300 dark:hover:bg-sky-900/50"
                   :title="t('playground.send')"
-                  :disabled="running"
+                  :disabled="mode !== 'image' && running"
                   @click="submitPrompt"
                 >
                   <Icon name="arrowRight" size="md" />
@@ -864,6 +938,88 @@
       </section>
     </div>
 
+    <div v-if="doodleEditor" class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-2 sm:p-4" @click.self="closeDoodleEditor()">
+      <section class="flex h-[min(92vh,900px)] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl dark:border-dark-700 dark:bg-dark-900" :aria-busy="doodleSaving">
+        <header class="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-dark-700">
+          <div class="min-w-0">
+            <h2 class="text-sm font-semibold text-slate-900 dark:text-white">{{ t('playground.doodleEditor') }}</h2>
+            <p class="mt-0.5 truncate text-xs text-slate-500 dark:text-dark-400">{{ doodleEditor.name }}</p>
+          </div>
+          <button type="button" class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-wait disabled:opacity-50 dark:text-dark-300 dark:hover:bg-dark-800 dark:hover:text-white" :title="t('common.close')" :disabled="doodleSaving" @click="closeDoodleEditor()">
+            <Icon name="x" size="md" />
+          </button>
+        </header>
+
+        <div class="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2 dark:border-dark-700">
+          <div class="inline-flex overflow-hidden rounded-lg border border-slate-200 dark:border-dark-700">
+            <button type="button" class="doodle-tool-button" :class="doodleTool === 'brush' ? 'is-active' : ''" :title="t('playground.doodleBrush')" :disabled="doodleSaving" @click="doodleTool = 'brush'">
+              <Icon name="edit" size="sm" />
+            </button>
+            <button type="button" class="doodle-tool-button" :class="doodleTool === 'eraser' ? 'is-active' : ''" :title="t('playground.doodleEraser')" :disabled="doodleSaving" @click="doodleTool = 'eraser'">
+              <Icon name="eraser" size="sm" />
+            </button>
+          </div>
+
+          <div class="flex items-center gap-1.5" :aria-label="t('playground.doodleColor')">
+            <button
+              v-for="color in doodleColors"
+              :key="color"
+              type="button"
+              class="h-6 w-6 rounded-full border-2 shadow-sm transition hover:scale-110 disabled:cursor-wait disabled:opacity-50"
+              :class="doodleColor === color ? 'border-sky-500 ring-2 ring-sky-200 dark:ring-sky-900' : 'border-white dark:border-dark-600'"
+              :style="{ backgroundColor: color }"
+              :title="color"
+              :aria-label="color"
+              :aria-pressed="doodleColor === color"
+              :disabled="doodleSaving"
+              @click="selectDoodleColor(color)"
+            ></button>
+          </div>
+
+          <label class="flex min-w-[150px] flex-1 items-center gap-2 text-xs font-medium text-slate-500 dark:text-dark-300">
+            <span class="shrink-0">{{ t('playground.doodleSize') }}</span>
+            <input v-model.number="doodleBrushSize" type="range" min="2" max="48" step="1" class="min-w-[80px] flex-1 accent-sky-500 disabled:cursor-wait disabled:opacity-50" :disabled="doodleSaving">
+            <span class="w-7 text-right tabular-nums">{{ doodleBrushSize }}</span>
+          </label>
+
+          <div class="ml-auto flex items-center gap-1">
+            <button type="button" class="doodle-action-button" :disabled="doodleSaving || doodleStrokes.length === 0" :title="t('playground.doodleUndo')" @click="undoDoodleStroke">
+              <Icon name="undo" size="sm" />
+            </button>
+            <button type="button" class="doodle-action-button" :disabled="doodleSaving || doodleRedoStrokes.length === 0" :title="t('playground.doodleRedo')" @click="redoDoodleStroke">
+              <Icon name="redo" size="sm" />
+            </button>
+            <button type="button" class="doodle-action-button hover:!text-red-500" :disabled="doodleSaving || doodleStrokes.length === 0" :title="t('playground.doodleClear')" @click="clearDoodleStrokes">
+              <Icon name="trash" size="sm" />
+            </button>
+          </div>
+        </div>
+
+        <div class="doodle-canvas-stage min-h-0 flex-1 overflow-hidden p-3 sm:p-5">
+          <canvas
+            ref="doodleCanvas"
+            class="block max-h-full max-w-full touch-none rounded border border-slate-300 bg-white shadow-sm dark:border-dark-600"
+            :class="doodleSaving ? 'pointer-events-none cursor-wait' : ''"
+            :aria-label="t('playground.doodleCanvas')"
+            @pointerdown="handleDoodlePointerDown"
+            @pointermove="handleDoodlePointerMove"
+            @pointerup="handleDoodlePointerUp"
+            @pointercancel="handleDoodlePointerUp"
+          ></canvas>
+        </div>
+
+        <footer class="flex justify-end gap-2 border-t border-slate-200 px-4 py-3 dark:border-dark-700">
+          <button type="button" class="h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-50 dark:border-dark-700 dark:text-dark-200 dark:hover:bg-dark-800" :disabled="doodleSaving" @click="closeDoodleEditor()">
+            {{ t('common.cancel') }}
+          </button>
+          <button type="button" class="inline-flex h-10 items-center gap-2 rounded-lg bg-sky-500 px-4 text-sm font-semibold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60" :disabled="doodleSaving" @click="saveDoodleAttachment">
+            <Icon :name="doodleSaving ? 'refresh' : 'check'" size="sm" :class="doodleSaving ? 'animate-spin' : ''" />
+            {{ t('playground.doodleApply') }}
+          </button>
+        </footer>
+      </section>
+    </div>
+
     <div
       v-if="imagePreview"
       ref="imagePreviewViewport"
@@ -882,6 +1038,9 @@
         <p v-if="imagePreview.revisedPrompt" class="mt-1 truncate text-xs text-white/70 drop-shadow">{{ imagePreview.revisedPrompt }}</p>
       </div>
       <div class="absolute right-4 top-4 z-10 flex items-center gap-2" @pointerdown.stop>
+        <span v-if="imagePreview.total && imagePreview.total > 1" class="rounded-full bg-black/45 px-2.5 py-1 text-xs font-semibold tabular-nums text-white backdrop-blur">
+          {{ imagePreview.index + 1 }} / {{ imagePreview.total }}
+        </span>
         <span class="rounded-full bg-black/45 px-2 py-1 text-xs font-semibold text-white backdrop-blur">
           {{ Math.round(imagePreviewZoom * 100) }}%
         </span>
@@ -894,6 +1053,28 @@
           <Icon name="x" size="md" />
         </button>
       </div>
+      <button
+        v-if="imagePreview.total && imagePreview.total > 1"
+        type="button"
+        class="absolute left-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-white/20 sm:left-6"
+        :title="t('playground.previousImage')"
+        :aria-label="t('playground.previousImage')"
+        @pointerdown.stop
+        @click.stop="navigateImagePreview(-1)"
+      >
+        <Icon name="chevronLeft" size="lg" />
+      </button>
+      <button
+        v-if="imagePreview.total && imagePreview.total > 1"
+        type="button"
+        class="absolute right-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-white/20 sm:right-6"
+        :title="t('playground.nextImage')"
+        :aria-label="t('playground.nextImage')"
+        @pointerdown.stop
+        @click.stop="navigateImagePreview(1)"
+      >
+        <Icon name="chevronRight" size="lg" />
+      </button>
       <img
         :src="imagePreview.url"
         :alt="imagePreview.title"
@@ -925,6 +1106,7 @@ import {
   cancelPlaygroundRun,
   fetchModels,
   getPlaygroundRun,
+  getPlaygroundRunImage,
   resolvePlaygroundRequestBase,
   startPlaygroundRun,
   streamChatCompletion,
@@ -940,6 +1122,13 @@ import { useAppStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateOnly, formatRelativeTime, formatTime } from '@/utils/format'
 import { platformIconClass } from '@/utils/platformColors'
+import { mapClientPointToCanvas, wrapGalleryIndex } from '@/utils/playgroundImageTools'
+import {
+  isRecoverablePlaygroundError,
+  isRetryablePlaygroundRequestError,
+  markRecoverablePlaygroundError,
+  playgroundRetryDelayMs
+} from '@/utils/playgroundRunTools'
 import type { ApiKey, GroupPlatform } from '@/types'
 
 type PlaygroundMode = 'chat' | 'image' | 'video' | 'audio'
@@ -949,7 +1138,27 @@ type IconName = InstanceType<typeof Icon>['$props']['name']
 type ImageSizeMode = 'auto' | 'ratio' | 'custom'
 type ImageResolution = '1K' | '2K' | '4K'
 type ImagePromptStyle = 'auto' | 'photo' | 'illustration' | 'anime' | 'cinematic' | 'product' | 'poster' | 'watercolor' | 'pixel'
+type DoodleTool = 'brush' | 'eraser'
 type PlaygroundRestorableRunRequest = Omit<PlaygroundRunRequest, 'apiKey'>
+
+interface DoodlePoint {
+  x: number
+  y: number
+}
+
+interface DoodleStroke {
+  tool: DoodleTool
+  color: string
+  size: number
+  points: DoodlePoint[]
+}
+
+interface DoodleEditorState {
+  attachmentId: string
+  name: string
+  naturalWidth: number
+  naturalHeight: number
+}
 
 interface PlaygroundAttachment {
   id: string
@@ -1099,6 +1308,7 @@ interface PlaygroundAttachmentPersistBatch {
 interface PlaygroundRunHandle {
   controller: AbortController
   mode: PlaygroundMode
+  threadId: string
   runId?: string
 }
 
@@ -1123,6 +1333,10 @@ interface PlaygroundImagePreview {
   url: string
   title: string
   revisedPrompt?: string
+  messageId: string
+  index: number
+  total: number
+  ownsObjectUrl?: boolean
 }
 
 const { t } = useI18n()
@@ -1144,6 +1358,7 @@ const showAssistantDetails = ref(true)
 const showComposerConfig = ref(true)
 const composerInputHeight = ref(112)
 const composerInputResizing = ref(false)
+const composerDragActive = ref(false)
 const showImageSizeModal = ref(false)
 const showPromptOptimizerModal = ref(false)
 const mode = ref<PlaygroundMode>('chat')
@@ -1181,6 +1396,7 @@ const composerDock = ref<HTMLElement | null>(null)
 const composerSpacerHeight = ref(260)
 const imagePreviewViewport = ref<HTMLElement | null>(null)
 const imagePreview = ref<PlaygroundImagePreview | null>(null)
+const expandedImageDescriptions = ref<Set<string>>(new Set())
 const imagePreviewZoom = ref(1)
 const imagePreviewPanX = ref(0)
 const imagePreviewPanY = ref(0)
@@ -1190,15 +1406,31 @@ const imagePreviewNaturalHeight = ref(0)
 const imagePreviewViewportWidth = ref(0)
 const imagePreviewViewportHeight = ref(0)
 const suppressNextImagePreviewBackdropClick = ref(false)
+const doodleEditor = ref<DoodleEditorState | null>(null)
+const doodleCanvas = ref<HTMLCanvasElement | null>(null)
+const doodleTool = ref<DoodleTool>('brush')
+const doodleColor = ref('#ef4444')
+const doodleBrushSize = ref(12)
+const doodleStrokes = ref<DoodleStroke[]>([])
+const doodleRedoStrokes = ref<DoodleStroke[]>([])
+const doodleSaving = ref(false)
 let modelAbortController: AbortController | null = null
 const runAbortControllers = new Map<string, PlaygroundRunHandle>()
+const runRecoveryTimers = new Map<string, number>()
+const runRecoveryAttempts = new Map<string, number>()
 let persistTimer: number | undefined
 let restoringState = false
 let persistenceReady = false
 let playgroundViewMounted = false
 let composerResizeObserver: ResizeObserver | null = null
 let imagePreviewResizeObserver: ResizeObserver | null = null
+let composerDragDepth = 0
 let imagePreviewDragState: { pointerId: number; startX: number; startY: number; panX: number; panY: number } | null = null
+let imagePreviewLoadToken = 0
+let doodleSourceImage: HTMLImageElement | null = null
+let doodleOverlayCanvas: HTMLCanvasElement | null = null
+let doodlePointerId: number | null = null
+let doodleRenderFrame: number | null = null
 let composerInputResizeState: { pointerId: number; startY: number; height: number } | null = null
 let playgroundDBPromise: Promise<IDBDatabase> | null = null
 const imageObjectURLs = new Set<string>()
@@ -1215,9 +1447,16 @@ const PLAYGROUND_STATE_UPDATED_EVENT = 'sub2api:playground-state-updated'
 const PLAYGROUND_PENDING_IMAGE_TTL_MS = 60 * 60 * 1000
 const PLAYGROUND_RUN_POLL_INTERVAL_MS = 900
 const PLAYGROUND_RUN_POLL_MAX_MS = 45 * 60 * 1000
+const PLAYGROUND_RUN_START_MAX_ATTEMPTS = 6
+const PLAYGROUND_RUN_NOT_FOUND_MAX_ATTEMPTS = 10
+const PLAYGROUND_IMAGE_FETCH_MAX_ATTEMPTS = 6
+const PLAYGROUND_RUN_RECOVERY_BASE_MS = 5000
+const PLAYGROUND_RUN_RECOVERY_MAX_MS = 60000
 const PLAYGROUND_CHAT_IMAGE_MAX_BYTES = 3.5 * 1024 * 1024
 const PLAYGROUND_CHAT_IMAGE_EDGE_STEPS = [1568, 1280, 1024, 768]
 const PLAYGROUND_CHAT_IMAGE_QUALITY_STEPS = [0.82, 0.72, 0.62, 0.52]
+const PLAYGROUND_DOODLE_MAX_DISPLAY_EDGE = 1600
+const doodleColors = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#0ea5e9', '#8b5cf6', '#ffffff', '#111827']
 const playgroundInstanceId = `playground-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 const imageResolutionEdges: Record<ImageResolution, number> = {
   '1K': 1024,
@@ -2079,6 +2318,17 @@ async function loadPlaygroundImageFromDB(id: string): Promise<PlaygroundPersiste
   })
 }
 
+async function deletePlaygroundImageFromDB(id: string): Promise<void> {
+  if (!id) return
+  const db = await openPlaygroundDB()
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(PLAYGROUND_IMAGE_STORE, 'readwrite')
+    transaction.objectStore(PLAYGROUND_IMAGE_STORE).delete(id)
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = () => reject(transaction.error || new Error('Failed to delete playground image'))
+  })
+}
+
 async function collectPersistedImagesFromThreads(): Promise<PlaygroundImagePersistBatch> {
   const records: PlaygroundPersistedImage[] = []
   const replacements: Array<{ image: PlaygroundStoredImageResult; thumbnailBlob: Blob }> = []
@@ -2502,8 +2752,11 @@ function applyPlaygroundPayload(payload: Record<string, unknown>) {
     : composerInputHeight.value
 }
 
-async function writePlaygroundStateNow() {
-  if (restoringState) return
+async function writePlaygroundStateNow(requireDurablePersistence = false) {
+  if (restoringState) {
+    if (requireDurablePersistence) throw new Error('Playground state is still restoring')
+    return
+  }
   if (persistTimer !== undefined) {
     window.clearTimeout(persistTimer)
     persistTimer = undefined
@@ -2512,21 +2765,30 @@ async function writePlaygroundStateNow() {
   const imageBatch = await collectPersistedImagesFromThreads()
   const attachmentBatch = await collectPersistedAttachmentsFromThreads()
   const payload = buildPlaygroundPayload()
+  let assetsPersisted = false
+  let databaseStatePersisted = false
+  let persistenceError: unknown
   try {
     await savePlaygroundImagesToDB([...imageBatch.records, ...attachmentBatch.records])
+    assetsPersisted = true
     imageBatch.applyThumbnails()
     attachmentBatch.applyThumbnails()
     attachmentBatch.markPersisted()
     await savePlaygroundStateToDB(payload)
+    databaseStatePersisted = true
     localStorage.setItem(storageKey(), JSON.stringify(buildLocalStoragePayload(payload)))
     window.dispatchEvent(new CustomEvent(PLAYGROUND_STATE_UPDATED_EVENT, { detail: { key: storageKey(), source: playgroundInstanceId } }))
   } catch (error) {
+    persistenceError = error
     console.warn('Failed to persist playground state:', error)
     try {
       localStorage.setItem(storageKey(), JSON.stringify(buildLocalStoragePayload(payload)))
     } catch (fallbackError) {
       console.warn('Failed to persist playground fallback state:', fallbackError)
     }
+  }
+  if (requireDurablePersistence && (!assetsPersisted || !databaseStatePersisted)) {
+    throw persistenceError instanceof Error ? persistenceError : new Error('Failed to persist playground state')
   }
 }
 
@@ -2729,6 +2991,7 @@ function deleteThread(id: string) {
   if (index === -1) return
   const deleted = threads.value[index]
   for (const message of deleted.messages) {
+    clearScheduledRunRecovery(message.runId)
     revokeImageObjectURLs(message.images)
   }
   threads.value.splice(index, 1)
@@ -2744,6 +3007,9 @@ function deleteThread(id: string) {
 }
 
 function clearHistory() {
+  for (const thread of threads.value.filter((item) => item.mode === mode.value)) {
+    for (const message of thread.messages) clearScheduledRunRecovery(message.runId)
+  }
   threads.value = threads.value.filter((thread) => thread.mode !== mode.value)
   createThread(mode.value)
 }
@@ -3044,6 +3310,83 @@ async function cloneAttachmentForReuse(attachment: PlaygroundAttachment): Promis
   return clone
 }
 
+function isImageDescriptionExpanded(messageId: string): boolean {
+  return expandedImageDescriptions.value.has(messageId)
+}
+
+function toggleImageDescription(messageId: string) {
+  const next = new Set(expandedImageDescriptions.value)
+  if (next.has(messageId)) {
+    next.delete(messageId)
+  } else {
+    next.add(messageId)
+  }
+  expandedImageDescriptions.value = next
+}
+
+async function resolveGeneratedImageBlob(image: PlaygroundStoredImageResult): Promise<Blob | null> {
+  const storageId = image.storageId || storedImageIdFromURL(image.url || '')
+  if (storageId) {
+    const persisted = await loadPlaygroundImageFromDB(storageId).catch(() => null)
+    if (persisted?.blob) return persisted.blob
+    if (persisted?.url) {
+      try {
+        const response = await fetch(persisted.url)
+        if (response.ok) return await response.blob()
+      } catch {
+        return null
+      }
+    }
+  }
+  if (image.url?.startsWith('data:')) return dataURLToBlob(image.url)
+  if (image.url && !image.url.startsWith(PLAYGROUND_IMAGE_URL_PREFIX)) {
+    try {
+      const response = await fetch(image.url)
+      if (response.ok) return await response.blob()
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
+function imageFileExtension(mimeType: string): string {
+  if (mimeType === 'image/jpeg') return 'jpg'
+  if (mimeType === 'image/webp') return 'webp'
+  if (mimeType === 'image/gif') return 'gif'
+  return 'png'
+}
+
+async function redrawGeneratedImage(message: PlaygroundMessage, image: PlaygroundStoredImageResult, index: number) {
+  try {
+    const blob = await resolveGeneratedImageBlob(image)
+    if (!blob) throw new Error(t('playground.redrawImageFailed'))
+    const mimeType = blob.type || image.mimeType || 'image/png'
+    const file = new File([blob], `generated-${index + 1}.${imageFileExtension(mimeType)}`, { type: mimeType })
+    const attachment = await readFile(file)
+    mode.value = 'image'
+    if (activeThread.value) {
+      activeThread.value.mode = 'image'
+      activeThread.value.updatedAt = Date.now()
+    }
+    if (message.model) selectedModel.value = message.model
+    if (message.imageConfig) {
+      imageSizeMode.value = message.imageConfig.sizeMode
+      imageResolution.value = message.imageConfig.resolution
+      imageRatio.value = message.imageConfig.ratio
+      customImageWidth.value = message.imageConfig.customWidth
+      customImageHeight.value = message.imageConfig.customHeight
+      imageQuality.value = message.imageConfig.quality
+      outputFormat.value = message.imageConfig.outputFormat
+    }
+    pendingAttachments.value = [...pendingAttachments.value, attachment]
+    await writePlaygroundStateNow()
+    appStore.showSuccess(t('playground.redrawImageAdded'))
+  } catch (error) {
+    appStore.showError((error as Error)?.message || t('playground.redrawImageFailed'))
+  }
+}
+
 async function reuseImageConfig(message: PlaygroundMessage) {
   if (!message.imageConfig) return
   imageSizeMode.value = message.imageConfig.sizeMode
@@ -3186,8 +3529,11 @@ function resetImagePreviewView() {
   suppressNextImagePreviewBackdropClick.value = false
 }
 
-async function openImagePreview(image: PlaygroundStoredImageResult, index: number) {
-  closeImagePreview()
+async function openImagePreview(message: PlaygroundMessage, index: number) {
+  const images = message.images || []
+  const image = images[index]
+  if (!image) return
+  const loadToken = ++imagePreviewLoadToken
   imagePreviewZoom.value = 1
   imagePreviewPanX.value = 0
   imagePreviewPanY.value = 0
@@ -3195,37 +3541,46 @@ async function openImagePreview(image: PlaygroundStoredImageResult, index: numbe
   imagePreviewNaturalHeight.value = 0
   const title = t('playground.generatedImageAlt', { n: index + 1 })
   const storageId = image.storageId || storedImageIdFromURL(image.url)
+  let previewUrl = ''
+  let ownsObjectUrl = false
+  let revisedPrompt = image.revisedPrompt
   if (storageId) {
     const persisted = await loadPlaygroundImageFromDB(storageId).catch((error) => {
       console.warn('Failed to load original playground image:', error)
       return null
     })
     if (persisted?.blob) {
-      imagePreview.value = {
-        url: createTrackedObjectURL(persisted.blob),
-        title,
-        revisedPrompt: image.revisedPrompt || persisted.revisedPrompt
-      }
-      return
-    }
-    if (persisted?.url) {
-      imagePreview.value = {
-        url: persisted.url,
-        title,
-        revisedPrompt: image.revisedPrompt || persisted.revisedPrompt
-      }
-      return
+      previewUrl = createTrackedObjectURL(persisted.blob)
+      ownsObjectUrl = true
+      revisedPrompt = revisedPrompt || persisted.revisedPrompt
+    } else if (persisted?.url) {
+      previewUrl = persisted.url
+      revisedPrompt = revisedPrompt || persisted.revisedPrompt
     }
   }
-  if (image.url && !image.url.startsWith(PLAYGROUND_IMAGE_URL_PREFIX)) {
-    imagePreview.value = {
-      url: image.url,
-      title,
-      revisedPrompt: image.revisedPrompt
-    }
+  if (!previewUrl && image.url && !image.url.startsWith(PLAYGROUND_IMAGE_URL_PREFIX)) {
+    previewUrl = image.url
+  }
+  if (loadToken !== imagePreviewLoadToken) {
+    if (ownsObjectUrl) revokeTrackedObjectURL(previewUrl)
     return
   }
-  appStore.showError(t('playground.imageCacheMissing'))
+  if (!previewUrl) {
+    appStore.showError(t('playground.imageCacheMissing'))
+    return
+  }
+  if (imagePreview.value?.ownsObjectUrl && imagePreview.value.url !== previewUrl) {
+    revokeTrackedObjectURL(imagePreview.value?.url)
+  }
+  imagePreview.value = {
+    url: previewUrl,
+    title,
+    revisedPrompt,
+    messageId: message.id,
+    index,
+    total: images.length,
+    ownsObjectUrl
+  }
 }
 
 function openAttachmentImagePreview(attachment: PlaygroundAttachment) {
@@ -3234,16 +3589,292 @@ function openAttachmentImagePreview(attachment: PlaygroundAttachment) {
   closeImagePreview()
   imagePreview.value = {
     url: previewUrl,
-    title: attachment.name
+    title: attachment.name,
+    messageId: '',
+    index: 0,
+    total: 1,
+    ownsObjectUrl: false
   }
+}
+
+async function navigateImagePreview(direction: -1 | 1) {
+  const current = imagePreview.value
+  if (!current?.messageId || current.total <= 1) return
+  const thread = findThreadForMessage(current.messageId)
+  const message = thread?.messages.find((item) => item.id === current.messageId)
+  if (!message?.images?.length) return
+  const nextIndex = wrapGalleryIndex(current.index, direction, message.images.length)
+  await openImagePreview(message, nextIndex)
 }
 
 function attachmentPreviewUrl(attachment: PlaygroundAttachment): string {
   return attachment.thumbnailUrl || (attachment.dataUrl?.startsWith('data:') ? attachment.dataUrl : '')
 }
 
+async function resolveAttachmentBlob(attachment: PlaygroundAttachment): Promise<Blob | null> {
+  if (attachment.dataUrl?.startsWith('data:')) {
+    const blob = dataURLToBlob(attachment.dataUrl)
+    if (blob) return blob
+  }
+  const storageId = attachment.storageId || storedImageIdFromURL(attachment.dataUrl || '')
+  if (!storageId) return null
+  const persisted = await loadPlaygroundImageFromDB(storageId).catch(() => null)
+  return persisted?.blob || null
+}
+
+function isPlaygroundImageStorageReferenced(storageId: string): boolean {
+  return threads.value.some((thread) => {
+    const attachmentUsesStorage = (attachment: PlaygroundAttachment) => {
+      return (attachment.storageId || storedImageIdFromURL(attachment.dataUrl || '')) === storageId
+    }
+    if (thread.pendingAttachments.some(attachmentUsesStorage)) return true
+    return thread.messages.some((message) => {
+      return message.attachments?.some(attachmentUsesStorage) ||
+        message.images?.some((image) => (image.storageId || storedImageIdFromURL(image.url)) === storageId) ||
+        message.runRequest?.images?.some((image) => {
+          return (image.storageId || storedImageIdFromURL(image.dataUrl || '')) === storageId
+        })
+    })
+  })
+}
+
+async function openDoodleEditor(attachment: PlaygroundAttachment) {
+  try {
+    const blob = await resolveAttachmentBlob(attachment)
+    if (!blob) throw new Error(t('playground.doodleLoadFailed'))
+    const image = await loadImageElement(blob)
+    doodleSourceImage = image
+    doodleStrokes.value = []
+    doodleRedoStrokes.value = []
+    doodleTool.value = 'brush'
+    doodleEditor.value = {
+      attachmentId: attachment.id,
+      name: attachment.name,
+      naturalWidth: image.naturalWidth,
+      naturalHeight: image.naturalHeight
+    }
+    await nextTick()
+    const canvas = doodleCanvas.value
+    if (!canvas) throw new Error(t('playground.doodleLoadFailed'))
+    const ratio = Math.min(1, PLAYGROUND_DOODLE_MAX_DISPLAY_EDGE / Math.max(image.naturalWidth, image.naturalHeight))
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio))
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio))
+    doodleOverlayCanvas = document.createElement('canvas')
+    doodleOverlayCanvas.width = canvas.width
+    doodleOverlayCanvas.height = canvas.height
+    renderDoodleCanvas()
+  } catch (error) {
+    closeDoodleEditor()
+    appStore.showError((error as Error)?.message || t('playground.doodleLoadFailed'))
+  }
+}
+
+function closeDoodleEditor(force = false) {
+  if (doodleSaving.value && !force) return
+  if (doodleRenderFrame !== null) {
+    cancelAnimationFrame(doodleRenderFrame)
+    doodleRenderFrame = null
+  }
+  doodlePointerId = null
+  doodleSourceImage = null
+  doodleOverlayCanvas = null
+  doodleEditor.value = null
+  doodleStrokes.value = []
+  doodleRedoStrokes.value = []
+  doodleSaving.value = false
+}
+
+function selectDoodleColor(color: string) {
+  doodleColor.value = color
+  doodleTool.value = 'brush'
+}
+
+function drawDoodleStroke(context: CanvasRenderingContext2D, stroke: DoodleStroke) {
+  if (stroke.points.length === 0) return
+  context.save()
+  context.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over'
+  context.strokeStyle = stroke.color
+  context.fillStyle = stroke.color
+  context.lineWidth = stroke.size
+  context.lineCap = 'round'
+  context.lineJoin = 'round'
+  if (stroke.points.length === 1) {
+    const point = stroke.points[0]
+    context.beginPath()
+    context.arc(point.x, point.y, stroke.size / 2, 0, Math.PI * 2)
+    context.fill()
+  } else {
+    context.beginPath()
+    context.moveTo(stroke.points[0].x, stroke.points[0].y)
+    for (const point of stroke.points.slice(1)) {
+      context.lineTo(point.x, point.y)
+    }
+    context.stroke()
+  }
+  context.restore()
+}
+
+function renderDoodleCanvas() {
+  const canvas = doodleCanvas.value
+  const overlay = doodleOverlayCanvas
+  const image = doodleSourceImage
+  if (!canvas || !overlay || !image) return
+  const overlayContext = overlay.getContext('2d')
+  const context = canvas.getContext('2d')
+  if (!overlayContext || !context) return
+  overlayContext.clearRect(0, 0, overlay.width, overlay.height)
+  for (const stroke of doodleStrokes.value) drawDoodleStroke(overlayContext, stroke)
+  context.clearRect(0, 0, canvas.width, canvas.height)
+  context.drawImage(image, 0, 0, canvas.width, canvas.height)
+  context.drawImage(overlay, 0, 0)
+}
+
+function scheduleDoodleRender() {
+  if (doodleRenderFrame !== null) return
+  doodleRenderFrame = requestAnimationFrame(() => {
+    doodleRenderFrame = null
+    renderDoodleCanvas()
+  })
+}
+
+function doodlePointFromEvent(event: PointerEvent): DoodlePoint | null {
+  const canvas = doodleCanvas.value
+  if (!canvas) return null
+  const rect = canvas.getBoundingClientRect()
+  return mapClientPointToCanvas(event.clientX, event.clientY, rect, canvas.width, canvas.height)
+}
+
+function handleDoodlePointerDown(event: PointerEvent) {
+  if (doodleSaving.value || event.button !== 0 || doodlePointerId !== null) return
+  const canvas = doodleCanvas.value
+  const point = doodlePointFromEvent(event)
+  if (!canvas || !point) return
+  event.preventDefault()
+  canvas.setPointerCapture(event.pointerId)
+  doodlePointerId = event.pointerId
+  doodleRedoStrokes.value = []
+  doodleStrokes.value = [...doodleStrokes.value, {
+    tool: doodleTool.value,
+    color: doodleColor.value,
+    size: doodleBrushSize.value,
+    points: [point]
+  }]
+  scheduleDoodleRender()
+}
+
+function handleDoodlePointerMove(event: PointerEvent) {
+  if (doodlePointerId !== event.pointerId) return
+  const point = doodlePointFromEvent(event)
+  const stroke = doodleStrokes.value[doodleStrokes.value.length - 1]
+  if (!point || !stroke) return
+  stroke.points.push(point)
+  scheduleDoodleRender()
+}
+
+function handleDoodlePointerUp(event: PointerEvent) {
+  if (doodlePointerId !== event.pointerId) return
+  const canvas = doodleCanvas.value
+  if (canvas?.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
+  doodlePointerId = null
+  scheduleDoodleRender()
+}
+
+function undoDoodleStroke() {
+  const stroke = doodleStrokes.value[doodleStrokes.value.length - 1]
+  if (!stroke) return
+  doodleStrokes.value = doodleStrokes.value.slice(0, -1)
+  doodleRedoStrokes.value = [...doodleRedoStrokes.value, stroke]
+  scheduleDoodleRender()
+}
+
+function redoDoodleStroke() {
+  const stroke = doodleRedoStrokes.value[doodleRedoStrokes.value.length - 1]
+  if (!stroke) return
+  doodleRedoStrokes.value = doodleRedoStrokes.value.slice(0, -1)
+  doodleStrokes.value = [...doodleStrokes.value, stroke]
+  scheduleDoodleRender()
+}
+
+function clearDoodleStrokes() {
+  doodleStrokes.value = []
+  doodleRedoStrokes.value = []
+  scheduleDoodleRender()
+}
+
+function canvasToPNGBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error(t('playground.doodleSaveFailed'))), 'image/png')
+  })
+}
+
+async function saveDoodleAttachment() {
+  const editor = doodleEditor.value
+  const sourceImage = doodleSourceImage
+  const overlay = doodleOverlayCanvas
+  if (!editor || !sourceImage || !overlay || doodleSaving.value) return
+  let originalAttachment: PlaygroundAttachment | null = null
+  let replacementAttachment: PlaygroundAttachment | null = null
+  doodleSaving.value = true
+  try {
+    renderDoodleCanvas()
+    const output = document.createElement('canvas')
+    output.width = editor.naturalWidth
+    output.height = editor.naturalHeight
+    const context = output.getContext('2d')
+    if (!context) throw new Error(t('playground.doodleSaveFailed'))
+    context.drawImage(sourceImage, 0, 0, output.width, output.height)
+    context.drawImage(overlay, 0, 0, output.width, output.height)
+    const blob = await canvasToPNGBlob(output)
+    const baseName = editor.name.replace(/\.[^.]+$/, '') || 'image'
+    const replacement = await readFile(new File([blob], `${baseName}-doodle.png`, { type: 'image/png' }))
+    const oldAttachment = pendingAttachments.value.find((attachment) => attachment.id === editor.attachmentId)
+    if (!oldAttachment) throw new Error(t('playground.doodleSaveFailed'))
+    const oldStorageId = oldAttachment.storageId
+    replacement.id = editor.attachmentId
+    originalAttachment = oldAttachment
+    replacementAttachment = replacement
+    pendingAttachments.value = pendingAttachments.value.map((attachment) => attachment.id === editor.attachmentId ? replacement : attachment)
+    await writePlaygroundStateNow(true)
+    revokeAttachmentObjectURLs([oldAttachment])
+    if (oldStorageId && !isPlaygroundImageStorageReferenced(oldStorageId)) {
+      try {
+        await deletePlaygroundImageFromDB(oldStorageId)
+        persistedAttachmentStorageIds.delete(oldStorageId)
+      } catch (error) {
+        console.warn('Failed to clean up replaced playground image:', error)
+      }
+    }
+    closeDoodleEditor(true)
+    appStore.showSuccess(t('playground.doodleSaved'))
+  } catch (error) {
+    if (originalAttachment && replacementAttachment) {
+      const currentAttachment = pendingAttachments.value.find((attachment) => attachment.id === editor.attachmentId)
+      const isCurrentReplacement = currentAttachment?.storageId === replacementAttachment.storageId
+      if (isCurrentReplacement) {
+        pendingAttachments.value = pendingAttachments.value.map((attachment) => {
+          return attachment.id === editor.attachmentId ? originalAttachment as PlaygroundAttachment : attachment
+        })
+        revokeAttachmentObjectURLs([replacementAttachment])
+        const replacementStorageId = replacementAttachment.storageId
+        if (replacementStorageId && !isPlaygroundImageStorageReferenced(replacementStorageId)) {
+          try {
+            await deletePlaygroundImageFromDB(replacementStorageId)
+            persistedAttachmentStorageIds.delete(replacementStorageId)
+          } catch (cleanupError) {
+            console.warn('Failed to clean up uncommitted playground image:', cleanupError)
+          }
+        }
+        persistPlaygroundState()
+      }
+    }
+    doodleSaving.value = false
+    appStore.showError((error as Error)?.message || t('playground.doodleSaveFailed'))
+  }
+}
+
 function closeImagePreview() {
-  if (imagePreview.value?.url.startsWith('blob:')) {
+  imagePreviewLoadToken += 1
+  if (imagePreview.value?.ownsObjectUrl) {
     revokeTrackedObjectURL(imagePreview.value.url)
   }
   imagePreview.value = null
@@ -3252,13 +3883,47 @@ function closeImagePreview() {
   imagePreviewNaturalHeight.value = 0
 }
 
+function handlePlaygroundGlobalKeydown(event: KeyboardEvent) {
+  if (doodleEditor.value) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeDoodleEditor()
+      return
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+      event.preventDefault()
+      if (doodleSaving.value) return
+      if (event.shiftKey) redoDoodleStroke()
+      else undoDoodleStroke()
+    }
+    return
+  }
+  if (!imagePreview.value) return
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeImagePreview()
+  } else if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    void navigateImagePreview(-1)
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    void navigateImagePreview(1)
+  }
+}
+
 function deleteMessage(messageId: string) {
   const thread = activeThread.value
   if (!thread) return
   const deleted = thread.messages.find((message) => message.id === messageId)
+  clearScheduledRunRecovery(deleted?.runId)
   revokeImageObjectURLs(deleted?.images)
   revokeAttachmentObjectURLs(deleted?.attachments)
   thread.messages = thread.messages.filter((message) => message.id !== messageId)
+  if (expandedImageDescriptions.value.has(messageId)) {
+    const next = new Set(expandedImageDescriptions.value)
+    next.delete(messageId)
+    expandedImageDescriptions.value = next
+  }
   thread.updatedAt = Date.now()
 }
 
@@ -3419,6 +4084,12 @@ function isHandledRunError(error: unknown): boolean {
   return Boolean(error && typeof error === 'object' && (error as Record<string, unknown>).__playgroundHandled)
 }
 
+function playgroundRequestStatus(error: unknown): number {
+  if (!error || typeof error !== 'object') return 0
+  const status = Number((error as Record<string, unknown>).status)
+  return Number.isFinite(status) ? status : 0
+}
+
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   if (signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'))
   return new Promise((resolve, reject) => {
@@ -3446,6 +4117,52 @@ function isTerminalPlaygroundRun(run: PlaygroundRun): boolean {
 
 function buildRunError(run: PlaygroundRun): Error {
   return new Error(run.error || (run.status === 'canceled' ? t('playground.requestStopped') : t('playground.runFailed')))
+}
+
+function clearScheduledRunRecovery(runId?: string, resetAttempts = true) {
+  if (!runId) return
+  const timer = runRecoveryTimers.get(runId)
+  if (timer !== undefined) window.clearTimeout(timer)
+  runRecoveryTimers.delete(runId)
+  if (resetAttempts) runRecoveryAttempts.delete(runId)
+}
+
+function scheduleRunRecovery(thread: PlaygroundThread, message: PlaygroundMessage) {
+  const runId = message.runId
+  if (!runId || !playgroundViewMounted || runRecoveryTimers.has(runId)) return
+  const attempt = (runRecoveryAttempts.get(runId) || 0) + 1
+  runRecoveryAttempts.set(runId, attempt)
+  const delay = playgroundRetryDelayMs(
+    attempt,
+    PLAYGROUND_RUN_RECOVERY_BASE_MS,
+    PLAYGROUND_RUN_RECOVERY_MAX_MS
+  )
+  const timer = window.setTimeout(() => {
+    runRecoveryTimers.delete(runId)
+    if (!playgroundViewMounted) return
+    const currentThread = threads.value.find((item) => item.id === thread.id)
+    const currentMessage = currentThread?.messages.find((item) => item.id === message.id)
+    if (!currentThread || !currentMessage?.pending || currentMessage.runId !== runId) return
+    void resumePlaygroundRun(currentThread, currentMessage)
+  }, delay)
+  runRecoveryTimers.set(runId, timer)
+}
+
+async function preserveRecoverableRun(
+  thread: PlaygroundThread,
+  message: PlaygroundMessage
+) {
+  message.pending = true
+  message.error = false
+  message.progress = message.imageConfig ? t('playground.generatingImages') : t('playground.waiting')
+  thread.lastRunError = ''
+  thread.updatedAt = Date.now()
+  if (message.imageConfig) {
+    await persistCompletedImageMessage(thread, message)
+  } else {
+    await writePlaygroundStateNow()
+  }
+  scheduleRunRecovery(thread, message)
 }
 
 function buildChatRunRequest(
@@ -3513,12 +4230,33 @@ async function ensureBackendPlaygroundRun(
   request: PlaygroundRunRequest,
   controller: AbortController
 ): Promise<PlaygroundRun> {
-  try {
-    return await startPlaygroundRun(request)
-  } catch (error) {
-    if (controller.signal.aborted) throw error
-    throw error
+  let lastError: unknown
+  for (let attempt = 1; attempt <= PLAYGROUND_RUN_START_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await startPlaygroundRun(request, controller.signal)
+    } catch (error) {
+      if (controller.signal.aborted) throw error
+      if (!isRetryablePlaygroundRequestError(error)) throw error
+      lastError = error
+
+      if (request.id) {
+        try {
+          return await getPlaygroundRun(request.id, controller.signal)
+        } catch (lookupError) {
+          if (controller.signal.aborted) throw lookupError
+          const lookupStatus = playgroundRequestStatus(lookupError)
+          if (lookupStatus !== 404 && !isRetryablePlaygroundRequestError(lookupError)) {
+            throw lookupError
+          }
+        }
+      }
+
+      if (attempt < PLAYGROUND_RUN_START_MAX_ATTEMPTS) {
+        await sleep(playgroundRetryDelayMs(attempt), controller.signal)
+      }
+    }
   }
+  throw markRecoverablePlaygroundError(lastError, t('playground.runTimeout'))
 }
 
 async function pollPlaygroundRun(
@@ -3527,13 +4265,38 @@ async function pollPlaygroundRun(
   controller: AbortController
 ): Promise<PlaygroundRun> {
   const startedAt = Date.now()
+  let consecutiveFailures = 0
+  let notFoundFailures = 0
   while (true) {
     if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError')
-    const run = await getPlaygroundRun(runId)
+    let run: PlaygroundRun
+    try {
+      run = await getPlaygroundRun(runId, controller.signal)
+      consecutiveFailures = 0
+      notFoundFailures = 0
+    } catch (error) {
+      if (controller.signal.aborted) throw error
+      const status = playgroundRequestStatus(error)
+      if (status === 404) notFoundFailures += 1
+      if (status === 404 && notFoundFailures > PLAYGROUND_RUN_NOT_FOUND_MAX_ATTEMPTS) {
+        throw markRecoverablePlaygroundError(error, t('playground.runTimeout'))
+      }
+      const retryable = isRetryablePlaygroundRequestError(error) ||
+        (status === 404 && notFoundFailures <= PLAYGROUND_RUN_NOT_FOUND_MAX_ATTEMPTS)
+      if (!retryable) {
+        throw error
+      }
+      consecutiveFailures += 1
+      if (Date.now() - startedAt > PLAYGROUND_RUN_POLL_MAX_MS) {
+        throw markRecoverablePlaygroundError(error, t('playground.runTimeout'))
+      }
+      await sleep(playgroundRetryDelayMs(consecutiveFailures), controller.signal)
+      continue
+    }
     await apply(run)
     if (isTerminalPlaygroundRun(run)) return run
     if (Date.now() - startedAt > PLAYGROUND_RUN_POLL_MAX_MS) {
-      throw new Error(t('playground.runTimeout'))
+      throw markRecoverablePlaygroundError(new Error(t('playground.runTimeout')), t('playground.runTimeout'))
     }
     await sleep(PLAYGROUND_RUN_POLL_INTERVAL_MS, controller.signal)
   }
@@ -3545,6 +4308,7 @@ async function applyCompletedChatRun(
   run: PlaygroundRun
 ) {
   if (run.status !== 'succeeded') {
+    clearScheduledRunRecovery(message.runId)
     message.pending = false
     message.progress = ''
     message.error = true
@@ -3554,6 +4318,7 @@ async function applyCompletedChatRun(
     await writePlaygroundStateNow()
     return
   }
+  clearScheduledRunRecovery(message.runId)
   message.pending = false
   message.progress = ''
   message.error = false
@@ -3564,12 +4329,56 @@ async function applyCompletedChatRun(
   await writePlaygroundStateNow()
 }
 
+async function hydratePlaygroundRunImages(run: PlaygroundRun, signal: AbortSignal): Promise<PlaygroundImageResult[]> {
+  return Promise.all((run.images || []).map(async (image, index) => {
+    if (image.url) return image
+    const assetIndex = Number.isInteger(image.assetIndex) ? Number(image.assetIndex) : index
+    let blob: Blob | null = null
+    let lastError: unknown
+    for (let attempt = 1; attempt <= PLAYGROUND_IMAGE_FETCH_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        blob = await getPlaygroundRunImage(run.id, assetIndex, signal)
+        break
+      } catch (error) {
+        if (signal.aborted) throw error
+        const retryable = isRetryablePlaygroundRequestError(error) || playgroundRequestStatus(error) === 404
+        if (!retryable) {
+          throw error
+        }
+        lastError = error
+        if (attempt >= PLAYGROUND_IMAGE_FETCH_MAX_ATTEMPTS) {
+          throw markRecoverablePlaygroundError(error, t('playground.runTimeout'))
+        }
+        await sleep(playgroundRetryDelayMs(attempt), signal)
+      }
+    }
+    if (!blob) {
+      throw markRecoverablePlaygroundError(lastError, t('playground.noImageReturned'))
+    }
+    const mimeType = image.mimeType || blob.type || 'image/png'
+    const normalizedBlob = blob.type ? blob : new Blob([blob], { type: mimeType })
+    let dataUrl: string
+    try {
+      dataUrl = await blobToDataURL(normalizedBlob)
+    } catch (error) {
+      throw markRecoverablePlaygroundError(error, t('playground.noImageReturned'))
+    }
+    return {
+      url: dataUrl,
+      revisedPrompt: image.revisedPrompt,
+      mimeType
+    }
+  }))
+}
+
 async function applyCompletedImageRun(
   thread: PlaygroundThread,
   message: PlaygroundMessage,
-  run: PlaygroundRun
+  run: PlaygroundRun,
+  signal: AbortSignal
 ) {
   if (run.status !== 'succeeded') {
+    clearScheduledRunRecovery(message.runId)
     message.pending = false
     message.progress = ''
     message.error = true
@@ -3579,7 +4388,8 @@ async function applyCompletedImageRun(
     await persistCompletedImageMessage(thread, message)
     return
   }
-  const images = run.images || []
+  const images = await hydratePlaygroundRunImages(run, signal)
+  clearScheduledRunRecovery(message.runId)
   message.pending = false
   message.progress = ''
   message.error = false
@@ -3588,20 +4398,20 @@ async function applyCompletedImageRun(
   message.images = images.map((image, index) => ({
     ...image,
     storageId: uid(`image-${message.id}-${index}`),
-    mimeType: image.url.startsWith('data:')
+    mimeType: image.mimeType || (image.url.startsWith('data:')
       ? image.url.match(/^data:([^;,]+)/)?.[1]
-      : undefined
+      : undefined)
   }))
-  message.raw = run.raw
+  message.raw = undefined
   thread.updatedAt = Date.now()
   await persistCompletedImageMessage(thread, message)
 }
 
 async function resumePlaygroundRun(thread: PlaygroundThread, message: PlaygroundMessage) {
-  if (!message.pending || !message.runId || runAbortControllers.has(thread.id)) return
+  if (!message.pending || !message.runId || runAbortControllers.has(message.runId)) return
   const controller = new AbortController()
   const runMode: PlaygroundMode = message.imageConfig ? 'image' : thread.mode
-  runAbortControllers.set(thread.id, { controller, mode: runMode, runId: message.runId })
+  runAbortControllers.set(message.runId, { controller, mode: runMode, threadId: thread.id, runId: message.runId })
   thread.running = true
   try {
     const request = message.runRequest
@@ -3621,7 +4431,7 @@ async function resumePlaygroundRun(thread: PlaygroundThread, message: Playground
     }, controller)
 
     if (finalRun.mode === 'image' || message.imageConfig) {
-      await applyCompletedImageRun(thread, message, finalRun)
+      await applyCompletedImageRun(thread, message, finalRun, controller.signal)
     } else {
       await applyCompletedChatRun(thread, message, finalRun)
     }
@@ -3630,6 +4440,11 @@ async function resumePlaygroundRun(thread: PlaygroundThread, message: Playground
     }
   } catch (error) {
     if (controller.signal.aborted) return
+    if (isRecoverablePlaygroundError(error)) {
+      await preserveRecoverableRun(thread, message)
+      return
+    }
+    clearScheduledRunRecovery(message.runId)
     message.pending = false
     message.progress = ''
     message.error = true
@@ -3642,21 +4457,24 @@ async function resumePlaygroundRun(thread: PlaygroundThread, message: Playground
       await writePlaygroundStateNow()
     }
   } finally {
-    if (runAbortControllers.get(thread.id)?.controller === controller) {
-      runAbortControllers.delete(thread.id)
-      thread.running = false
+    if (runAbortControllers.get(message.runId)?.controller === controller) {
+      runAbortControllers.delete(message.runId)
+      syncThreadRunning(thread)
     }
   }
 }
 
 function resumePendingPlaygroundRuns() {
   for (const thread of threads.value) {
-    const pendingMessage = [...thread.messages].reverse().find((message) => message.pending && message.runId)
-    if (!pendingMessage) {
+    const pendingMessages = thread.messages.filter((message) => message.pending && message.runId)
+    if (pendingMessages.length === 0) {
       thread.running = false
       continue
     }
-    void resumePlaygroundRun(thread, pendingMessage)
+    thread.running = true
+    for (const pendingMessage of pendingMessages) {
+      void resumePlaygroundRun(thread, pendingMessage)
+    }
   }
 }
 
@@ -3800,7 +4618,7 @@ function buildChatMessages(
 
 async function submitPrompt() {
   const thread = ensureActiveThread()
-  if (thread.running || !validateRun() || !selectedKey.value || !selectedEndpoint.value) return
+  if ((thread.mode !== 'image' && thread.running) || !validateRun() || !selectedKey.value || !selectedEndpoint.value) return
   lastRunError.value = ''
   const context: PlaygroundRunContext = {
     mode: thread.mode,
@@ -3840,7 +4658,7 @@ async function submitPrompt() {
   draftPrompt.value = ''
   pendingAttachments.value = []
   const controller = new AbortController()
-  runAbortControllers.set(thread.id, { controller, mode: context.mode, runId })
+  runAbortControllers.set(runId, { controller, mode: context.mode, threadId: thread.id, runId })
   thread.running = true
   await scrollMessagesToBottom()
 
@@ -3855,6 +4673,7 @@ async function submitPrompt() {
     }
   } catch (error) {
     if (controller.signal.aborted) return
+    if (isRecoverablePlaygroundError(error)) return
     const handledInMessage = isHandledRunError(error)
     const errorMessage = (error as Error)?.message || t('playground.runFailed')
     if (!handledInMessage) {
@@ -3877,9 +4696,9 @@ async function submitPrompt() {
     }
   } finally {
     const shouldFollow = activeThreadId.value === thread.id && isMessageScrollerNearBottom()
-    if (runAbortControllers.get(thread.id)?.controller === controller) {
-      runAbortControllers.delete(thread.id)
-      thread.running = false
+    if (runAbortControllers.get(runId)?.controller === controller) {
+      runAbortControllers.delete(runId)
+      syncThreadRunning(thread)
     }
     await scrollMessagesToBottomIfNeeded(shouldFollow)
   }
@@ -3911,37 +4730,58 @@ async function runStreamingChat(
   await scrollMessagesToBottom()
   await writePlaygroundStateNow()
 
-  await ensureBackendPlaygroundRun(runRequest, controller)
-  const finalRun = await pollPlaygroundRun(runId, async (run) => {
-    const shouldFollow = activeThreadId.value === thread.id && isMessageScrollerNearBottom()
-    if (typeof run.content === 'string') {
-      assistantMessage.content = run.content
-    }
-    assistantMessage.progress = run.status === 'queued' ? t('playground.waiting') : t('playground.streaming')
-    thread.updatedAt = Date.now()
-    await scrollMessagesToBottomIfNeeded(shouldFollow)
-  }, controller)
+  try {
+    await ensureBackendPlaygroundRun(runRequest, controller)
+    const finalRun = await pollPlaygroundRun(runId, async (run) => {
+      const shouldFollow = activeThreadId.value === thread.id && isMessageScrollerNearBottom()
+      if (typeof run.content === 'string') {
+        assistantMessage.content = run.content
+      }
+      assistantMessage.progress = run.status === 'queued' ? t('playground.waiting') : t('playground.streaming')
+      thread.updatedAt = Date.now()
+      await scrollMessagesToBottomIfNeeded(shouldFollow)
+    }, controller)
 
-  if (finalRun.status !== 'succeeded') {
+    if (finalRun.status !== 'succeeded') {
+      clearScheduledRunRecovery(assistantMessage.runId)
+      assistantMessage.pending = false
+      assistantMessage.progress = ''
+      assistantMessage.error = true
+      assistantMessage.content = finalRun.error || t('playground.runFailed')
+      thread.lastRunError = assistantMessage.content
+      thread.updatedAt = Date.now()
+      await writePlaygroundStateNow()
+      throw markRunErrorHandled(buildRunError(finalRun), assistantMessage.content)
+    }
+    clearScheduledRunRecovery(assistantMessage.runId)
+    assistantMessage.content = assistantMessage.content || finalRun.content || t('playground.emptyTextResponse')
+    assistantMessage.raw = finalRun.raw
+    assistantMessage.pending = false
+    assistantMessage.progress = ''
+    assistantMessage.error = false
+    assistantMessage.durationMs = finalRun.durationMs
+    thread.updatedAt = Date.now()
+    if (activeThreadId.value !== thread.id) {
+      thread.unreadCount = (thread.unreadCount || 0) + 1
+    }
+    await writePlaygroundStateNow()
+  } catch (error) {
+    if (controller.signal.aborted) throw error
+    if (isHandledRunError(error)) throw error
+    if (isRecoverablePlaygroundError(error)) {
+      await preserveRecoverableRun(thread, assistantMessage)
+      throw markRunErrorHandled(error, (error as Error).message)
+    }
+    clearScheduledRunRecovery(assistantMessage.runId)
     assistantMessage.pending = false
     assistantMessage.progress = ''
     assistantMessage.error = true
-    assistantMessage.content = finalRun.error || t('playground.runFailed')
+    assistantMessage.content = (error as Error)?.message || t('playground.runFailed')
     thread.lastRunError = assistantMessage.content
     thread.updatedAt = Date.now()
     await writePlaygroundStateNow()
-    throw markRunErrorHandled(buildRunError(finalRun), assistantMessage.content)
+    throw markRunErrorHandled(error, assistantMessage.content)
   }
-  assistantMessage.content = assistantMessage.content || finalRun.content || t('playground.emptyTextResponse')
-  assistantMessage.raw = finalRun.raw
-  assistantMessage.pending = false
-  assistantMessage.progress = ''
-  assistantMessage.durationMs = finalRun.durationMs
-  thread.updatedAt = Date.now()
-  if (activeThreadId.value !== thread.id) {
-    thread.unreadCount = (thread.unreadCount || 0) + 1
-  }
-  await writePlaygroundStateNow()
 }
 
 async function runImageGeneration(
@@ -3983,19 +4823,21 @@ async function runImageGeneration(
       throw buildRunError(response)
     }
 
+    assistantMessage.durationMs = response.durationMs
+    const images = await hydratePlaygroundRunImages(response, controller.signal)
+    clearScheduledRunRecovery(assistantMessage.runId)
     assistantMessage.pending = false
     assistantMessage.progress = ''
-    assistantMessage.durationMs = response.durationMs
-    const images = response.images || []
+    assistantMessage.error = false
     assistantMessage.content = images.length > 0 ? t('playground.imageGenerated') : t('playground.noImageReturned')
     assistantMessage.images = images.map((image, index) => ({
       ...image,
       storageId: uid(`image-${assistantMessage.id}-${index}`),
-      mimeType: image.url.startsWith('data:')
+      mimeType: image.mimeType || (image.url.startsWith('data:')
         ? image.url.match(/^data:([^;,]+)/)?.[1]
-        : undefined
+        : undefined)
     }))
-    assistantMessage.raw = response.raw
+    assistantMessage.raw = undefined
     thread.updatedAt = Date.now()
     if (activeThreadId.value !== thread.id) {
       thread.unreadCount = (thread.unreadCount || 0) + 1
@@ -4003,6 +4845,11 @@ async function runImageGeneration(
     await persistCompletedImageMessage(thread, assistantMessage)
   } catch (error) {
     if (controller.signal.aborted) throw error
+    if (isRecoverablePlaygroundError(error)) {
+      await preserveRecoverableRun(thread, assistantMessage)
+      throw markRunErrorHandled(error, (error as Error).message)
+    }
+    clearScheduledRunRecovery(assistantMessage.runId)
     assistantMessage.pending = false
     assistantMessage.progress = ''
     assistantMessage.error = true
@@ -4020,15 +4867,16 @@ async function runImageGeneration(
 function stopRun() {
   const thread = activeThread.value
   if (!thread) return
-  const handle = runAbortControllers.get(thread.id)
-  handle?.controller.abort()
-  if (handle?.runId) {
-    void cancelPlaygroundRun(handle.runId).catch(() => undefined)
+  for (const [key, handle] of runAbortControllers) {
+    if (handle.threadId !== thread.id) continue
+    handle.controller.abort()
+    if (handle.runId) {
+      void cancelPlaygroundRun(handle.runId).catch(() => undefined)
+    }
+    runAbortControllers.delete(key)
   }
-  runAbortControllers.delete(thread.id)
-  thread.running = false
-  const pendingMessage = [...thread.messages].reverse().find((message) => message.pending)
-  if (pendingMessage) {
+  for (const pendingMessage of thread.messages.filter((message) => message.pending)) {
+    clearScheduledRunRecovery(pendingMessage.runId)
     if (pendingMessage.runId) {
       void cancelPlaygroundRun(pendingMessage.runId).catch(() => undefined)
     }
@@ -4036,6 +4884,11 @@ function stopRun() {
     pendingMessage.progress = ''
     if (!pendingMessage.content) pendingMessage.content = t('playground.requestStopped')
   }
+  syncThreadRunning(thread)
+}
+
+function syncThreadRunning(thread: PlaygroundThread) {
+  thread.running = thread.messages.some((message) => message.pending)
 }
 
 function retryLastPrompt() {
@@ -4094,11 +4947,66 @@ function readFile(file: File): Promise<PlaygroundAttachment> {
 async function handleFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   const files = Array.from(input.files || [])
+  await addAttachmentFiles(files)
+  input.value = ''
+}
+
+async function addAttachmentFiles(files: File[]) {
   if (files.length === 0) return
-  const attachments = await Promise.all(files.map(readFile))
+  const acceptedFiles = mode.value === 'image'
+    ? files.filter((file) => file.type.startsWith('image/'))
+    : files
+  if (acceptedFiles.length !== files.length) {
+    appStore.showError(t('playground.imageFilesOnly'))
+  }
+  if (acceptedFiles.length === 0) return
+  const attachments = await Promise.all(acceptedFiles.map(readFile))
   pendingAttachments.value = [...pendingAttachments.value, ...attachments]
   persistPlaygroundState()
-  input.value = ''
+}
+
+function handleComposerDragEnter(event: DragEvent) {
+  if (!Array.from(event.dataTransfer?.types || []).includes('Files')) return
+  composerDragDepth += 1
+  composerDragActive.value = true
+}
+
+function handleComposerDragOver(event: DragEvent) {
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+}
+
+function handleComposerDragLeave() {
+  composerDragDepth = Math.max(0, composerDragDepth - 1)
+  if (composerDragDepth === 0) composerDragActive.value = false
+}
+
+async function handleComposerDrop(event: DragEvent) {
+  composerDragDepth = 0
+  composerDragActive.value = false
+  await addAttachmentFiles(Array.from(event.dataTransfer?.files || []))
+}
+
+async function handleComposerPaste(event: ClipboardEvent) {
+  const pastedImages = Array.from(event.clipboardData?.items || [])
+    .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => Boolean(file))
+    .map((file, index) => ensureClipboardImageName(file, index))
+  if (pastedImages.length === 0) return
+  event.preventDefault()
+  await addAttachmentFiles(pastedImages)
+}
+
+function ensureClipboardImageName(file: File, index: number): File {
+  if (file.name && file.name !== 'image.png') return file
+  const extension = file.type === 'image/jpeg'
+    ? 'jpg'
+    : file.type === 'image/webp'
+      ? 'webp'
+      : file.type === 'image/gif'
+        ? 'gif'
+        : 'png'
+  return new File([file], `pasted-image-${Date.now()}-${index + 1}.${extension}`, { type: file.type })
 }
 
 function removeAttachment(id: string) {
@@ -4232,11 +5140,13 @@ onMounted(async () => {
     composerResizeObserver.observe(composerDock.value)
   }
   window.addEventListener(PLAYGROUND_STATE_UPDATED_EVENT, handlePlaygroundStateUpdated)
+  window.addEventListener('keydown', handlePlaygroundGlobalKeydown)
   scrollMessagesToBottom()
 })
 
 onBeforeUnmount(() => {
   playgroundViewMounted = false
+  closeDoodleEditor(true)
   closeImagePreview()
   revokeAllImageObjectURLs()
   composerResizeObserver?.disconnect()
@@ -4247,6 +5157,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointerup', handleComposerInputResizePointerUp)
   window.removeEventListener('pointercancel', handleComposerInputResizePointerUp)
   window.removeEventListener(PLAYGROUND_STATE_UPDATED_EVENT, handlePlaygroundStateUpdated)
+  window.removeEventListener('keydown', handlePlaygroundGlobalKeydown)
   composerInputResizeState = null
   modelAbortController?.abort()
   promptOptimizeAbortController?.abort()
@@ -4256,6 +5167,9 @@ onBeforeUnmount(() => {
   for (const threadId of runAbortControllers.keys()) {
     runAbortControllers.delete(threadId)
   }
+  for (const timer of runRecoveryTimers.values()) window.clearTimeout(timer)
+  runRecoveryTimers.clear()
+  runRecoveryAttempts.clear()
   void writePlaygroundStateNow()
 })
 </script>
@@ -4299,6 +5213,74 @@ onBeforeUnmount(() => {
   color: rgb(37 99 235);
 }
 
+.image-count-control {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.375rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: rgb(255 255 255);
+  padding: 0.25rem 0.25rem 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(71 85 105);
+}
+
+.image-count-segments {
+  display: inline-grid;
+  grid-template-columns: repeat(4, 1.75rem);
+  overflow: hidden;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.375rem;
+}
+
+.image-count-segments button {
+  height: 1.5rem;
+  border-right: 1px solid rgb(226 232 240);
+  color: rgb(100 116 139);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.image-count-segments button:last-child {
+  border-right: 0;
+}
+
+.image-count-segments button:hover {
+  background: rgb(240 249 255);
+  color: rgb(2 132 199);
+}
+
+.image-count-segments button.is-active {
+  background: rgb(14 165 233);
+  color: rgb(255 255 255);
+}
+
+.dark .image-count-control {
+  border-color: rgb(55 65 81);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
+.dark .image-count-segments {
+  border-color: rgb(55 65 81);
+}
+
+.dark .image-count-segments button {
+  border-color: rgb(55 65 81);
+  color: rgb(203 213 225);
+}
+
+.dark .image-count-segments button:hover {
+  background: rgb(12 74 110 / 0.32);
+  color: rgb(125 211 252);
+}
+
+.dark .image-count-segments button.is-active {
+  background: rgb(14 165 233);
+  color: rgb(255 255 255);
+}
+
 .dark .image-option-button {
   border-color: rgb(55 65 81);
   background: rgb(15 23 42);
@@ -4321,8 +5303,121 @@ onBeforeUnmount(() => {
   color: rgb(147 197 253);
 }
 
-.playground-image-figure {
-  width: min(22.5rem, calc(100vw - 7rem));
+.playground-image-strip {
+  display: flex;
+  width: min(38rem, calc(100vw - 7rem));
+  max-width: 100%;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.playground-image-thumbnail {
+  aspect-ratio: 1;
+  width: 7rem;
+  flex: 0 0 7rem;
+  overflow: hidden;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: rgb(248 250 252);
+}
+
+.dark .playground-image-thumbnail {
+  border-color: rgb(55 65 81);
+  background: rgb(15 23 42);
+}
+
+.doodle-canvas-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(241 245 249);
+}
+
+.dark .doodle-canvas-stage {
+  background: rgb(2 6 23);
+}
+
+.doodle-tool-button,
+.doodle-action-button {
+  display: inline-flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  color: rgb(100 116 139);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.doodle-tool-button + .doodle-tool-button {
+  border-left: 1px solid rgb(226 232 240);
+}
+
+.doodle-tool-button:hover,
+.doodle-action-button:hover {
+  background: rgb(240 249 255);
+  color: rgb(2 132 199);
+}
+
+.doodle-tool-button.is-active {
+  background: rgb(14 165 233);
+  color: white;
+}
+
+.doodle-action-button {
+  border-radius: 0.5rem;
+}
+
+.doodle-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.dark .doodle-tool-button,
+.dark .doodle-action-button {
+  color: rgb(203 213 225);
+}
+
+.dark .doodle-tool-button + .doodle-tool-button {
+  border-color: rgb(55 65 81);
+}
+
+.dark .doodle-tool-button:hover,
+.dark .doodle-action-button:hover {
+  background: rgb(12 74 110 / 0.32);
+  color: rgb(125 211 252);
+}
+
+.dark .doodle-tool-button.is-active {
+  background: rgb(14 165 233);
+  color: white;
+}
+
+@media (max-width: 640px) {
+  .playground-image-strip {
+    width: calc(100vw - 5.5rem);
+  }
+
+  .playground-image-thumbnail {
+    width: 6rem;
+    flex-basis: 6rem;
+  }
+}
+
+@media (hover: none) {
+  .playground-thumbnail-actions {
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding: 0.375rem;
+    background: transparent;
+    opacity: 1;
+  }
+
+  .playground-thumbnail-actions button:last-child {
+    display: none;
+  }
 }
 
 .playground-attachment-chip,

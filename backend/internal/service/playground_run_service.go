@@ -66,8 +66,25 @@ type PlaygroundRunImageInput struct {
 }
 
 type PlaygroundRunImage struct {
-	URL           string `json:"url"`
+	URL           string `json:"url,omitempty"`
 	RevisedPrompt string `json:"revisedPrompt,omitempty"`
+	AssetIndex    *int   `json:"assetIndex,omitempty"`
+	MimeType      string `json:"mimeType,omitempty"`
+
+	data []byte
+}
+
+type PlaygroundRunImageAsset struct {
+	Data        []byte
+	ContentType string
+}
+
+type playgroundImageUpstreamResponse struct {
+	Data []struct {
+		B64JSON       []byte `json:"b64_json"`
+		URL           string `json:"url"`
+		RevisedPrompt string `json:"revised_prompt"`
+	} `json:"data"`
 }
 
 type PlaygroundRun struct {
@@ -140,7 +157,7 @@ func (s *PlaygroundRunService) Start(userID int64, request PlaygroundRunRequest,
 	s.cleanupExpiredLocked(time.Now())
 	s.mu.Lock()
 	if existing := s.runs[key]; existing != nil {
-		out := clonePlaygroundRun(existing)
+		out := clonePlaygroundRunForClient(existing)
 		s.mu.Unlock()
 		return out, nil
 	}
@@ -158,7 +175,7 @@ func (s *PlaygroundRunService) Start(userID int64, request PlaygroundRunRequest,
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
 	run.cancel = cancel
 	s.runs[key] = run
-	out := clonePlaygroundRun(run)
+	out := clonePlaygroundRunForClient(run)
 	s.mu.Unlock()
 
 	go s.execute(ctx, key, request, baseURL)
@@ -177,9 +194,42 @@ func (s *PlaygroundRunService) Get(userID int64, id string) (*PlaygroundRun, boo
 		s.mu.RUnlock()
 		return nil, false
 	}
-	out := clonePlaygroundRun(run)
+	out := clonePlaygroundRunForClient(run)
 	s.mu.RUnlock()
 	return out, true
+}
+
+func (s *PlaygroundRunService) GetImage(userID int64, id string, index int) (PlaygroundRunImageAsset, bool, error) {
+	if s == nil || userID <= 0 || index < 0 {
+		return PlaygroundRunImageAsset{}, false, nil
+	}
+	key := playgroundRunKey(userID, strings.TrimSpace(id))
+	s.mu.RLock()
+	run := s.runs[key]
+	if run == nil || run.Status != PlaygroundRunSucceeded || index >= len(run.Images) {
+		s.mu.RUnlock()
+		return PlaygroundRunImageAsset{}, false, nil
+	}
+	image := run.Images[index]
+	if len(image.data) > 0 {
+		asset := PlaygroundRunImageAsset{Data: image.data, ContentType: image.MimeType}
+		s.mu.RUnlock()
+		if asset.ContentType == "" {
+			asset.ContentType = "application/octet-stream"
+		}
+		return asset, true, nil
+	}
+	imageURL := image.URL
+	s.mu.RUnlock()
+
+	if strings.HasPrefix(strings.TrimSpace(imageURL), "data:") {
+		data, contentType, err := decodePlaygroundImageDataURL(imageURL)
+		if err != nil {
+			return PlaygroundRunImageAsset{}, true, err
+		}
+		return PlaygroundRunImageAsset{Data: data, ContentType: playgroundImageContentType(data, contentType)}, true, nil
+	}
+	return PlaygroundRunImageAsset{}, true, errors.New("playground image is not available as a local asset")
 }
 
 func (s *PlaygroundRunService) Cancel(userID int64, id string) (*PlaygroundRun, bool) {
@@ -200,10 +250,12 @@ func (s *PlaygroundRunService) Cancel(userID int64, id string) (*PlaygroundRun, 
 	if !isTerminalPlaygroundRunStatus(run.Status) {
 		run.Status = PlaygroundRunCanceled
 		run.Error = "request canceled"
+		run.Images = nil
+		run.Raw = nil
 		run.UpdatedAt = now
 		run.CompletedAt = &now
 	}
-	out := clonePlaygroundRun(run)
+	out := clonePlaygroundRunForClient(run)
 	s.mu.Unlock()
 	return out, true
 }
@@ -248,7 +300,11 @@ func (s *PlaygroundRunService) execute(ctx context.Context, key string, request 
 			return
 		}
 		run.Status = PlaygroundRunSucceeded
-		run.Raw = raw
+		if request.Mode == "image" {
+			run.Raw = nil
+		} else {
+			run.Raw = raw
+		}
 		run.UpdatedAt = completed
 		run.CompletedAt = &completed
 		run.DurationMs = completed.Sub(started).Milliseconds()
@@ -339,12 +395,12 @@ func (s *PlaygroundRunService) executeChat(ctx context.Context, key string, requ
 }
 
 func (s *PlaygroundRunService) executeImage(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string, started time.Time) (json.RawMessage, error) {
-	n := request.N
-	if n <= 0 {
-		n = 1
+	imageCount := request.N
+	if imageCount <= 0 {
+		imageCount = 1
 	}
-	if n > 4 {
-		n = 4
+	if imageCount > 4 {
+		imageCount = 4
 	}
 	outputFormat := strings.TrimSpace(request.OutputFormat)
 	if outputFormat == "" {
@@ -352,13 +408,13 @@ func (s *PlaygroundRunService) executeImage(ctx context.Context, key string, req
 	}
 	imageInputs := filterPlaygroundImageInputs(request.Images)
 	if len(imageInputs) > 0 {
-		return s.executeImageEdit(ctx, key, request, baseURL, started, imageInputs, outputFormat, n)
+		return s.executeImageEdit(ctx, key, request, baseURL, started, imageInputs, outputFormat, imageCount)
 	}
 	payload := map[string]any{
 		"model":           request.Model,
 		"prompt":          request.Prompt,
 		"size":            normalizePlaygroundImageSize(request.Size),
-		"n":               n,
+		"n":               1,
 		"response_format": "b64_json",
 	}
 	if request.Quality != "" && request.Quality != "auto" {
@@ -379,36 +435,12 @@ func (s *PlaygroundRunService) executeImage(ctx context.Context, key string, req
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpointURL, bytes.NewReader(responseBody))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+request.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, parsePlaygroundUpstreamError(resp)
-	}
-	raw, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	images := extractPlaygroundImages(raw, outputFormat)
-	s.update(key, func(run *PlaygroundRun) {
-		run.Images = images
-		run.Content = ""
-		run.DurationMs = time.Since(started).Milliseconds()
-		run.UpdatedAt = time.Now()
+	return s.executeParallelImageRequests(ctx, key, started, imageCount, func(requestCtx context.Context) ([]PlaygroundRunImage, error) {
+		return s.executeImageRequest(requestCtx, endpointURL, request.APIKey, "application/json", bytes.NewReader(responseBody), outputFormat)
 	})
-	return json.RawMessage(raw), nil
 }
 
-func (s *PlaygroundRunService) executeImageEdit(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string, started time.Time, images []PlaygroundRunImageInput, outputFormat string, n int) (json.RawMessage, error) {
+func (s *PlaygroundRunService) executeImageEdit(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string, started time.Time, images []PlaygroundRunImageInput, outputFormat string, imageCount int) (json.RawMessage, error) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 
@@ -421,7 +453,7 @@ func (s *PlaygroundRunService) executeImageEdit(ctx context.Context, key string,
 	if err := writer.WriteField("size", normalizePlaygroundImageSize(request.Size)); err != nil {
 		return nil, err
 	}
-	if err := writer.WriteField("n", fmt.Sprintf("%d", n)); err != nil {
+	if err := writer.WriteField("n", "1"); err != nil {
 		return nil, err
 	}
 	if err := writer.WriteField("response_format", "b64_json"); err != nil {
@@ -463,17 +495,93 @@ func (s *PlaygroundRunService) executeImageEdit(ctx context.Context, key string,
 	if err := writer.Close(); err != nil {
 		return nil, err
 	}
+	contentType := writer.FormDataContentType()
 
 	endpointURL, err := buildPlaygroundRunEndpointURL(baseURL, request.EndpointBase, "/v1/images/edits")
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpointURL, &body)
+	bodyBytes := append([]byte(nil), body.Bytes()...)
+	return s.executeParallelImageRequests(ctx, key, started, imageCount, func(requestCtx context.Context) ([]PlaygroundRunImage, error) {
+		return s.executeImageRequest(requestCtx, endpointURL, request.APIKey, contentType, bytes.NewReader(bodyBytes), outputFormat)
+	})
+}
+
+type playgroundImageRequestResult struct {
+	images []PlaygroundRunImage
+}
+
+func (s *PlaygroundRunService) executeParallelImageRequests(
+	ctx context.Context,
+	key string,
+	started time.Time,
+	imageCount int,
+	execute func(context.Context) ([]PlaygroundRunImage, error),
+) (json.RawMessage, error) {
+	requestCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	results := make([]playgroundImageRequestResult, imageCount)
+	errorsCh := make(chan error, imageCount)
+	var wg sync.WaitGroup
+	for index := 0; index < imageCount; index++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			images, err := execute(requestCtx)
+			if err != nil {
+				errorsCh <- err
+				cancel()
+				return
+			}
+			results[index] = playgroundImageRequestResult{images: images}
+		}()
+	}
+	wg.Wait()
+	close(errorsCh)
+	if err := <-errorsCh; err != nil {
+		return nil, err
+	}
+	if err := requestCtx.Err(); err != nil {
+		return nil, err
+	}
+
+	allImages := make([]PlaygroundRunImage, 0, imageCount)
+	for _, result := range results {
+		allImages = append(allImages, result.images...)
+	}
+
+	updated := false
+	s.update(key, func(run *PlaygroundRun) {
+		if isTerminalPlaygroundRunStatus(run.Status) {
+			return
+		}
+		run.Images = allImages
+		run.Content = ""
+		run.DurationMs = time.Since(started).Milliseconds()
+		run.UpdatedAt = time.Now()
+		updated = true
+	})
+	if !updated {
+		return nil, context.Canceled
+	}
+	return nil, nil
+}
+
+func (s *PlaygroundRunService) executeImageRequest(
+	ctx context.Context,
+	endpointURL string,
+	apiKey string,
+	contentType string,
+	body io.Reader,
+	outputFormat string,
+) ([]PlaygroundRunImage, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpointURL, body)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+request.APIKey)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", contentType)
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
@@ -483,18 +591,15 @@ func (s *PlaygroundRunService) executeImageEdit(ctx context.Context, key string,
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, parsePlaygroundUpstreamError(resp)
 	}
-	raw, err := io.ReadAll(resp.Body)
-	if err != nil {
+	limitedBody := &io.LimitedReader{R: resp.Body, N: 128<<20 + 1}
+	var payload playgroundImageUpstreamResponse
+	if err := json.NewDecoder(limitedBody).Decode(&payload); err != nil {
 		return nil, err
 	}
-	resultImages := extractPlaygroundImages(raw, outputFormat)
-	s.update(key, func(run *PlaygroundRun) {
-		run.Images = resultImages
-		run.Content = ""
-		run.DurationMs = time.Since(started).Milliseconds()
-		run.UpdatedAt = time.Now()
-	})
-	return json.RawMessage(raw), nil
+	if limitedBody.N <= 0 {
+		return nil, errors.New("playground image response exceeds 128 MiB")
+	}
+	return extractPlaygroundImages(payload, outputFormat), nil
 }
 
 func (s *PlaygroundRunService) update(key string, fn func(*PlaygroundRun)) {
@@ -523,14 +628,24 @@ func playgroundRunKey(userID int64, id string) string {
 	return fmt.Sprintf("%d:%s", userID, id)
 }
 
-func clonePlaygroundRun(run *PlaygroundRun) *PlaygroundRun {
+func clonePlaygroundRunForClient(run *PlaygroundRun) *PlaygroundRun {
 	if run == nil {
 		return nil
 	}
 	out := *run
 	out.cancel = nil
 	out.Images = append([]PlaygroundRunImage(nil), run.Images...)
-	if run.Raw != nil {
+	for index := range out.Images {
+		if len(run.Images[index].data) > 0 {
+			assetIndex := index
+			out.Images[index].AssetIndex = &assetIndex
+			out.Images[index].URL = ""
+		}
+		out.Images[index].data = nil
+	}
+	if run.Mode == "image" {
+		out.Raw = nil
+	} else if run.Raw != nil {
 		out.Raw = append(json.RawMessage(nil), run.Raw...)
 	}
 	return &out
@@ -761,40 +876,71 @@ func extractPlaygroundTextValue(value any) string {
 	return ""
 }
 
-func extractPlaygroundImages(raw json.RawMessage, outputFormat string) []PlaygroundRunImage {
-	var payload map[string]any
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return nil
-	}
-	data, ok := payload["data"].([]any)
-	if !ok {
-		return nil
-	}
+func extractPlaygroundImages(payload playgroundImageUpstreamResponse, outputFormat string) []PlaygroundRunImage {
 	if outputFormat == "" {
 		outputFormat = "png"
 	}
-	images := make([]PlaygroundRunImage, 0, len(data))
-	for _, item := range data {
-		record, ok := item.(map[string]any)
-		if !ok {
-			continue
-		}
-		imageURL, _ := record["url"].(string)
-		if imageURL == "" {
-			if b64, ok := record["b64_json"].(string); ok && b64 != "" {
-				imageURL = "data:image/" + outputFormat + ";base64," + b64
+	requestedMimeType := playgroundImageContentType(nil, "image/"+strings.ToLower(outputFormat))
+	images := make([]PlaygroundRunImage, 0, len(payload.Data))
+	for index := range payload.Data {
+		record := &payload.Data[index]
+		imageURL := strings.TrimSpace(record.URL)
+		if strings.HasPrefix(strings.ToLower(imageURL), "data:") {
+			decoded, contentType, err := decodePlaygroundImageDataURL(imageURL)
+			if err != nil {
+				continue
 			}
-		}
-		if imageURL == "" {
+			images = append(images, PlaygroundRunImage{
+				RevisedPrompt: record.RevisedPrompt,
+				MimeType:      playgroundImageContentType(decoded, contentType),
+				data:          decoded,
+			})
 			continue
 		}
-		revisedPrompt, _ := record["revised_prompt"].(string)
+		if imageURL != "" {
+			images = append(images, PlaygroundRunImage{
+				URL:           imageURL,
+				RevisedPrompt: record.RevisedPrompt,
+			})
+			continue
+		}
+		if len(record.B64JSON) == 0 {
+			continue
+		}
+		decoded := record.B64JSON
+		record.B64JSON = nil
 		images = append(images, PlaygroundRunImage{
-			URL:           imageURL,
-			RevisedPrompt: revisedPrompt,
+			RevisedPrompt: record.RevisedPrompt,
+			MimeType:      playgroundImageContentType(decoded, requestedMimeType),
+			data:          decoded,
 		})
 	}
 	return images
+}
+
+func playgroundImageContentType(data []byte, fallback string) string {
+	if len(data) > 0 {
+		if detected := strings.ToLower(strings.TrimSpace(strings.Split(http.DetectContentType(data), ";")[0])); isPlaygroundImageContentType(detected) {
+			return detected
+		}
+	}
+	fallback = strings.ToLower(strings.TrimSpace(strings.Split(fallback, ";")[0]))
+	if fallback == "image/jpg" {
+		fallback = "image/jpeg"
+	}
+	if isPlaygroundImageContentType(fallback) {
+		return fallback
+	}
+	return "application/octet-stream"
+}
+
+func isPlaygroundImageContentType(value string) bool {
+	switch value {
+	case "image/png", "image/jpeg", "image/webp", "image/gif", "image/avif":
+		return true
+	default:
+		return false
+	}
 }
 
 func parsePlaygroundUpstreamError(resp *http.Response) error {

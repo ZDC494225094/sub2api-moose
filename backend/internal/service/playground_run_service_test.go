@@ -3,12 +3,15 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -27,6 +30,7 @@ func TestPlaygroundRunServiceExecuteImageUsesGenerationsWithoutUploads(t *testin
 	defer server.Close()
 
 	svc := NewPlaygroundRunService()
+	svc.runs["1:run"] = &PlaygroundRun{ID: "run", UserID: 1, Mode: "image", Status: PlaygroundRunRunning}
 	raw, err := svc.executeImage(context.Background(), "1:run", PlaygroundRunRequest{
 		APIKey:       "sk-test",
 		EndpointBase: "/v1",
@@ -39,14 +43,240 @@ func TestPlaygroundRunServiceExecuteImageUsesGenerationsWithoutUploads(t *testin
 	if err != nil {
 		t.Fatalf("execute image: %v", err)
 	}
-	if len(raw) == 0 {
-		t.Fatal("expected raw response")
+	if len(raw) != 0 {
+		t.Fatalf("raw response length = %d, want 0", len(raw))
 	}
 	if gotPath != "/v1/images/generations" {
 		t.Fatalf("path = %q, want /v1/images/generations", gotPath)
 	}
 	if gotPayload["response_format"] != "b64_json" {
 		t.Fatalf("response_format = %v, want b64_json", gotPayload["response_format"])
+	}
+	if gotPayload["n"] != float64(1) {
+		t.Fatalf("n = %v, want 1", gotPayload["n"])
+	}
+}
+
+func TestPlaygroundRunServiceExecuteImageFansOutConcurrentSingleImageRequests(t *testing.T) {
+	const imageCount = 4
+	var requestCount atomic.Int32
+	var activeRequests atomic.Int32
+	var maxActiveRequests atomic.Int32
+	allStarted := make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseAll := func() { releaseOnce.Do(func() { close(release) }) }
+	defer releaseAll()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Errorf("decode payload: %v", err)
+			return
+		}
+		if payload["n"] != float64(1) {
+			t.Errorf("upstream n = %v, want 1", payload["n"])
+		}
+
+		active := activeRequests.Add(1)
+		defer activeRequests.Add(-1)
+		for {
+			currentMax := maxActiveRequests.Load()
+			if active <= currentMax || maxActiveRequests.CompareAndSwap(currentMax, active) {
+				break
+			}
+		}
+		if requestCount.Add(1) == imageCount {
+			close(allStarted)
+		}
+		<-release
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"b64_json":"aW1hZ2U="}]}`))
+	}))
+	defer server.Close()
+
+	type executeResult struct{ err error }
+	resultCh := make(chan executeResult, 1)
+	svc := NewPlaygroundRunService()
+	svc.runs["1:run"] = &PlaygroundRun{ID: "run", UserID: 1, Mode: "image", Status: PlaygroundRunRunning}
+	go func() {
+		_, err := svc.executeImage(context.Background(), "1:run", PlaygroundRunRequest{
+			APIKey:       "sk-test",
+			EndpointBase: "/v1",
+			Model:        "gpt-image-2",
+			Prompt:       "draw four cats",
+			Size:         "1024x1024",
+			N:            imageCount,
+			OutputFormat: "png",
+		}, server.URL, time.Now())
+		resultCh <- executeResult{err: err}
+	}()
+
+	select {
+	case <-allStarted:
+		releaseAll()
+	case <-time.After(2 * time.Second):
+		releaseAll()
+		result := <-resultCh
+		t.Fatalf("requests did not run concurrently: count=%d max_active=%d err=%v", requestCount.Load(), maxActiveRequests.Load(), result.err)
+	}
+
+	result := <-resultCh
+	if result.err != nil {
+		t.Fatalf("execute image: %v", result.err)
+	}
+	if requestCount.Load() != imageCount {
+		t.Fatalf("request count = %d, want %d", requestCount.Load(), imageCount)
+	}
+	if maxActiveRequests.Load() != imageCount {
+		t.Fatalf("max active requests = %d, want %d", maxActiveRequests.Load(), imageCount)
+	}
+	run, ok := svc.Get(1, "run")
+	if !ok {
+		t.Fatal("expected playground run")
+	}
+	if len(run.Images) != imageCount {
+		t.Fatalf("image result count = %d, want %d", len(run.Images), imageCount)
+	}
+	for index, image := range run.Images {
+		if image.URL != "" || image.AssetIndex == nil || *image.AssetIndex != index {
+			t.Fatalf("image %d metadata = %+v, want asset index without inline URL", index, image)
+		}
+	}
+	svc.update("1:run", func(run *PlaygroundRun) {
+		run.Status = PlaygroundRunSucceeded
+	})
+	asset, found, err := svc.GetImage(1, "run", 0)
+	if err != nil || !found {
+		t.Fatalf("get image asset: found=%v err=%v", found, err)
+	}
+	if string(asset.Data) != "image" || asset.ContentType != "image/png" {
+		t.Fatalf("asset = type:%q data:%q", asset.ContentType, asset.Data)
+	}
+}
+
+func TestPlaygroundRunServiceStartCompletesImageAndServesAsset(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"b64_json":"aW1hZ2U="}]}`))
+	}))
+	defer server.Close()
+
+	svc := NewPlaygroundRunService()
+	started, err := svc.Start(1, PlaygroundRunRequest{
+		ID:           "lifecycle",
+		Mode:         "image",
+		APIKey:       "sk-test",
+		EndpointBase: "/v1",
+		Model:        "gpt-image-2",
+		Prompt:       "draw a cat",
+		N:            2,
+		OutputFormat: "png",
+	}, server.URL)
+	if err != nil {
+		t.Fatalf("start image run: %v", err)
+	}
+	if started.Status != PlaygroundRunQueued {
+		t.Fatalf("initial status = %q, want queued", started.Status)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	var completed *PlaygroundRun
+	for time.Now().Before(deadline) {
+		completed, _ = svc.Get(1, "lifecycle")
+		if completed != nil && isTerminalPlaygroundRunStatus(completed.Status) {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if completed == nil || completed.Status != PlaygroundRunSucceeded {
+		t.Fatalf("completed run = %+v, want succeeded", completed)
+	}
+	if len(completed.Images) != 2 {
+		t.Fatalf("image count = %d, want 2", len(completed.Images))
+	}
+	asset, found, err := svc.GetImage(1, "lifecycle", 1)
+	if err != nil || !found || string(asset.Data) != "image" {
+		t.Fatalf("asset = found:%v err:%v data:%q", found, err, asset.Data)
+	}
+}
+
+func TestPlaygroundRunServiceImageStatusOmitsInlineDataAndRaw(t *testing.T) {
+	svc := NewPlaygroundRunService()
+	svc.runs["1:run"] = &PlaygroundRun{
+		ID:     "run",
+		UserID: 1,
+		Mode:   "image",
+		Status: PlaygroundRunSucceeded,
+		Images: []PlaygroundRunImage{{
+			RevisedPrompt: "refined prompt",
+			MimeType:      "image/png",
+			data:          []byte("large-image-bytes"),
+		}},
+		Raw: json.RawMessage(`{"data":[{"b64_json":"duplicate-image-data"}]}`),
+	}
+
+	run, ok := svc.Get(1, "run")
+	if !ok {
+		t.Fatal("expected playground run")
+	}
+	if run.Raw != nil {
+		t.Fatal("image run summary must omit raw response")
+	}
+	if len(run.Images) != 1 || run.Images[0].AssetIndex == nil || *run.Images[0].AssetIndex != 0 {
+		t.Fatalf("image metadata = %+v", run.Images)
+	}
+	encoded, err := json.Marshal(run)
+	if err != nil {
+		t.Fatalf("marshal run summary: %v", err)
+	}
+	if strings.Contains(string(encoded), "large-image-bytes") || strings.Contains(string(encoded), "duplicate-image-data") {
+		t.Fatalf("run summary leaked inline image data: %s", encoded)
+	}
+
+	asset, found, err := svc.GetImage(1, "run", 0)
+	if err != nil || !found {
+		t.Fatalf("get image asset: found=%v err=%v", found, err)
+	}
+	if string(asset.Data) != "large-image-bytes" || asset.ContentType != "image/png" {
+		t.Fatalf("asset = type:%q data:%q", asset.ContentType, asset.Data)
+	}
+}
+
+func TestPlaygroundRunServiceCancelClearsImageAssets(t *testing.T) {
+	svc := NewPlaygroundRunService()
+	svc.runs["1:run"] = &PlaygroundRun{
+		ID:     "run",
+		UserID: 1,
+		Mode:   "image",
+		Status: PlaygroundRunRunning,
+		Images: []PlaygroundRunImage{{data: []byte("large-image-bytes")}},
+		Raw:    json.RawMessage(`{"data":"duplicate-image-data"}`),
+	}
+
+	run, found := svc.Cancel(1, "run")
+	if !found || run.Status != PlaygroundRunCanceled {
+		t.Fatalf("cancel result = found:%v run:%+v", found, run)
+	}
+	if len(run.Images) != 0 || run.Raw != nil {
+		t.Fatalf("canceled run retained image data: %+v", run)
+	}
+	if _, found, err := svc.GetImage(1, "run", 0); err != nil || found {
+		t.Fatalf("canceled image asset = found:%v err:%v", found, err)
+	}
+}
+
+func TestExtractPlaygroundImagesConvertsInlineURLAndDetectsMimeType(t *testing.T) {
+	var payload playgroundImageUpstreamResponse
+	if err := json.Unmarshal([]byte(`{"data":[{"url":"data:image/webp;base64,iVBORw0KGgo=","revised_prompt":"prompt"}]}`), &payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	images := extractPlaygroundImages(payload, "webp")
+	if len(images) != 1 {
+		t.Fatalf("image count = %d, want 1", len(images))
+	}
+	if images[0].URL != "" || images[0].MimeType != "image/png" || len(images[0].data) == 0 {
+		t.Fatalf("image = %+v, data_len=%d", images[0], len(images[0].data))
 	}
 }
 
@@ -95,6 +325,7 @@ func TestPlaygroundRunServiceExecuteImageUsesEditsWithUploads(t *testing.T) {
 	defer server.Close()
 
 	svc := NewPlaygroundRunService()
+	svc.runs["1:run"] = &PlaygroundRun{ID: "run", UserID: 1, Mode: "image", Status: PlaygroundRunRunning}
 	raw, err := svc.executeImage(context.Background(), "1:run", PlaygroundRunRequest{
 		APIKey:       "sk-test",
 		EndpointBase: "/v1",
@@ -112,8 +343,8 @@ func TestPlaygroundRunServiceExecuteImageUsesEditsWithUploads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute image edit: %v", err)
 	}
-	if len(raw) == 0 {
-		t.Fatal("expected raw response")
+	if len(raw) != 0 {
+		t.Fatalf("raw response length = %d, want 0", len(raw))
 	}
 	if gotPath != "/v1/images/edits" {
 		t.Fatalf("path = %q, want /v1/images/edits", gotPath)
@@ -124,7 +355,108 @@ func TestPlaygroundRunServiceExecuteImageUsesEditsWithUploads(t *testing.T) {
 	if fields["response_format"] != "b64_json" {
 		t.Fatalf("response_format = %q, want b64_json", fields["response_format"])
 	}
+	if fields["n"] != "1" {
+		t.Fatalf("n = %q, want 1", fields["n"])
+	}
 	if gotUploadName != "source.png" || gotUploadType != "image/png" || !strings.Contains(gotUploadBody, "png-bytes") {
 		t.Fatalf("upload = name:%q type:%q body:%q", gotUploadName, gotUploadType, gotUploadBody)
+	}
+}
+
+func TestPlaygroundRunServiceExecuteImageEditFansOutSingleImageRequests(t *testing.T) {
+	const imageCount = 3
+	var requestCount atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseMultipartForm(1 << 20); err != nil {
+			t.Errorf("parse multipart form: %v", err)
+			return
+		}
+		if got := r.FormValue("n"); got != "1" {
+			t.Errorf("upstream n = %q, want 1", got)
+		}
+		file, _, err := r.FormFile("image")
+		if err != nil {
+			t.Errorf("read image upload: %v", err)
+			return
+		}
+		data, err := io.ReadAll(file)
+		_ = file.Close()
+		if err != nil || string(data) != "png-bytes" {
+			t.Errorf("upload body = %q, err=%v", data, err)
+		}
+		requestCount.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"b64_json":"ZWRpdGVk"}]}`))
+	}))
+	defer server.Close()
+
+	svc := NewPlaygroundRunService()
+	svc.runs["1:edit"] = &PlaygroundRun{ID: "edit", UserID: 1, Mode: "image", Status: PlaygroundRunRunning}
+	_, err := svc.executeImage(context.Background(), "1:edit", PlaygroundRunRequest{
+		APIKey:       "sk-test",
+		EndpointBase: "/v1",
+		Model:        "gpt-image-2",
+		Prompt:       "replace background",
+		Size:         "1536x1024",
+		N:            imageCount,
+		OutputFormat: "png",
+		Images: []PlaygroundRunImageInput{{
+			Name:    "source.png",
+			Type:    "image/png",
+			DataURL: "data:image/png;base64,cG5nLWJ5dGVz",
+		}},
+	}, server.URL, time.Now())
+	if err != nil {
+		t.Fatalf("execute image edit: %v", err)
+	}
+	if requestCount.Load() != imageCount {
+		t.Fatalf("request count = %d, want %d", requestCount.Load(), imageCount)
+	}
+	run, ok := svc.Get(1, "edit")
+	if !ok || len(run.Images) != imageCount {
+		t.Fatalf("image result count = %d, want %d", len(run.Images), imageCount)
+	}
+}
+
+func TestPlaygroundRunServiceParallelImageRequestsCancelSiblingsOnFailure(t *testing.T) {
+	const imageCount = 4
+	upstreamErr := errors.New("upstream 502")
+	var callCount atomic.Int32
+	var canceledCount atomic.Int32
+	started := make(chan struct{}, imageCount)
+	release := make(chan struct{})
+	resultCh := make(chan error, 1)
+
+	svc := NewPlaygroundRunService()
+	go func() {
+		_, err := svc.executeParallelImageRequests(context.Background(), "1:run", time.Now(), imageCount, func(ctx context.Context) ([]PlaygroundRunImage, error) {
+			index := callCount.Add(1)
+			started <- struct{}{}
+			<-release
+			if index == 1 {
+				return nil, upstreamErr
+			}
+			<-ctx.Done()
+			canceledCount.Add(1)
+			return nil, ctx.Err()
+		})
+		resultCh <- err
+	}()
+
+	for range imageCount {
+		select {
+		case <-started:
+		case <-time.After(2 * time.Second):
+			close(release)
+			t.Fatal("parallel image requests did not all start")
+		}
+	}
+	close(release)
+	err := <-resultCh
+	if !errors.Is(err, upstreamErr) {
+		t.Fatalf("error = %v, want upstream error", err)
+	}
+	if canceledCount.Load() != imageCount-1 {
+		t.Fatalf("canceled sibling count = %d, want %d", canceledCount.Load(), imageCount-1)
 	}
 }
