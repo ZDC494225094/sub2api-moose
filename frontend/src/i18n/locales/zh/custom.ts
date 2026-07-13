@@ -148,6 +148,7 @@ export default {
     "imageCacheMissing": "图片本地缓存缺失，请重新生成",
     "viewOriginalImage": "查看原图",
     "imagePreviewTitle": "原图预览",
+    "downloadImage": "下载图片",
     "previousImage": "上一张图片",
     "nextImage": "下一张图片",
     "imageDescriptions": "图片描述",

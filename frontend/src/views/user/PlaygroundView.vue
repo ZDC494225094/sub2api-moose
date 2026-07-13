@@ -447,15 +447,6 @@
                 </Select>
 
                 <Select
-                  v-model="selectedEndpointBase"
-                  class="playground-compact-select playground-endpoint-select"
-                  :options="endpointSelectOptions"
-                  :placeholder="t('playground.selectEndpoint')"
-                  :title="selectedEndpointLabel"
-                  searchable
-                />
-
-                <Select
                   v-model="selectedModel"
                   class="playground-compact-select composer-model-select"
                   :options="modelSelectOptions"
@@ -656,7 +647,7 @@
                 type="button"
                 class="absolute right-16 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-sky-500 transition hover:bg-sky-50 hover:text-sky-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-sky-300 dark:hover:bg-sky-950/40 dark:hover:text-sky-200"
                 :title="optimizingPrompt ? t('playground.optimizingPrompt') : t('playground.optimizePrompt')"
-                :disabled="optimizingPrompt || running || !draftPrompt.trim() || !selectedKey || !selectedEndpoint"
+                :disabled="optimizingPrompt || running || !draftPrompt.trim() || !selectedKey"
                 @click="optimizeImagePrompt"
               >
                 <Icon :name="optimizingPrompt ? 'refresh' : 'sparkles'" size="sm" :class="optimizingPrompt ? 'animate-spin' : ''" />
@@ -947,7 +938,7 @@
           <button
             type="button"
             class="h-12 rounded-xl bg-blue-500 text-sm font-semibold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
-            :disabled="optimizingPrompt || running || !draftPrompt.trim() || !selectedKey || !selectedEndpoint"
+            :disabled="optimizingPrompt || running || !draftPrompt.trim() || !selectedKey"
             @click="optimizeImagePrompt"
           >
             {{ optimizingPrompt ? t('playground.optimizingPrompt') : t('playground.optimizePrompt') }}
@@ -1062,6 +1053,18 @@
         <span class="rounded-full bg-black/45 px-2 py-1 text-xs font-semibold text-white backdrop-blur">
           {{ Math.round(imagePreviewZoom * 100) }}%
         </span>
+        <a
+          class="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 sm:hidden"
+          :href="imagePreview.url"
+          :download="imagePreview.downloadName"
+          target="_blank"
+          rel="noopener"
+          :title="t('playground.downloadImage')"
+          :aria-label="t('playground.downloadImage')"
+          @click.stop
+        >
+          <Icon name="download" size="md" />
+        </a>
         <button
           type="button"
           class="rounded-full bg-black/45 p-2 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
@@ -1125,7 +1128,6 @@ import {
   fetchModels,
   getPlaygroundRun,
   getPlaygroundRunImage,
-  resolvePlaygroundRequestBase,
   startPlaygroundRun,
   streamChatCompletion,
   type PlaygroundChatMessage,
@@ -1217,7 +1219,6 @@ interface PlaygroundPersistedPayload {
   activeThreadId: string
   mode: PlaygroundMode
   selectedKeyId: string
-  selectedEndpointBase: string
   selectedModel: string
   selectedModelsByMode?: Partial<Record<PlaygroundMode, string>>
   systemPrompt: string
@@ -1256,20 +1257,10 @@ interface PlaygroundThread {
   unreadCount?: number
 }
 
-interface EndpointOption {
-  label: string
-  value: string
-  displayLabel: string
-  requestBase: string
-  description?: string
-}
-
 interface PlaygroundRunContext {
   mode: PlaygroundMode
   keyId: string
   apiKey: string
-  endpointBase?: string
-  displayEndpoint?: string
   model: string
   platform?: GroupPlatform
   temperature: number
@@ -1350,6 +1341,8 @@ interface PlaygroundConversationExportPayload {
 interface PlaygroundImagePreview {
   url: string
   title: string
+  downloadName: string
+  mimeType: string
   revisedPrompt?: string
   messageId: string
   index: number
@@ -1368,7 +1361,6 @@ marked.setOptions({
 
 const apiKeys = ref<ApiKey[]>([])
 const selectedKeyId = ref('')
-const selectedEndpointBase = ref('')
 const loadingKeys = ref(false)
 const loadingModels = ref(false)
 const showSettings = ref(false)
@@ -1581,8 +1573,6 @@ const imagePreviewCursorClass = computed(() => {
   if (imagePreviewIsDragging.value) return 'cursor-grabbing'
   return imagePreviewCanPan.value ? 'cursor-grab' : 'cursor-zoom-in'
 })
-const publicSettings = computed(() => appStore.cachedPublicSettings)
-
 const selectedKeyGroupIds = computed(() => {
   const key = selectedKey.value
   if (!key) return []
@@ -1603,41 +1593,6 @@ const userAvatarInitial = computed(() => {
   return name.slice(0, 2).toUpperCase() || 'U'
 })
 
-const endpointOptions = computed<EndpointOption[]>(() => {
-  const items: EndpointOption[] = []
-  const seen = new Set<string>()
-  const pushEndpoint = (label: string, value: string, description?: string) => {
-    const normalized = normalizeEndpointBase(value || window.location.origin)
-    if (!normalized || seen.has(normalized)) return
-    seen.add(normalized)
-    const requestBase = resolvePlaygroundRequestBase(normalized)
-    items.push({
-      label,
-      value: normalized,
-      displayLabel: `${label} - ${normalized}`,
-      requestBase,
-      description
-    })
-  }
-
-  pushEndpoint(t('playground.defaultEndpoint'), publicSettings.value?.api_base_url || window.location.origin)
-  for (const endpoint of publicSettings.value?.custom_endpoints || []) {
-    pushEndpoint(endpoint.name || endpoint.endpoint, endpoint.endpoint, endpoint.description)
-  }
-
-  return items
-})
-
-const selectedEndpoint = computed(() => endpointOptions.value.find((item) => item.value === selectedEndpointBase.value) || endpointOptions.value[0] || null)
-const endpointSelectOptions = computed<SelectOption[]>(() => endpointOptions.value.map((endpoint) => ({
-  value: endpoint.value,
-  label: endpoint.displayLabel,
-  description: endpoint.description || endpoint.requestBase
-})))
-const selectedEndpointLabel = computed(() => {
-  if (!selectedEndpoint.value) return ''
-  return `${t('playground.endpoint')}: ${selectedEndpoint.value.value} (${t('playground.requestPath')}: ${selectedEndpoint.value.requestBase})`
-})
 const playgroundNotice = computed(() => {
   if (lastRunError.value) {
     return { type: 'error' as const, message: lastRunError.value }
@@ -2034,12 +1989,6 @@ async function createChatImageDataURL(blob: Blob, fallbackDataUrl = ''): Promise
     return normalizeImageDataURLHeader(fallbackDataUrl)
   }
   return blobToDataURL(chatBlob)
-}
-
-function normalizeEndpointBase(value: string): string {
-  const trimmed = value.trim().replace(/\/+$/, '')
-  if (!trimmed) return ''
-  return trimmed
 }
 
 function clampImageDimension(value: number): number {
@@ -2630,7 +2579,6 @@ function buildPlaygroundPayload(): PlaygroundPersistedPayload {
     activeThreadId: activeThreadId.value,
     mode: mode.value,
     selectedKeyId: selectedKeyId.value,
-    selectedEndpointBase: selectedEndpointBase.value,
     selectedModel: selectedModel.value,
     selectedModelsByMode: selectedModelsByMode.value,
     systemPrompt: systemPrompt.value,
@@ -2731,7 +2679,6 @@ function applyPlaygroundPayload(payload: Record<string, unknown>) {
   }
 
   selectedKeyId.value = typeof payload.selectedKeyId === 'string' ? payload.selectedKeyId : selectedKeyId.value
-  selectedEndpointBase.value = typeof payload.selectedEndpointBase === 'string' ? payload.selectedEndpointBase : selectedEndpointBase.value
   selectedModel.value = typeof payload.selectedModel === 'string' ? payload.selectedModel : selectedModel.value
   if (payload.selectedModelsByMode && typeof payload.selectedModelsByMode === 'object') {
     const savedModels = payload.selectedModelsByMode as Partial<Record<PlaygroundMode, string>>
@@ -3556,6 +3503,7 @@ async function openImagePreview(message: PlaygroundMessage, index: number) {
   let previewUrl = ''
   let ownsObjectUrl = false
   let revisedPrompt = image.revisedPrompt
+  let mimeType = normalizeImageMimeType(image.mimeType || '') || 'image/png'
   if (storageId) {
     const persisted = await loadPlaygroundImageFromDB(storageId).catch((error) => {
       console.warn('Failed to load original playground image:', error)
@@ -3565,9 +3513,11 @@ async function openImagePreview(message: PlaygroundMessage, index: number) {
       previewUrl = createTrackedObjectURL(persisted.blob)
       ownsObjectUrl = true
       revisedPrompt = revisedPrompt || persisted.revisedPrompt
+      mimeType = normalizeImageMimeType(persisted.blob.type || persisted.mimeType || mimeType)
     } else if (persisted?.url) {
       previewUrl = persisted.url
       revisedPrompt = revisedPrompt || persisted.revisedPrompt
+      mimeType = normalizeImageMimeType(persisted.mimeType || mimeType)
     }
   }
   if (!previewUrl && image.url && !image.url.startsWith(PLAYGROUND_IMAGE_URL_PREFIX)) {
@@ -3587,6 +3537,8 @@ async function openImagePreview(message: PlaygroundMessage, index: number) {
   imagePreview.value = {
     url: previewUrl,
     title,
+    downloadName: imagePreviewDownloadName(message.createdAt, index, mimeType),
+    mimeType,
     revisedPrompt,
     messageId: message.id,
     index,
@@ -3600,16 +3552,25 @@ async function openImagePreview(message: PlaygroundMessage, index: number) {
 function openAttachmentImagePreview(attachment: PlaygroundAttachment) {
   const previewUrl = attachment.dataUrl?.startsWith('data:') ? attachment.dataUrl : attachment.thumbnailUrl
   if (!previewUrl) return
+  const mimeType = normalizeImageMimeType(attachment.type || dataURLToBlob(previewUrl)?.type || '') || 'image/png'
   closeImagePreview()
   imagePreview.value = {
     url: previewUrl,
     title: attachment.name,
+    downloadName: attachment.name || imagePreviewDownloadName(Date.now(), 0, mimeType),
+    mimeType,
     messageId: '',
     index: 0,
     total: 1,
     ownsObjectUrl: false
   }
   void nextTick(() => imagePreviewViewport.value?.focus({ preventScroll: true }))
+}
+
+function imagePreviewDownloadName(createdAt: number, index: number, mimeType: string): string {
+  const date = new Date(Number.isFinite(createdAt) ? createdAt : Date.now())
+  const stamp = date.toISOString().replace(/\D/g, '').slice(0, 14)
+  return `moosecloud-image-${stamp}-${index + 1}.${imageFileExtension(normalizeImageMimeType(mimeType))}`
 }
 
 async function navigateImagePreview(direction: -1 | 1) {
@@ -4028,7 +3989,7 @@ async function loadModels() {
   loadingModels.value = true
   modelLoadError.value = ''
   try {
-    const fetched = await fetchModels(selectedKey.value.key, selectedEndpoint.value?.requestBase, controller.signal)
+    const fetched = await fetchModels(selectedKey.value.key, undefined, controller.signal)
     if (controller.signal.aborted) return
     models.value = fetched
     selectDefaultModel()
@@ -4051,10 +4012,6 @@ function validateRun(): boolean {
     appStore.showInfo(t('playground.selectKeyFirst'))
     return false
   }
-  if (!selectedEndpoint.value) {
-    appStore.showInfo(t('playground.selectEndpointFirst'))
-    return false
-  }
   if (!effectiveModel.value) {
     appStore.showInfo(t('playground.selectModelFirst'))
     return false
@@ -4069,10 +4026,6 @@ function validateRun(): boolean {
 function validatePromptOptimizer(): boolean {
   if (!selectedKey.value) {
     appStore.showInfo(t('playground.selectKeyFirst'))
-    return false
-  }
-  if (!selectedEndpoint.value) {
-    appStore.showInfo(t('playground.selectEndpointFirst'))
     return false
   }
   if (!promptOptimizerModel.value.trim()) {
@@ -4191,8 +4144,6 @@ function buildChatRunRequest(
     id: runId,
     mode: 'chat',
     apiKey: context.apiKey,
-    endpointBase: context.endpointBase,
-    displayEndpoint: context.displayEndpoint,
     model: context.model,
     messages: buildChatMessages(prompt, attachments, history, context.mode),
     temperature: context.temperature,
@@ -4213,8 +4164,6 @@ function buildImageRunRequest(
     id: runId,
     mode: 'image',
     apiKey: context.apiKey,
-    endpointBase: context.endpointBase,
-    displayEndpoint: context.displayEndpoint,
     model: context.model,
     prompt,
     size: context.imageSize,
@@ -4520,7 +4469,7 @@ function buildImagePromptOptimizerMessages(prompt: string): PlaygroundChatMessag
 }
 
 async function optimizeImagePrompt() {
-  if (optimizingPrompt.value || !validatePromptOptimizer() || !selectedKey.value || !selectedEndpoint.value) return
+  if (optimizingPrompt.value || !validatePromptOptimizer() || !selectedKey.value) return
   promptOptimizeAbortController?.abort()
   const controller = new AbortController()
   promptOptimizeAbortController = controller
@@ -4530,8 +4479,6 @@ async function optimizeImagePrompt() {
   try {
     const response = await streamChatCompletion({
       apiKey: selectedKey.value.key,
-      endpointBase: selectedEndpoint.value.requestBase,
-      displayEndpoint: selectedEndpoint.value.value,
       model: promptOptimizerModel.value.trim(),
       messages: buildImagePromptOptimizerMessages(originalPrompt),
       temperature: 0.4,
@@ -4633,14 +4580,12 @@ function buildChatMessages(
 
 async function submitPrompt() {
   const thread = ensureActiveThread()
-  if ((thread.mode !== 'image' && thread.running) || !validateRun() || !selectedKey.value || !selectedEndpoint.value) return
+  if ((thread.mode !== 'image' && thread.running) || !validateRun() || !selectedKey.value) return
   lastRunError.value = ''
   const context: PlaygroundRunContext = {
     mode: thread.mode,
     keyId: selectedKeyId.value,
     apiKey: selectedKey.value.key,
-    endpointBase: selectedEndpoint.value?.requestBase,
-    displayEndpoint: selectedEndpoint.value?.value,
     model: effectiveModel.value,
     platform: platformForModel(effectiveModel.value),
     temperature: temperature.value,
@@ -5040,25 +4985,7 @@ async function copyText(value: string) {
   }
 }
 
-watch(endpointOptions, (options) => {
-  if (options.length === 0) return
-  if (!options.some((option) => option.value === selectedEndpointBase.value)) {
-    selectedEndpointBase.value = options[0].value
-  }
-}, { immediate: true })
-
 watch(selectedKeyId, () => {
-  if (restoringState) return
-  models.value = []
-  selectedModel.value = ''
-  selectedModelsByMode.value = {}
-  promptOptimizerModel.value = ''
-  modelLoadError.value = ''
-  lastRunError.value = ''
-  loadModels()
-})
-
-watch(selectedEndpointBase, () => {
   if (restoringState) return
   models.value = []
   selectedModel.value = ''
@@ -5084,7 +5011,6 @@ watch(() => ({
   activeThreadId: activeThreadId.value,
   mode: mode.value,
   selectedKeyId: selectedKeyId.value,
-  selectedEndpointBase: selectedEndpointBase.value,
   selectedModel: selectedModel.value,
   selectedModelsByMode: selectedModelsByMode.value,
   systemPrompt: systemPrompt.value,
@@ -5113,8 +5039,7 @@ watch([
   playgroundNotice,
   () => showComposerConfig.value,
   () => composerInputHeight.value,
-  () => mode.value,
-  () => selectedEndpointLabel.value
+  () => mode.value
 ], () => {
   nextTick(updateComposerSpacer)
 }, { deep: true })
@@ -5211,7 +5136,7 @@ onBeforeUnmount(() => {
   display: grid;
   min-width: 0;
   flex: 1;
-  grid-template-columns: minmax(9.5rem, 0.8fr) minmax(11.5rem, 1fr) minmax(14rem, 1.4fr);
+  grid-template-columns: minmax(10rem, 0.75fr) minmax(16rem, 1.75fr);
   gap: 0.5rem;
 }
 
@@ -5445,7 +5370,7 @@ onBeforeUnmount(() => {
 .playground-image-strip {
   display: flex;
   width: max-content;
-  max-width: min(38rem, calc(100vw - 7rem));
+  max-width: min(43.5rem, calc(100vw - 7rem));
   gap: 0.5rem;
   overflow-x: auto;
   padding-bottom: 0.25rem;
@@ -5455,8 +5380,8 @@ onBeforeUnmount(() => {
 
 .playground-image-thumbnail {
   aspect-ratio: 1;
-  width: 7rem;
-  flex: 0 0 7rem;
+  width: 10.5rem;
+  flex: 0 0 10.5rem;
   overflow: hidden;
   border: 1px solid rgb(226 232 240);
   border-radius: 0.5rem;
@@ -5540,8 +5465,8 @@ onBeforeUnmount(() => {
   }
 
   .playground-image-thumbnail {
-    width: 6rem;
-    flex-basis: 6rem;
+    width: 9rem;
+    flex-basis: 9rem;
   }
 }
 
@@ -5784,11 +5709,6 @@ onBeforeUnmount(() => {
   height: 2.25rem;
 }
 
-.playground-endpoint-select {
-  width: 100%;
-  max-width: 100%;
-}
-
 @container playground-composer (max-width: 860px) {
   .composer-image-grid {
     grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -5803,20 +5723,6 @@ onBeforeUnmount(() => {
   }
 }
 
-@container playground-composer (max-width: 720px) {
-  .composer-runtime-row {
-    align-items: flex-start;
-  }
-
-  .composer-runtime-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .composer-model-select {
-    grid-column: 1 / -1;
-  }
-}
-
 @container playground-composer (max-width: 640px) {
   .composer-runtime-row {
     flex-direction: column;
@@ -5826,10 +5732,6 @@ onBeforeUnmount(() => {
   .composer-runtime-grid {
     width: 100%;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .composer-model-select {
-    grid-column: 1 / -1;
   }
 
   .composer-config-actions {

@@ -148,6 +148,7 @@ export default {
     "imageCacheMissing": "Local image cache is missing. Please regenerate the image.",
     "viewOriginalImage": "View original image",
     "imagePreviewTitle": "Original image preview",
+    "downloadImage": "Download image",
     "previousImage": "Previous image",
     "nextImage": "Next image",
     "imageDescriptions": "Image description",
