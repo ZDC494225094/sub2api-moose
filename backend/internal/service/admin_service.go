@@ -60,6 +60,10 @@ type AdminService interface {
 
 	// Account management
 	ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode string, sortBy, sortOrder string) ([]Account, int64, error)
+	ListAccountUpstreamGroups(ctx context.Context) ([]AccountUpstreamGroup, error)
+	RenameAccountUpstreamGroup(ctx context.Context, id int64, name string) (*AccountUpstreamGroup, error)
+	UpdateAccountUpstreamGroupSortOrders(ctx context.Context, updates []AccountUpstreamGroupSortOrderUpdate) error
+	UpdateAccountSortOrders(ctx context.Context, updates []AccountSortOrderUpdate) error
 	// ListAccountsForSchedulerScoreFilter 返回符合过滤条件的全部账号（不分页），
 	// 作为账号列表页计算 OpenAI 调度分数的过滤范围池。
 	ListAccountsForSchedulerScoreFilter(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, error)
@@ -304,6 +308,7 @@ type CreateAccountInput struct {
 	Notes              *string
 	Platform           string
 	Type               string
+	UpstreamGroup      string
 	Credentials        map[string]any
 	Extra              map[string]any
 	ProxyID            *int64
@@ -334,6 +339,7 @@ type UpdateAccountInput struct {
 	Name                  string
 	Notes                 *string
 	Type                  string // Account type: oauth, setup-token, apikey
+	UpstreamGroup         *string
 	Credentials           map[string]any
 	Extra                 map[string]any
 	ProxyID               *int64
@@ -353,6 +359,7 @@ type BulkUpdateAccountsInput struct {
 	AccountIDs     []int64
 	Filters        *BulkUpdateAccountFilters
 	Name           string
+	UpstreamGroup  *string
 	ProxyID        *int64
 	Concurrency    *int
 	Priority       *int

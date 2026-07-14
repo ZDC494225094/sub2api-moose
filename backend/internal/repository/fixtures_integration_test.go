@@ -203,6 +203,12 @@ func mustCreateAccount(t *testing.T, client *dbent.Client, a *service.Account) *
 		SetStatus(a.Status).
 		SetSchedulable(a.Schedulable).
 		SetErrorMessage(a.ErrorMessage)
+	if a.SortOrder != 0 {
+		create.SetSortOrder(a.SortOrder)
+	}
+	if a.UpstreamGroup != "" {
+		create.SetUpstreamGroup(a.UpstreamGroup)
+	}
 
 	if a.ProxyID != nil {
 		create.SetProxyID(*a.ProxyID)

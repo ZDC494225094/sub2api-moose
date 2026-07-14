@@ -166,48 +166,13 @@
           </div>
         </aside>
 
-        <div class="notice-backdrop" :class="{ 'is-open': noticePanelOpen }" @click="closeNoticePanel()"></div>
-        <aside class="notice-card notice-card--dialog" :class="{ 'is-open': noticePanelOpen }" aria-label="公告弹窗">
-          <div class="notice-head">
-            <div class="notice-title">
-              <Icon name="menu" size="sm" />
-              公告
-            </div>
-            <button class="notice-close" type="button" aria-label="关闭公告弹窗" @click="closeNoticePanel()">×</button>
-          </div>
-          <div class="notice-list">
-            <button
-              v-for="notice in visibleAnnouncements"
-              :key="notice.id"
-              class="notice-item"
-              type="button"
-              @click="openAnnouncement(notice)"
-            >
-              <div class="notice-date">
-                {{ formatDate(notice.created_at || notice.starts_at) }}
-                <span v-if="isNewNotice(notice.created_at)" class="new-tag">NEW</span>
-              </div>
-              <h3>{{ notice.title }}</h3>
-              <p>{{ announcementExcerpt(notice.content) }}</p>
-            </button>
-          </div>
-          <div class="notice-footer">
-            <button class="notice-footer-btn is-muted" type="button" @click="closeNoticePanel(true)">今日关闭</button>
-            <button class="notice-footer-btn" type="button" @click="closeNoticePanel()">关闭</button>
-          </div>
-        </aside>
-
-        <div class="notice-reader-backdrop" :class="{ 'is-open': !!selectedAnnouncement }" @click="closeAnnouncement"></div>
-        <section class="notice-reader" :class="{ 'is-open': !!selectedAnnouncement }" aria-label="公告全文">
-          <div class="notice-reader-head">
-            <div>
-              <span>{{ formatDate(selectedAnnouncement?.created_at || selectedAnnouncement?.starts_at) }}</span>
-              <h2>{{ selectedAnnouncement?.title }}</h2>
-            </div>
-            <button type="button" aria-label="关闭公告全文" @click="closeAnnouncement">×</button>
-          </div>
-          <div class="notice-reader-body markdown-body" v-html="selectedAnnouncementHtml"></div>
-        </section>
+        <AnnouncementPanel
+          ref="announcementPanel"
+          :announcements="visibleAnnouncements"
+          :open="noticePanelOpen"
+          @close="closeNoticePanel()"
+          @dismiss-today="closeNoticePanel(true)"
+        />
       </section>
 
       <section id="capabilities" class="feature-strip" aria-label="平台优势">
@@ -438,10 +403,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
 import { useAppStore, useAuthStore } from '@/stores'
 import Icon from '@/components/icons/Icon.vue'
+import AnnouncementPanel from './AnnouncementPanel.vue'
 import type { SubscriptionPlan } from '@/types/payment'
 import type { UserAnnouncement } from '@/types'
 import { getPublicAnnouncements, getPublicPlans } from './api'
@@ -482,7 +446,9 @@ const userMenuOpen = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
 const themeMode = ref<ThemeMode>(readInitialThemeMode())
 const systemDark = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
-const selectedAnnouncement = ref<UserAnnouncement | null>(null)
+const announcementPanel = ref<{
+  openAnnouncement: (notice?: UserAnnouncement) => void
+} | null>(null)
 const plans = ref<SubscriptionPlan[]>([])
 const announcements = ref<UserAnnouncement[]>([])
 const plansLoading = ref(true)
@@ -494,11 +460,6 @@ let systemThemeQuery: MediaQueryList | null = null
 let globeCleanup: (() => void) | null = null
 
 const NOTICE_DISMISS_KEY = 'premium-home-notice-dismiss-date'
-
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-})
 
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'AI Hub')
 const siteLogo = computed(() => appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '')
@@ -539,11 +500,6 @@ const isDark = computed(() => themeMode.value === 'dark' || (themeMode.value ===
 const themeIcon = computed<IconName>(() => {
   if (themeMode.value === 'system') return 'cpu'
   return isDark.value ? 'moon' : 'sun'
-})
-const selectedAnnouncementHtml = computed(() => {
-  if (!selectedAnnouncement.value?.content) return ''
-  const html = marked.parse(selectedAnnouncement.value.content) as string
-  return DOMPurify.sanitize(html)
 })
 const planTabs = [
   { key: 'openai', label: 'OpenAI', keywords: ['openai', 'gpt', 'chatgpt', 'o1', 'o3', 'o4'] },
@@ -813,12 +769,7 @@ function closeNoticePanel(dismissToday = false) {
 }
 
 function openAnnouncement(notice?: UserAnnouncement) {
-  if (!notice) return
-  selectedAnnouncement.value = notice
-}
-
-function closeAnnouncement() {
-  selectedAnnouncement.value = null
+  announcementPanel.value?.openAnnouncement(notice)
 }
 
 function formatDate(value?: string) {
@@ -839,8 +790,6 @@ function onKeydown(event: KeyboardEvent) {
     menuOpen.value = false
     themeMenuOpen.value = false
     userMenuOpen.value = false
-    closeNoticePanel()
-    closeAnnouncement()
   }
 }
 

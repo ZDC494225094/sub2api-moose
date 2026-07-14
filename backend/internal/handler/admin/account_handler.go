@@ -101,6 +101,7 @@ type CreateAccountRequest struct {
 	Notes                   *string        `json:"notes"`
 	Platform                string         `json:"platform" binding:"required"`
 	Type                    string         `json:"type" binding:"required,oneof=oauth setup-token apikey upstream bedrock service_account"`
+	UpstreamGroup           string         `json:"upstream_group" binding:"omitempty,max=100"`
 	Credentials             map[string]any `json:"credentials" binding:"required"`
 	Extra                   map[string]any `json:"extra"`
 	ProxyID                 *int64         `json:"proxy_id"`
@@ -120,6 +121,7 @@ type UpdateAccountRequest struct {
 	Name                    string         `json:"name"`
 	Notes                   *string        `json:"notes"`
 	Type                    string         `json:"type" binding:"omitempty,oneof=oauth setup-token apikey upstream bedrock service_account"`
+	UpstreamGroup           *string        `json:"upstream_group" binding:"omitempty,max=100"`
 	Credentials             map[string]any `json:"credentials"`
 	Extra                   map[string]any `json:"extra"`
 	ProxyID                 *int64         `json:"proxy_id"`
@@ -139,6 +141,7 @@ type BulkUpdateAccountsRequest struct {
 	AccountIDs              []int64                   `json:"account_ids"`
 	Filters                 *BulkUpdateAccountFilters `json:"filters"`
 	Name                    string                    `json:"name"`
+	UpstreamGroup           *string                   `json:"upstream_group" binding:"omitempty,max=100"`
 	ProxyID                 *int64                    `json:"proxy_id"`
 	Concurrency             *int                      `json:"concurrency"`
 	Priority                *int                      `json:"priority"`
@@ -178,6 +181,24 @@ type AccountWithConcurrency struct {
 	CurrentWindowCost *float64 `json:"current_window_cost,omitempty"` // 当前窗口费用
 	ActiveSessions    *int     `json:"active_sessions,omitempty"`     // 当前活跃会话数
 	CurrentRPM        *int     `json:"current_rpm,omitempty"`         // 当前分钟 RPM 计数
+}
+
+type UpdateAccountSortOrderRequest struct {
+	Updates []struct {
+		ID        int64 `json:"id" binding:"required,gt=0"`
+		SortOrder int64 `json:"sort_order" binding:"gte=0"`
+	} `json:"updates" binding:"required,min=1,max=1000,dive"`
+}
+
+type RenameAccountUpstreamGroupRequest struct {
+	Name string `json:"name" binding:"required,max=100"`
+}
+
+type UpdateAccountUpstreamGroupSortOrderRequest struct {
+	Updates []struct {
+		ID        int64 `json:"id" binding:"required,gt=0"`
+		SortOrder int64 `json:"sort_order" binding:"gte=0"`
+	} `json:"updates" binding:"required,min=1,max=1000,dive"`
 }
 
 type AccountSchedulerScore struct {
@@ -659,6 +680,85 @@ func (h *AccountHandler) List(c *gin.Context) {
 	response.Paginated(c, result, total, page, pageSize)
 }
 
+// ListUpstreamGroups returns explicitly configured account groups.
+// GET /api/v1/admin/accounts/upstream-groups
+func (h *AccountHandler) ListUpstreamGroups(c *gin.Context) {
+	groups, err := h.adminService.ListAccountUpstreamGroups(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"groups": groups})
+}
+
+// RenameUpstreamGroup updates a provider group name and synchronizes its
+// compatibility display label across all member accounts.
+// PATCH /api/v1/admin/accounts/upstream-groups/:id
+func (h *AccountHandler) RenameUpstreamGroup(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.BadRequest(c, "Invalid upstream group id")
+		return
+	}
+	var req RenameAccountUpstreamGroupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	group, err := h.adminService.RenameAccountUpstreamGroup(c.Request.Context(), id, req.Name)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, group)
+}
+
+// UpdateUpstreamGroupSortOrder persists the display order of provider groups.
+// PUT /api/v1/admin/accounts/upstream-groups/sort-order
+func (h *AccountHandler) UpdateUpstreamGroupSortOrder(c *gin.Context) {
+	var req UpdateAccountUpstreamGroupSortOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	updates := make([]service.AccountUpstreamGroupSortOrderUpdate, 0, len(req.Updates))
+	for _, update := range req.Updates {
+		updates = append(updates, service.AccountUpstreamGroupSortOrderUpdate{
+			ID:        update.ID,
+			SortOrder: update.SortOrder,
+		})
+	}
+	if err := h.adminService.UpdateAccountUpstreamGroupSortOrders(c.Request.Context(), updates); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"message": "Upstream group sort order updated successfully"})
+}
+
+// UpdateSortOrder handles display-only account reordering.
+// PUT /api/v1/admin/accounts/sort-order
+func (h *AccountHandler) UpdateSortOrder(c *gin.Context) {
+	var req UpdateAccountSortOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	updates := make([]service.AccountSortOrderUpdate, 0, len(req.Updates))
+	for _, update := range req.Updates {
+		updates = append(updates, service.AccountSortOrderUpdate{
+			ID:        update.ID,
+			SortOrder: update.SortOrder,
+		})
+	}
+	if err := h.adminService.UpdateAccountSortOrders(c.Request.Context(), updates); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, gin.H{"message": "Sort order updated successfully"})
+}
+
 func buildAccountsListETag(
 	items []AccountWithConcurrency,
 	total int64,
@@ -804,6 +904,7 @@ func (h *AccountHandler) Create(c *gin.Context) {
 			Notes:                 req.Notes,
 			Platform:              req.Platform,
 			Type:                  req.Type,
+			UpstreamGroup:         req.UpstreamGroup,
 			Credentials:           req.Credentials,
 			Extra:                 req.Extra,
 			ProxyID:               req.ProxyID,
@@ -882,6 +983,7 @@ func (h *AccountHandler) Update(c *gin.Context) {
 		Name:                  req.Name,
 		Notes:                 req.Notes,
 		Type:                  req.Type,
+		UpstreamGroup:         req.UpstreamGroup,
 		Credentials:           req.Credentials,
 		Extra:                 req.Extra,
 		ProxyID:               req.ProxyID,
@@ -1622,6 +1724,7 @@ func (h *AccountHandler) BatchCreate(c *gin.Context) {
 				Notes:                 item.Notes,
 				Platform:              item.Platform,
 				Type:                  item.Type,
+				UpstreamGroup:         item.UpstreamGroup,
 				Credentials:           item.Credentials,
 				Extra:                 item.Extra,
 				ProxyID:               item.ProxyID,
@@ -1812,6 +1915,7 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
 
 	hasUpdates := req.Name != "" ||
+		req.UpstreamGroup != nil ||
 		req.ProxyID != nil ||
 		req.Concurrency != nil ||
 		req.Priority != nil ||
@@ -1832,6 +1936,7 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		AccountIDs:            req.AccountIDs,
 		Filters:               toServiceBulkUpdateAccountFilters(req.Filters),
 		Name:                  req.Name,
+		UpstreamGroup:         req.UpstreamGroup,
 		ProxyID:               req.ProxyID,
 		Concurrency:           req.Concurrency,
 		Priority:              req.Priority,

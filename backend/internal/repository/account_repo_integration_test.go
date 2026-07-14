@@ -27,6 +27,8 @@ type schedulerCacheRecorder struct {
 	accounts    map[int64]*service.Account
 }
 
+func (s *schedulerCacheRecorder) Ping(context.Context) error { return nil }
+
 func (s *schedulerCacheRecorder) GetSnapshot(ctx context.Context, bucket service.SchedulerBucket) ([]*service.Account, bool, error) {
 	return nil, false, nil
 }

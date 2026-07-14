@@ -25,6 +25,15 @@ func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int,
 	return accounts, result.Total, nil
 }
 
+// UpdateAccountSortOrders updates the display-only ordering used by the admin account list.
+func (s *adminServiceImpl) UpdateAccountSortOrders(ctx context.Context, updates []AccountSortOrderUpdate) error {
+	repo, ok := s.accountRepo.(AccountSortOrderRepository)
+	if !ok {
+		return infraerrors.InternalServer("ACCOUNT_SORT_ORDER_UNAVAILABLE", "account sort order repository is not configured")
+	}
+	return repo.UpdateSortOrders(ctx, updates)
+}
+
 func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilter(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, error) {
 	if s == nil || s.accountRepo == nil {
 		return nil, nil
@@ -69,6 +78,11 @@ func normalizeAccountConcurrency(platform, accountType string, concurrency int) 
 }
 
 func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error) {
+	upstreamGroup, err := NormalizeAccountUpstreamGroup(input.UpstreamGroup)
+	if err != nil {
+		return nil, err
+	}
+
 	// 绑定分组
 	groupIDs := input.GroupIDs
 	// 如果没有指定分组,自动绑定对应平台的默认分组
@@ -98,17 +112,18 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 	}
 
 	account := &Account{
-		Name:        input.Name,
-		Notes:       normalizeAccountNotes(input.Notes),
-		Platform:    input.Platform,
-		Type:        input.Type,
-		Credentials: input.Credentials,
-		Extra:       input.Extra,
-		ProxyID:     input.ProxyID,
-		Concurrency: normalizeAccountConcurrency(input.Platform, input.Type, input.Concurrency),
-		Priority:    input.Priority,
-		Status:      StatusActive,
-		Schedulable: true,
+		Name:          input.Name,
+		Notes:         normalizeAccountNotes(input.Notes),
+		Platform:      input.Platform,
+		Type:          input.Type,
+		UpstreamGroup: upstreamGroup,
+		Credentials:   input.Credentials,
+		Extra:         input.Extra,
+		ProxyID:       input.ProxyID,
+		Concurrency:   normalizeAccountConcurrency(input.Platform, input.Type, input.Concurrency),
+		Priority:      input.Priority,
+		Status:        StatusActive,
+		Schedulable:   true,
 	}
 	// 预计算固定时间重置的下次重置时间
 	if account.Extra != nil {
@@ -217,6 +232,13 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	}
 	if input.Type != "" {
 		account.Type = input.Type
+	}
+	if input.UpstreamGroup != nil {
+		upstreamGroup, normalizeErr := NormalizeAccountUpstreamGroup(*input.UpstreamGroup)
+		if normalizeErr != nil {
+			return nil, normalizeErr
+		}
+		account.UpstreamGroup = upstreamGroup
 	}
 	if input.Notes != nil {
 		account.Notes = normalizeAccountNotes(input.Notes)
@@ -461,6 +483,13 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	}
 	if input.Name != "" {
 		repoUpdates.Name = &input.Name
+	}
+	if input.UpstreamGroup != nil {
+		upstreamGroup, normalizeErr := NormalizeAccountUpstreamGroup(*input.UpstreamGroup)
+		if normalizeErr != nil {
+			return nil, normalizeErr
+		}
+		repoUpdates.UpstreamGroup = &upstreamGroup
 	}
 	if input.ProxyID != nil {
 		repoUpdates.ProxyID = input.ProxyID
@@ -737,6 +766,7 @@ func (s *adminServiceImpl) CreateShadow(ctx context.Context, parentID int64, opt
 		Name:            name,
 		Platform:        PlatformOpenAI,
 		Type:            AccountTypeOAuth,
+		UpstreamGroup:   parent.UpstreamGroup,
 		Status:          StatusActive,
 		Credentials:     map[string]any{"model_mapping": defaultSparkShadowModelMapping()},
 		ParentAccountID: &parentID,

@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/Wei-Shaw/sub2api/ent/account"
+	"github.com/Wei-Shaw/sub2api/ent/accountupstreamgroup"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 )
 
@@ -33,6 +34,10 @@ type Account struct {
 	Platform string `json:"platform,omitempty"`
 	// Type holds the value of the "type" field.
 	Type string `json:"type,omitempty"`
+	// UpstreamGroup holds the value of the "upstream_group" field.
+	UpstreamGroup string `json:"upstream_group,omitempty"`
+	// UpstreamGroupID holds the value of the "upstream_group_id" field.
+	UpstreamGroupID *int64 `json:"upstream_group_id,omitempty"`
 	// Credentials holds the value of the "credentials" field.
 	Credentials map[string]interface{} `json:"credentials,omitempty"`
 	// Extra holds the value of the "extra" field.
@@ -47,6 +52,8 @@ type Account struct {
 	LoadFactor *int `json:"load_factor,omitempty"`
 	// Priority holds the value of the "priority" field.
 	Priority int `json:"priority,omitempty"`
+	// SortOrder holds the value of the "sort_order" field.
+	SortOrder int64 `json:"sort_order,omitempty"`
 	// RateMultiplier holds the value of the "rate_multiplier" field.
 	RateMultiplier float64 `json:"rate_multiplier,omitempty"`
 	// Status holds the value of the "status" field.
@@ -89,6 +96,8 @@ type Account struct {
 
 // AccountEdges holds the relations/edges for other nodes in the graph.
 type AccountEdges struct {
+	// UpstreamGroupDirectory holds the value of the upstream_group_directory edge.
+	UpstreamGroupDirectory *AccountUpstreamGroup `json:"upstream_group_directory,omitempty"`
 	// Groups holds the value of the groups edge.
 	Groups []*Group `json:"groups,omitempty"`
 	// Proxy holds the value of the proxy edge.
@@ -103,13 +112,24 @@ type AccountEdges struct {
 	AccountGroups []*AccountGroup `json:"account_groups,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [6]bool
+	loadedTypes [7]bool
+}
+
+// UpstreamGroupDirectoryOrErr returns the UpstreamGroupDirectory value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e AccountEdges) UpstreamGroupDirectoryOrErr() (*AccountUpstreamGroup, error) {
+	if e.UpstreamGroupDirectory != nil {
+		return e.UpstreamGroupDirectory, nil
+	} else if e.loadedTypes[0] {
+		return nil, &NotFoundError{label: accountupstreamgroup.Label}
+	}
+	return nil, &NotLoadedError{edge: "upstream_group_directory"}
 }
 
 // GroupsOrErr returns the Groups value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) GroupsOrErr() ([]*Group, error) {
-	if e.loadedTypes[0] {
+	if e.loadedTypes[1] {
 		return e.Groups, nil
 	}
 	return nil, &NotLoadedError{edge: "groups"}
@@ -120,7 +140,7 @@ func (e AccountEdges) GroupsOrErr() ([]*Group, error) {
 func (e AccountEdges) ProxyOrErr() (*Proxy, error) {
 	if e.Proxy != nil {
 		return e.Proxy, nil
-	} else if e.loadedTypes[1] {
+	} else if e.loadedTypes[2] {
 		return nil, &NotFoundError{label: proxy.Label}
 	}
 	return nil, &NotLoadedError{edge: "proxy"}
@@ -131,7 +151,7 @@ func (e AccountEdges) ProxyOrErr() (*Proxy, error) {
 func (e AccountEdges) ParentOrErr() (*Account, error) {
 	if e.Parent != nil {
 		return e.Parent, nil
-	} else if e.loadedTypes[2] {
+	} else if e.loadedTypes[3] {
 		return nil, &NotFoundError{label: account.Label}
 	}
 	return nil, &NotLoadedError{edge: "parent"}
@@ -140,7 +160,7 @@ func (e AccountEdges) ParentOrErr() (*Account, error) {
 // ChildrenOrErr returns the Children value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) ChildrenOrErr() ([]*Account, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[4] {
 		return e.Children, nil
 	}
 	return nil, &NotLoadedError{edge: "children"}
@@ -149,7 +169,7 @@ func (e AccountEdges) ChildrenOrErr() ([]*Account, error) {
 // UsageLogsOrErr returns the UsageLogs value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) UsageLogsOrErr() ([]*UsageLog, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.UsageLogs, nil
 	}
 	return nil, &NotLoadedError{edge: "usage_logs"}
@@ -158,7 +178,7 @@ func (e AccountEdges) UsageLogsOrErr() ([]*UsageLog, error) {
 // AccountGroupsOrErr returns the AccountGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) AccountGroupsOrErr() ([]*AccountGroup, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		return e.AccountGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "account_groups"}
@@ -175,9 +195,9 @@ func (*Account) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case account.FieldRateMultiplier:
 			values[i] = new(sql.NullFloat64)
-		case account.FieldID, account.FieldProxyID, account.FieldProxyFallbackOriginID, account.FieldConcurrency, account.FieldLoadFactor, account.FieldPriority, account.FieldParentAccountID:
+		case account.FieldID, account.FieldUpstreamGroupID, account.FieldProxyID, account.FieldProxyFallbackOriginID, account.FieldConcurrency, account.FieldLoadFactor, account.FieldPriority, account.FieldSortOrder, account.FieldParentAccountID:
 			values[i] = new(sql.NullInt64)
-		case account.FieldName, account.FieldNotes, account.FieldPlatform, account.FieldType, account.FieldStatus, account.FieldErrorMessage, account.FieldTempUnschedulableReason, account.FieldSessionWindowStatus, account.FieldQuotaDimension:
+		case account.FieldName, account.FieldNotes, account.FieldPlatform, account.FieldType, account.FieldUpstreamGroup, account.FieldStatus, account.FieldErrorMessage, account.FieldTempUnschedulableReason, account.FieldSessionWindowStatus, account.FieldQuotaDimension:
 			values[i] = new(sql.NullString)
 		case account.FieldCreatedAt, account.FieldUpdatedAt, account.FieldDeletedAt, account.FieldLastUsedAt, account.FieldExpiresAt, account.FieldRateLimitedAt, account.FieldRateLimitResetAt, account.FieldOverloadUntil, account.FieldTempUnschedulableUntil, account.FieldSessionWindowStart, account.FieldSessionWindowEnd:
 			values[i] = new(sql.NullTime)
@@ -246,6 +266,19 @@ func (_m *Account) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Type = value.String
 			}
+		case account.FieldUpstreamGroup:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field upstream_group", values[i])
+			} else if value.Valid {
+				_m.UpstreamGroup = value.String
+			}
+		case account.FieldUpstreamGroupID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field upstream_group_id", values[i])
+			} else if value.Valid {
+				_m.UpstreamGroupID = new(int64)
+				*_m.UpstreamGroupID = value.Int64
+			}
 		case account.FieldCredentials:
 			if value, ok := values[i].(*[]byte); !ok {
 				return fmt.Errorf("unexpected type %T for field credentials", values[i])
@@ -294,6 +327,12 @@ func (_m *Account) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field priority", values[i])
 			} else if value.Valid {
 				_m.Priority = int(value.Int64)
+			}
+		case account.FieldSortOrder:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field sort_order", values[i])
+			} else if value.Valid {
+				_m.SortOrder = value.Int64
 			}
 		case account.FieldRateMultiplier:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
@@ -422,6 +461,11 @@ func (_m *Account) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
 }
 
+// QueryUpstreamGroupDirectory queries the "upstream_group_directory" edge of the Account entity.
+func (_m *Account) QueryUpstreamGroupDirectory() *AccountUpstreamGroupQuery {
+	return NewAccountClient(_m.config).QueryUpstreamGroupDirectory(_m)
+}
+
 // QueryGroups queries the "groups" edge of the Account entity.
 func (_m *Account) QueryGroups() *GroupQuery {
 	return NewAccountClient(_m.config).QueryGroups(_m)
@@ -500,6 +544,14 @@ func (_m *Account) String() string {
 	builder.WriteString("type=")
 	builder.WriteString(_m.Type)
 	builder.WriteString(", ")
+	builder.WriteString("upstream_group=")
+	builder.WriteString(_m.UpstreamGroup)
+	builder.WriteString(", ")
+	if v := _m.UpstreamGroupID; v != nil {
+		builder.WriteString("upstream_group_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
 	builder.WriteString("credentials=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Credentials))
 	builder.WriteString(", ")
@@ -526,6 +578,9 @@ func (_m *Account) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("priority=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Priority))
+	builder.WriteString(", ")
+	builder.WriteString("sort_order=")
+	builder.WriteString(fmt.Sprintf("%v", _m.SortOrder))
 	builder.WriteString(", ")
 	builder.WriteString("rate_multiplier=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RateMultiplier))

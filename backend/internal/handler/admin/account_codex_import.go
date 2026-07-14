@@ -26,6 +26,7 @@ type CodexSessionImportRequest struct {
 	Contents                []string       `json:"contents"`
 	Name                    string         `json:"name"`
 	Notes                   *string        `json:"notes"`
+	UpstreamGroup           *string        `json:"upstream_group" binding:"omitempty,max=100"`
 	GroupIDs                []int64        `json:"group_ids"`
 	ProxyID                 *int64         `json:"proxy_id"`
 	Concurrency             *int           `json:"concurrency"`
@@ -177,6 +178,10 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 		skipDefaultGroupBind = *req.SkipDefaultGroupBind
 	}
 	skipMixedChannelCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
+	upstreamGroup := ""
+	if req.UpstreamGroup != nil {
+		upstreamGroup = *req.UpstreamGroup
+	}
 
 	seenIdentity := map[string]codexSeenIdentity{}
 	for _, entry := range entries {
@@ -267,6 +272,7 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 			mergedCredentials := mergeCodexImportCredentials(existing.Credentials, credentials, item)
 			mergedExtra := mergeCodexImportMap(existing.Extra, extra)
 			updateInput := &service.UpdateAccountInput{
+				UpstreamGroup:      req.UpstreamGroup,
 				Credentials:        mergedCredentials,
 				Extra:              mergedExtra,
 				Concurrency:        req.Concurrency,
@@ -323,6 +329,7 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 			Notes:                 req.Notes,
 			Platform:              service.PlatformOpenAI,
 			Type:                  service.AccountTypeOAuth,
+			UpstreamGroup:         upstreamGroup,
 			Credentials:           credentials,
 			Extra:                 extra,
 			ProxyID:               req.ProxyID,

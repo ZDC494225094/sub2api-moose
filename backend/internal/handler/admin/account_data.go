@@ -62,6 +62,7 @@ type DataAccount struct {
 	Notes              *string        `json:"notes,omitempty"`
 	Platform           string         `json:"platform"`
 	Type               string         `json:"type"`
+	UpstreamGroup      string         `json:"upstream_group,omitempty"`
 	Credentials        map[string]any `json:"credentials"`
 	Extra              map[string]any `json:"extra,omitempty"`
 	ProxyKey           *string        `json:"proxy_key,omitempty"`
@@ -204,6 +205,7 @@ func (h *AccountHandler) ExportData(c *gin.Context) {
 			Notes:              acc.Notes,
 			Platform:           acc.Platform,
 			Type:               acc.Type,
+			UpstreamGroup:      acc.UpstreamGroup,
 			Credentials:        acc.Credentials,
 			Extra:              acc.Extra,
 			ProxyKey:           proxyKey,
@@ -434,6 +436,7 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 			Notes:                item.Notes,
 			Platform:             item.Platform,
 			Type:                 item.Type,
+			UpstreamGroup:        item.UpstreamGroup,
 			Credentials:          item.Credentials,
 			Extra:                item.Extra,
 			ProxyID:              proxyID,

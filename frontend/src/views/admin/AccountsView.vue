@@ -14,7 +14,7 @@
           <AccountTableActions
             :loading="loading"
             @refresh="handleManualRefresh"
-            @create="showCreate = true"
+            @create="openCreateModal"
           >
             <template #after>
               <!-- Auto Refresh Dropdown -->
@@ -170,6 +170,52 @@
             {{ t('admin.accounts.listPendingSyncAction') }}
           </button>
         </div>
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-3 dark:border-dark-700">
+          <div class="inline-flex rounded-md border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800" role="group" :aria-label="t('admin.accounts.viewModeLabel')">
+            <button
+              type="button"
+              :class="[
+                'inline-flex min-h-9 items-center gap-1.5 rounded px-3 text-sm font-medium transition-colors',
+                accountViewMode === 'list'
+                  ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
+                  : 'text-gray-500 hover:text-gray-800 dark:text-dark-300 dark:hover:text-white'
+              ]"
+              :aria-pressed="accountViewMode === 'list'"
+              @click="setAccountViewMode('list')"
+            >
+              <Icon name="grid" size="sm" />
+              {{ t('admin.accounts.viewModeList') }}
+            </button>
+            <button
+              type="button"
+              :class="[
+                'inline-flex min-h-9 items-center gap-1.5 rounded px-3 text-sm font-medium transition-colors',
+                accountViewMode === 'upstream'
+                  ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
+                  : 'text-gray-500 hover:text-gray-800 dark:text-dark-300 dark:hover:text-white'
+              ]"
+              :aria-pressed="accountViewMode === 'upstream'"
+              @click="setAccountViewMode('upstream')"
+            >
+              <Icon name="server" size="sm" />
+              {{ t('admin.accounts.viewModeUpstream') }}
+            </button>
+          </div>
+          <div class="flex items-center gap-2">
+            <span v-if="customOrderEnabled" class="hidden text-xs text-gray-500 dark:text-dark-400 sm:inline">
+              {{ t('admin.accounts.dragSortHint') }}
+            </span>
+            <button
+              type="button"
+              :class="['btn px-3', customOrderEnabled ? 'btn-primary' : 'btn-secondary']"
+              :aria-pressed="customOrderEnabled"
+              @click="toggleCustomOrder"
+            >
+              <Icon name="arrowsUpDown" size="sm" />
+              <span>{{ customOrderEnabled ? t('admin.accounts.dragSortDone') : t('admin.accounts.dragSort') }}</span>
+            </button>
+          </div>
+        </div>
       </template>
       <template #table>
         <AccountBulkActionsBar
@@ -182,19 +228,29 @@
           @clear="clearSelection"
           @select-page="selectPage"
           @toggle-schedulable="handleBulkToggleSchedulable"
+          @set-upstream-group="openBulkSetUpstreamGroup"
         />
         <div ref="accountTableRef" class="flex min-h-0 flex-1 flex-col overflow-hidden">
         <DataTable
+          :key="accountTableSortRenderKey"
           ref="dataTableRef"
           :columns="cols"
-          :data="accounts"
+          :data="displayAccounts"
           :loading="loading"
           row-key="id"
+          :row-group="accountViewMode === 'upstream' ? getAccountUpstreamKey : undefined"
+          :row-group-expanded="accountViewMode === 'upstream' ? isUpstreamGroupExpanded : undefined"
+          :row-draggable="customOrderEnabled && !savingSortOrder"
+          drag-handle-selector=".account-drag-handle"
+          :row-class="getAccountRowClass"
           :server-side-sort="true"
+          @row-drag-start="handleAccountDragStart"
+          @row-drag-over="handleAccountDragOver"
+          @row-drop="handleAccountDrop"
+          @row-drag-end="handleAccountDragEnd"
           @sort="handleSort"
-          default-sort-key="name"
-          default-sort-order="asc"
-          :sort-storage-key="ACCOUNT_SORT_STORAGE_KEY"
+          :default-sort-key="accountTableDefaultSortKey"
+          :default-sort-order="customOrderEnabled || accountViewMode === 'upstream' ? 'asc' : sortState.sort_order"
           :estimate-row-height="72"
           :overscan="5"
         >
@@ -209,6 +265,107 @@
           </template>
           <template #cell-select="{ row }">
             <input type="checkbox" :checked="isSelected(row.id)" @change="toggleSel(row.id)" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+          </template>
+          <template #cell-sort_order="{ row }">
+            <div class="flex items-center justify-end gap-1 md:justify-center">
+              <button
+                type="button"
+                class="account-drag-handle inline-flex h-8 w-8 cursor-grab items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 active:cursor-grabbing dark:text-dark-400 dark:hover:bg-dark-700 dark:hover:text-gray-100"
+                :title="t('admin.accounts.dragHandle')"
+                :aria-label="t('admin.accounts.dragHandleFor', { name: row.name })"
+                @click.stop
+                @keydown.up.prevent.stop="moveAccountByKeyboard(row, -1)"
+                @keydown.down.prevent.stop="moveAccountByKeyboard(row, 1)"
+              >
+                <Icon name="arrowsUpDown" size="sm" />
+              </button>
+              <button
+                type="button"
+                class="inline-flex h-8 w-8 items-center justify-center rounded text-gray-500 hover:bg-gray-100 dark:text-dark-300 dark:hover:bg-dark-700 md:hidden"
+                :title="t('admin.accounts.moveUp')"
+                :aria-label="t('admin.accounts.moveAccountUp', { name: row.name })"
+                @click.stop="moveAccountByKeyboard(row, -1)"
+              >
+                <Icon name="chevronUp" size="sm" />
+              </button>
+              <button
+                type="button"
+                class="inline-flex h-8 w-8 items-center justify-center rounded text-gray-500 hover:bg-gray-100 dark:text-dark-300 dark:hover:bg-dark-700 md:hidden"
+                :title="t('admin.accounts.moveDown')"
+                :aria-label="t('admin.accounts.moveAccountDown', { name: row.name })"
+                @click.stop="moveAccountByKeyboard(row, 1)"
+              >
+                <Icon name="chevronDown" size="sm" />
+              </button>
+            </div>
+          </template>
+          <template #group-header="{ groupKey, rows, expanded }">
+            <div class="flex min-h-12 w-full items-center gap-2 border-y border-gray-200 bg-gray-50/95 px-4 py-2.5 dark:border-dark-700 dark:bg-dark-800/95">
+              <button
+                type="button"
+                class="flex min-w-0 flex-1 items-center gap-2.5 text-left transition-colors hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 dark:hover:text-primary-300"
+                :aria-expanded="expanded"
+                :aria-label="t(expanded ? 'admin.accounts.collapseUpstreamGroup' : 'admin.accounts.expandUpstreamGroup', { name: getUpstreamLabel(String(groupKey), rows) })"
+                @click="toggleUpstreamGroup(String(groupKey))"
+              >
+                <Icon
+                  :name="expanded ? 'chevronDown' : 'chevronRight'"
+                  size="sm"
+                  class="shrink-0 text-gray-400 dark:text-dark-400"
+                />
+                <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded bg-white text-gray-500 shadow-sm ring-1 ring-gray-200 dark:bg-dark-700 dark:text-dark-300 dark:ring-dark-600">
+                  <Icon name="server" size="sm" />
+                </span>
+                <span class="min-w-0">
+                  <span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">
+                    {{ getUpstreamLabel(String(groupKey), rows) }}
+                  </span>
+                  <span class="block text-xs text-gray-500 dark:text-dark-400">
+                    {{ t('admin.accounts.upstreamPageSummary', getUpstreamSummary(rows)) }}
+                  </span>
+                </span>
+              </button>
+              <span class="shrink-0 rounded bg-white px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-gray-200 dark:bg-dark-700 dark:text-dark-300 dark:ring-dark-600">
+                {{ t('admin.accounts.upstreamPageCount', { count: rows.length }) }}
+              </span>
+              <div
+                v-if="hasManagedUpstreamGroup(String(groupKey), rows)"
+                class="flex shrink-0 items-center gap-0.5"
+              >
+                <button
+                  type="button"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded text-gray-500 transition-colors hover:bg-white hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-dark-300 dark:hover:bg-dark-700 dark:hover:text-white"
+                  :title="t('admin.accounts.renameUpstreamGroup')"
+                  :aria-label="t('admin.accounts.renameUpstreamGroup')"
+                  :data-testid="`rename-upstream-group-${getManagedUpstreamGroupId(String(groupKey), rows)}`"
+                  @click="openRenameUpstreamGroup(String(groupKey), rows)"
+                >
+                  <Icon name="edit" size="sm" />
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded text-gray-500 transition-colors hover:bg-white hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-dark-300 dark:hover:bg-dark-700 dark:hover:text-white"
+                  :title="t('admin.accounts.moveUpstreamGroupUp')"
+                  :aria-label="t('admin.accounts.moveUpstreamGroupUp')"
+                  :data-testid="`move-upstream-group-up-${getManagedUpstreamGroupId(String(groupKey), rows)}`"
+                  :disabled="!canMoveUpstreamGroup(String(groupKey), rows, -1)"
+                  @click="moveUpstreamGroup(String(groupKey), rows, -1)"
+                >
+                  <Icon name="chevronUp" size="sm" />
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded text-gray-500 transition-colors hover:bg-white hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-dark-300 dark:hover:bg-dark-700 dark:hover:text-white"
+                  :title="t('admin.accounts.moveUpstreamGroupDown')"
+                  :aria-label="t('admin.accounts.moveUpstreamGroupDown')"
+                  :data-testid="`move-upstream-group-down-${getManagedUpstreamGroupId(String(groupKey), rows)}`"
+                  :disabled="!canMoveUpstreamGroup(String(groupKey), rows, 1)"
+                  @click="moveUpstreamGroup(String(groupKey), rows, 1)"
+                >
+                  <Icon name="chevronDown" size="sm" />
+                </button>
+              </div>
+            </div>
           </template>
           <template #cell-id="{ value }">
             <span class="font-mono text-xs text-gray-500 dark:text-gray-400">#{{ value }}</span>
@@ -391,8 +548,25 @@
       </template>
       <template #pagination><Pagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" /></template>
     </TablePageLayout>
-    <CreateAccountModal :show="showCreate" :proxies="proxies" :groups="groups" @close="showCreate = false" @created="reload" />
-    <EditAccountModal :show="showEdit" :account="edAcc" :proxies="proxies" :groups="groups" @close="showEdit = false" @updated="handleAccountUpdated" />
+    <CreateAccountModal
+      :show="showCreate"
+      :proxies="proxies"
+      :groups="groups"
+      :upstream-groups="upstreamGroups"
+      :upstream-groups-loading="upstreamGroupsLoading"
+      @close="showCreate = false"
+      @created="reload"
+    />
+    <EditAccountModal
+      :show="showEdit"
+      :account="edAcc"
+      :proxies="proxies"
+      :groups="groups"
+      :upstream-groups="upstreamGroups"
+      :upstream-groups-loading="upstreamGroupsLoading"
+      @close="showEdit = false"
+      @updated="handleAccountUpdated"
+    />
     <ReAuthAccountModal :show="showReAuth" :account="reAuthAcc" @close="closeReAuthModal" @reauthorized="handleAccountUpdated" />
     <AccountTestModal :show="showTest" :account="testingAcc" @close="closeTestModal" />
     <AccountStatsModal :show="showStats" :account="statsAcc" @close="closeStatsModal" />
@@ -411,6 +585,50 @@
       @close="showBulkEdit = false"
       @updated="handleBulkUpdated"
     />
+    <BulkSetUpstreamGroupModal
+      :show="showBulkSetUpstreamGroup"
+      :account-ids="selIds"
+      :upstream-groups="upstreamGroups"
+      :loading="upstreamGroupsLoading"
+      @close="showBulkSetUpstreamGroup = false"
+      @updated="handleBulkUpstreamGroupUpdated"
+    />
+    <BaseDialog
+      :show="showRenameUpstreamGroup"
+      :title="t('admin.accounts.renameUpstreamGroupTitle')"
+      width="normal"
+      @close="closeRenameUpstreamGroup"
+    >
+      <form id="rename-upstream-group-form" class="space-y-4" @submit.prevent="renameUpstreamGroup">
+        <label for="rename-upstream-group-name" class="block text-sm font-medium text-gray-700 dark:text-dark-200">
+          {{ t('admin.accounts.renameUpstreamGroup') }}
+        </label>
+        <input
+          id="rename-upstream-group-name"
+          v-model="renameUpstreamGroupName"
+          type="text"
+          class="form-input w-full"
+          :placeholder="t('admin.accounts.renameUpstreamGroupPlaceholder')"
+          :disabled="renamingUpstreamGroup"
+          autocomplete="off"
+        />
+      </form>
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <button type="button" class="btn btn-secondary" :disabled="renamingUpstreamGroup" @click="closeRenameUpstreamGroup">
+            {{ t('common.cancel') }}
+          </button>
+          <button
+            type="submit"
+            form="rename-upstream-group-form"
+            class="btn btn-primary"
+            :disabled="renamingUpstreamGroup || !renameUpstreamGroupName.trim()"
+          >
+            {{ renamingUpstreamGroup ? t('common.saving') : t('common.save') }}
+          </button>
+        </div>
+      </template>
+    </BaseDialog>
     <TempUnschedStatusModal :show="showTempUnsched" :account="tempUnschedAcc" @close="showTempUnsched = false" @reset="handleTempUnschedReset" />
     <ConfirmDialog :show="showDeleteDialog" :title="t('admin.accounts.deleteAccount')" :message="t('admin.accounts.deleteConfirm', { name: deletingAcc?.name })" :confirm-text="t('common.delete')" :cancel-text="t('common.cancel')" :danger="true" @confirm="confirmDelete" @cancel="showDeleteDialog = false" />
     <ConfirmDialog :show="showCreateShadowDialog" :title="t('admin.accounts.createSparkShadow')" :message="t('admin.accounts.createSparkShadowConfirm', { name: creatingShadowAcc?.name })" @confirm="confirmCreateSparkShadow" @cancel="showCreateShadowDialog = false" />
@@ -441,7 +659,9 @@ import DataTable from '@/components/common/DataTable.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
 import { CreateAccountModal, EditAccountModal, BulkEditAccountModal, SyncFromCrsModal, TempUnschedStatusModal } from '@/components/account'
+import BulkSetUpstreamGroupModal from '@/components/account/BulkSetUpstreamGroupModal.vue'
 import AccountTableActions from '@/components/admin/account/AccountTableActions.vue'
 import AccountTableFilters from '@/components/admin/account/AccountTableFilters.vue'
 import AccountBulkActionsBar from '@/components/admin/account/AccountBulkActionsBar.vue'
@@ -464,7 +684,7 @@ import TLSFingerprintProfilesModal from '@/components/admin/TLSFingerprintProfil
 import { buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
 import { formatDateTime, formatRelativeTime } from '@/utils/format'
 import { proxyExpiryBadgeClass, proxyExpiryLabelKey } from '@/utils/proxyExpiry'
-import type { Account, AccountPlatform, AccountSchedulerGroupScore, AccountType, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel } from '@/types'
+import type { Account, AccountPlatform, AccountSchedulerGroupScore, AccountType, AccountUpstreamGroup, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel } from '@/types'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -472,6 +692,8 @@ const authStore = useAuthStore()
 
 const proxies = ref<AccountProxy[]>([])
 const groups = ref<AdminGroup[]>([])
+const upstreamGroups = ref<AccountUpstreamGroup[]>([])
+const upstreamGroupsLoading = ref(false)
 const accountTableRef = ref<HTMLElement | null>(null)
 const dataTableRef = ref<InstanceType<typeof DataTable> | null>(null)
 type AccountBulkEditTarget =
@@ -514,13 +736,34 @@ const selTypes = computed<AccountType[]>(() => {
   return [...types]
 })
 const showCreate = ref(false)
+const loadUpstreamGroups = async () => {
+  upstreamGroupsLoading.value = true
+  try {
+    upstreamGroups.value = await adminAPI.accounts.listUpstreamGroups()
+  } catch (error) {
+    console.error('Failed to load upstream groups:', error)
+    appStore.showError(t('admin.accounts.loadUpstreamGroupsFailed'))
+  } finally {
+    upstreamGroupsLoading.value = false
+  }
+}
+const openCreateModal = async () => {
+  showCreate.value = true
+  await loadUpstreamGroups()
+}
 const showEdit = ref(false)
 const showSync = ref(false)
 const showImportData = ref(false)
 const showExportDataDialog = ref(false)
 const includeProxyOnExport = ref(true)
 const showBulkEdit = ref(false)
+const showBulkSetUpstreamGroup = ref(false)
 const bulkEditTarget = ref<AccountBulkEditTarget | null>(null)
+const showRenameUpstreamGroup = ref(false)
+const renameUpstreamGroupTarget = ref<AccountUpstreamGroup | null>(null)
+const renameUpstreamGroupName = ref('')
+const renamingUpstreamGroup = ref(false)
+const savingUpstreamGroupOrder = ref(false)
 const showTempUnsched = ref(false)
 const showDeleteDialog = ref(false)
 const showCreateShadowDialog = ref(false)
@@ -561,6 +804,7 @@ type AccountSortState = {
   sort_order: AccountSortOrder
 }
 const ACCOUNT_SORTABLE_KEYS = new Set([
+  'sort_order',
   'id',
   'name',
   'status',
@@ -588,6 +832,36 @@ const loadInitialAccountSortState = (): AccountSortState => {
   }
 }
 const sortState = reactive<AccountSortState>(loadInitialAccountSortState())
+const customOrderEnabled = ref(sortState.sort_by === 'sort_order')
+const ACCOUNT_VIEW_MODE_STORAGE_KEY = 'account-table-view-mode'
+type AccountViewMode = 'list' | 'upstream'
+const accountViewMode = ref<AccountViewMode>(
+  localStorage.getItem(ACCOUNT_VIEW_MODE_STORAGE_KEY) === 'upstream' ? 'upstream' : 'list'
+)
+const expandedUpstreamGroups = ref<Set<string>>(new Set())
+const savingSortOrder = ref(false)
+const draggedAccountID = ref<number | null>(null)
+const dragOverAccountID = ref<number | null>(null)
+const accountTableDefaultSortKey = computed(() =>
+  customOrderEnabled.value || accountViewMode.value === 'upstream' ? '' : sortState.sort_by
+)
+const accountTableSortRenderKey = computed(() =>
+  `${accountViewMode.value}:${customOrderEnabled.value}:${sortState.sort_by}:${sortState.sort_order}`
+)
+
+const isUpstreamGroupExpanded = (groupKey: string | number) =>
+  expandedUpstreamGroups.value.has(String(groupKey))
+
+const toggleUpstreamGroup = (groupKey: string) => {
+  const next = new Set(expandedUpstreamGroups.value)
+  if (next.has(groupKey)) next.delete(groupKey)
+  else next.add(groupKey)
+  expandedUpstreamGroups.value = next
+}
+
+const collapseAllUpstreamGroups = () => {
+  expandedUpstreamGroups.value = new Set()
+}
 
 // Auto refresh settings
 const showAutoRefreshDropdown = ref(false)
@@ -818,6 +1092,14 @@ const syncAccountListDerivedParams = () => {
   // Keep every load path, including auto-refresh and sorting, aligned with the current column visibility.
   const requestParams = params as any
   requestParams.include_scheduler_score = shouldIncludeSchedulerScore() ? '1' : '0'
+  requestParams.sort_by = accountViewMode.value === 'upstream'
+    ? 'upstream'
+    : customOrderEnabled.value
+      ? 'sort_order'
+      : sortState.sort_by
+  requestParams.sort_order = accountViewMode.value === 'upstream' || customOrderEnabled.value
+    ? 'asc'
+    : sortState.sort_order
 }
 
 const {
@@ -845,6 +1127,161 @@ const {
   }
 })
 
+const getPlatformLabel = (platform: string) => {
+  const translationKey = `admin.accounts.platforms.${platform}`
+  const translated = t(translationKey)
+  return translated === translationKey ? platform : translated
+}
+
+const getAccountUpstreamGroupName = (account: Account) => (account.upstream_group || '').trim()
+
+const normalizeUpstreamGroupName = (name: string) => name.trim().toLocaleLowerCase()
+
+const findUpstreamGroupByName = (name: string) => {
+  const normalizedName = normalizeUpstreamGroupName(name)
+  if (!normalizedName) return undefined
+  return upstreamGroups.value.find(group => normalizeUpstreamGroupName(group.name) === normalizedName)
+}
+
+const getAccountUpstreamKey = (account: Account) => {
+  const groupName = getAccountUpstreamGroupName(account)
+  if (!groupName) return 'ungrouped'
+  const group = findUpstreamGroupByName(groupName)
+  // Keep legacy strings visible, but only directory-backed groups are manageable.
+  return group ? `group:${group.id}` : `legacy:${normalizeUpstreamGroupName(groupName)}`
+}
+
+const getManagedUpstreamGroup = (groupKey: string, rows: Account[] = []) => {
+  if (!groupKey.startsWith('group:')) return undefined
+  const id = Number(groupKey.slice('group:'.length))
+  if (!Number.isInteger(id)) return undefined
+  const group = upstreamGroups.value.find(item => item.id === id)
+  if (!group) return undefined
+
+  const groupName = rows.map(getAccountUpstreamGroupName).find(Boolean)
+  return groupName && normalizeUpstreamGroupName(group.name) !== normalizeUpstreamGroupName(groupName)
+    ? undefined
+    : group
+}
+
+const getManagedUpstreamGroupId = (groupKey: string, rows: Account[] = []) =>
+  getManagedUpstreamGroup(groupKey, rows)?.id
+
+const hasManagedUpstreamGroup = (groupKey: string, rows: Account[] = []) =>
+  Boolean(getManagedUpstreamGroup(groupKey, rows))
+
+const getUpstreamLabel = (upstreamKey: string, rows: Account[] = []) =>
+  getManagedUpstreamGroup(upstreamKey, rows)?.name ||
+  rows.map(getAccountUpstreamGroupName).find(Boolean) ||
+  t('admin.accounts.ungroupedUpstream')
+
+const getUpstreamSummary = (rows: Account[]) => ({
+  active: rows.filter(row => row.status === 'active').length,
+  errors: rows.filter(row => row.status === 'error').length,
+  concurrency: rows.reduce((sum, row) => sum + Math.max(0, Number(row.concurrency) || 0), 0),
+  platforms: [...new Set(rows.map(row => getPlatformLabel(row.platform)))].join(' / ')
+})
+
+// The upstream endpoint already orders rows by directory sort_order and id.
+const displayAccounts = computed(() => accounts.value)
+
+const orderedUpstreamGroups = computed(() =>
+  [...upstreamGroups.value].sort((left, right) =>
+    Number(left.sort_order) - Number(right.sort_order) || left.id - right.id
+  )
+)
+
+const canMoveUpstreamGroup = (groupKey: string, rows: Account[], direction: number) => {
+  if (savingUpstreamGroupOrder.value) return false
+  const group = getManagedUpstreamGroup(groupKey, rows)
+  if (!group) return false
+  const index = orderedUpstreamGroups.value.findIndex(item => item.id === group.id)
+  return index >= 0 && index + direction >= 0 && index + direction < orderedUpstreamGroups.value.length
+}
+
+const openRenameUpstreamGroup = (groupKey: string, rows: Account[]) => {
+  const group = getManagedUpstreamGroup(groupKey, rows)
+  if (!group) return
+  renameUpstreamGroupTarget.value = { ...group }
+  renameUpstreamGroupName.value = group.name
+  showRenameUpstreamGroup.value = true
+}
+
+const closeRenameUpstreamGroup = () => {
+  if (renamingUpstreamGroup.value) return
+  showRenameUpstreamGroup.value = false
+  renameUpstreamGroupTarget.value = null
+  renameUpstreamGroupName.value = ''
+}
+
+const renameUpstreamGroup = async () => {
+  const target = renameUpstreamGroupTarget.value
+  const name = renameUpstreamGroupName.value.trim()
+  if (!target || !name) return
+  if (normalizeUpstreamGroupName(target.name) === normalizeUpstreamGroupName(name)) {
+    closeRenameUpstreamGroup()
+    return
+  }
+
+  renamingUpstreamGroup.value = true
+  try {
+    await adminAPI.accounts.renameUpstreamGroup(target.id, name)
+    showRenameUpstreamGroup.value = false
+    renameUpstreamGroupTarget.value = null
+    renameUpstreamGroupName.value = ''
+    appStore.showSuccess(t('admin.accounts.renameUpstreamGroupSuccess'))
+    await Promise.all([reload(), loadUpstreamGroups()])
+  } catch (error) {
+    console.error('Failed to rename upstream group:', error)
+    appStore.showError(t('admin.accounts.renameUpstreamGroupFailed'))
+  } finally {
+    renamingUpstreamGroup.value = false
+  }
+}
+
+const moveUpstreamGroup = async (groupKey: string, rows: Account[], direction: number) => {
+  if (!canMoveUpstreamGroup(groupKey, rows, direction)) return
+  const group = getManagedUpstreamGroup(groupKey, rows)
+  if (!group) return
+
+  const currentOrder = orderedUpstreamGroups.value
+  const currentIndex = currentOrder.findIndex(item => item.id === group.id)
+  const targetIndex = currentIndex + direction
+  const reordered = [...currentOrder]
+  const [moved] = reordered.splice(currentIndex, 1)
+  reordered.splice(targetIndex, 0, moved)
+
+  const canReuseSortSlots = currentOrder.every((item, index) =>
+    index === 0 || item.sort_order > currentOrder[index - 1].sort_order
+  )
+  const sortSlots = canReuseSortSlots
+    ? currentOrder.map(item => item.sort_order)
+    : currentOrder.map((_item, index) => (index + 1) * 100)
+  const updates = reordered.map((item, index) => ({
+    id: item.id,
+    sort_order: sortSlots[index]
+  }))
+  const sortOrderByID = new Map(updates.map(item => [item.id, item.sort_order]))
+  const previousGroups = upstreamGroups.value.map(item => ({ ...item }))
+  upstreamGroups.value = upstreamGroups.value.map(item => ({
+    ...item,
+    sort_order: sortOrderByID.get(item.id) ?? item.sort_order
+  }))
+
+  savingUpstreamGroupOrder.value = true
+  try {
+    await adminAPI.accounts.updateUpstreamGroupSortOrders(updates)
+    appStore.showSuccess(t('admin.accounts.reorderUpstreamGroupsSuccess'))
+    await reload()
+  } catch (error) {
+    upstreamGroups.value = previousGroups
+    console.error('Failed to reorder upstream groups:', error)
+    appStore.showError(t('admin.accounts.reorderUpstreamGroupsFailed'))
+  } finally {
+    savingUpstreamGroupOrder.value = false
+  }
+}
+
 const {
   selectedIds: selIds,
   allVisibleSelected,
@@ -865,7 +1302,9 @@ const {
 
 const swipeVirtualContext: SwipeSelectVirtualContext = {
   getVirtualizer: () => dataTableRef.value?.virtualizer ?? null,
-  getSortedData: () => dataTableRef.value?.sortedData ?? accounts.value,
+  getSortedData: () => accountViewMode.value === 'upstream'
+    ? []
+    : dataTableRef.value?.sortedData ?? accounts.value,
   getRowId: (row: any) => row.id,
 }
 
@@ -909,6 +1348,7 @@ const reload = async () => {
 }
 
 const debouncedReload = () => {
+  if (accountViewMode.value === 'upstream') collapseAllUpstreamGroups()
   syncAccountListDerivedParams()
   hasPendingListSync.value = false
   resetAutoRefreshCache()
@@ -917,6 +1357,7 @@ const debouncedReload = () => {
 }
 
 const handlePageChange = (page: number) => {
+  if (accountViewMode.value === 'upstream') collapseAllUpstreamGroups()
   syncAccountListDerivedParams()
   hasPendingListSync.value = false
   resetAutoRefreshCache()
@@ -925,6 +1366,7 @@ const handlePageChange = (page: number) => {
 }
 
 const handlePageSizeChange = (size: number) => {
+  if (accountViewMode.value === 'upstream') collapseAllUpstreamGroups()
   syncAccountListDerivedParams()
   hasPendingListSync.value = false
   resetAutoRefreshCache()
@@ -933,17 +1375,145 @@ const handlePageSizeChange = (size: number) => {
 }
 
 const handleSort = (key: string, order: AccountSortOrder) => {
+  customOrderEnabled.value = key === 'sort_order'
   sortState.sort_by = key
   sortState.sort_order = order
   const requestParams = params as any
   requestParams.sort_by = key
   requestParams.sort_order = order
+  saveAccountSortPreference()
   syncAccountListDerivedParams()
   pagination.page = 1
   hasPendingListSync.value = false
   resetAutoRefreshCache()
   pendingTodayStatsRefresh.value = true
   load()
+}
+
+const saveAccountSortPreference = () => {
+  try {
+    localStorage.setItem(ACCOUNT_SORT_STORAGE_KEY, JSON.stringify({
+      key: customOrderEnabled.value ? 'sort_order' : sortState.sort_by,
+      order: customOrderEnabled.value ? 'asc' : sortState.sort_order
+    }))
+  } catch (error) {
+    console.error('Failed to persist account sort preference:', error)
+  }
+}
+
+const setAccountViewMode = (mode: AccountViewMode) => {
+  if (accountViewMode.value === mode) return
+  accountViewMode.value = mode
+  if (mode === 'upstream') {
+    collapseAllUpstreamGroups()
+    void loadUpstreamGroups()
+  }
+  localStorage.setItem(ACCOUNT_VIEW_MODE_STORAGE_KEY, mode)
+  pagination.page = 1
+  load()
+}
+
+const toggleCustomOrder = () => {
+  customOrderEnabled.value = !customOrderEnabled.value
+  if (customOrderEnabled.value) {
+    sortState.sort_by = 'sort_order'
+    sortState.sort_order = 'asc'
+  } else {
+    sortState.sort_by = 'name'
+    sortState.sort_order = 'asc'
+  }
+  saveAccountSortPreference()
+  pagination.page = 1
+  load()
+}
+
+const getAccountRowClass = (account: Account) =>
+  dragOverAccountID.value === account.id
+    ? 'bg-primary-50 ring-1 ring-inset ring-primary-300 dark:bg-primary-950/20 dark:ring-primary-700'
+    : ''
+
+const handleAccountDragStart = (account: Account) => {
+  draggedAccountID.value = account.id
+}
+
+const handleAccountDragOver = (account: Account) => {
+  if (draggedAccountID.value !== account.id) dragOverAccountID.value = account.id
+}
+
+const reorderAccountScope = async (source: Account, target: Account) => {
+  if (savingSortOrder.value || source.id === target.id) return
+  if (accountViewMode.value === 'upstream' && getAccountUpstreamKey(source) !== getAccountUpstreamKey(target)) {
+    appStore.showError(t('admin.accounts.crossUpstreamDragBlocked'))
+    return
+  }
+
+  const before = accounts.value.map(account => ({ ...account }))
+  const scope = accountViewMode.value === 'upstream'
+    ? displayAccounts.value.filter(account => getAccountUpstreamKey(account) === getAccountUpstreamKey(source))
+    : [...displayAccounts.value]
+  const sourceIndex = scope.findIndex(account => account.id === source.id)
+  const targetIndex = scope.findIndex(account => account.id === target.id)
+  if (sourceIndex < 0 || targetIndex < 0) return
+
+  const reordered = [...scope]
+  const [moved] = reordered.splice(sourceIndex, 1)
+  reordered.splice(targetIndex, 0, moved)
+  const sortSlots = scope
+    .map(account => Number(account.sort_order || account.id))
+    .sort((left, right) => left - right)
+  const reorderedWithSlots = reordered.map((account, index) => ({
+    ...account,
+    sort_order: sortSlots[index]
+  }))
+  const reorderedByID = new Map(reorderedWithSlots.map(account => [account.id, account]))
+  if (accountViewMode.value === 'upstream') {
+    // Preserve the server-provided directory order while immediately reflecting
+    // a drag within the current group's contiguous rows.
+    let nextReorderedIndex = 0
+    accounts.value = accounts.value.map(account =>
+      reorderedByID.has(account.id)
+        ? reorderedWithSlots[nextReorderedIndex++]
+        : account
+    )
+  } else {
+    accounts.value = reorderedWithSlots
+  }
+
+  savingSortOrder.value = true
+  enterAutoRefreshSilentWindow()
+  try {
+    await adminAPI.accounts.updateSortOrder(
+      reorderedWithSlots.map(account => ({ id: account.id, sort_order: account.sort_order }))
+    )
+    appStore.showSuccess(t('admin.accounts.reorderSuccess'))
+  } catch (error) {
+    accounts.value = before
+    appStore.showError(t('admin.accounts.reorderFailed'))
+    console.error('Failed to reorder accounts:', error)
+  } finally {
+    savingSortOrder.value = false
+  }
+}
+
+const handleAccountDrop = async (target: Account) => {
+  const source = displayAccounts.value.find(account => account.id === draggedAccountID.value)
+  dragOverAccountID.value = null
+  if (source) await reorderAccountScope(source, target)
+}
+
+const handleAccountDragEnd = () => {
+  draggedAccountID.value = null
+  dragOverAccountID.value = null
+}
+
+const moveAccountByKeyboard = async (account: Account, offset: number) => {
+  if (!customOrderEnabled.value || savingSortOrder.value) return
+  const scope = accountViewMode.value === 'upstream'
+    ? displayAccounts.value.filter(row => getAccountUpstreamKey(row) === getAccountUpstreamKey(account))
+    : displayAccounts.value
+  const currentIndex = scope.findIndex(row => row.id === account.id)
+  const target = scope[currentIndex + offset]
+  if (target) await reorderAccountScope(account, target)
 }
 
 watch(loading, (isLoading, wasLoading) => {
@@ -963,6 +1533,8 @@ const isAnyModalOpen = computed(() => {
     showImportData.value ||
     showExportDataDialog.value ||
     showBulkEdit.value ||
+    showBulkSetUpstreamGroup.value ||
+    showRenameUpstreamGroup.value ||
     showTempUnsched.value ||
     showDeleteDialog.value ||
     showReAuth.value ||
@@ -1237,6 +1809,9 @@ const allColumns = computed(() => {
   const c = [
     { key: 'select', label: '', sortable: false },
     { key: 'name', label: t('admin.accounts.columns.name'), sortable: true },
+    ...(customOrderEnabled.value
+      ? [{ key: 'sort_order', label: '', sortable: false, class: 'w-12 text-center' }]
+      : []),
     { key: 'id', label: t('admin.accounts.columns.id'), sortable: true },
     { key: 'platform_type', label: t('admin.accounts.columns.platformType'), sortable: false },
     { key: 'capacity', label: t('admin.accounts.columns.capacity'), sortable: false },
@@ -1264,17 +1839,23 @@ const allColumns = computed(() => {
 
 // Columns that can be toggled (exclude select, name, and actions)
 const toggleableColumns = computed(() =>
-  allColumns.value.filter(col => col.key !== 'select' && col.key !== 'name' && col.key !== 'actions')
+  allColumns.value.filter(col => col.key !== 'select' && col.key !== 'sort_order' && col.key !== 'name' && col.key !== 'actions')
 )
 
 // Filtered columns based on visibility
 const cols = computed(() =>
-  allColumns.value.filter(col =>
-    col.key === 'select' || col.key === 'name' || col.key === 'actions' || !hiddenColumns.has(col.key)
-  )
+  allColumns.value
+    .filter(col =>
+      col.key === 'select' || col.key === 'sort_order' || col.key === 'name' || col.key === 'actions' || !hiddenColumns.has(col.key)
+    )
+    .map(col => accountViewMode.value === 'upstream' ? { ...col, sortable: false } : col)
 )
 
-const handleEdit = (a: Account) => { edAcc.value = a; showEdit.value = true }
+const handleEdit = async (a: Account) => {
+  edAcc.value = a
+  showEdit.value = true
+  await loadUpstreamGroups()
+}
 const openMenu = (a: Account, e: MouseEvent) => {
   menu.acc = a
 
@@ -1515,6 +2096,18 @@ const handleBulkUpdated = () => {
   bulkEditTarget.value = null
   clearSelection()
   reload()
+}
+
+const openBulkSetUpstreamGroup = async () => {
+  if (selIds.value.length === 0) return
+  showBulkSetUpstreamGroup.value = true
+  await loadUpstreamGroups()
+}
+
+const handleBulkUpstreamGroupUpdated = async () => {
+  showBulkSetUpstreamGroup.value = false
+  clearSelection()
+  await Promise.all([reload(), loadUpstreamGroups()])
 }
 const handleDataImported = () => { showImportData.value = false; reload() }
 const ACCOUNT_UNGROUPED_GROUP_QUERY_VALUE = 'ungrouped'
@@ -1847,6 +2440,9 @@ onMounted(async () => {
     groups.value = g
   } catch (error) {
     console.error('Failed to load proxies/groups:', error)
+  }
+  if (accountViewMode.value === 'upstream') {
+    await loadUpstreamGroups()
   }
   window.addEventListener('scroll', handleScroll, true)
   document.addEventListener('click', handleClickOutside)

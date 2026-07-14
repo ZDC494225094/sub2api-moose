@@ -71,6 +71,15 @@ func (Account) Fields() []ent.Field {
 			MaxLen(20).
 			NotEmpty(),
 
+		// upstream_group: 管理端显式维护的上游分组标签，不从凭据推导
+		field.String("upstream_group").
+			MaxLen(100).
+			Default(""),
+		// upstream_group_id: 上游分组目录的稳定关联，名称字段保留用于兼容展示与导入。
+		field.Int64("upstream_group_id").
+			Optional().
+			Nillable(),
+
 		// credentials: 认证凭证，以 JSONB 格式存储
 		// 结构取决于 type 字段：
 		// - api_key: {"api_key": "sk-xxx"}
@@ -106,6 +115,10 @@ func (Account) Fields() []ent.Field {
 		// 调度器会优先使用高优先级的账户
 		field.Int("priority").
 			Default(50),
+
+		// sort_order: 管理端账号列表的展示顺序，不参与调度
+		field.Int64("sort_order").
+			Default(0),
 
 		// rate_multiplier: 账号计费倍率（>=0，允许 0 表示该账号计费为 0）
 		// 仅影响账号维度计费口径，不影响用户/API Key 扣费（分组倍率）
@@ -207,6 +220,11 @@ func (Account) Fields() []ent.Field {
 // Edges 定义账户实体的关联关系。
 func (Account) Edges() []ent.Edge {
 	return []ent.Edge{
+		// upstream_group_directory: 账号所属上游分组目录（可选的一对多关系）。
+		edge.From("upstream_group_directory", AccountUpstreamGroup.Type).
+			Ref("accounts").
+			Field("upstream_group_id").
+			Unique(),
 		// groups: 账户所属的分组（多对多关系）
 		// 通过 account_groups 中间表实现
 		// 一个账户可以属于多个分组，一个分组可以包含多个账户

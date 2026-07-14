@@ -2447,6 +2447,12 @@
         </div>
       </div>
 
+      <UpstreamGroupField
+        v-model="form.upstream_group"
+        :groups="upstreamGroups"
+        :loading="upstreamGroupsLoading"
+      />
+
       <!-- Group Selection - 仅标准模式显示 -->
       <GroupSelector
         v-if="!authStore.isSimpleMode"
@@ -2521,6 +2527,7 @@ import type {
   Account,
   Proxy,
   AdminGroup,
+  AccountUpstreamGroup,
   CheckMixedChannelResponse,
   OpenAICompactMode,
   OpenAIResponsesMode,
@@ -2535,6 +2542,7 @@ import ProxyAdBanner from '@/components/common/ProxyAdBanner.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
+import UpstreamGroupField from '@/components/account/UpstreamGroupField.vue'
 import {
   applyAntigravityProjectID,
   applyHeaderOverride,
@@ -2573,6 +2581,8 @@ interface Props {
   account: Account | null
   proxies: Proxy[]
   groups: AdminGroup[]
+  upstreamGroups?: AccountUpstreamGroup[]
+  upstreamGroupsLoading?: boolean
 }
 
 const props = defineProps<Props>()
@@ -3056,6 +3066,7 @@ const mixedChannelWarningMessageText = computed(() => {
 const form = reactive({
   name: '',
   notes: '',
+  upstream_group: '',
   proxy_id: null as number | null,
   concurrency: 1,
   load_factor: null as number | null,
@@ -3145,6 +3156,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   mixedChannelWarningAction.value = null
   form.name = newAccount.name
   form.notes = newAccount.notes || ''
+  form.upstream_group = newAccount.upstream_group || ''
   form.proxy_id = newAccount.proxy_id
   form.concurrency = newAccount.concurrency
   form.load_factor = newAccount.load_factor ?? null
@@ -3912,6 +3924,7 @@ const handleSubmit = async () => {
   }
 
   const updatePayload: Record<string, unknown> = { ...form }
+  updatePayload.upstream_group = form.upstream_group.trim()
   try {
     // 后端期望 proxy_id: 0 表示清除代理，而不是 null
     if (updatePayload.proxy_id === null) {

@@ -32,16 +32,39 @@
     </template>
 
     <template v-else>
-      <div
+      <template
         v-for="(row, index) in sortedData"
         :key="resolveRowKey(row, index)"
+      >
+        <slot
+          v-if="isGroupStart(index)"
+          name="group-header"
+          :group-key="resolveRowGroup(row)"
+          :row="row"
+          :rows="getRowsInGroup(row)"
+          :expanded="isRowGroupExpanded(row)"
+        >
+          <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
+            {{ resolveRowGroup(row) }}
+          </div>
+        </slot>
+      <div
+        v-if="isRowGroupExpanded(row)"
         :class="[
           'rounded-lg border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900',
           isRowClickable ? 'cursor-pointer transition hover:border-primary-200 hover:bg-primary-50/40 dark:hover:border-primary-800/40 dark:hover:bg-primary-950/10' : '',
+          isRowDraggable(row, index) ? 'select-none' : '',
+          isDraggingRow(row, index) ? 'opacity-50' : '',
           getRowClass(row, index)
         ]"
+        :draggable="isRowDraggable(row, index)"
         :tabindex="isRowClickable ? 0 : undefined"
         :role="isRowClickable ? 'button' : undefined"
+        @pointerdown="handleRowPointerDown($event, row, index)"
+        @dragstart="handleRowDragStart($event, row, index)"
+        @dragover="handleRowDragOver($event, row, index)"
+        @drop="handleRowDrop($event, row, index)"
+        @dragend="handleRowDragEnd($event, row, index)"
         @click="handleRowClick(row)"
         @keydown="handleRowKeydown($event, row)"
       >
@@ -65,6 +88,7 @@
           </div>
         </div>
       </div>
+      </template>
     </template>
   </div>
 
@@ -167,19 +191,48 @@
                 :style="{ height: virtualPaddingTop + 'px', padding: 0, border: 'none' }">
             </td>
           </tr>
-          <tr
-            v-for="virtualRow in virtualItems"
+          <template
+            v-for="virtualRow in renderedRows"
             :key="resolveRowKey(sortedData[virtualRow.index], virtualRow.index)"
+          >
+          <tr
+            v-if="isGroupStart(virtualRow.index)"
+            class="bg-gray-50/95 dark:bg-dark-800/95"
+          >
+            <td :colspan="columns.length" class="p-0">
+              <slot
+                name="group-header"
+                :group-key="resolveRowGroup(sortedData[virtualRow.index])"
+                :row="sortedData[virtualRow.index]"
+                :rows="getRowsInGroup(sortedData[virtualRow.index])"
+                :expanded="isRowGroupExpanded(sortedData[virtualRow.index])"
+              >
+                <div class="px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  {{ resolveRowGroup(sortedData[virtualRow.index]) }}
+                </div>
+              </slot>
+            </td>
+          </tr>
+          <tr
+            v-if="isRowGroupExpanded(sortedData[virtualRow.index])"
             :data-row-id="resolveRowKey(sortedData[virtualRow.index], virtualRow.index)"
             :data-index="virtualRow.index"
             :ref="measureElement"
             :class="[
               'hover:bg-gray-50 dark:hover:bg-dark-800',
               isRowClickable ? 'cursor-pointer' : '',
+              isRowDraggable(sortedData[virtualRow.index], virtualRow.index) ? 'select-none' : '',
+              isDraggingRow(sortedData[virtualRow.index], virtualRow.index) ? 'opacity-50' : '',
               getRowClass(sortedData[virtualRow.index], virtualRow.index)
             ]"
+            :draggable="isRowDraggable(sortedData[virtualRow.index], virtualRow.index)"
             :tabindex="isRowClickable ? 0 : undefined"
             :role="isRowClickable ? 'button' : undefined"
+            @pointerdown="handleRowPointerDown($event, sortedData[virtualRow.index], virtualRow.index)"
+            @dragstart="handleRowDragStart($event, sortedData[virtualRow.index], virtualRow.index)"
+            @dragover="handleRowDragOver($event, sortedData[virtualRow.index], virtualRow.index)"
+            @drop="handleRowDrop($event, sortedData[virtualRow.index], virtualRow.index)"
+            @dragend="handleRowDragEnd($event, sortedData[virtualRow.index], virtualRow.index)"
             @click="handleRowClick(sortedData[virtualRow.index])"
             @keydown="handleRowKeydown($event, sortedData[virtualRow.index])"
           >
@@ -203,6 +256,7 @@
               </slot>
             </td>
           </tr>
+          </template>
           <tr v-if="virtualPaddingBottom > 0" aria-hidden="true">
             <td :colspan="columns.length"
                 :style="{ height: virtualPaddingBottom + 'px', padding: 0, border: 'none' }">
@@ -231,6 +285,10 @@ const isDesktopViewport = ref(
 const emit = defineEmits<{
   sort: [key: string, order: 'asc' | 'desc']
   rowClick: [row: any]
+  rowDragStart: [row: any, index: number, event: DragEvent]
+  rowDragOver: [row: any, index: number, event: DragEvent]
+  rowDrop: [row: any, index: number, event: DragEvent]
+  rowDragEnd: [row: any, index: number, event: DragEvent]
 }>()
 
 // 表格容器引用
@@ -413,6 +471,14 @@ interface Props {
   rowClass?: string | ((row: any, index: number) => string)
   /** Enables row click styling and emits rowClick when a row is clicked. */
   rowClickable?: boolean
+  /** Optional grouping callback. Rows with the same adjacent key share one group header. */
+  rowGroup?: (row: any) => string | number
+  /** Controls whether rows in a group are rendered. Group headers remain visible when collapsed. */
+  rowGroupExpanded?: (groupKey: string | number) => boolean
+  /** Enables native row dragging. A callback can selectively enable rows. */
+  rowDraggable?: boolean | ((row: any, index: number) => boolean)
+  /** Restrict drag initiation to a descendant matching this selector. */
+  dragHandleSelector?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -579,6 +645,81 @@ const getRowClass = (row: any, index: number) => {
   return props.rowClass || ''
 }
 
+const resolveRowGroup = (row: any): string | number => props.rowGroup?.(row) ?? ''
+
+const isGroupStart = (index: number) => {
+  if (!props.rowGroup || index < 0 || index >= sortedData.value.length) return false
+  if (index === 0) return true
+  return resolveRowGroup(sortedData.value[index]) !== resolveRowGroup(sortedData.value[index - 1])
+}
+
+const getRowsInGroup = (row: any) => {
+  if (!props.rowGroup) return []
+  const key = resolveRowGroup(row)
+  return sortedData.value.filter(item => resolveRowGroup(item) === key)
+}
+
+const isRowGroupExpanded = (row: any) => {
+  if (!props.rowGroup || !props.rowGroupExpanded) return true
+  return props.rowGroupExpanded(resolveRowGroup(row))
+}
+
+const armedDragRowKey = ref<string | number | null>(null)
+const draggingRowKey = ref<string | number | null>(null)
+
+const isRowDraggable = (row: any, index: number) => {
+  if (typeof props.rowDraggable === 'function') return props.rowDraggable(row, index)
+  return props.rowDraggable === true
+}
+
+const isDraggingRow = (row: any, index: number) =>
+  draggingRowKey.value === resolveRowKey(row, index)
+
+const handleRowPointerDown = (event: PointerEvent, row: any, index: number) => {
+  if (!isRowDraggable(row, index)) return
+  if (props.dragHandleSelector) {
+    const target = event.target instanceof Element ? event.target : null
+    if (!target?.closest(props.dragHandleSelector)) {
+      armedDragRowKey.value = null
+      return
+    }
+  }
+  armedDragRowKey.value = resolveRowKey(row, index)
+}
+
+const handleRowDragStart = (event: DragEvent, row: any, index: number) => {
+  const rowKey = resolveRowKey(row, index)
+  if (!isRowDraggable(row, index) || armedDragRowKey.value !== rowKey) {
+    event.preventDefault()
+    return
+  }
+  draggingRowKey.value = rowKey
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(rowKey))
+  }
+  emit('rowDragStart', row, index, event)
+}
+
+const handleRowDragOver = (event: DragEvent, row: any, index: number) => {
+  if (draggingRowKey.value === null || !isRowDraggable(row, index)) return
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  emit('rowDragOver', row, index, event)
+}
+
+const handleRowDrop = (event: DragEvent, row: any, index: number) => {
+  if (draggingRowKey.value === null || !isRowDraggable(row, index)) return
+  event.preventDefault()
+  emit('rowDrop', row, index, event)
+}
+
+const handleRowDragEnd = (event: DragEvent, row: any, index: number) => {
+  emit('rowDragEnd', row, index, event)
+  draggingRowKey.value = null
+  armedDragRowKey.value = null
+}
+
 const isRowClickable = computed(() => props.rowClickable || props.clickableRows)
 
 const handleRowClick = (row: any) => {
@@ -665,7 +806,7 @@ const sortedData = computed(() => {
 
 // --- Virtual scrolling ---
 const rowVirtualizer = useVirtualizer(computed(() => ({
-  count: isDesktopViewport.value ? (sortedData.value?.length ?? 0) : 0,
+  count: isDesktopViewport.value && !props.rowGroup && !props.rowDraggable ? (sortedData.value?.length ?? 0) : 0,
   getScrollElement: () => tableWrapperRef.value,
   estimateSize: () => props.estimateRowHeight ?? 56,
   overscan: props.overscan ?? 5,
@@ -679,19 +820,26 @@ const rowVirtualizer = useVirtualizer(computed(() => ({
 
 const virtualItems = computed(() => rowVirtualizer.value.getVirtualItems())
 
+const renderedRows = computed(() => {
+  if (!props.rowGroup && !props.rowDraggable) return virtualItems.value
+  return sortedData.value.map((_, index) => ({ index, start: 0, end: 0, size: 0, key: index, lane: 0 }))
+})
+
 const virtualPaddingTop = computed(() => {
+  if (props.rowGroup || props.rowDraggable) return 0
   const items = virtualItems.value
   return items.length > 0 ? items[0].start : 0
 })
 
 const virtualPaddingBottom = computed(() => {
+  if (props.rowGroup || props.rowDraggable) return 0
   const items = virtualItems.value
   if (items.length === 0) return 0
   return rowVirtualizer.value.getTotalSize() - items[items.length - 1].end
 })
 
 const measureElement = (el: any) => {
-  if (el) {
+  if (el && !props.rowGroup && !props.rowDraggable) {
     rowVirtualizer.value.measureElement(el as Element)
   }
 }

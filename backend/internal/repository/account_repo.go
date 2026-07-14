@@ -15,6 +15,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
 	dbaccountgroup "github.com/Wei-Shaw/sub2api/ent/accountgroup"
+	dbaccountupstreamgroup "github.com/Wei-Shaw/sub2api/ent/accountupstreamgroup"
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
 	dbproxy "github.com/Wei-Shaw/sub2api/ent/proxy"
@@ -50,6 +52,9 @@ type accountRepository struct {
 	// ensuring sticky sessions can promptly detect unavailable accounts.
 	schedulerCache service.SchedulerCache
 }
+
+var _ service.AccountSortOrderRepository = (*accountRepository)(nil)
+var _ service.AccountUpstreamGroupRepository = (*accountRepository)(nil)
 
 var schedulerNeutralExtraKeyPrefixes = []string{
 	"codex_primary_",
@@ -82,16 +87,28 @@ func (r *accountRepository) Create(ctx context.Context, account *service.Account
 	if account == nil {
 		return service.ErrAccountNilInput
 	}
+	upstreamGroupName, upstreamGroupID, err := r.resolveOrCreateUpstreamGroup(ctx, account.UpstreamGroup)
+	if err != nil {
+		return err
+	}
+	account.UpstreamGroup = upstreamGroupName
+	account.UpstreamGroupID = upstreamGroupID
+	if account.SortOrder == 0 {
+		account.SortOrder = time.Now().UnixMicro()
+	}
 
 	builder := r.client.Account.Create().
 		SetName(account.Name).
 		SetNillableNotes(account.Notes).
 		SetPlatform(account.Platform).
 		SetType(account.Type).
+		SetUpstreamGroup(account.UpstreamGroup).
+		SetNillableUpstreamGroupID(account.UpstreamGroupID).
 		SetCredentials(normalizeJSONMap(account.Credentials)).
 		SetExtra(normalizeJSONMap(account.Extra)).
 		SetConcurrency(account.Concurrency).
 		SetPriority(account.Priority).
+		SetSortOrder(account.SortOrder).
 		SetStatus(account.Status).
 		SetErrorMessage(account.ErrorMessage).
 		SetSchedulable(account.Schedulable).
@@ -331,6 +348,12 @@ func (r *accountRepository) Update(ctx context.Context, account *service.Account
 	if account == nil {
 		return nil
 	}
+	upstreamGroupName, upstreamGroupID, err := r.resolveOrCreateUpstreamGroup(ctx, account.UpstreamGroup)
+	if err != nil {
+		return err
+	}
+	account.UpstreamGroup = upstreamGroupName
+	account.UpstreamGroupID = upstreamGroupID
 	schedulable := account.Schedulable
 	if account.Status == service.StatusError {
 		schedulable = false
@@ -341,6 +364,7 @@ func (r *accountRepository) Update(ctx context.Context, account *service.Account
 		SetNillableNotes(account.Notes).
 		SetPlatform(account.Platform).
 		SetType(account.Type).
+		SetUpstreamGroup(account.UpstreamGroup).
 		SetCredentials(normalizeJSONMap(account.Credentials)).
 		SetExtra(normalizeJSONMap(account.Extra)).
 		SetConcurrency(account.Concurrency).
@@ -349,6 +373,11 @@ func (r *accountRepository) Update(ctx context.Context, account *service.Account
 		SetErrorMessage(account.ErrorMessage).
 		SetSchedulable(schedulable).
 		SetAutoPauseOnExpired(account.AutoPauseOnExpired)
+	if account.UpstreamGroupID != nil {
+		builder.SetUpstreamGroupID(*account.UpstreamGroupID)
+	} else {
+		builder.ClearUpstreamGroupID()
+	}
 
 	if account.RateMultiplier != nil {
 		builder.SetRateMultiplier(*account.RateMultiplier)
@@ -616,6 +645,184 @@ func (r *accountRepository) ListAllWithFilters(ctx context.Context, platform, ac
 	return r.accountsToService(ctx, accounts)
 }
 
+// ListUpstreamGroups returns the persistent directory with non-deleted member
+// counts. Empty groups are intentionally retained for future account creation.
+func (r *accountRepository) ListUpstreamGroups(ctx context.Context) ([]service.AccountUpstreamGroup, error) {
+	if r.sql == nil {
+		return nil, errors.New("account repository SQL executor not configured")
+	}
+	rows, err := r.sql.QueryContext(ctx, `
+		SELECT
+			g.id,
+			g.normalized_name,
+			g.name,
+			g.sort_order,
+			COUNT(a.id)
+		FROM account_upstream_groups AS g
+		LEFT JOIN accounts AS a
+			ON a.upstream_group_id = g.id
+			AND a.deleted_at IS NULL
+		GROUP BY g.id, g.normalized_name, g.name, g.sort_order
+		ORDER BY g.sort_order ASC, g.id ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	groups := make([]service.AccountUpstreamGroup, 0)
+	for rows.Next() {
+		var group service.AccountUpstreamGroup
+		var count int64
+		if err := rows.Scan(&group.ID, &group.Key, &group.Name, &group.SortOrder, &count); err != nil {
+			return nil, err
+		}
+		group.AccountCount = int(count)
+		groups = append(groups, group)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return groups, nil
+}
+
+func (r *accountRepository) RenameUpstreamGroup(ctx context.Context, id int64, name string) (*service.AccountUpstreamGroup, error) {
+	if r.client == nil {
+		return nil, errors.New("account repository client not configured")
+	}
+	normalizedName := strings.ToLower(strings.TrimSpace(name))
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rollback := func() { _ = tx.Rollback() }
+
+	group, err := tx.AccountUpstreamGroup.Query().
+		Where(dbaccountupstreamgroup.IDEQ(id)).
+		ForUpdate().
+		Only(ctx)
+	if err != nil {
+		rollback()
+		if dbent.IsNotFound(err) {
+			return nil, service.ErrAccountUpstreamGroupNotFound
+		}
+		return nil, err
+	}
+
+	if group.NormalizedName != normalizedName {
+		exists, err := tx.AccountUpstreamGroup.Query().
+			Where(
+				dbaccountupstreamgroup.NormalizedNameEQ(normalizedName),
+				dbaccountupstreamgroup.IDNEQ(id),
+			).
+			Exist(ctx)
+		if err != nil {
+			rollback()
+			return nil, err
+		}
+		if exists {
+			rollback()
+			return nil, service.ErrAccountUpstreamGroupExists
+		}
+	}
+
+	group, err = tx.AccountUpstreamGroup.UpdateOneID(id).
+		SetName(name).
+		SetNormalizedName(normalizedName).
+		Save(ctx)
+	if err != nil {
+		rollback()
+		return nil, err
+	}
+	if _, err := tx.Account.Update().
+		Where(dbaccount.UpstreamGroupIDEQ(id)).
+		SetUpstreamGroup(group.Name).
+		Save(ctx); err != nil {
+		rollback()
+		return nil, err
+	}
+	count, err := tx.Account.Query().Where(dbaccount.UpstreamGroupIDEQ(id)).Count(ctx)
+	if err != nil {
+		rollback()
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return &service.AccountUpstreamGroup{
+		ID:           group.ID,
+		Key:          group.NormalizedName,
+		Name:         group.Name,
+		SortOrder:    group.SortOrder,
+		AccountCount: count,
+	}, nil
+}
+
+func (r *accountRepository) UpdateUpstreamGroupSortOrders(ctx context.Context, updates []service.AccountUpstreamGroupSortOrderUpdate) error {
+	if r.client == nil {
+		return errors.New("account repository client not configured")
+	}
+	ids := make([]int64, 0, len(updates))
+	for _, update := range updates {
+		ids = append(ids, update.ID)
+	}
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return err
+	}
+	rollback := func() { _ = tx.Rollback() }
+	count, err := tx.AccountUpstreamGroup.Query().
+		Where(dbaccountupstreamgroup.IDIn(ids...)).
+		Count(ctx)
+	if err != nil {
+		rollback()
+		return err
+	}
+	if count != len(ids) {
+		rollback()
+		return service.ErrAccountUpstreamGroupNotFound
+	}
+	for _, update := range updates {
+		if _, err := tx.AccountUpstreamGroup.UpdateOneID(update.ID).
+			SetSortOrder(update.SortOrder).
+			Save(ctx); err != nil {
+			rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (r *accountRepository) resolveOrCreateUpstreamGroup(ctx context.Context, raw string) (string, *int64, error) {
+	name, err := service.NormalizeAccountUpstreamGroup(raw)
+	if err != nil {
+		return "", nil, err
+	}
+	if name == "" {
+		return "", nil, nil
+	}
+	if r.client == nil {
+		return "", nil, errors.New("account repository client not configured")
+	}
+	key := strings.ToLower(name)
+	if err := r.client.AccountUpstreamGroup.Create().
+		SetName(name).
+		SetNormalizedName(key).
+		OnConflictColumns(dbaccountupstreamgroup.FieldNormalizedName).
+		Ignore().
+		Exec(ctx); err != nil {
+		return "", nil, err
+	}
+	group, err := r.client.AccountUpstreamGroup.Query().
+		Where(dbaccountupstreamgroup.NormalizedNameEQ(key)).
+		Only(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	id := group.ID
+	return group.Name, &id, nil
+}
+
 func (r *accountRepository) ListOpsAccountsForStats(ctx context.Context, platformFilter string, groupIDFilter *int64) ([]service.Account, error) {
 	if r == nil || r.client == nil {
 		return []service.Account{}, nil
@@ -654,6 +861,25 @@ func (r *accountRepository) ListOpsAccountsForStats(ctx context.Context, platfor
 func accountListOrder(params pagination.PaginationParams) []func(*entsql.Selector) {
 	sortBy := strings.ToLower(strings.TrimSpace(params.SortBy))
 	sortOrder := params.NormalizedSortOrder(pagination.SortOrderAsc)
+	if sortBy == "upstream" {
+		emptyGroupsLast := func(selector *entsql.Selector) {
+			upstreamGroupID := selector.C(dbaccount.FieldUpstreamGroupID)
+			emptyRank := fmt.Sprintf(`CASE WHEN %s IS NULL THEN 1 ELSE 0 END ASC`, upstreamGroupID)
+			selector.OrderExpr(entsql.Expr(emptyRank))
+		}
+		upstreamDirectoryOrder := func(selector *entsql.Selector) {
+			upstreamGroupID := selector.C(dbaccount.FieldUpstreamGroupID)
+			groupOrder := fmt.Sprintf(`COALESCE((SELECT sort_order FROM account_upstream_groups WHERE id = %s), 9223372036854775807)`, upstreamGroupID)
+			selector.OrderExpr(entsql.Expr(groupOrder + " ASC"))
+			selector.OrderExpr(entsql.Expr(upstreamGroupID + " ASC"))
+		}
+		return []func(*entsql.Selector){
+			emptyGroupsLast,
+			upstreamDirectoryOrder,
+			dbent.Asc(dbaccount.FieldSortOrder),
+			dbent.Asc(dbaccount.FieldID),
+		}
+	}
 
 	field := dbaccount.FieldName
 	defaultOrder := true
@@ -671,6 +897,9 @@ func accountListOrder(params pagination.PaginationParams) []func(*entsql.Selecto
 		defaultOrder = false
 	case "priority":
 		field = dbaccount.FieldPriority
+		defaultOrder = false
+	case "sort_order":
+		field = dbaccount.FieldSortOrder
 		defaultOrder = false
 	case "rate_multiplier":
 		field = dbaccount.FieldRateMultiplier
@@ -693,6 +922,74 @@ func accountListOrder(params pagination.PaginationParams) []func(*entsql.Selecto
 		return []func(*entsql.Selector){dbent.Asc(dbaccount.FieldName), dbent.Asc(dbaccount.FieldID)}
 	}
 	return []func(*entsql.Selector){dbent.Asc(field), dbent.Asc(dbaccount.FieldID)}
+}
+
+// UpdateSortOrders batch-updates the display-only order used by the admin account list.
+func (r *accountRepository) UpdateSortOrders(ctx context.Context, updates []service.AccountSortOrderUpdate) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	if r.sql == nil {
+		return errors.New("account repository SQL executor not configured")
+	}
+
+	sortOrderByID := make(map[int64]int64, len(updates))
+	accountIDs := make([]int64, 0, len(updates))
+	for _, update := range updates {
+		if update.ID <= 0 {
+			continue
+		}
+		if _, exists := sortOrderByID[update.ID]; !exists {
+			accountIDs = append(accountIDs, update.ID)
+		}
+		sortOrderByID[update.ID] = update.SortOrder
+	}
+	if len(accountIDs) == 0 {
+		return nil
+	}
+
+	args := make([]any, 0, len(accountIDs)*2+2)
+	caseClauses := make([]string, 0, len(accountIDs))
+	placeholder := 1
+	for _, id := range accountIDs {
+		caseClauses = append(caseClauses, fmt.Sprintf("WHEN $%d THEN $%d", placeholder, placeholder+1))
+		args = append(args, id, sortOrderByID[id])
+		placeholder += 2
+	}
+	accountIDsPlaceholder := placeholder
+	args = append(args, pq.Array(accountIDs))
+	accountCountPlaceholder := placeholder + 1
+	args = append(args, len(accountIDs))
+
+	query := fmt.Sprintf(`
+		WITH locked_accounts AS MATERIALIZED (
+			SELECT id
+			FROM accounts
+			WHERE deleted_at IS NULL AND id = ANY($%d)
+			FOR UPDATE
+		)
+		UPDATE accounts AS account
+		SET sort_order = CASE account.id
+			%s
+			ELSE account.sort_order
+		END
+		FROM (SELECT COUNT(*) AS total FROM locked_accounts) AS locked
+		WHERE account.id IN (SELECT id FROM locked_accounts)
+			AND locked.total = $%d
+	`, accountIDsPlaceholder, strings.Join(caseClauses, "\n\t\t\t"), accountCountPlaceholder)
+
+	result, err := r.sql.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected != int64(len(accountIDs)) {
+		return service.ErrAccountNotFound
+	}
+	return nil
 }
 
 func (r *accountRepository) ListByGroup(ctx context.Context, groupID int64) ([]service.Account, error) {
@@ -1694,12 +1991,33 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 
 	setClauses := make([]string, 0, 8)
 	args := make([]any, 0, 8)
+	var upstreamGroupID *int64
+	if updates.UpstreamGroup != nil {
+		name, id, err := r.resolveOrCreateUpstreamGroup(ctx, *updates.UpstreamGroup)
+		if err != nil {
+			return 0, err
+		}
+		updates.UpstreamGroup = &name
+		upstreamGroupID = id
+	}
 
 	idx := 1
 	if updates.Name != nil {
 		setClauses = append(setClauses, "name = $"+itoa(idx))
 		args = append(args, *updates.Name)
 		idx++
+	}
+	if updates.UpstreamGroup != nil {
+		setClauses = append(setClauses, "upstream_group = $"+itoa(idx))
+		args = append(args, *updates.UpstreamGroup)
+		idx++
+		if upstreamGroupID == nil {
+			setClauses = append(setClauses, "upstream_group_id = NULL")
+		} else {
+			setClauses = append(setClauses, "upstream_group_id = $"+itoa(idx))
+			args = append(args, *upstreamGroupID)
+			idx++
+		}
 	}
 	if updates.ProxyID != nil {
 		// 0 表示清除代理（前端发送 0 而不是 null 来表达清除意图）
@@ -2138,12 +2456,15 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		Notes:                   m.Notes,
 		Platform:                m.Platform,
 		Type:                    m.Type,
+		UpstreamGroup:           m.UpstreamGroup,
+		UpstreamGroupID:         m.UpstreamGroupID,
 		Credentials:             copyJSONMap(m.Credentials),
 		Extra:                   copyJSONMap(m.Extra),
 		ProxyID:                 m.ProxyID,
 		ProxyFallbackOriginID:   m.ProxyFallbackOriginID,
 		Concurrency:             m.Concurrency,
 		Priority:                m.Priority,
+		SortOrder:               m.SortOrder,
 		RateMultiplier:          &rateMultiplier,
 		LoadFactor:              m.LoadFactor,
 		Status:                  m.Status,

@@ -760,6 +760,14 @@ export interface UpdateGroupRequest {
 
 export type AccountPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok'
 export type AccountType = 'oauth' | 'setup-token' | 'apikey' | 'upstream' | 'bedrock' | 'service_account'
+
+export interface AccountUpstreamGroup {
+  id: number
+  key: string
+  name: string
+  account_count: number
+  sort_order: number
+}
 export type OAuthAddMethod = 'oauth' | 'setup-token'
 export type ProxyProtocol = 'http' | 'https' | 'socks5' | 'socks5h'
 
@@ -891,6 +899,7 @@ export interface Account {
   notes?: string | null
   platform: AccountPlatform
   type: AccountType
+  upstream_group?: string
   // 后端响应里 credentials 已脱敏：access_token / refresh_token / id_token /
   // api_key / session_key / cookie / aws_secret_access_key / aws_session_token /
   // service_account_json / service_account / private_key 不会出现，
@@ -916,6 +925,7 @@ export interface Account {
   } | null
   scheduler_scores?: AccountSchedulerGroupScore[] | null
   priority: number
+  sort_order: number
   rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
   status: 'active' | 'inactive' | 'error'
   error_message: string | null
@@ -1138,6 +1148,7 @@ export interface CreateAccountRequest {
   notes?: string | null
   platform: AccountPlatform
   type: AccountType
+  upstream_group?: string
   credentials: Record<string, unknown>
   extra?: Record<string, unknown>
   proxy_id?: number | null
@@ -1155,6 +1166,7 @@ export interface UpdateAccountRequest {
   name?: string
   notes?: string | null
   type?: AccountType
+  upstream_group?: string
   credentials?: Record<string, unknown>
   extra?: Record<string, unknown>
   proxy_id?: number | null
@@ -1274,6 +1286,7 @@ export interface CodexSessionImportRequest {
   contents?: string[]
   name?: string
   notes?: string | null
+  upstream_group?: string
   group_ids?: number[]
   proxy_id?: number | null
   concurrency?: number
@@ -1293,6 +1306,7 @@ export interface OpenAICodexPATCreateRequest {
   access_token: string
   name?: string
   notes?: string | null
+  upstream_group?: string
   group_ids?: number[]
   proxy_id?: number | null
   concurrency?: number

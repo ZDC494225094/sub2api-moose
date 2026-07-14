@@ -10,7 +10,6 @@ export const useAnnouncementStore = defineStore('announcements', () => {
   const announcements = ref<UserAnnouncement[]>([])
   const loading = ref(false)
   const lastFetchTime = ref(0)
-  const popupQueue = ref<UserAnnouncement[]>([])
   const currentPopup = ref<UserAnnouncement | null>(null)
 
   // Session-scoped dedup set — not reactive, used as plain lookup only
@@ -35,7 +34,7 @@ export const useAnnouncementStore = defineStore('announcements', () => {
       loading.value = true
       const all = await announcementsAPI.list(false)
       announcements.value = all.slice(0, 20)
-      enqueueNewPopups()
+      showAnnouncementPanel()
     } catch (err: any) {
       // Revert throttle timestamp on failure so retry is allowed
       lastFetchTime.value = 0
@@ -45,44 +44,24 @@ export const useAnnouncementStore = defineStore('announcements', () => {
     }
   }
 
-  function enqueueNewPopups() {
+  function showAnnouncementPanel() {
     const newPopups = announcements.value.filter(
       (a) => a.notify_mode === 'popup' && !a.read_at && !shownPopupIds.has(a.id)
     )
     if (newPopups.length === 0) return
 
-    for (const p of newPopups) {
-      if (!popupQueue.value.some((q) => q.id === p.id)) {
-        popupQueue.value.push(p)
-      }
-    }
+    newPopups.forEach((announcement) => shownPopupIds.add(announcement.id))
 
-    if (!currentPopup.value) {
-      showNextPopup()
-    }
+    if (currentPopup.value) return
+
+    // The panel renders the full announcement list. This value only signals
+    // that a newly eligible popup announcement should open that panel.
+    currentPopup.value = newPopups[0]
   }
 
-  function showNextPopup() {
-    if (popupQueue.value.length === 0) {
-      currentPopup.value = null
-      return
-    }
-    currentPopup.value = popupQueue.value.shift()!
-    shownPopupIds.add(currentPopup.value.id)
-  }
-
-  async function dismissPopup() {
+  function dismissPopup() {
     if (!currentPopup.value) return
-    const id = currentPopup.value.id
     currentPopup.value = null
-
-    // Mark as read (fire-and-forget, UI already updated)
-    markAsRead(id)
-
-    // Show next popup after a short delay
-    if (popupQueue.value.length > 0) {
-      setTimeout(() => showNextPopup(), 300)
-    }
   }
 
   async function markAsRead(id: number) {
@@ -121,7 +100,6 @@ export const useAnnouncementStore = defineStore('announcements', () => {
     announcements.value = []
     lastFetchTime.value = 0
     shownPopupIds = new Set()
-    popupQueue.value = []
     currentPopup.value = null
     loading.value = false
   }

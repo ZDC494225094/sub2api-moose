@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
+	"github.com/Wei-Shaw/sub2api/ent/accountupstreamgroup"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
@@ -66,6 +67,7 @@ const (
 	TypeAPIKey                        = "APIKey"
 	TypeAccount                       = "Account"
 	TypeAccountGroup                  = "AccountGroup"
+	TypeAccountUpstreamGroup          = "AccountUpstreamGroup"
 	TypeAnnouncement                  = "Announcement"
 	TypeAnnouncementRead              = "AnnouncementRead"
 	TypeAuthIdentity                  = "AuthIdentity"
@@ -2478,60 +2480,65 @@ func (m *APIKeyMutation) ResetEdge(name string) error {
 // AccountMutation represents an operation that mutates the Account nodes in the graph.
 type AccountMutation struct {
 	config
-	op                          Op
-	typ                         string
-	id                          *int64
-	created_at                  *time.Time
-	updated_at                  *time.Time
-	deleted_at                  *time.Time
-	name                        *string
-	notes                       *string
-	platform                    *string
-	_type                       *string
-	credentials                 *map[string]interface{}
-	extra                       *map[string]interface{}
-	proxy_fallback_origin_id    *int64
-	addproxy_fallback_origin_id *int64
-	concurrency                 *int
-	addconcurrency              *int
-	load_factor                 *int
-	addload_factor              *int
-	priority                    *int
-	addpriority                 *int
-	rate_multiplier             *float64
-	addrate_multiplier          *float64
-	status                      *string
-	error_message               *string
-	last_used_at                *time.Time
-	expires_at                  *time.Time
-	auto_pause_on_expired       *bool
-	schedulable                 *bool
-	rate_limited_at             *time.Time
-	rate_limit_reset_at         *time.Time
-	overload_until              *time.Time
-	temp_unschedulable_until    *time.Time
-	temp_unschedulable_reason   *string
-	session_window_start        *time.Time
-	session_window_end          *time.Time
-	session_window_status       *string
-	quota_dimension             *account.QuotaDimension
-	clearedFields               map[string]struct{}
-	groups                      map[int64]struct{}
-	removedgroups               map[int64]struct{}
-	clearedgroups               bool
-	proxy                       *int64
-	clearedproxy                bool
-	parent                      *int64
-	clearedparent               bool
-	children                    map[int64]struct{}
-	removedchildren             map[int64]struct{}
-	clearedchildren             bool
-	usage_logs                  map[int64]struct{}
-	removedusage_logs           map[int64]struct{}
-	clearedusage_logs           bool
-	done                        bool
-	oldValue                    func(context.Context) (*Account, error)
-	predicates                  []predicate.Account
+	op                              Op
+	typ                             string
+	id                              *int64
+	created_at                      *time.Time
+	updated_at                      *time.Time
+	deleted_at                      *time.Time
+	name                            *string
+	notes                           *string
+	platform                        *string
+	_type                           *string
+	upstream_group                  *string
+	credentials                     *map[string]interface{}
+	extra                           *map[string]interface{}
+	proxy_fallback_origin_id        *int64
+	addproxy_fallback_origin_id     *int64
+	concurrency                     *int
+	addconcurrency                  *int
+	load_factor                     *int
+	addload_factor                  *int
+	priority                        *int
+	addpriority                     *int
+	sort_order                      *int64
+	addsort_order                   *int64
+	rate_multiplier                 *float64
+	addrate_multiplier              *float64
+	status                          *string
+	error_message                   *string
+	last_used_at                    *time.Time
+	expires_at                      *time.Time
+	auto_pause_on_expired           *bool
+	schedulable                     *bool
+	rate_limited_at                 *time.Time
+	rate_limit_reset_at             *time.Time
+	overload_until                  *time.Time
+	temp_unschedulable_until        *time.Time
+	temp_unschedulable_reason       *string
+	session_window_start            *time.Time
+	session_window_end              *time.Time
+	session_window_status           *string
+	quota_dimension                 *account.QuotaDimension
+	clearedFields                   map[string]struct{}
+	upstream_group_directory        *int64
+	clearedupstream_group_directory bool
+	groups                          map[int64]struct{}
+	removedgroups                   map[int64]struct{}
+	clearedgroups                   bool
+	proxy                           *int64
+	clearedproxy                    bool
+	parent                          *int64
+	clearedparent                   bool
+	children                        map[int64]struct{}
+	removedchildren                 map[int64]struct{}
+	clearedchildren                 bool
+	usage_logs                      map[int64]struct{}
+	removedusage_logs               map[int64]struct{}
+	clearedusage_logs               bool
+	done                            bool
+	oldValue                        func(context.Context) (*Account, error)
+	predicates                      []predicate.Account
 }
 
 var _ ent.Mutation = (*AccountMutation)(nil)
@@ -2910,6 +2917,91 @@ func (m *AccountMutation) ResetType() {
 	m._type = nil
 }
 
+// SetUpstreamGroup sets the "upstream_group" field.
+func (m *AccountMutation) SetUpstreamGroup(s string) {
+	m.upstream_group = &s
+}
+
+// UpstreamGroup returns the value of the "upstream_group" field in the mutation.
+func (m *AccountMutation) UpstreamGroup() (r string, exists bool) {
+	v := m.upstream_group
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpstreamGroup returns the old "upstream_group" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldUpstreamGroup(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpstreamGroup is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpstreamGroup requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpstreamGroup: %w", err)
+	}
+	return oldValue.UpstreamGroup, nil
+}
+
+// ResetUpstreamGroup resets all changes to the "upstream_group" field.
+func (m *AccountMutation) ResetUpstreamGroup() {
+	m.upstream_group = nil
+}
+
+// SetUpstreamGroupID sets the "upstream_group_id" field.
+func (m *AccountMutation) SetUpstreamGroupID(i int64) {
+	m.upstream_group_directory = &i
+}
+
+// UpstreamGroupID returns the value of the "upstream_group_id" field in the mutation.
+func (m *AccountMutation) UpstreamGroupID() (r int64, exists bool) {
+	v := m.upstream_group_directory
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpstreamGroupID returns the old "upstream_group_id" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldUpstreamGroupID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpstreamGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpstreamGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpstreamGroupID: %w", err)
+	}
+	return oldValue.UpstreamGroupID, nil
+}
+
+// ClearUpstreamGroupID clears the value of the "upstream_group_id" field.
+func (m *AccountMutation) ClearUpstreamGroupID() {
+	m.upstream_group_directory = nil
+	m.clearedFields[account.FieldUpstreamGroupID] = struct{}{}
+}
+
+// UpstreamGroupIDCleared returns if the "upstream_group_id" field was cleared in this mutation.
+func (m *AccountMutation) UpstreamGroupIDCleared() bool {
+	_, ok := m.clearedFields[account.FieldUpstreamGroupID]
+	return ok
+}
+
+// ResetUpstreamGroupID resets all changes to the "upstream_group_id" field.
+func (m *AccountMutation) ResetUpstreamGroupID() {
+	m.upstream_group_directory = nil
+	delete(m.clearedFields, account.FieldUpstreamGroupID)
+}
+
 // SetCredentials sets the "credentials" field.
 func (m *AccountMutation) SetCredentials(value map[string]interface{}) {
 	m.credentials = &value
@@ -3281,6 +3373,62 @@ func (m *AccountMutation) AddedPriority() (r int, exists bool) {
 func (m *AccountMutation) ResetPriority() {
 	m.priority = nil
 	m.addpriority = nil
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (m *AccountMutation) SetSortOrder(i int64) {
+	m.sort_order = &i
+	m.addsort_order = nil
+}
+
+// SortOrder returns the value of the "sort_order" field in the mutation.
+func (m *AccountMutation) SortOrder() (r int64, exists bool) {
+	v := m.sort_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSortOrder returns the old "sort_order" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldSortOrder(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSortOrder is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSortOrder requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSortOrder: %w", err)
+	}
+	return oldValue.SortOrder, nil
+}
+
+// AddSortOrder adds i to the "sort_order" field.
+func (m *AccountMutation) AddSortOrder(i int64) {
+	if m.addsort_order != nil {
+		*m.addsort_order += i
+	} else {
+		m.addsort_order = &i
+	}
+}
+
+// AddedSortOrder returns the value that was added to the "sort_order" field in this mutation.
+func (m *AccountMutation) AddedSortOrder() (r int64, exists bool) {
+	v := m.addsort_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSortOrder resets all changes to the "sort_order" field.
+func (m *AccountMutation) ResetSortOrder() {
+	m.sort_order = nil
+	m.addsort_order = nil
 }
 
 // SetRateMultiplier sets the "rate_multiplier" field.
@@ -4071,6 +4219,46 @@ func (m *AccountMutation) ResetQuotaDimension() {
 	m.quota_dimension = nil
 }
 
+// SetUpstreamGroupDirectoryID sets the "upstream_group_directory" edge to the AccountUpstreamGroup entity by id.
+func (m *AccountMutation) SetUpstreamGroupDirectoryID(id int64) {
+	m.upstream_group_directory = &id
+}
+
+// ClearUpstreamGroupDirectory clears the "upstream_group_directory" edge to the AccountUpstreamGroup entity.
+func (m *AccountMutation) ClearUpstreamGroupDirectory() {
+	m.clearedupstream_group_directory = true
+	m.clearedFields[account.FieldUpstreamGroupID] = struct{}{}
+}
+
+// UpstreamGroupDirectoryCleared reports if the "upstream_group_directory" edge to the AccountUpstreamGroup entity was cleared.
+func (m *AccountMutation) UpstreamGroupDirectoryCleared() bool {
+	return m.UpstreamGroupIDCleared() || m.clearedupstream_group_directory
+}
+
+// UpstreamGroupDirectoryID returns the "upstream_group_directory" edge ID in the mutation.
+func (m *AccountMutation) UpstreamGroupDirectoryID() (id int64, exists bool) {
+	if m.upstream_group_directory != nil {
+		return *m.upstream_group_directory, true
+	}
+	return
+}
+
+// UpstreamGroupDirectoryIDs returns the "upstream_group_directory" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UpstreamGroupDirectoryID instead. It exists only for internal usage by the builders.
+func (m *AccountMutation) UpstreamGroupDirectoryIDs() (ids []int64) {
+	if id := m.upstream_group_directory; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUpstreamGroupDirectory resets all changes to the "upstream_group_directory" edge.
+func (m *AccountMutation) ResetUpstreamGroupDirectory() {
+	m.upstream_group_directory = nil
+	m.clearedupstream_group_directory = false
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by ids.
 func (m *AccountMutation) AddGroupIDs(ids ...int64) {
 	if m.groups == nil {
@@ -4334,7 +4522,7 @@ func (m *AccountMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AccountMutation) Fields() []string {
-	fields := make([]string, 0, 31)
+	fields := make([]string, 0, 34)
 	if m.created_at != nil {
 		fields = append(fields, account.FieldCreatedAt)
 	}
@@ -4356,6 +4544,12 @@ func (m *AccountMutation) Fields() []string {
 	if m._type != nil {
 		fields = append(fields, account.FieldType)
 	}
+	if m.upstream_group != nil {
+		fields = append(fields, account.FieldUpstreamGroup)
+	}
+	if m.upstream_group_directory != nil {
+		fields = append(fields, account.FieldUpstreamGroupID)
+	}
 	if m.credentials != nil {
 		fields = append(fields, account.FieldCredentials)
 	}
@@ -4376,6 +4570,9 @@ func (m *AccountMutation) Fields() []string {
 	}
 	if m.priority != nil {
 		fields = append(fields, account.FieldPriority)
+	}
+	if m.sort_order != nil {
+		fields = append(fields, account.FieldSortOrder)
 	}
 	if m.rate_multiplier != nil {
 		fields = append(fields, account.FieldRateMultiplier)
@@ -4450,6 +4647,10 @@ func (m *AccountMutation) Field(name string) (ent.Value, bool) {
 		return m.Platform()
 	case account.FieldType:
 		return m.GetType()
+	case account.FieldUpstreamGroup:
+		return m.UpstreamGroup()
+	case account.FieldUpstreamGroupID:
+		return m.UpstreamGroupID()
 	case account.FieldCredentials:
 		return m.Credentials()
 	case account.FieldExtra:
@@ -4464,6 +4665,8 @@ func (m *AccountMutation) Field(name string) (ent.Value, bool) {
 		return m.LoadFactor()
 	case account.FieldPriority:
 		return m.Priority()
+	case account.FieldSortOrder:
+		return m.SortOrder()
 	case account.FieldRateMultiplier:
 		return m.RateMultiplier()
 	case account.FieldStatus:
@@ -4521,6 +4724,10 @@ func (m *AccountMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldPlatform(ctx)
 	case account.FieldType:
 		return m.OldType(ctx)
+	case account.FieldUpstreamGroup:
+		return m.OldUpstreamGroup(ctx)
+	case account.FieldUpstreamGroupID:
+		return m.OldUpstreamGroupID(ctx)
 	case account.FieldCredentials:
 		return m.OldCredentials(ctx)
 	case account.FieldExtra:
@@ -4535,6 +4742,8 @@ func (m *AccountMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldLoadFactor(ctx)
 	case account.FieldPriority:
 		return m.OldPriority(ctx)
+	case account.FieldSortOrder:
+		return m.OldSortOrder(ctx)
 	case account.FieldRateMultiplier:
 		return m.OldRateMultiplier(ctx)
 	case account.FieldStatus:
@@ -4627,6 +4836,20 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetType(v)
 		return nil
+	case account.FieldUpstreamGroup:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpstreamGroup(v)
+		return nil
+	case account.FieldUpstreamGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpstreamGroupID(v)
+		return nil
 	case account.FieldCredentials:
 		v, ok := value.(map[string]interface{})
 		if !ok {
@@ -4675,6 +4898,13 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetPriority(v)
+		return nil
+	case account.FieldSortOrder:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSortOrder(v)
 		return nil
 	case account.FieldRateMultiplier:
 		v, ok := value.(float64)
@@ -4815,6 +5045,9 @@ func (m *AccountMutation) AddedFields() []string {
 	if m.addpriority != nil {
 		fields = append(fields, account.FieldPriority)
 	}
+	if m.addsort_order != nil {
+		fields = append(fields, account.FieldSortOrder)
+	}
 	if m.addrate_multiplier != nil {
 		fields = append(fields, account.FieldRateMultiplier)
 	}
@@ -4834,6 +5067,8 @@ func (m *AccountMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedLoadFactor()
 	case account.FieldPriority:
 		return m.AddedPriority()
+	case account.FieldSortOrder:
+		return m.AddedSortOrder()
 	case account.FieldRateMultiplier:
 		return m.AddedRateMultiplier()
 	}
@@ -4873,6 +5108,13 @@ func (m *AccountMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddPriority(v)
 		return nil
+	case account.FieldSortOrder:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSortOrder(v)
+		return nil
 	case account.FieldRateMultiplier:
 		v, ok := value.(float64)
 		if !ok {
@@ -4893,6 +5135,9 @@ func (m *AccountMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(account.FieldNotes) {
 		fields = append(fields, account.FieldNotes)
+	}
+	if m.FieldCleared(account.FieldUpstreamGroupID) {
+		fields = append(fields, account.FieldUpstreamGroupID)
 	}
 	if m.FieldCleared(account.FieldProxyID) {
 		fields = append(fields, account.FieldProxyID)
@@ -4958,6 +5203,9 @@ func (m *AccountMutation) ClearField(name string) error {
 		return nil
 	case account.FieldNotes:
 		m.ClearNotes()
+		return nil
+	case account.FieldUpstreamGroupID:
+		m.ClearUpstreamGroupID()
 		return nil
 	case account.FieldProxyID:
 		m.ClearProxyID()
@@ -5033,6 +5281,12 @@ func (m *AccountMutation) ResetField(name string) error {
 	case account.FieldType:
 		m.ResetType()
 		return nil
+	case account.FieldUpstreamGroup:
+		m.ResetUpstreamGroup()
+		return nil
+	case account.FieldUpstreamGroupID:
+		m.ResetUpstreamGroupID()
+		return nil
 	case account.FieldCredentials:
 		m.ResetCredentials()
 		return nil
@@ -5053,6 +5307,9 @@ func (m *AccountMutation) ResetField(name string) error {
 		return nil
 	case account.FieldPriority:
 		m.ResetPriority()
+		return nil
+	case account.FieldSortOrder:
+		m.ResetSortOrder()
 		return nil
 	case account.FieldRateMultiplier:
 		m.ResetRateMultiplier()
@@ -5111,7 +5368,10 @@ func (m *AccountMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AccountMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
+	if m.upstream_group_directory != nil {
+		edges = append(edges, account.EdgeUpstreamGroupDirectory)
+	}
 	if m.groups != nil {
 		edges = append(edges, account.EdgeGroups)
 	}
@@ -5134,6 +5394,10 @@ func (m *AccountMutation) AddedEdges() []string {
 // name in this mutation.
 func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 	switch name {
+	case account.EdgeUpstreamGroupDirectory:
+		if id := m.upstream_group_directory; id != nil {
+			return []ent.Value{*id}
+		}
 	case account.EdgeGroups:
 		ids := make([]ent.Value, 0, len(m.groups))
 		for id := range m.groups {
@@ -5166,7 +5430,7 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AccountMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.removedgroups != nil {
 		edges = append(edges, account.EdgeGroups)
 	}
@@ -5207,7 +5471,10 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AccountMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
+	if m.clearedupstream_group_directory {
+		edges = append(edges, account.EdgeUpstreamGroupDirectory)
+	}
 	if m.clearedgroups {
 		edges = append(edges, account.EdgeGroups)
 	}
@@ -5230,6 +5497,8 @@ func (m *AccountMutation) ClearedEdges() []string {
 // was cleared in this mutation.
 func (m *AccountMutation) EdgeCleared(name string) bool {
 	switch name {
+	case account.EdgeUpstreamGroupDirectory:
+		return m.clearedupstream_group_directory
 	case account.EdgeGroups:
 		return m.clearedgroups
 	case account.EdgeProxy:
@@ -5248,6 +5517,9 @@ func (m *AccountMutation) EdgeCleared(name string) bool {
 // if that edge is not defined in the schema.
 func (m *AccountMutation) ClearEdge(name string) error {
 	switch name {
+	case account.EdgeUpstreamGroupDirectory:
+		m.ClearUpstreamGroupDirectory()
+		return nil
 	case account.EdgeProxy:
 		m.ClearProxy()
 		return nil
@@ -5262,6 +5534,9 @@ func (m *AccountMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *AccountMutation) ResetEdge(name string) error {
 	switch name {
+	case account.EdgeUpstreamGroupDirectory:
+		m.ResetUpstreamGroupDirectory()
+		return nil
 	case account.EdgeGroups:
 		m.ResetGroups()
 		return nil
@@ -5764,6 +6039,677 @@ func (m *AccountGroupMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown AccountGroup edge %s", name)
+}
+
+// AccountUpstreamGroupMutation represents an operation that mutates the AccountUpstreamGroup nodes in the graph.
+type AccountUpstreamGroupMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *int64
+	created_at      *time.Time
+	updated_at      *time.Time
+	name            *string
+	normalized_name *string
+	sort_order      *int64
+	addsort_order   *int64
+	clearedFields   map[string]struct{}
+	accounts        map[int64]struct{}
+	removedaccounts map[int64]struct{}
+	clearedaccounts bool
+	done            bool
+	oldValue        func(context.Context) (*AccountUpstreamGroup, error)
+	predicates      []predicate.AccountUpstreamGroup
+}
+
+var _ ent.Mutation = (*AccountUpstreamGroupMutation)(nil)
+
+// accountupstreamgroupOption allows management of the mutation configuration using functional options.
+type accountupstreamgroupOption func(*AccountUpstreamGroupMutation)
+
+// newAccountUpstreamGroupMutation creates new mutation for the AccountUpstreamGroup entity.
+func newAccountUpstreamGroupMutation(c config, op Op, opts ...accountupstreamgroupOption) *AccountUpstreamGroupMutation {
+	m := &AccountUpstreamGroupMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeAccountUpstreamGroup,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withAccountUpstreamGroupID sets the ID field of the mutation.
+func withAccountUpstreamGroupID(id int64) accountupstreamgroupOption {
+	return func(m *AccountUpstreamGroupMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *AccountUpstreamGroup
+		)
+		m.oldValue = func(ctx context.Context) (*AccountUpstreamGroup, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().AccountUpstreamGroup.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withAccountUpstreamGroup sets the old AccountUpstreamGroup of the mutation.
+func withAccountUpstreamGroup(node *AccountUpstreamGroup) accountupstreamgroupOption {
+	return func(m *AccountUpstreamGroupMutation) {
+		m.oldValue = func(context.Context) (*AccountUpstreamGroup, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m AccountUpstreamGroupMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m AccountUpstreamGroupMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *AccountUpstreamGroupMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *AccountUpstreamGroupMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().AccountUpstreamGroup.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *AccountUpstreamGroupMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *AccountUpstreamGroupMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the AccountUpstreamGroup entity.
+// If the AccountUpstreamGroup object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountUpstreamGroupMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *AccountUpstreamGroupMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *AccountUpstreamGroupMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *AccountUpstreamGroupMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the AccountUpstreamGroup entity.
+// If the AccountUpstreamGroup object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountUpstreamGroupMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *AccountUpstreamGroupMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetName sets the "name" field.
+func (m *AccountUpstreamGroupMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *AccountUpstreamGroupMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the AccountUpstreamGroup entity.
+// If the AccountUpstreamGroup object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountUpstreamGroupMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *AccountUpstreamGroupMutation) ResetName() {
+	m.name = nil
+}
+
+// SetNormalizedName sets the "normalized_name" field.
+func (m *AccountUpstreamGroupMutation) SetNormalizedName(s string) {
+	m.normalized_name = &s
+}
+
+// NormalizedName returns the value of the "normalized_name" field in the mutation.
+func (m *AccountUpstreamGroupMutation) NormalizedName() (r string, exists bool) {
+	v := m.normalized_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNormalizedName returns the old "normalized_name" field's value of the AccountUpstreamGroup entity.
+// If the AccountUpstreamGroup object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountUpstreamGroupMutation) OldNormalizedName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNormalizedName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNormalizedName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNormalizedName: %w", err)
+	}
+	return oldValue.NormalizedName, nil
+}
+
+// ResetNormalizedName resets all changes to the "normalized_name" field.
+func (m *AccountUpstreamGroupMutation) ResetNormalizedName() {
+	m.normalized_name = nil
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (m *AccountUpstreamGroupMutation) SetSortOrder(i int64) {
+	m.sort_order = &i
+	m.addsort_order = nil
+}
+
+// SortOrder returns the value of the "sort_order" field in the mutation.
+func (m *AccountUpstreamGroupMutation) SortOrder() (r int64, exists bool) {
+	v := m.sort_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSortOrder returns the old "sort_order" field's value of the AccountUpstreamGroup entity.
+// If the AccountUpstreamGroup object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountUpstreamGroupMutation) OldSortOrder(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSortOrder is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSortOrder requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSortOrder: %w", err)
+	}
+	return oldValue.SortOrder, nil
+}
+
+// AddSortOrder adds i to the "sort_order" field.
+func (m *AccountUpstreamGroupMutation) AddSortOrder(i int64) {
+	if m.addsort_order != nil {
+		*m.addsort_order += i
+	} else {
+		m.addsort_order = &i
+	}
+}
+
+// AddedSortOrder returns the value that was added to the "sort_order" field in this mutation.
+func (m *AccountUpstreamGroupMutation) AddedSortOrder() (r int64, exists bool) {
+	v := m.addsort_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSortOrder resets all changes to the "sort_order" field.
+func (m *AccountUpstreamGroupMutation) ResetSortOrder() {
+	m.sort_order = nil
+	m.addsort_order = nil
+}
+
+// AddAccountIDs adds the "accounts" edge to the Account entity by ids.
+func (m *AccountUpstreamGroupMutation) AddAccountIDs(ids ...int64) {
+	if m.accounts == nil {
+		m.accounts = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.accounts[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAccounts clears the "accounts" edge to the Account entity.
+func (m *AccountUpstreamGroupMutation) ClearAccounts() {
+	m.clearedaccounts = true
+}
+
+// AccountsCleared reports if the "accounts" edge to the Account entity was cleared.
+func (m *AccountUpstreamGroupMutation) AccountsCleared() bool {
+	return m.clearedaccounts
+}
+
+// RemoveAccountIDs removes the "accounts" edge to the Account entity by IDs.
+func (m *AccountUpstreamGroupMutation) RemoveAccountIDs(ids ...int64) {
+	if m.removedaccounts == nil {
+		m.removedaccounts = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.accounts, ids[i])
+		m.removedaccounts[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAccounts returns the removed IDs of the "accounts" edge to the Account entity.
+func (m *AccountUpstreamGroupMutation) RemovedAccountsIDs() (ids []int64) {
+	for id := range m.removedaccounts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AccountsIDs returns the "accounts" edge IDs in the mutation.
+func (m *AccountUpstreamGroupMutation) AccountsIDs() (ids []int64) {
+	for id := range m.accounts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAccounts resets all changes to the "accounts" edge.
+func (m *AccountUpstreamGroupMutation) ResetAccounts() {
+	m.accounts = nil
+	m.clearedaccounts = false
+	m.removedaccounts = nil
+}
+
+// Where appends a list predicates to the AccountUpstreamGroupMutation builder.
+func (m *AccountUpstreamGroupMutation) Where(ps ...predicate.AccountUpstreamGroup) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the AccountUpstreamGroupMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *AccountUpstreamGroupMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.AccountUpstreamGroup, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *AccountUpstreamGroupMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *AccountUpstreamGroupMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (AccountUpstreamGroup).
+func (m *AccountUpstreamGroupMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *AccountUpstreamGroupMutation) Fields() []string {
+	fields := make([]string, 0, 5)
+	if m.created_at != nil {
+		fields = append(fields, accountupstreamgroup.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, accountupstreamgroup.FieldUpdatedAt)
+	}
+	if m.name != nil {
+		fields = append(fields, accountupstreamgroup.FieldName)
+	}
+	if m.normalized_name != nil {
+		fields = append(fields, accountupstreamgroup.FieldNormalizedName)
+	}
+	if m.sort_order != nil {
+		fields = append(fields, accountupstreamgroup.FieldSortOrder)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *AccountUpstreamGroupMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case accountupstreamgroup.FieldCreatedAt:
+		return m.CreatedAt()
+	case accountupstreamgroup.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case accountupstreamgroup.FieldName:
+		return m.Name()
+	case accountupstreamgroup.FieldNormalizedName:
+		return m.NormalizedName()
+	case accountupstreamgroup.FieldSortOrder:
+		return m.SortOrder()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *AccountUpstreamGroupMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case accountupstreamgroup.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case accountupstreamgroup.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case accountupstreamgroup.FieldName:
+		return m.OldName(ctx)
+	case accountupstreamgroup.FieldNormalizedName:
+		return m.OldNormalizedName(ctx)
+	case accountupstreamgroup.FieldSortOrder:
+		return m.OldSortOrder(ctx)
+	}
+	return nil, fmt.Errorf("unknown AccountUpstreamGroup field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AccountUpstreamGroupMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case accountupstreamgroup.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case accountupstreamgroup.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case accountupstreamgroup.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case accountupstreamgroup.FieldNormalizedName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNormalizedName(v)
+		return nil
+	case accountupstreamgroup.FieldSortOrder:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSortOrder(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AccountUpstreamGroup field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *AccountUpstreamGroupMutation) AddedFields() []string {
+	var fields []string
+	if m.addsort_order != nil {
+		fields = append(fields, accountupstreamgroup.FieldSortOrder)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *AccountUpstreamGroupMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case accountupstreamgroup.FieldSortOrder:
+		return m.AddedSortOrder()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AccountUpstreamGroupMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case accountupstreamgroup.FieldSortOrder:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSortOrder(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AccountUpstreamGroup numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *AccountUpstreamGroupMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *AccountUpstreamGroupMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *AccountUpstreamGroupMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown AccountUpstreamGroup nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *AccountUpstreamGroupMutation) ResetField(name string) error {
+	switch name {
+	case accountupstreamgroup.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case accountupstreamgroup.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case accountupstreamgroup.FieldName:
+		m.ResetName()
+		return nil
+	case accountupstreamgroup.FieldNormalizedName:
+		m.ResetNormalizedName()
+		return nil
+	case accountupstreamgroup.FieldSortOrder:
+		m.ResetSortOrder()
+		return nil
+	}
+	return fmt.Errorf("unknown AccountUpstreamGroup field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *AccountUpstreamGroupMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.accounts != nil {
+		edges = append(edges, accountupstreamgroup.EdgeAccounts)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *AccountUpstreamGroupMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case accountupstreamgroup.EdgeAccounts:
+		ids := make([]ent.Value, 0, len(m.accounts))
+		for id := range m.accounts {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *AccountUpstreamGroupMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.removedaccounts != nil {
+		edges = append(edges, accountupstreamgroup.EdgeAccounts)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *AccountUpstreamGroupMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case accountupstreamgroup.EdgeAccounts:
+		ids := make([]ent.Value, 0, len(m.removedaccounts))
+		for id := range m.removedaccounts {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *AccountUpstreamGroupMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedaccounts {
+		edges = append(edges, accountupstreamgroup.EdgeAccounts)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *AccountUpstreamGroupMutation) EdgeCleared(name string) bool {
+	switch name {
+	case accountupstreamgroup.EdgeAccounts:
+		return m.clearedaccounts
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *AccountUpstreamGroupMutation) ClearEdge(name string) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown AccountUpstreamGroup unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *AccountUpstreamGroupMutation) ResetEdge(name string) error {
+	switch name {
+	case accountupstreamgroup.EdgeAccounts:
+		m.ResetAccounts()
+		return nil
+	}
+	return fmt.Errorf("unknown AccountUpstreamGroup edge %s", name)
 }
 
 // AnnouncementMutation represents an operation that mutates the Announcement nodes in the graph.

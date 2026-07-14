@@ -10,9 +10,11 @@ import (
 )
 
 var (
-	ErrAccountNotFound      = infraerrors.NotFound("ACCOUNT_NOT_FOUND", "account not found")
-	ErrAccountNilInput      = infraerrors.BadRequest("ACCOUNT_NIL_INPUT", "account input cannot be nil")
-	ErrAccountNotInFallback = infraerrors.BadRequest("ACCOUNT_NOT_IN_FALLBACK", "account is not in proxy fallback state")
+	ErrAccountNotFound              = infraerrors.NotFound("ACCOUNT_NOT_FOUND", "account not found")
+	ErrAccountNilInput              = infraerrors.BadRequest("ACCOUNT_NIL_INPUT", "account input cannot be nil")
+	ErrAccountNotInFallback         = infraerrors.BadRequest("ACCOUNT_NOT_IN_FALLBACK", "account is not in proxy fallback state")
+	ErrAccountUpstreamGroupNotFound = infraerrors.NotFound("ACCOUNT_UPSTREAM_GROUP_NOT_FOUND", "account upstream group not found")
+	ErrAccountUpstreamGroupExists   = infraerrors.Conflict("ACCOUNT_UPSTREAM_GROUP_EXISTS", "account upstream group name already exists")
 )
 
 const AccountListGroupUngrouped int64 = -1
@@ -90,10 +92,52 @@ type AccountRepository interface {
 	ListShadowsByParent(ctx context.Context, parentID int64) ([]*Account, error)
 }
 
+// AccountSortOrderUpdate updates the display-only ordering of an account.
+// It is kept separate from Account.Priority, which controls scheduling.
+type AccountSortOrderUpdate struct {
+	ID        int64 `json:"id"`
+	SortOrder int64 `json:"sort_order"`
+}
+
+// AccountSortOrderRepository persists the display-only account ordering.
+// It stays separate from AccountRepository so scheduler-focused implementations
+// do not need to expose admin-only mutation methods.
+type AccountSortOrderRepository interface {
+	UpdateSortOrders(ctx context.Context, updates []AccountSortOrderUpdate) error
+}
+
+// AccountUpstreamGroupRepository exposes the persistent admin-only upstream
+// group directory without broadening the main AccountRepository contract.
+type AccountUpstreamGroupRepository interface {
+	ListUpstreamGroups(ctx context.Context) ([]AccountUpstreamGroup, error)
+}
+
+type AccountUpstreamGroup struct {
+	ID           int64  `json:"id"`
+	Key          string `json:"key"`
+	Name         string `json:"name"`
+	AccountCount int    `json:"account_count"`
+	SortOrder    int64  `json:"sort_order"`
+}
+
+type AccountUpstreamGroupRenameRepository interface {
+	RenameUpstreamGroup(ctx context.Context, id int64, name string) (*AccountUpstreamGroup, error)
+}
+
+type AccountUpstreamGroupSortOrderUpdate struct {
+	ID        int64 `json:"id"`
+	SortOrder int64 `json:"sort_order"`
+}
+
+type AccountUpstreamGroupSortOrderRepository interface {
+	UpdateUpstreamGroupSortOrders(ctx context.Context, updates []AccountUpstreamGroupSortOrderUpdate) error
+}
+
 // AccountBulkUpdate describes the fields that can be updated in a bulk operation.
 // Nil pointers mean "do not change".
 type AccountBulkUpdate struct {
 	Name           *string
+	UpstreamGroup  *string
 	ProxyID        *int64
 	Concurrency    *int
 	Priority       *int
@@ -111,6 +155,7 @@ type CreateAccountRequest struct {
 	Notes              *string        `json:"notes"`
 	Platform           string         `json:"platform"`
 	Type               string         `json:"type"`
+	UpstreamGroup      string         `json:"upstream_group"`
 	Credentials        map[string]any `json:"credentials"`
 	Extra              map[string]any `json:"extra"`
 	ProxyID            *int64         `json:"proxy_id"`
@@ -125,6 +170,7 @@ type CreateAccountRequest struct {
 type UpdateAccountRequest struct {
 	Name               *string         `json:"name"`
 	Notes              *string         `json:"notes"`
+	UpstreamGroup      *string         `json:"upstream_group"`
 	Credentials        *map[string]any `json:"credentials"`
 	Extra              *map[string]any `json:"extra"`
 	ProxyID            *int64          `json:"proxy_id"`
@@ -156,6 +202,11 @@ func NewAccountService(accountRepo AccountRepository, groupRepo GroupRepository)
 
 // Create 创建账号
 func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (*Account, error) {
+	upstreamGroup, err := NormalizeAccountUpstreamGroup(req.UpstreamGroup)
+	if err != nil {
+		return nil, err
+	}
+
 	// 验证分组是否存在（如果指定了分组）
 	if len(req.GroupIDs) > 0 {
 		if err := s.validateGroupIDsExist(ctx, req.GroupIDs); err != nil {
@@ -165,17 +216,18 @@ func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (
 
 	// 创建账号
 	account := &Account{
-		Name:        req.Name,
-		Notes:       normalizeAccountNotes(req.Notes),
-		Platform:    req.Platform,
-		Type:        req.Type,
-		Credentials: req.Credentials,
-		Extra:       req.Extra,
-		ProxyID:     req.ProxyID,
-		Concurrency: req.Concurrency,
-		Priority:    req.Priority,
-		Status:      StatusActive,
-		ExpiresAt:   req.ExpiresAt,
+		Name:          req.Name,
+		Notes:         normalizeAccountNotes(req.Notes),
+		Platform:      req.Platform,
+		Type:          req.Type,
+		UpstreamGroup: upstreamGroup,
+		Credentials:   req.Credentials,
+		Extra:         req.Extra,
+		ProxyID:       req.ProxyID,
+		Concurrency:   req.Concurrency,
+		Priority:      req.Priority,
+		Status:        StatusActive,
+		ExpiresAt:     req.ExpiresAt,
 	}
 	if req.AutoPauseOnExpired != nil {
 		account.AutoPauseOnExpired = *req.AutoPauseOnExpired
@@ -259,6 +311,13 @@ func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccount
 	}
 	if req.Notes != nil {
 		account.Notes = normalizeAccountNotes(req.Notes)
+	}
+	if req.UpstreamGroup != nil {
+		upstreamGroup, normalizeErr := NormalizeAccountUpstreamGroup(*req.UpstreamGroup)
+		if normalizeErr != nil {
+			return nil, normalizeErr
+		}
+		account.UpstreamGroup = upstreamGroup
 	}
 
 	if req.Credentials != nil {

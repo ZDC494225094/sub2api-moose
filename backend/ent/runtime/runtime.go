@@ -7,6 +7,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
+	"github.com/Wei-Shaw/sub2api/ent/accountupstreamgroup"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
@@ -229,42 +230,52 @@ func init() {
 			return nil
 		}
 	}()
+	// accountDescUpstreamGroup is the schema descriptor for upstream_group field.
+	accountDescUpstreamGroup := accountFields[4].Descriptor()
+	// account.DefaultUpstreamGroup holds the default value on creation for the upstream_group field.
+	account.DefaultUpstreamGroup = accountDescUpstreamGroup.Default.(string)
+	// account.UpstreamGroupValidator is a validator for the "upstream_group" field. It is called by the builders before save.
+	account.UpstreamGroupValidator = accountDescUpstreamGroup.Validators[0].(func(string) error)
 	// accountDescCredentials is the schema descriptor for credentials field.
-	accountDescCredentials := accountFields[4].Descriptor()
+	accountDescCredentials := accountFields[6].Descriptor()
 	// account.DefaultCredentials holds the default value on creation for the credentials field.
 	account.DefaultCredentials = accountDescCredentials.Default.(func() map[string]interface{})
 	// accountDescExtra is the schema descriptor for extra field.
-	accountDescExtra := accountFields[5].Descriptor()
+	accountDescExtra := accountFields[7].Descriptor()
 	// account.DefaultExtra holds the default value on creation for the extra field.
 	account.DefaultExtra = accountDescExtra.Default.(func() map[string]interface{})
 	// accountDescConcurrency is the schema descriptor for concurrency field.
-	accountDescConcurrency := accountFields[8].Descriptor()
+	accountDescConcurrency := accountFields[10].Descriptor()
 	// account.DefaultConcurrency holds the default value on creation for the concurrency field.
 	account.DefaultConcurrency = accountDescConcurrency.Default.(int)
 	// accountDescPriority is the schema descriptor for priority field.
-	accountDescPriority := accountFields[10].Descriptor()
+	accountDescPriority := accountFields[12].Descriptor()
 	// account.DefaultPriority holds the default value on creation for the priority field.
 	account.DefaultPriority = accountDescPriority.Default.(int)
+	// accountDescSortOrder is the schema descriptor for sort_order field.
+	accountDescSortOrder := accountFields[13].Descriptor()
+	// account.DefaultSortOrder holds the default value on creation for the sort_order field.
+	account.DefaultSortOrder = accountDescSortOrder.Default.(int64)
 	// accountDescRateMultiplier is the schema descriptor for rate_multiplier field.
-	accountDescRateMultiplier := accountFields[11].Descriptor()
+	accountDescRateMultiplier := accountFields[14].Descriptor()
 	// account.DefaultRateMultiplier holds the default value on creation for the rate_multiplier field.
 	account.DefaultRateMultiplier = accountDescRateMultiplier.Default.(float64)
 	// accountDescStatus is the schema descriptor for status field.
-	accountDescStatus := accountFields[12].Descriptor()
+	accountDescStatus := accountFields[15].Descriptor()
 	// account.DefaultStatus holds the default value on creation for the status field.
 	account.DefaultStatus = accountDescStatus.Default.(string)
 	// account.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	account.StatusValidator = accountDescStatus.Validators[0].(func(string) error)
 	// accountDescAutoPauseOnExpired is the schema descriptor for auto_pause_on_expired field.
-	accountDescAutoPauseOnExpired := accountFields[16].Descriptor()
+	accountDescAutoPauseOnExpired := accountFields[19].Descriptor()
 	// account.DefaultAutoPauseOnExpired holds the default value on creation for the auto_pause_on_expired field.
 	account.DefaultAutoPauseOnExpired = accountDescAutoPauseOnExpired.Default.(bool)
 	// accountDescSchedulable is the schema descriptor for schedulable field.
-	accountDescSchedulable := accountFields[17].Descriptor()
+	accountDescSchedulable := accountFields[20].Descriptor()
 	// account.DefaultSchedulable holds the default value on creation for the schedulable field.
 	account.DefaultSchedulable = accountDescSchedulable.Default.(bool)
 	// accountDescSessionWindowStatus is the schema descriptor for session_window_status field.
-	accountDescSessionWindowStatus := accountFields[25].Descriptor()
+	accountDescSessionWindowStatus := accountFields[28].Descriptor()
 	// account.SessionWindowStatusValidator is a validator for the "session_window_status" field. It is called by the builders before save.
 	account.SessionWindowStatusValidator = accountDescSessionWindowStatus.Validators[0].(func(string) error)
 	accountgroupFields := schema.AccountGroup{}.Fields()
@@ -277,6 +288,61 @@ func init() {
 	accountgroupDescCreatedAt := accountgroupFields[3].Descriptor()
 	// accountgroup.DefaultCreatedAt holds the default value on creation for the created_at field.
 	accountgroup.DefaultCreatedAt = accountgroupDescCreatedAt.Default.(func() time.Time)
+	accountupstreamgroupMixin := schema.AccountUpstreamGroup{}.Mixin()
+	accountupstreamgroupMixinFields0 := accountupstreamgroupMixin[0].Fields()
+	_ = accountupstreamgroupMixinFields0
+	accountupstreamgroupFields := schema.AccountUpstreamGroup{}.Fields()
+	_ = accountupstreamgroupFields
+	// accountupstreamgroupDescCreatedAt is the schema descriptor for created_at field.
+	accountupstreamgroupDescCreatedAt := accountupstreamgroupMixinFields0[0].Descriptor()
+	// accountupstreamgroup.DefaultCreatedAt holds the default value on creation for the created_at field.
+	accountupstreamgroup.DefaultCreatedAt = accountupstreamgroupDescCreatedAt.Default.(func() time.Time)
+	// accountupstreamgroupDescUpdatedAt is the schema descriptor for updated_at field.
+	accountupstreamgroupDescUpdatedAt := accountupstreamgroupMixinFields0[1].Descriptor()
+	// accountupstreamgroup.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	accountupstreamgroup.DefaultUpdatedAt = accountupstreamgroupDescUpdatedAt.Default.(func() time.Time)
+	// accountupstreamgroup.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	accountupstreamgroup.UpdateDefaultUpdatedAt = accountupstreamgroupDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// accountupstreamgroupDescName is the schema descriptor for name field.
+	accountupstreamgroupDescName := accountupstreamgroupFields[0].Descriptor()
+	// accountupstreamgroup.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	accountupstreamgroup.NameValidator = func() func(string) error {
+		validators := accountupstreamgroupDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// accountupstreamgroupDescNormalizedName is the schema descriptor for normalized_name field.
+	accountupstreamgroupDescNormalizedName := accountupstreamgroupFields[1].Descriptor()
+	// accountupstreamgroup.NormalizedNameValidator is a validator for the "normalized_name" field. It is called by the builders before save.
+	accountupstreamgroup.NormalizedNameValidator = func() func(string) error {
+		validators := accountupstreamgroupDescNormalizedName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(normalized_name string) error {
+			for _, fn := range fns {
+				if err := fn(normalized_name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// accountupstreamgroupDescSortOrder is the schema descriptor for sort_order field.
+	accountupstreamgroupDescSortOrder := accountupstreamgroupFields[2].Descriptor()
+	// accountupstreamgroup.DefaultSortOrder holds the default value on creation for the sort_order field.
+	accountupstreamgroup.DefaultSortOrder = accountupstreamgroupDescSortOrder.Default.(int64)
 	announcementFields := schema.Announcement{}.Fields()
 	_ = announcementFields
 	// announcementDescTitle is the schema descriptor for title field.

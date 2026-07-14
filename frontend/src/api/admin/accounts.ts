@@ -20,7 +20,8 @@ import type {
   CodexSessionImportResult,
   OpenAICodexPATCreateRequest,
   CheckMixedChannelRequest,
-  CheckMixedChannelResponse
+  CheckMixedChannelResponse,
+  AccountUpstreamGroup
 } from '@/types'
 
 /**
@@ -56,6 +57,28 @@ export async function list(
       ...filters
     },
     signal: options?.signal
+  })
+  return data
+}
+
+/** List all distinct explicit upstream groups. */
+export async function listUpstreamGroups(): Promise<AccountUpstreamGroup[]> {
+  const { data } = await apiClient.get<{ groups: AccountUpstreamGroup[] }>('/admin/accounts/upstream-groups')
+  return data.groups
+}
+
+/** Rename an explicit upstream group. */
+export async function renameUpstreamGroup(id: number, name: string): Promise<AccountUpstreamGroup> {
+  const { data } = await apiClient.patch<AccountUpstreamGroup>(`/admin/accounts/upstream-groups/${id}`, { name })
+  return data
+}
+
+/** Persist the custom display order for upstream groups. */
+export async function updateUpstreamGroupSortOrders(
+  updates: Array<{ id: number; sort_order: number }>
+): Promise<{ message: string }> {
+  const { data } = await apiClient.put<{ message: string }>('/admin/accounts/upstream-groups/sort-order', {
+    updates
   })
   return data
 }
@@ -424,6 +447,16 @@ export async function bulkUpdate(
     failed_ids?: number[]
     results: Array<{ account_id: number; success: boolean; error?: string }>
   }>('/admin/accounts/bulk-update', payload)
+  return data
+}
+
+/** Persist the custom display order for a set of accounts. */
+export async function updateSortOrder(
+  updates: Array<{ id: number; sort_order: number }>
+): Promise<{ message: string }> {
+  const { data } = await apiClient.put<{ message: string }>('/admin/accounts/sort-order', {
+    updates
+  })
   return data
 }
 
@@ -806,6 +839,9 @@ export async function createSparkShadow(parentId: number, payload: SparkShadowCr
 
 export const accountsAPI = {
   list,
+  listUpstreamGroups,
+  renameUpstreamGroup,
+  updateUpstreamGroupSortOrders,
   listWithEtag,
   getById,
   create,
@@ -836,6 +872,7 @@ export const accountsAPI = {
   batchCreate,
   batchUpdateCredentials,
   bulkUpdate,
+  updateSortOrder,
   previewFromCrs,
   syncFromCrs,
   exportData,

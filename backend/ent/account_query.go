@@ -15,6 +15,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
+	"github.com/Wei-Shaw/sub2api/ent/accountupstreamgroup"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
@@ -24,17 +25,18 @@ import (
 // AccountQuery is the builder for querying Account entities.
 type AccountQuery struct {
 	config
-	ctx               *QueryContext
-	order             []account.OrderOption
-	inters            []Interceptor
-	predicates        []predicate.Account
-	withGroups        *GroupQuery
-	withProxy         *ProxyQuery
-	withParent        *AccountQuery
-	withChildren      *AccountQuery
-	withUsageLogs     *UsageLogQuery
-	withAccountGroups *AccountGroupQuery
-	modifiers         []func(*sql.Selector)
+	ctx                        *QueryContext
+	order                      []account.OrderOption
+	inters                     []Interceptor
+	predicates                 []predicate.Account
+	withUpstreamGroupDirectory *AccountUpstreamGroupQuery
+	withGroups                 *GroupQuery
+	withProxy                  *ProxyQuery
+	withParent                 *AccountQuery
+	withChildren               *AccountQuery
+	withUsageLogs              *UsageLogQuery
+	withAccountGroups          *AccountGroupQuery
+	modifiers                  []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -69,6 +71,28 @@ func (_q *AccountQuery) Unique(unique bool) *AccountQuery {
 func (_q *AccountQuery) Order(o ...account.OrderOption) *AccountQuery {
 	_q.order = append(_q.order, o...)
 	return _q
+}
+
+// QueryUpstreamGroupDirectory chains the current query on the "upstream_group_directory" edge.
+func (_q *AccountQuery) QueryUpstreamGroupDirectory() *AccountUpstreamGroupQuery {
+	query := (&AccountUpstreamGroupClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(accountupstreamgroup.Table, accountupstreamgroup.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, account.UpstreamGroupDirectoryTable, account.UpstreamGroupDirectoryColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // QueryGroups chains the current query on the "groups" edge.
@@ -390,21 +414,33 @@ func (_q *AccountQuery) Clone() *AccountQuery {
 		return nil
 	}
 	return &AccountQuery{
-		config:            _q.config,
-		ctx:               _q.ctx.Clone(),
-		order:             append([]account.OrderOption{}, _q.order...),
-		inters:            append([]Interceptor{}, _q.inters...),
-		predicates:        append([]predicate.Account{}, _q.predicates...),
-		withGroups:        _q.withGroups.Clone(),
-		withProxy:         _q.withProxy.Clone(),
-		withParent:        _q.withParent.Clone(),
-		withChildren:      _q.withChildren.Clone(),
-		withUsageLogs:     _q.withUsageLogs.Clone(),
-		withAccountGroups: _q.withAccountGroups.Clone(),
+		config:                     _q.config,
+		ctx:                        _q.ctx.Clone(),
+		order:                      append([]account.OrderOption{}, _q.order...),
+		inters:                     append([]Interceptor{}, _q.inters...),
+		predicates:                 append([]predicate.Account{}, _q.predicates...),
+		withUpstreamGroupDirectory: _q.withUpstreamGroupDirectory.Clone(),
+		withGroups:                 _q.withGroups.Clone(),
+		withProxy:                  _q.withProxy.Clone(),
+		withParent:                 _q.withParent.Clone(),
+		withChildren:               _q.withChildren.Clone(),
+		withUsageLogs:              _q.withUsageLogs.Clone(),
+		withAccountGroups:          _q.withAccountGroups.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
+}
+
+// WithUpstreamGroupDirectory tells the query-builder to eager-load the nodes that are connected to
+// the "upstream_group_directory" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithUpstreamGroupDirectory(opts ...func(*AccountUpstreamGroupQuery)) *AccountQuery {
+	query := (&AccountUpstreamGroupClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withUpstreamGroupDirectory = query
+	return _q
 }
 
 // WithGroups tells the query-builder to eager-load the nodes that are connected to
@@ -551,7 +587,8 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	var (
 		nodes       = []*Account{}
 		_spec       = _q.querySpec()
-		loadedTypes = [6]bool{
+		loadedTypes = [7]bool{
+			_q.withUpstreamGroupDirectory != nil,
 			_q.withGroups != nil,
 			_q.withProxy != nil,
 			_q.withParent != nil,
@@ -580,6 +617,12 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	}
 	if len(nodes) == 0 {
 		return nodes, nil
+	}
+	if query := _q.withUpstreamGroupDirectory; query != nil {
+		if err := _q.loadUpstreamGroupDirectory(ctx, query, nodes, nil,
+			func(n *Account, e *AccountUpstreamGroup) { n.Edges.UpstreamGroupDirectory = e }); err != nil {
+			return nil, err
+		}
 	}
 	if query := _q.withGroups; query != nil {
 		if err := _q.loadGroups(ctx, query, nodes,
@@ -624,6 +667,38 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	return nodes, nil
 }
 
+func (_q *AccountQuery) loadUpstreamGroupDirectory(ctx context.Context, query *AccountUpstreamGroupQuery, nodes []*Account, init func(*Account), assign func(*Account, *AccountUpstreamGroup)) error {
+	ids := make([]int64, 0, len(nodes))
+	nodeids := make(map[int64][]*Account)
+	for i := range nodes {
+		if nodes[i].UpstreamGroupID == nil {
+			continue
+		}
+		fk := *nodes[i].UpstreamGroupID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(accountupstreamgroup.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "upstream_group_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
 func (_q *AccountQuery) loadGroups(ctx context.Context, query *GroupQuery, nodes []*Account, init func(*Account), assign func(*Account, *Group)) error {
 	edgeIDs := make([]driver.Value, len(nodes))
 	byID := make(map[int64]*Account)
@@ -870,6 +945,9 @@ func (_q *AccountQuery) querySpec() *sqlgraph.QuerySpec {
 			if fields[i] != account.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
+		}
+		if _q.withUpstreamGroupDirectory != nil {
+			_spec.Node.AddColumnOnce(account.FieldUpstreamGroupID)
 		}
 		if _q.withProxy != nil {
 			_spec.Node.AddColumnOnce(account.FieldProxyID)

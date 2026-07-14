@@ -30,6 +30,10 @@ const (
 	FieldPlatform = "platform"
 	// FieldType holds the string denoting the type field in the database.
 	FieldType = "type"
+	// FieldUpstreamGroup holds the string denoting the upstream_group field in the database.
+	FieldUpstreamGroup = "upstream_group"
+	// FieldUpstreamGroupID holds the string denoting the upstream_group_id field in the database.
+	FieldUpstreamGroupID = "upstream_group_id"
 	// FieldCredentials holds the string denoting the credentials field in the database.
 	FieldCredentials = "credentials"
 	// FieldExtra holds the string denoting the extra field in the database.
@@ -44,6 +48,8 @@ const (
 	FieldLoadFactor = "load_factor"
 	// FieldPriority holds the string denoting the priority field in the database.
 	FieldPriority = "priority"
+	// FieldSortOrder holds the string denoting the sort_order field in the database.
+	FieldSortOrder = "sort_order"
 	// FieldRateMultiplier holds the string denoting the rate_multiplier field in the database.
 	FieldRateMultiplier = "rate_multiplier"
 	// FieldStatus holds the string denoting the status field in the database.
@@ -78,6 +84,8 @@ const (
 	FieldParentAccountID = "parent_account_id"
 	// FieldQuotaDimension holds the string denoting the quota_dimension field in the database.
 	FieldQuotaDimension = "quota_dimension"
+	// EdgeUpstreamGroupDirectory holds the string denoting the upstream_group_directory edge name in mutations.
+	EdgeUpstreamGroupDirectory = "upstream_group_directory"
 	// EdgeGroups holds the string denoting the groups edge name in mutations.
 	EdgeGroups = "groups"
 	// EdgeProxy holds the string denoting the proxy edge name in mutations.
@@ -92,6 +100,13 @@ const (
 	EdgeAccountGroups = "account_groups"
 	// Table holds the table name of the account in the database.
 	Table = "accounts"
+	// UpstreamGroupDirectoryTable is the table that holds the upstream_group_directory relation/edge.
+	UpstreamGroupDirectoryTable = "accounts"
+	// UpstreamGroupDirectoryInverseTable is the table name for the AccountUpstreamGroup entity.
+	// It exists in this package in order to avoid circular dependency with the "accountupstreamgroup" package.
+	UpstreamGroupDirectoryInverseTable = "account_upstream_groups"
+	// UpstreamGroupDirectoryColumn is the table column denoting the upstream_group_directory relation/edge.
+	UpstreamGroupDirectoryColumn = "upstream_group_id"
 	// GroupsTable is the table that holds the groups relation/edge. The primary key declared below.
 	GroupsTable = "account_groups"
 	// GroupsInverseTable is the table name for the Group entity.
@@ -138,6 +153,8 @@ var Columns = []string{
 	FieldNotes,
 	FieldPlatform,
 	FieldType,
+	FieldUpstreamGroup,
+	FieldUpstreamGroupID,
 	FieldCredentials,
 	FieldExtra,
 	FieldProxyID,
@@ -145,6 +162,7 @@ var Columns = []string{
 	FieldConcurrency,
 	FieldLoadFactor,
 	FieldPriority,
+	FieldSortOrder,
 	FieldRateMultiplier,
 	FieldStatus,
 	FieldErrorMessage,
@@ -200,6 +218,10 @@ var (
 	PlatformValidator func(string) error
 	// TypeValidator is a validator for the "type" field. It is called by the builders before save.
 	TypeValidator func(string) error
+	// DefaultUpstreamGroup holds the default value on creation for the "upstream_group" field.
+	DefaultUpstreamGroup string
+	// UpstreamGroupValidator is a validator for the "upstream_group" field. It is called by the builders before save.
+	UpstreamGroupValidator func(string) error
 	// DefaultCredentials holds the default value on creation for the "credentials" field.
 	DefaultCredentials func() map[string]interface{}
 	// DefaultExtra holds the default value on creation for the "extra" field.
@@ -208,6 +230,8 @@ var (
 	DefaultConcurrency int
 	// DefaultPriority holds the default value on creation for the "priority" field.
 	DefaultPriority int
+	// DefaultSortOrder holds the default value on creation for the "sort_order" field.
+	DefaultSortOrder int64
 	// DefaultRateMultiplier holds the default value on creation for the "rate_multiplier" field.
 	DefaultRateMultiplier float64
 	// DefaultStatus holds the default value on creation for the "status" field.
@@ -291,6 +315,16 @@ func ByType(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldType, opts...).ToFunc()
 }
 
+// ByUpstreamGroup orders the results by the upstream_group field.
+func ByUpstreamGroup(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUpstreamGroup, opts...).ToFunc()
+}
+
+// ByUpstreamGroupID orders the results by the upstream_group_id field.
+func ByUpstreamGroupID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUpstreamGroupID, opts...).ToFunc()
+}
+
 // ByProxyID orders the results by the proxy_id field.
 func ByProxyID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldProxyID, opts...).ToFunc()
@@ -314,6 +348,11 @@ func ByLoadFactor(opts ...sql.OrderTermOption) OrderOption {
 // ByPriority orders the results by the priority field.
 func ByPriority(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPriority, opts...).ToFunc()
+}
+
+// BySortOrder orders the results by the sort_order field.
+func BySortOrder(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSortOrder, opts...).ToFunc()
 }
 
 // ByRateMultiplier orders the results by the rate_multiplier field.
@@ -401,6 +440,13 @@ func ByQuotaDimension(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldQuotaDimension, opts...).ToFunc()
 }
 
+// ByUpstreamGroupDirectoryField orders the results by upstream_group_directory field.
+func ByUpstreamGroupDirectoryField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newUpstreamGroupDirectoryStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByGroupsCount orders the results by groups count.
 func ByGroupsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -469,6 +515,13 @@ func ByAccountGroups(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newAccountGroupsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
+}
+func newUpstreamGroupDirectoryStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(UpstreamGroupDirectoryInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, UpstreamGroupDirectoryTable, UpstreamGroupDirectoryColumn),
+	)
 }
 func newGroupsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(

@@ -147,6 +147,7 @@ function buildAccount() {
     notes: '',
     platform: 'openai',
     type: 'apikey',
+    upstream_group: 'Old upstream',
     credentials: {
       api_key: 'sk-test',
       base_url: 'https://api.openai.com',
@@ -284,7 +285,10 @@ function mountModal(account = buildAccount()) {
       show: true,
       account,
       proxies: [],
-      groups: []
+      groups: [],
+      upstreamGroups: [
+        { key: 'hi-code', name: 'hi-code', account_count: 4 }
+      ]
     },
     global: {
       stubs: {
@@ -302,6 +306,27 @@ function mountModal(account = buildAccount()) {
 describe('EditAccountModal', () => {
   beforeEach(() => {
     authIsSimpleMode.value = true
+  })
+
+  it('updates the explicit upstream group without changing the Base URL', async () => {
+    const account = buildAccount()
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    const groupInput = wrapper.get('[data-testid="upstream-group-input"]')
+    expect((groupInput.element as HTMLInputElement).value).toBe('Old upstream')
+
+    await groupInput.setValue('hi-code')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
+      upstream_group: 'hi-code',
+      credentials: expect.objectContaining({ base_url: 'https://api.openai.com' })
+    }))
   })
 
   it('reopening the same account rehydrates the OpenAI whitelist from props', async () => {

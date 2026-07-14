@@ -90,6 +90,16 @@ func Type(v string) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldType, v))
 }
 
+// UpstreamGroup applies equality check predicate on the "upstream_group" field. It's identical to UpstreamGroupEQ.
+func UpstreamGroup(v string) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldUpstreamGroup, v))
+}
+
+// UpstreamGroupID applies equality check predicate on the "upstream_group_id" field. It's identical to UpstreamGroupIDEQ.
+func UpstreamGroupID(v int64) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldUpstreamGroupID, v))
+}
+
 // ProxyID applies equality check predicate on the "proxy_id" field. It's identical to ProxyIDEQ.
 func ProxyID(v int64) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldProxyID, v))
@@ -113,6 +123,11 @@ func LoadFactor(v int) predicate.Account {
 // Priority applies equality check predicate on the "priority" field. It's identical to PriorityEQ.
 func Priority(v int) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldPriority, v))
+}
+
+// SortOrder applies equality check predicate on the "sort_order" field. It's identical to SortOrderEQ.
+func SortOrder(v int64) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldSortOrder, v))
 }
 
 // RateMultiplier applies equality check predicate on the "rate_multiplier" field. It's identical to RateMultiplierEQ.
@@ -595,6 +610,101 @@ func TypeContainsFold(v string) predicate.Account {
 	return predicate.Account(sql.FieldContainsFold(FieldType, v))
 }
 
+// UpstreamGroupEQ applies the EQ predicate on the "upstream_group" field.
+func UpstreamGroupEQ(v string) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldUpstreamGroup, v))
+}
+
+// UpstreamGroupNEQ applies the NEQ predicate on the "upstream_group" field.
+func UpstreamGroupNEQ(v string) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldUpstreamGroup, v))
+}
+
+// UpstreamGroupIn applies the In predicate on the "upstream_group" field.
+func UpstreamGroupIn(vs ...string) predicate.Account {
+	return predicate.Account(sql.FieldIn(FieldUpstreamGroup, vs...))
+}
+
+// UpstreamGroupNotIn applies the NotIn predicate on the "upstream_group" field.
+func UpstreamGroupNotIn(vs ...string) predicate.Account {
+	return predicate.Account(sql.FieldNotIn(FieldUpstreamGroup, vs...))
+}
+
+// UpstreamGroupGT applies the GT predicate on the "upstream_group" field.
+func UpstreamGroupGT(v string) predicate.Account {
+	return predicate.Account(sql.FieldGT(FieldUpstreamGroup, v))
+}
+
+// UpstreamGroupGTE applies the GTE predicate on the "upstream_group" field.
+func UpstreamGroupGTE(v string) predicate.Account {
+	return predicate.Account(sql.FieldGTE(FieldUpstreamGroup, v))
+}
+
+// UpstreamGroupLT applies the LT predicate on the "upstream_group" field.
+func UpstreamGroupLT(v string) predicate.Account {
+	return predicate.Account(sql.FieldLT(FieldUpstreamGroup, v))
+}
+
+// UpstreamGroupLTE applies the LTE predicate on the "upstream_group" field.
+func UpstreamGroupLTE(v string) predicate.Account {
+	return predicate.Account(sql.FieldLTE(FieldUpstreamGroup, v))
+}
+
+// UpstreamGroupContains applies the Contains predicate on the "upstream_group" field.
+func UpstreamGroupContains(v string) predicate.Account {
+	return predicate.Account(sql.FieldContains(FieldUpstreamGroup, v))
+}
+
+// UpstreamGroupHasPrefix applies the HasPrefix predicate on the "upstream_group" field.
+func UpstreamGroupHasPrefix(v string) predicate.Account {
+	return predicate.Account(sql.FieldHasPrefix(FieldUpstreamGroup, v))
+}
+
+// UpstreamGroupHasSuffix applies the HasSuffix predicate on the "upstream_group" field.
+func UpstreamGroupHasSuffix(v string) predicate.Account {
+	return predicate.Account(sql.FieldHasSuffix(FieldUpstreamGroup, v))
+}
+
+// UpstreamGroupEqualFold applies the EqualFold predicate on the "upstream_group" field.
+func UpstreamGroupEqualFold(v string) predicate.Account {
+	return predicate.Account(sql.FieldEqualFold(FieldUpstreamGroup, v))
+}
+
+// UpstreamGroupContainsFold applies the ContainsFold predicate on the "upstream_group" field.
+func UpstreamGroupContainsFold(v string) predicate.Account {
+	return predicate.Account(sql.FieldContainsFold(FieldUpstreamGroup, v))
+}
+
+// UpstreamGroupIDEQ applies the EQ predicate on the "upstream_group_id" field.
+func UpstreamGroupIDEQ(v int64) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldUpstreamGroupID, v))
+}
+
+// UpstreamGroupIDNEQ applies the NEQ predicate on the "upstream_group_id" field.
+func UpstreamGroupIDNEQ(v int64) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldUpstreamGroupID, v))
+}
+
+// UpstreamGroupIDIn applies the In predicate on the "upstream_group_id" field.
+func UpstreamGroupIDIn(vs ...int64) predicate.Account {
+	return predicate.Account(sql.FieldIn(FieldUpstreamGroupID, vs...))
+}
+
+// UpstreamGroupIDNotIn applies the NotIn predicate on the "upstream_group_id" field.
+func UpstreamGroupIDNotIn(vs ...int64) predicate.Account {
+	return predicate.Account(sql.FieldNotIn(FieldUpstreamGroupID, vs...))
+}
+
+// UpstreamGroupIDIsNil applies the IsNil predicate on the "upstream_group_id" field.
+func UpstreamGroupIDIsNil() predicate.Account {
+	return predicate.Account(sql.FieldIsNull(FieldUpstreamGroupID))
+}
+
+// UpstreamGroupIDNotNil applies the NotNil predicate on the "upstream_group_id" field.
+func UpstreamGroupIDNotNil() predicate.Account {
+	return predicate.Account(sql.FieldNotNull(FieldUpstreamGroupID))
+}
+
 // ProxyIDEQ applies the EQ predicate on the "proxy_id" field.
 func ProxyIDEQ(v int64) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldProxyID, v))
@@ -803,6 +913,46 @@ func PriorityLT(v int) predicate.Account {
 // PriorityLTE applies the LTE predicate on the "priority" field.
 func PriorityLTE(v int) predicate.Account {
 	return predicate.Account(sql.FieldLTE(FieldPriority, v))
+}
+
+// SortOrderEQ applies the EQ predicate on the "sort_order" field.
+func SortOrderEQ(v int64) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldSortOrder, v))
+}
+
+// SortOrderNEQ applies the NEQ predicate on the "sort_order" field.
+func SortOrderNEQ(v int64) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldSortOrder, v))
+}
+
+// SortOrderIn applies the In predicate on the "sort_order" field.
+func SortOrderIn(vs ...int64) predicate.Account {
+	return predicate.Account(sql.FieldIn(FieldSortOrder, vs...))
+}
+
+// SortOrderNotIn applies the NotIn predicate on the "sort_order" field.
+func SortOrderNotIn(vs ...int64) predicate.Account {
+	return predicate.Account(sql.FieldNotIn(FieldSortOrder, vs...))
+}
+
+// SortOrderGT applies the GT predicate on the "sort_order" field.
+func SortOrderGT(v int64) predicate.Account {
+	return predicate.Account(sql.FieldGT(FieldSortOrder, v))
+}
+
+// SortOrderGTE applies the GTE predicate on the "sort_order" field.
+func SortOrderGTE(v int64) predicate.Account {
+	return predicate.Account(sql.FieldGTE(FieldSortOrder, v))
+}
+
+// SortOrderLT applies the LT predicate on the "sort_order" field.
+func SortOrderLT(v int64) predicate.Account {
+	return predicate.Account(sql.FieldLT(FieldSortOrder, v))
+}
+
+// SortOrderLTE applies the LTE predicate on the "sort_order" field.
+func SortOrderLTE(v int64) predicate.Account {
+	return predicate.Account(sql.FieldLTE(FieldSortOrder, v))
 }
 
 // RateMultiplierEQ applies the EQ predicate on the "rate_multiplier" field.
@@ -1603,6 +1753,29 @@ func QuotaDimensionIn(vs ...QuotaDimension) predicate.Account {
 // QuotaDimensionNotIn applies the NotIn predicate on the "quota_dimension" field.
 func QuotaDimensionNotIn(vs ...QuotaDimension) predicate.Account {
 	return predicate.Account(sql.FieldNotIn(FieldQuotaDimension, vs...))
+}
+
+// HasUpstreamGroupDirectory applies the HasEdge predicate on the "upstream_group_directory" edge.
+func HasUpstreamGroupDirectory() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, UpstreamGroupDirectoryTable, UpstreamGroupDirectoryColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasUpstreamGroupDirectoryWith applies the HasEdge predicate on the "upstream_group_directory" edge with a given conditions (other predicates).
+func HasUpstreamGroupDirectoryWith(preds ...predicate.AccountUpstreamGroup) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newUpstreamGroupDirectoryStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
 }
 
 // HasGroups applies the HasEdge predicate on the "groups" edge.

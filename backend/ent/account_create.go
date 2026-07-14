@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
+	"github.com/Wei-Shaw/sub2api/ent/accountupstreamgroup"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
@@ -99,6 +100,34 @@ func (_c *AccountCreate) SetType(v string) *AccountCreate {
 	return _c
 }
 
+// SetUpstreamGroup sets the "upstream_group" field.
+func (_c *AccountCreate) SetUpstreamGroup(v string) *AccountCreate {
+	_c.mutation.SetUpstreamGroup(v)
+	return _c
+}
+
+// SetNillableUpstreamGroup sets the "upstream_group" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableUpstreamGroup(v *string) *AccountCreate {
+	if v != nil {
+		_c.SetUpstreamGroup(*v)
+	}
+	return _c
+}
+
+// SetUpstreamGroupID sets the "upstream_group_id" field.
+func (_c *AccountCreate) SetUpstreamGroupID(v int64) *AccountCreate {
+	_c.mutation.SetUpstreamGroupID(v)
+	return _c
+}
+
+// SetNillableUpstreamGroupID sets the "upstream_group_id" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableUpstreamGroupID(v *int64) *AccountCreate {
+	if v != nil {
+		_c.SetUpstreamGroupID(*v)
+	}
+	return _c
+}
+
 // SetCredentials sets the "credentials" field.
 func (_c *AccountCreate) SetCredentials(v map[string]interface{}) *AccountCreate {
 	_c.mutation.SetCredentials(v)
@@ -177,6 +206,20 @@ func (_c *AccountCreate) SetPriority(v int) *AccountCreate {
 func (_c *AccountCreate) SetNillablePriority(v *int) *AccountCreate {
 	if v != nil {
 		_c.SetPriority(*v)
+	}
+	return _c
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (_c *AccountCreate) SetSortOrder(v int64) *AccountCreate {
+	_c.mutation.SetSortOrder(v)
+	return _c
+}
+
+// SetNillableSortOrder sets the "sort_order" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableSortOrder(v *int64) *AccountCreate {
+	if v != nil {
+		_c.SetSortOrder(*v)
 	}
 	return _c
 }
@@ -419,6 +462,25 @@ func (_c *AccountCreate) SetNillableQuotaDimension(v *account.QuotaDimension) *A
 	return _c
 }
 
+// SetUpstreamGroupDirectoryID sets the "upstream_group_directory" edge to the AccountUpstreamGroup entity by ID.
+func (_c *AccountCreate) SetUpstreamGroupDirectoryID(id int64) *AccountCreate {
+	_c.mutation.SetUpstreamGroupDirectoryID(id)
+	return _c
+}
+
+// SetNillableUpstreamGroupDirectoryID sets the "upstream_group_directory" edge to the AccountUpstreamGroup entity by ID if the given value is not nil.
+func (_c *AccountCreate) SetNillableUpstreamGroupDirectoryID(id *int64) *AccountCreate {
+	if id != nil {
+		_c = _c.SetUpstreamGroupDirectoryID(*id)
+	}
+	return _c
+}
+
+// SetUpstreamGroupDirectory sets the "upstream_group_directory" edge to the AccountUpstreamGroup entity.
+func (_c *AccountCreate) SetUpstreamGroupDirectory(v *AccountUpstreamGroup) *AccountCreate {
+	return _c.SetUpstreamGroupDirectoryID(v.ID)
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by IDs.
 func (_c *AccountCreate) AddGroupIDs(ids ...int64) *AccountCreate {
 	_c.mutation.AddGroupIDs(ids...)
@@ -539,6 +601,10 @@ func (_c *AccountCreate) defaults() error {
 		v := account.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.UpstreamGroup(); !ok {
+		v := account.DefaultUpstreamGroup
+		_c.mutation.SetUpstreamGroup(v)
+	}
 	if _, ok := _c.mutation.Credentials(); !ok {
 		if account.DefaultCredentials == nil {
 			return fmt.Errorf("ent: uninitialized account.DefaultCredentials (forgotten import ent/runtime?)")
@@ -560,6 +626,10 @@ func (_c *AccountCreate) defaults() error {
 	if _, ok := _c.mutation.Priority(); !ok {
 		v := account.DefaultPriority
 		_c.mutation.SetPriority(v)
+	}
+	if _, ok := _c.mutation.SortOrder(); !ok {
+		v := account.DefaultSortOrder
+		_c.mutation.SetSortOrder(v)
 	}
 	if _, ok := _c.mutation.RateMultiplier(); !ok {
 		v := account.DefaultRateMultiplier
@@ -616,6 +686,14 @@ func (_c *AccountCreate) check() error {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "Account.type": %w`, err)}
 		}
 	}
+	if _, ok := _c.mutation.UpstreamGroup(); !ok {
+		return &ValidationError{Name: "upstream_group", err: errors.New(`ent: missing required field "Account.upstream_group"`)}
+	}
+	if v, ok := _c.mutation.UpstreamGroup(); ok {
+		if err := account.UpstreamGroupValidator(v); err != nil {
+			return &ValidationError{Name: "upstream_group", err: fmt.Errorf(`ent: validator failed for field "Account.upstream_group": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.Credentials(); !ok {
 		return &ValidationError{Name: "credentials", err: errors.New(`ent: missing required field "Account.credentials"`)}
 	}
@@ -627,6 +705,9 @@ func (_c *AccountCreate) check() error {
 	}
 	if _, ok := _c.mutation.Priority(); !ok {
 		return &ValidationError{Name: "priority", err: errors.New(`ent: missing required field "Account.priority"`)}
+	}
+	if _, ok := _c.mutation.SortOrder(); !ok {
+		return &ValidationError{Name: "sort_order", err: errors.New(`ent: missing required field "Account.sort_order"`)}
 	}
 	if _, ok := _c.mutation.RateMultiplier(); !ok {
 		return &ValidationError{Name: "rate_multiplier", err: errors.New(`ent: missing required field "Account.rate_multiplier"`)}
@@ -713,6 +794,10 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 		_spec.SetField(account.FieldType, field.TypeString, value)
 		_node.Type = value
 	}
+	if value, ok := _c.mutation.UpstreamGroup(); ok {
+		_spec.SetField(account.FieldUpstreamGroup, field.TypeString, value)
+		_node.UpstreamGroup = value
+	}
 	if value, ok := _c.mutation.Credentials(); ok {
 		_spec.SetField(account.FieldCredentials, field.TypeJSON, value)
 		_node.Credentials = value
@@ -736,6 +821,10 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Priority(); ok {
 		_spec.SetField(account.FieldPriority, field.TypeInt, value)
 		_node.Priority = value
+	}
+	if value, ok := _c.mutation.SortOrder(); ok {
+		_spec.SetField(account.FieldSortOrder, field.TypeInt64, value)
+		_node.SortOrder = value
 	}
 	if value, ok := _c.mutation.RateMultiplier(); ok {
 		_spec.SetField(account.FieldRateMultiplier, field.TypeFloat64, value)
@@ -800,6 +889,23 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.QuotaDimension(); ok {
 		_spec.SetField(account.FieldQuotaDimension, field.TypeEnum, value)
 		_node.QuotaDimension = value
+	}
+	if nodes := _c.mutation.UpstreamGroupDirectoryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   account.UpstreamGroupDirectoryTable,
+			Columns: []string{account.UpstreamGroupDirectoryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountupstreamgroup.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.UpstreamGroupID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.GroupsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -1023,6 +1129,36 @@ func (u *AccountUpsert) UpdateType() *AccountUpsert {
 	return u
 }
 
+// SetUpstreamGroup sets the "upstream_group" field.
+func (u *AccountUpsert) SetUpstreamGroup(v string) *AccountUpsert {
+	u.Set(account.FieldUpstreamGroup, v)
+	return u
+}
+
+// UpdateUpstreamGroup sets the "upstream_group" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateUpstreamGroup() *AccountUpsert {
+	u.SetExcluded(account.FieldUpstreamGroup)
+	return u
+}
+
+// SetUpstreamGroupID sets the "upstream_group_id" field.
+func (u *AccountUpsert) SetUpstreamGroupID(v int64) *AccountUpsert {
+	u.Set(account.FieldUpstreamGroupID, v)
+	return u
+}
+
+// UpdateUpstreamGroupID sets the "upstream_group_id" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateUpstreamGroupID() *AccountUpsert {
+	u.SetExcluded(account.FieldUpstreamGroupID)
+	return u
+}
+
+// ClearUpstreamGroupID clears the value of the "upstream_group_id" field.
+func (u *AccountUpsert) ClearUpstreamGroupID() *AccountUpsert {
+	u.SetNull(account.FieldUpstreamGroupID)
+	return u
+}
+
 // SetCredentials sets the "credentials" field.
 func (u *AccountUpsert) SetCredentials(v map[string]interface{}) *AccountUpsert {
 	u.Set(account.FieldCredentials, v)
@@ -1146,6 +1282,24 @@ func (u *AccountUpsert) UpdatePriority() *AccountUpsert {
 // AddPriority adds v to the "priority" field.
 func (u *AccountUpsert) AddPriority(v int) *AccountUpsert {
 	u.Add(account.FieldPriority, v)
+	return u
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (u *AccountUpsert) SetSortOrder(v int64) *AccountUpsert {
+	u.Set(account.FieldSortOrder, v)
+	return u
+}
+
+// UpdateSortOrder sets the "sort_order" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateSortOrder() *AccountUpsert {
+	u.SetExcluded(account.FieldSortOrder)
+	return u
+}
+
+// AddSortOrder adds v to the "sort_order" field.
+func (u *AccountUpsert) AddSortOrder(v int64) *AccountUpsert {
+	u.Add(account.FieldSortOrder, v)
 	return u
 }
 
@@ -1574,6 +1728,41 @@ func (u *AccountUpsertOne) UpdateType() *AccountUpsertOne {
 	})
 }
 
+// SetUpstreamGroup sets the "upstream_group" field.
+func (u *AccountUpsertOne) SetUpstreamGroup(v string) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetUpstreamGroup(v)
+	})
+}
+
+// UpdateUpstreamGroup sets the "upstream_group" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateUpstreamGroup() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateUpstreamGroup()
+	})
+}
+
+// SetUpstreamGroupID sets the "upstream_group_id" field.
+func (u *AccountUpsertOne) SetUpstreamGroupID(v int64) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetUpstreamGroupID(v)
+	})
+}
+
+// UpdateUpstreamGroupID sets the "upstream_group_id" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateUpstreamGroupID() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateUpstreamGroupID()
+	})
+}
+
+// ClearUpstreamGroupID clears the value of the "upstream_group_id" field.
+func (u *AccountUpsertOne) ClearUpstreamGroupID() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.ClearUpstreamGroupID()
+	})
+}
+
 // SetCredentials sets the "credentials" field.
 func (u *AccountUpsertOne) SetCredentials(v map[string]interface{}) *AccountUpsertOne {
 	return u.Update(func(s *AccountUpsert) {
@@ -1718,6 +1907,27 @@ func (u *AccountUpsertOne) AddPriority(v int) *AccountUpsertOne {
 func (u *AccountUpsertOne) UpdatePriority() *AccountUpsertOne {
 	return u.Update(func(s *AccountUpsert) {
 		s.UpdatePriority()
+	})
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (u *AccountUpsertOne) SetSortOrder(v int64) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetSortOrder(v)
+	})
+}
+
+// AddSortOrder adds v to the "sort_order" field.
+func (u *AccountUpsertOne) AddSortOrder(v int64) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.AddSortOrder(v)
+	})
+}
+
+// UpdateSortOrder sets the "sort_order" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateSortOrder() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateSortOrder()
 	})
 }
 
@@ -2359,6 +2569,41 @@ func (u *AccountUpsertBulk) UpdateType() *AccountUpsertBulk {
 	})
 }
 
+// SetUpstreamGroup sets the "upstream_group" field.
+func (u *AccountUpsertBulk) SetUpstreamGroup(v string) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetUpstreamGroup(v)
+	})
+}
+
+// UpdateUpstreamGroup sets the "upstream_group" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateUpstreamGroup() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateUpstreamGroup()
+	})
+}
+
+// SetUpstreamGroupID sets the "upstream_group_id" field.
+func (u *AccountUpsertBulk) SetUpstreamGroupID(v int64) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetUpstreamGroupID(v)
+	})
+}
+
+// UpdateUpstreamGroupID sets the "upstream_group_id" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateUpstreamGroupID() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateUpstreamGroupID()
+	})
+}
+
+// ClearUpstreamGroupID clears the value of the "upstream_group_id" field.
+func (u *AccountUpsertBulk) ClearUpstreamGroupID() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.ClearUpstreamGroupID()
+	})
+}
+
 // SetCredentials sets the "credentials" field.
 func (u *AccountUpsertBulk) SetCredentials(v map[string]interface{}) *AccountUpsertBulk {
 	return u.Update(func(s *AccountUpsert) {
@@ -2503,6 +2748,27 @@ func (u *AccountUpsertBulk) AddPriority(v int) *AccountUpsertBulk {
 func (u *AccountUpsertBulk) UpdatePriority() *AccountUpsertBulk {
 	return u.Update(func(s *AccountUpsert) {
 		s.UpdatePriority()
+	})
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (u *AccountUpsertBulk) SetSortOrder(v int64) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetSortOrder(v)
+	})
+}
+
+// AddSortOrder adds v to the "sort_order" field.
+func (u *AccountUpsertBulk) AddSortOrder(v int64) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.AddSortOrder(v)
+	})
+}
+
+// UpdateSortOrder sets the "sort_order" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateSortOrder() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateSortOrder()
 	})
 }
 

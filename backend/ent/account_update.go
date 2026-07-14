@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
+	"github.com/Wei-Shaw/sub2api/ent/accountupstreamgroup"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
@@ -116,6 +117,40 @@ func (_u *AccountUpdate) SetNillableType(v *string) *AccountUpdate {
 	if v != nil {
 		_u.SetType(*v)
 	}
+	return _u
+}
+
+// SetUpstreamGroup sets the "upstream_group" field.
+func (_u *AccountUpdate) SetUpstreamGroup(v string) *AccountUpdate {
+	_u.mutation.SetUpstreamGroup(v)
+	return _u
+}
+
+// SetNillableUpstreamGroup sets the "upstream_group" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableUpstreamGroup(v *string) *AccountUpdate {
+	if v != nil {
+		_u.SetUpstreamGroup(*v)
+	}
+	return _u
+}
+
+// SetUpstreamGroupID sets the "upstream_group_id" field.
+func (_u *AccountUpdate) SetUpstreamGroupID(v int64) *AccountUpdate {
+	_u.mutation.SetUpstreamGroupID(v)
+	return _u
+}
+
+// SetNillableUpstreamGroupID sets the "upstream_group_id" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableUpstreamGroupID(v *int64) *AccountUpdate {
+	if v != nil {
+		_u.SetUpstreamGroupID(*v)
+	}
+	return _u
+}
+
+// ClearUpstreamGroupID clears the value of the "upstream_group_id" field.
+func (_u *AccountUpdate) ClearUpstreamGroupID() *AccountUpdate {
+	_u.mutation.ClearUpstreamGroupID()
 	return _u
 }
 
@@ -244,6 +279,27 @@ func (_u *AccountUpdate) SetNillablePriority(v *int) *AccountUpdate {
 // AddPriority adds value to the "priority" field.
 func (_u *AccountUpdate) AddPriority(v int) *AccountUpdate {
 	_u.mutation.AddPriority(v)
+	return _u
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (_u *AccountUpdate) SetSortOrder(v int64) *AccountUpdate {
+	_u.mutation.ResetSortOrder()
+	_u.mutation.SetSortOrder(v)
+	return _u
+}
+
+// SetNillableSortOrder sets the "sort_order" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableSortOrder(v *int64) *AccountUpdate {
+	if v != nil {
+		_u.SetSortOrder(*v)
+	}
+	return _u
+}
+
+// AddSortOrder adds value to the "sort_order" field.
+func (_u *AccountUpdate) AddSortOrder(v int64) *AccountUpdate {
+	_u.mutation.AddSortOrder(v)
 	return _u
 }
 
@@ -564,6 +620,25 @@ func (_u *AccountUpdate) SetNillableQuotaDimension(v *account.QuotaDimension) *A
 	return _u
 }
 
+// SetUpstreamGroupDirectoryID sets the "upstream_group_directory" edge to the AccountUpstreamGroup entity by ID.
+func (_u *AccountUpdate) SetUpstreamGroupDirectoryID(id int64) *AccountUpdate {
+	_u.mutation.SetUpstreamGroupDirectoryID(id)
+	return _u
+}
+
+// SetNillableUpstreamGroupDirectoryID sets the "upstream_group_directory" edge to the AccountUpstreamGroup entity by ID if the given value is not nil.
+func (_u *AccountUpdate) SetNillableUpstreamGroupDirectoryID(id *int64) *AccountUpdate {
+	if id != nil {
+		_u = _u.SetUpstreamGroupDirectoryID(*id)
+	}
+	return _u
+}
+
+// SetUpstreamGroupDirectory sets the "upstream_group_directory" edge to the AccountUpstreamGroup entity.
+func (_u *AccountUpdate) SetUpstreamGroupDirectory(v *AccountUpstreamGroup) *AccountUpdate {
+	return _u.SetUpstreamGroupDirectoryID(v.ID)
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by IDs.
 func (_u *AccountUpdate) AddGroupIDs(ids ...int64) *AccountUpdate {
 	_u.mutation.AddGroupIDs(ids...)
@@ -636,6 +711,12 @@ func (_u *AccountUpdate) AddUsageLogs(v ...*UsageLog) *AccountUpdate {
 // Mutation returns the AccountMutation object of the builder.
 func (_u *AccountUpdate) Mutation() *AccountMutation {
 	return _u.mutation
+}
+
+// ClearUpstreamGroupDirectory clears the "upstream_group_directory" edge to the AccountUpstreamGroup entity.
+func (_u *AccountUpdate) ClearUpstreamGroupDirectory() *AccountUpdate {
+	_u.mutation.ClearUpstreamGroupDirectory()
+	return _u
 }
 
 // ClearGroups clears all "groups" edges to the Group entity.
@@ -772,6 +853,11 @@ func (_u *AccountUpdate) check() error {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "Account.type": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.UpstreamGroup(); ok {
+		if err := account.UpstreamGroupValidator(v); err != nil {
+			return &ValidationError{Name: "upstream_group", err: fmt.Errorf(`ent: validator failed for field "Account.upstream_group": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := account.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Account.status": %w`, err)}
@@ -826,6 +912,9 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.GetType(); ok {
 		_spec.SetField(account.FieldType, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.UpstreamGroup(); ok {
+		_spec.SetField(account.FieldUpstreamGroup, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.Credentials(); ok {
 		_spec.SetField(account.FieldCredentials, field.TypeJSON, value)
 	}
@@ -861,6 +950,12 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedPriority(); ok {
 		_spec.AddField(account.FieldPriority, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.SortOrder(); ok {
+		_spec.SetField(account.FieldSortOrder, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedSortOrder(); ok {
+		_spec.AddField(account.FieldSortOrder, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.RateMultiplier(); ok {
 		_spec.SetField(account.FieldRateMultiplier, field.TypeFloat64, value)
@@ -945,6 +1040,35 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.QuotaDimension(); ok {
 		_spec.SetField(account.FieldQuotaDimension, field.TypeEnum, value)
+	}
+	if _u.mutation.UpstreamGroupDirectoryCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   account.UpstreamGroupDirectoryTable,
+			Columns: []string{account.UpstreamGroupDirectoryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountupstreamgroup.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.UpstreamGroupDirectoryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   account.UpstreamGroupDirectoryTable,
+			Columns: []string{account.UpstreamGroupDirectoryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountupstreamgroup.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _u.mutation.GroupsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1259,6 +1383,40 @@ func (_u *AccountUpdateOne) SetNillableType(v *string) *AccountUpdateOne {
 	return _u
 }
 
+// SetUpstreamGroup sets the "upstream_group" field.
+func (_u *AccountUpdateOne) SetUpstreamGroup(v string) *AccountUpdateOne {
+	_u.mutation.SetUpstreamGroup(v)
+	return _u
+}
+
+// SetNillableUpstreamGroup sets the "upstream_group" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableUpstreamGroup(v *string) *AccountUpdateOne {
+	if v != nil {
+		_u.SetUpstreamGroup(*v)
+	}
+	return _u
+}
+
+// SetUpstreamGroupID sets the "upstream_group_id" field.
+func (_u *AccountUpdateOne) SetUpstreamGroupID(v int64) *AccountUpdateOne {
+	_u.mutation.SetUpstreamGroupID(v)
+	return _u
+}
+
+// SetNillableUpstreamGroupID sets the "upstream_group_id" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableUpstreamGroupID(v *int64) *AccountUpdateOne {
+	if v != nil {
+		_u.SetUpstreamGroupID(*v)
+	}
+	return _u
+}
+
+// ClearUpstreamGroupID clears the value of the "upstream_group_id" field.
+func (_u *AccountUpdateOne) ClearUpstreamGroupID() *AccountUpdateOne {
+	_u.mutation.ClearUpstreamGroupID()
+	return _u
+}
+
 // SetCredentials sets the "credentials" field.
 func (_u *AccountUpdateOne) SetCredentials(v map[string]interface{}) *AccountUpdateOne {
 	_u.mutation.SetCredentials(v)
@@ -1384,6 +1542,27 @@ func (_u *AccountUpdateOne) SetNillablePriority(v *int) *AccountUpdateOne {
 // AddPriority adds value to the "priority" field.
 func (_u *AccountUpdateOne) AddPriority(v int) *AccountUpdateOne {
 	_u.mutation.AddPriority(v)
+	return _u
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (_u *AccountUpdateOne) SetSortOrder(v int64) *AccountUpdateOne {
+	_u.mutation.ResetSortOrder()
+	_u.mutation.SetSortOrder(v)
+	return _u
+}
+
+// SetNillableSortOrder sets the "sort_order" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableSortOrder(v *int64) *AccountUpdateOne {
+	if v != nil {
+		_u.SetSortOrder(*v)
+	}
+	return _u
+}
+
+// AddSortOrder adds value to the "sort_order" field.
+func (_u *AccountUpdateOne) AddSortOrder(v int64) *AccountUpdateOne {
+	_u.mutation.AddSortOrder(v)
 	return _u
 }
 
@@ -1704,6 +1883,25 @@ func (_u *AccountUpdateOne) SetNillableQuotaDimension(v *account.QuotaDimension)
 	return _u
 }
 
+// SetUpstreamGroupDirectoryID sets the "upstream_group_directory" edge to the AccountUpstreamGroup entity by ID.
+func (_u *AccountUpdateOne) SetUpstreamGroupDirectoryID(id int64) *AccountUpdateOne {
+	_u.mutation.SetUpstreamGroupDirectoryID(id)
+	return _u
+}
+
+// SetNillableUpstreamGroupDirectoryID sets the "upstream_group_directory" edge to the AccountUpstreamGroup entity by ID if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableUpstreamGroupDirectoryID(id *int64) *AccountUpdateOne {
+	if id != nil {
+		_u = _u.SetUpstreamGroupDirectoryID(*id)
+	}
+	return _u
+}
+
+// SetUpstreamGroupDirectory sets the "upstream_group_directory" edge to the AccountUpstreamGroup entity.
+func (_u *AccountUpdateOne) SetUpstreamGroupDirectory(v *AccountUpstreamGroup) *AccountUpdateOne {
+	return _u.SetUpstreamGroupDirectoryID(v.ID)
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by IDs.
 func (_u *AccountUpdateOne) AddGroupIDs(ids ...int64) *AccountUpdateOne {
 	_u.mutation.AddGroupIDs(ids...)
@@ -1776,6 +1974,12 @@ func (_u *AccountUpdateOne) AddUsageLogs(v ...*UsageLog) *AccountUpdateOne {
 // Mutation returns the AccountMutation object of the builder.
 func (_u *AccountUpdateOne) Mutation() *AccountMutation {
 	return _u.mutation
+}
+
+// ClearUpstreamGroupDirectory clears the "upstream_group_directory" edge to the AccountUpstreamGroup entity.
+func (_u *AccountUpdateOne) ClearUpstreamGroupDirectory() *AccountUpdateOne {
+	_u.mutation.ClearUpstreamGroupDirectory()
+	return _u
 }
 
 // ClearGroups clears all "groups" edges to the Group entity.
@@ -1925,6 +2129,11 @@ func (_u *AccountUpdateOne) check() error {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "Account.type": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.UpstreamGroup(); ok {
+		if err := account.UpstreamGroupValidator(v); err != nil {
+			return &ValidationError{Name: "upstream_group", err: fmt.Errorf(`ent: validator failed for field "Account.upstream_group": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := account.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Account.status": %w`, err)}
@@ -1996,6 +2205,9 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	if value, ok := _u.mutation.GetType(); ok {
 		_spec.SetField(account.FieldType, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.UpstreamGroup(); ok {
+		_spec.SetField(account.FieldUpstreamGroup, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.Credentials(); ok {
 		_spec.SetField(account.FieldCredentials, field.TypeJSON, value)
 	}
@@ -2031,6 +2243,12 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if value, ok := _u.mutation.AddedPriority(); ok {
 		_spec.AddField(account.FieldPriority, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.SortOrder(); ok {
+		_spec.SetField(account.FieldSortOrder, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedSortOrder(); ok {
+		_spec.AddField(account.FieldSortOrder, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.RateMultiplier(); ok {
 		_spec.SetField(account.FieldRateMultiplier, field.TypeFloat64, value)
@@ -2115,6 +2333,35 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if value, ok := _u.mutation.QuotaDimension(); ok {
 		_spec.SetField(account.FieldQuotaDimension, field.TypeEnum, value)
+	}
+	if _u.mutation.UpstreamGroupDirectoryCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   account.UpstreamGroupDirectoryTable,
+			Columns: []string{account.UpstreamGroupDirectoryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountupstreamgroup.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.UpstreamGroupDirectoryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   account.UpstreamGroupDirectoryTable,
+			Columns: []string{account.UpstreamGroupDirectoryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(accountupstreamgroup.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _u.mutation.GroupsCleared() {
 		edge := &sqlgraph.EdgeSpec{

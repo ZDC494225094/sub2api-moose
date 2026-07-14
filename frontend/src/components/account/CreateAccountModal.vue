@@ -840,6 +840,12 @@
         <p class="input-hint">{{ t('admin.accounts.antigravityProjectIdHint') }}</p>
       </div>
 
+      <UpstreamGroupField
+        v-model="form.upstream_group"
+        :groups="upstreamGroups"
+        :loading="upstreamGroupsLoading"
+      />
+
       <!-- Upstream config (only for Antigravity upstream type) -->
       <div v-if="form.platform === 'antigravity' && antigravityAccountType === 'upstream'" class="space-y-4">
         <div>
@@ -3413,6 +3419,7 @@ import type {
   AdminGroup,
   AccountPlatform,
   AccountType,
+  AccountUpstreamGroup,
   CheckMixedChannelResponse,
   CreateAccountRequest,
   CodexSessionImportMessage,
@@ -3452,6 +3459,7 @@ import {
   type OpenAIWSMode
 } from '@/utils/openaiWsMode'
 import OAuthAuthorizationFlow from './OAuthAuthorizationFlow.vue'
+import UpstreamGroupField from './UpstreamGroupField.vue'
 
 // Type for exposed OAuthAuthorizationFlow component
 // Note: defineExpose automatically unwraps refs, so we use the unwrapped types
@@ -3498,6 +3506,8 @@ interface Props {
   show: boolean
   proxies: Proxy[]
   groups: AdminGroup[]
+  upstreamGroups?: AccountUpstreamGroup[]
+  upstreamGroupsLoading?: boolean
 }
 
 const props = defineProps<Props>()
@@ -3925,6 +3935,7 @@ const form = reactive({
   notes: '',
   platform: 'anthropic' as AccountPlatform,
   type: 'oauth' as AccountType, // Will be 'oauth', 'setup-token', or 'apikey'
+  upstream_group: '',
   credentials: {} as Record<string, unknown>,
   proxy_id: null as number | null,
   concurrency: 10,
@@ -4467,6 +4478,7 @@ const resetForm = () => {
   form.priority = 1
   form.rate_multiplier = 1
   form.group_ids = []
+  form.upstream_group = ''
   form.expires_at = null
   accountCategory.value = 'oauth-based'
   addMethod.value = 'oauth'
@@ -4951,6 +4963,7 @@ const handleSubmit = async () => {
 
   await doCreateAccount({
     ...form,
+    upstream_group: form.upstream_group.trim(),
     group_ids: form.group_ids,
     extra,
     auto_pause_on_expired: autoPauseOnExpired.value
@@ -5079,6 +5092,7 @@ const createAccountAndFinish = async (
     load_factor: form.load_factor ?? undefined,
     priority: form.priority,
     rate_multiplier: form.rate_multiplier,
+    upstream_group: form.upstream_group.trim(),
     group_ids: form.group_ids,
     expires_at: form.expires_at,
     auto_pause_on_expired: autoPauseOnExpired.value
@@ -5141,6 +5155,7 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
           load_factor: form.load_factor ?? undefined,
           priority: form.priority,
           rate_multiplier: form.rate_multiplier,
+          upstream_group: form.upstream_group.trim(),
           group_ids: form.group_ids,
           expires_at: form.expires_at,
           auto_pause_on_expired: autoPauseOnExpired.value
@@ -5235,6 +5250,7 @@ const handleOpenAIExchange = async (authCode: string) => {
         load_factor: form.load_factor ?? undefined,
         priority: form.priority,
         rate_multiplier: form.rate_multiplier,
+        upstream_group: form.upstream_group.trim(),
         group_ids: form.group_ids,
         expires_at: form.expires_at,
         auto_pause_on_expired: autoPauseOnExpired.value
@@ -5312,6 +5328,7 @@ const handleOpenAIImportCodexSession = async (content: string) => {
       load_factor: form.load_factor ?? undefined,
       priority: form.priority,
       rate_multiplier: form.rate_multiplier,
+      upstream_group: form.upstream_group.trim(),
       group_ids: form.group_ids,
       expires_at: form.expires_at,
       auto_pause_on_expired: autoPauseOnExpired.value,
@@ -5390,6 +5407,7 @@ const handleOpenAIImportCodexPAT = async (accessToken: string) => {
       load_factor: form.load_factor ?? undefined,
       priority: form.priority,
       rate_multiplier: form.rate_multiplier,
+      upstream_group: form.upstream_group.trim(),
       group_ids: form.group_ids,
       expires_at: form.expires_at,
       auto_pause_on_expired: autoPauseOnExpired.value,
@@ -5488,6 +5506,7 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
             load_factor: form.load_factor ?? undefined,
             priority: form.priority,
             rate_multiplier: form.rate_multiplier,
+            upstream_group: form.upstream_group.trim(),
             group_ids: form.group_ids,
             expires_at: form.expires_at,
             auto_pause_on_expired: autoPauseOnExpired.value
@@ -5587,6 +5606,7 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
           load_factor: form.load_factor ?? undefined,
           priority: form.priority,
           rate_multiplier: form.rate_multiplier,
+          upstream_group: form.upstream_group.trim(),
           group_ids: form.group_ids,
           expires_at: form.expires_at,
           auto_pause_on_expired: autoPauseOnExpired.value
@@ -5966,6 +5986,7 @@ const handleCookieAuth = async (sessionKey: string) => {
           load_factor: form.load_factor ?? undefined,
           priority: form.priority,
           rate_multiplier: form.rate_multiplier,
+          upstream_group: form.upstream_group.trim(),
           group_ids: form.group_ids,
           expires_at: form.expires_at,
           auto_pause_on_expired: autoPauseOnExpired.value

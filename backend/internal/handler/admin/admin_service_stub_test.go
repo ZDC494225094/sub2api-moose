@@ -14,6 +14,8 @@ type stubAdminService struct {
 	apiKeys                             []service.APIKey
 	groups                              []service.Group
 	accounts                            []service.Account
+	accountUpstreamGroups               []service.AccountUpstreamGroup
+	accountUpstreamGroupsErr            error
 	accountSchedulerScoreFilterAccounts []service.Account
 	openAISchedulerScorePoolAccounts    []service.Account
 	schedulerScoreFilterCalls           int
@@ -374,6 +376,18 @@ func (s *stubAdminService) ListAccounts(ctx context.Context, page, pageSize int,
 	return accounts[start:end], int64(total), nil
 }
 
+func (s *stubAdminService) ListAccountUpstreamGroups(context.Context) ([]service.AccountUpstreamGroup, error) {
+	return s.accountUpstreamGroups, s.accountUpstreamGroupsErr
+}
+
+func (s *stubAdminService) RenameAccountUpstreamGroup(_ context.Context, id int64, name string) (*service.AccountUpstreamGroup, error) {
+	return &service.AccountUpstreamGroup{ID: id, Name: name}, nil
+}
+
+func (s *stubAdminService) UpdateAccountUpstreamGroupSortOrders(context.Context, []service.AccountUpstreamGroupSortOrderUpdate) error {
+	return nil
+}
+
 func (s *stubAdminService) ListAccountsForSchedulerScoreFilter(_ context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, error) {
 	s.schedulerScoreFilterCalls++
 	if s.accountSchedulerScoreFilterAccounts != nil {
@@ -649,6 +663,10 @@ func (s *stubAdminService) GetUserBalanceHistory(ctx context.Context, userID int
 }
 
 func (s *stubAdminService) UpdateGroupSortOrders(ctx context.Context, updates []service.GroupSortOrderUpdate) error {
+	return nil
+}
+
+func (s *stubAdminService) UpdateAccountSortOrders(context.Context, []service.AccountSortOrderUpdate) error {
 	return nil
 }
 
