@@ -184,7 +184,7 @@
           </td>
         </tr>
 
-        <!-- Data rows (virtual scroll) -->
+        <!-- Data rows: windowed when large, fully rendered when small (shared row/cell template) -->
         <template v-else>
           <tr v-if="virtualPaddingTop > 0" aria-hidden="true">
             <td :colspan="columns.length"
@@ -479,6 +479,12 @@ interface Props {
   rowDraggable?: boolean | ((row: any, index: number) => boolean)
   /** Restrict drag initiation to a descendant matching this selector. */
   dragHandleSelector?: string
+  /**
+   * Only virtualize when the row count exceeds this threshold (default 100).
+   * Smaller lists render in full, avoiding the scroll-compensation jank caused by
+   * estimated-vs-actual row heights when rows have variable height.
+   */
+  virtualizeThreshold?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -805,9 +811,24 @@ const sortedData = computed(() => {
 })
 
 // --- Virtual scrolling ---
+// 是否启用虚拟化:仅桌面端且行数超过阈值时开启。小列表全量渲染,彻底绕开虚拟器的
+// 估算/测量/滚动补偿链路,消除可变行高导致的滚动抖动。
+const shouldVirtualize = computed(() =>
+  isDesktopViewport.value &&
+  !props.rowGroup &&
+  !props.rowDraggable &&
+  (sortedData.value?.length ?? 0) > (props.virtualizeThreshold ?? 100)
+)
+
 const rowVirtualizer = useVirtualizer(computed(() => ({
-  count: isDesktopViewport.value && !props.rowGroup && !props.rowDraggable ? (sortedData.value?.length ?? 0) : 0,
+  count: shouldVirtualize.value ? (sortedData.value?.length ?? 0) : 0,
   getScrollElement: () => tableWrapperRef.value,
+  // 用行主键(与模板 :key 一致)而非默认的 index 作为 itemSizeCache 键,
+  // 这样排序/筛选/跨阈值来回都能复用正确的已测行高,而不是残留的按 index 缓存 → 消除高度校正抖动。
+  getItemKey: (index: number) => {
+    const row = sortedData.value?.[index]
+    return row != null ? resolveRowKey(row, index) : index
+  },
   estimateSize: () => props.estimateRowHeight ?? 56,
   overscan: props.overscan ?? 5,
   // 兜底高度:首个有效高度读数到来前,先按一屏渲染,避免空白帧
@@ -821,25 +842,25 @@ const rowVirtualizer = useVirtualizer(computed(() => ({
 const virtualItems = computed(() => rowVirtualizer.value.getVirtualItems())
 
 const renderedRows = computed(() => {
-  if (!props.rowGroup && !props.rowDraggable) return virtualItems.value
+  if (shouldVirtualize.value) return virtualItems.value
   return sortedData.value.map((_, index) => ({ index, start: 0, end: 0, size: 0, key: index, lane: 0 }))
 })
 
 const virtualPaddingTop = computed(() => {
-  if (props.rowGroup || props.rowDraggable) return 0
+  if (!shouldVirtualize.value) return 0
   const items = virtualItems.value
   return items.length > 0 ? items[0].start : 0
 })
 
 const virtualPaddingBottom = computed(() => {
-  if (props.rowGroup || props.rowDraggable) return 0
+  if (!shouldVirtualize.value) return 0
   const items = virtualItems.value
   if (items.length === 0) return 0
   return rowVirtualizer.value.getTotalSize() - items[items.length - 1].end
 })
 
 const measureElement = (el: any) => {
-  if (el && !props.rowGroup && !props.rowDraggable) {
+  if (el && shouldVirtualize.value) {
     rowVirtualizer.value.measureElement(el as Element)
   }
 }
@@ -943,6 +964,7 @@ watch(
 
 defineExpose({
   virtualizer: rowVirtualizer,
+  shouldVirtualize,
   sortedData,
   resolveRowKey,
   tableWrapperEl: tableWrapperRef,

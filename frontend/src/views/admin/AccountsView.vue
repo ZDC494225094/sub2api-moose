@@ -251,8 +251,10 @@
           @sort="handleSort"
           :default-sort-key="accountTableDefaultSortKey"
           :default-sort-order="customOrderEnabled || accountViewMode === 'upstream' ? 'asc' : sortState.sort_order"
-          :estimate-row-height="72"
+          :sort-storage-key="customOrderEnabled || accountViewMode === 'upstream' ? undefined : ACCOUNT_SORT_STORAGE_KEY"
+          :estimate-row-height="156"
           :overscan="5"
+          :virtualize-threshold="50"
         >
           <template #header-select>
             <input
