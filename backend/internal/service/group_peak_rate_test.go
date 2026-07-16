@@ -98,30 +98,26 @@ func mustLoad(name string) *time.Location {
 func TestValidatePeakRateConfig(t *testing.T) {
 	cases := []struct {
 		name    string
-		subType string
 		enabled bool
 		start   string
 		end     string
 		mult    float64
 		wantErr bool
 	}{
-		{"disabled passes through", "subscription", false, "", "", 0, false},
-		{"subscription enabled valid", "subscription", true, "14:00", "18:00", 3.0, false},
-		{"standard enabled rejected", "standard", true, "14:00", "18:00", 3.0, true},
-		{"empty type treated as standard", "", true, "14:00", "18:00", 3.0, true},
-		{"standard disabled passes", "standard", false, "", "", 0, false},
-		{"enabled empty start", "subscription", true, "", "18:00", 1.0, true},
-		{"enabled empty end", "subscription", true, "14:00", "", 1.0, true},
-		{"enabled malformed start", "subscription", true, "99:99", "18:00", 1.0, true},
-		{"enabled malformed end", "subscription", true, "14:00", "25:00", 1.0, true},
-		{"enabled equal start==end", "subscription", true, "14:00", "14:00", 1.0, true},
-		{"enabled cross-day rejected", "subscription", true, "22:00", "02:00", 1.0, true},
-		{"enabled negative multiplier", "subscription", true, "14:00", "18:00", -0.5, true},
-		{"enabled zero multiplier allowed", "subscription", true, "14:00", "18:00", 0, false},
+		{"disabled passes through", false, "", "", 0, false},
+		{"enabled valid", true, "14:00", "18:00", 3.0, false},
+		{"enabled empty start", true, "", "18:00", 1.0, true},
+		{"enabled empty end", true, "14:00", "", 1.0, true},
+		{"enabled malformed start", true, "99:99", "18:00", 1.0, true},
+		{"enabled malformed end", true, "14:00", "25:00", 1.0, true},
+		{"enabled equal start==end", true, "14:00", "14:00", 1.0, true},
+		{"enabled cross-day rejected", true, "22:00", "02:00", 1.0, true},
+		{"enabled negative multiplier", true, "14:00", "18:00", -0.5, true},
+		{"enabled zero multiplier allowed", true, "14:00", "18:00", 0, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := ValidatePeakRateConfig(c.subType, c.enabled, c.start, c.end, c.mult)
+			err := ValidatePeakRateConfig(c.enabled, c.start, c.end, c.mult)
 			if c.wantErr && err == nil {
 				t.Fatalf("expect error, got nil")
 			}
@@ -132,17 +128,15 @@ func TestValidatePeakRateConfig(t *testing.T) {
 	}
 }
 
-func TestPeakMultiplierAt_StandardTypeDegradesToOne(t *testing.T) {
-	g := newPeakGroup(true, "14:00", "18:00", 3.0)
-	g.SubscriptionType = "standard"
-	if got := g.PeakMultiplierAt(at(15, 30)); got != 1.0 {
-		t.Fatalf("standard group must degrade to 1.0, got %v", got)
-	}
-
-	sub := newPeakGroup(true, "14:00", "18:00", 3.0)
-	sub.SubscriptionType = "subscription"
-	if got := sub.PeakMultiplierAt(at(15, 30)); got != 3.0 {
-		t.Fatalf("subscription group peak multiplier: got %v, want 3.0", got)
+func TestPeakMultiplierAt_AllGroupTypes(t *testing.T) {
+	for _, groupType := range []string{SubscriptionTypeStandard, SubscriptionTypeSubscription} {
+		t.Run(groupType, func(t *testing.T) {
+			g := newPeakGroup(true, "14:00", "18:00", 3.0)
+			g.SubscriptionType = groupType
+			if got := g.PeakMultiplierAt(at(15, 30)); got != 3.0 {
+				t.Fatalf("%s group peak multiplier: got %v, want 3.0", groupType, got)
+			}
+		})
 	}
 }
 
@@ -152,7 +146,9 @@ func TestPeakMultiplierAt_StandardTypeDegradesToOne(t *testing.T) {
 // 若有人调换叠加顺序或把高峰并入 imageMultiplier，此测试会失败。
 func TestPeakMultiplier_GatewayBillingSequence(t *testing.T) {
 	const baseMultiplier = 0.8
-	apiKey := &APIKey{Group: newPeakGroup(true, "14:00", "18:00", 3.0)}
+	standardGroup := newPeakGroup(true, "14:00", "18:00", 3.0)
+	standardGroup.SubscriptionType = SubscriptionTypeStandard
+	apiKey := &APIKey{Group: standardGroup}
 	approxEq := func(a, b float64) bool { return math.Abs(a-b) < 1e-9 }
 
 	t.Run("peak hour amplifies token multiplier only", func(t *testing.T) {

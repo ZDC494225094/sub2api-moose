@@ -29,7 +29,12 @@ const {
 }))
 
 const messages: Record<string, string> = {
+  'admin.groups.createGroup': 'Create Group',
   'admin.groups.columnSettings': 'Column Settings',
+  'admin.groups.peakRate.enable': 'Enable Peak Rate',
+  'admin.groups.peakRate.peakStart': 'Peak Start',
+  'admin.groups.peakRate.peakEnd': 'Peak End',
+  'admin.groups.peakRate.peakMultiplier': 'Peak Multiplier',
   'admin.groups.columns.name': 'Name',
   'admin.groups.columns.platform': 'Platform',
   'admin.groups.columns.billingType': 'Billing Type',
@@ -327,5 +332,36 @@ describe('admin GroupsView column settings', () => {
     await clickColumnToggle(wrapper, 'Capacity')
     expect(getUsageSummary).toHaveBeenCalledTimes(1)
     expect(getCapacitySummary).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders and expands peak rate controls for a standard group', async () => {
+    const wrapper = await mountView()
+    const createButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Create Group'))
+
+    expect(createButton).toBeTruthy()
+    await createButton!.trigger('click')
+    await flushPromises()
+
+    const subscriptionSelect = wrapper.findAll('select').find(
+      (select) =>
+        select.find('option[value="standard"]').exists() &&
+        select.find('option[value="subscription"]').exists(),
+    )
+    expect(subscriptionSelect).toBeTruthy()
+    expect((subscriptionSelect!.element as HTMLSelectElement).value).toBe('standard')
+
+    const peakToggleLabel = wrapper
+      .findAll('label')
+      .find((label) => label.text().includes('Enable Peak Rate'))
+    expect(peakToggleLabel).toBeTruthy()
+
+    await peakToggleLabel!.get('input[type="checkbox"]').setValue(true)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Peak Start')
+    expect(wrapper.text()).toContain('Peak End')
+    expect(wrapper.text()).toContain('Peak Multiplier')
   })
 })

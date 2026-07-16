@@ -658,7 +658,31 @@ func TestAdminService_UpdateGroup_InvalidatesAuthCacheOnRPMLimitChange(t *testin
 	require.Equal(t, []int64{1}, invalidator.groupIDs, "分组 RPMLimit 写入 auth snapshot，变更后必须失效 API Key 认证缓存")
 }
 
-func TestAdminService_UpdateGroup_ClearsPeakRateWhenChangingToStandard(t *testing.T) {
+func TestAdminService_CreateGroup_StandardSupportsPeakRate(t *testing.T) {
+	repo := &groupRepoStubForAdmin{}
+	svc := &adminServiceImpl{groupRepo: repo}
+	peakMultiplier := 2.5
+
+	group, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
+		Name:               "standard-peak-group",
+		Platform:           PlatformOpenAI,
+		RateMultiplier:     1,
+		SubscriptionType:   SubscriptionTypeStandard,
+		PeakRateEnabled:    true,
+		PeakStart:          "14:00",
+		PeakEnd:            "18:00",
+		PeakRateMultiplier: &peakMultiplier,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, group)
+	require.NotNil(t, repo.created)
+	require.True(t, repo.created.PeakRateEnabled)
+	require.Equal(t, "14:00", repo.created.PeakStart)
+	require.Equal(t, "18:00", repo.created.PeakEnd)
+	require.Equal(t, 2.5, repo.created.PeakRateMultiplier)
+}
+
+func TestAdminService_UpdateGroup_PreservesPeakRateWhenChangingToStandard(t *testing.T) {
 	existingGroup := &Group{
 		ID:                 1,
 		Name:               "existing-group",
@@ -680,10 +704,10 @@ func TestAdminService_UpdateGroup_ClearsPeakRateWhenChangingToStandard(t *testin
 	require.NotNil(t, group)
 	require.NotNil(t, repo.updated)
 	require.Equal(t, SubscriptionTypeStandard, repo.updated.SubscriptionType)
-	require.False(t, repo.updated.PeakRateEnabled)
-	require.Equal(t, "", repo.updated.PeakStart)
-	require.Equal(t, "", repo.updated.PeakEnd)
-	require.Equal(t, 1.0, repo.updated.PeakRateMultiplier)
+	require.True(t, repo.updated.PeakRateEnabled)
+	require.Equal(t, "14:00", repo.updated.PeakStart)
+	require.Equal(t, "18:00", repo.updated.PeakEnd)
+	require.Equal(t, 3.0, repo.updated.PeakRateMultiplier)
 }
 
 func TestAdminService_CreateGroup_NormalizesMessagesDispatchModelConfig(t *testing.T) {

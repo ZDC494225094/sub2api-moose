@@ -1143,6 +1143,7 @@ import { useAuthStore } from '@/stores/auth'
 import { formatDateOnly, formatRelativeTime, formatTime } from '@/utils/format'
 import { platformIconClass } from '@/utils/platformColors'
 import { firstImageDescription, mapClientPointToCanvas, wrapGalleryIndex } from '@/utils/playgroundImageTools'
+import { toCloneablePlaygroundState } from '@/utils/playgroundPersistence'
 import {
   isRecoverablePlaygroundError,
   isRetryablePlaygroundRequestError,
@@ -2554,9 +2555,10 @@ async function hydratePersistedAttachments() {
 
 async function savePlaygroundStateToDB(payload: PlaygroundPersistedPayload) {
   const db = await openPlaygroundDB()
+  const cloneablePayload = toCloneablePlaygroundState(payload)
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(PLAYGROUND_STATE_STORE, 'readwrite')
-    transaction.objectStore(PLAYGROUND_STATE_STORE).put(payload, storageKey())
+    transaction.objectStore(PLAYGROUND_STATE_STORE).put(cloneablePayload, storageKey())
     transaction.oncomplete = () => resolve()
     transaction.onerror = () => reject(transaction.error || new Error('Failed to write playground state'))
   })

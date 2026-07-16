@@ -311,6 +311,47 @@ func TestAPIKeyService_SnapshotInfersPlatformFromLoadedGroup(t *testing.T) {
 	require.Equal(t, PlatformGemini, roundTrip.Platform)
 }
 
+func TestAPIKeyService_SnapshotRoundTrip_PreservesMultiGroupBillingRouting(t *testing.T) {
+	svc := NewAPIKeyService(nil, nil, nil, nil, nil, nil, &config.Config{})
+	balanceGroupID := int64(13)
+	subscriptionGroupID := int64(14)
+	apiKey := &APIKey{
+		ID:              13,
+		UserID:          23,
+		Platform:        PlatformOpenAI,
+		GroupID:         &balanceGroupID,
+		GroupIDs:        []int64{balanceGroupID, subscriptionGroupID},
+		BillingPriority: BillingPrioritySubscriptionFirst,
+		Key:             "k-subscription-first",
+		Status:          StatusActive,
+		User: &User{
+			ID:          23,
+			Status:      StatusActive,
+			Role:        RoleUser,
+			Balance:     10,
+			Concurrency: 3,
+		},
+		Group: &Group{
+			ID:               balanceGroupID,
+			Name:             "balance",
+			Platform:         PlatformOpenAI,
+			Status:           StatusActive,
+			SubscriptionType: SubscriptionTypeStandard,
+			RateMultiplier:   1,
+		},
+	}
+
+	snapshot := svc.snapshotFromAPIKey(context.Background(), apiKey)
+	roundTrip := svc.snapshotToAPIKey(apiKey.Key, snapshot)
+
+	require.Equal(t, PlatformOpenAI, snapshot.Platform)
+	require.Equal(t, []int64{balanceGroupID, subscriptionGroupID}, snapshot.GroupIDs)
+	require.Equal(t, BillingPrioritySubscriptionFirst, snapshot.BillingPriority)
+	require.Equal(t, PlatformOpenAI, roundTrip.Platform)
+	require.Equal(t, []int64{balanceGroupID, subscriptionGroupID}, roundTrip.GroupIDs)
+	require.Equal(t, BillingPrioritySubscriptionFirst, roundTrip.BillingPriority)
+}
+
 func TestAPIKeyService_GetByKey_IgnoresLegacyAuthCacheSnapshotWithoutMessagesDispatchConfig(t *testing.T) {
 	cache := &authCacheStub{}
 	var repoCalls int32
