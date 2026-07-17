@@ -947,8 +947,8 @@ export default {
         enable: '启用高峰倍率',
         peakStart: '高峰开始',
         peakEnd: '高峰结束',
-        peakMultiplier: '高峰倍率',
-        multiplierHint: '作用于 token 计费倍率；token 计费的图片 token 同样适用，0 表示高峰 token 请求按 0 倍计费'
+        peakMultiplier: '高峰最终倍率',
+        multiplierHint: '高峰时段内直接作为最终 token 计费倍率，不再与分组或用户倍率相乘；token 计费的图片 token 同样适用，0 表示高峰 token 请求免费'
       },
       modelsList: {
         title: '自定义 /v1/models 模型列表',

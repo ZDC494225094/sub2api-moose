@@ -22,5 +22,11 @@ describe("admin group peak rate controls", () => {
     expect(groupsViewSource).not.toContain(
       "() => editForm.subscription_type,",
     );
+    expect(groupsViewSource).toContain(
+      'extractApiErrorMessage(error, t("admin.groups.failedToUpdate"))',
+    );
+    expect(groupsViewSource).toContain(
+      'extractApiErrorMessage(error, t("admin.groups.failedToCreate"))',
+    );
   });
 });

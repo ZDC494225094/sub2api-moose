@@ -52,15 +52,15 @@ func (Group) Fields() []ent.Field {
 		field.String("peak_start").
 			MaxLen(5).
 			Default("").
-			Comment("高峰开始时间 HH:MM（含），如 14:00；空表示未配置；不支持跨天"),
+			Comment("高峰开始时间 HH:MM（含），如 22:00；空表示未配置；支持跨午夜"),
 		field.String("peak_end").
 			MaxLen(5).
 			Default("").
-			Comment("高峰结束时间 HH:MM（不含），必须大于 peak_start；不支持跨天，如 22:00-02:00"),
+			Comment("高峰结束时间 HH:MM（不含），必须与 peak_start 不同；支持跨午夜，如 22:00-02:00"),
 		field.Float("peak_rate_multiplier").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
 			Default(1.0).
-			Comment("高峰时段叠加倍率，仅在 peak_rate_enabled 且处于 [peak_start, peak_end) 时乘入文本倍率"),
+			Comment("高峰时段最终倍率，仅在 peak_rate_enabled 且处于 [peak_start, peak_end) 时覆盖文本倍率"),
 		field.Bool("is_exclusive").
 			Default(false),
 		field.String("status").

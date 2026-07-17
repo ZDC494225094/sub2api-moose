@@ -151,7 +151,7 @@
       </aside>
 
       <section class="relative flex min-w-0 flex-1 flex-col bg-gray-50 dark:bg-dark-950">
-        <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 px-4 dark:border-dark-800 md:px-7">
+        <header class="relative z-30 flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 px-4 dark:border-dark-800 md:px-7">
           <div class="flex items-center gap-3">
             <button
               type="button"
@@ -172,6 +172,33 @@
             <span class="hidden rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500 ring-1 ring-slate-200 dark:bg-dark-900 dark:text-dark-300 dark:ring-dark-700 md:inline-flex">
               {{ modeLabel(mode) }}
             </span>
+            <div
+              v-if="mode === 'image'"
+              class="image-workspace-switch"
+              role="group"
+              :aria-label="t('playground.imageWorkspace')"
+            >
+              <button
+                type="button"
+                :class="imageWorkspaceMode === 'chat' ? 'is-active' : ''"
+                :aria-pressed="imageWorkspaceMode === 'chat'"
+                :title="t('playground.imageConversationMode')"
+                @click="selectImageWorkspace('chat')"
+              >
+                <Icon name="chatBubble" size="sm" />
+                <span class="hidden sm:inline">{{ t('playground.imageConversationMode') }}</span>
+              </button>
+              <button
+                type="button"
+                :class="imageWorkspaceMode === 'board' ? 'is-active' : ''"
+                :aria-pressed="imageWorkspaceMode === 'board'"
+                :title="t('playground.imageBoardMode')"
+                @click="selectImageWorkspace('board')"
+              >
+                <Icon name="grid" size="sm" />
+                <span class="hidden sm:inline">{{ t('playground.imageBoardMode') }}</span>
+              </button>
+            </div>
           </div>
 
           <div class="flex items-center gap-2">
@@ -196,13 +223,154 @@
 
         <main
           ref="messageScroller"
-          class="min-h-0 flex-1 overflow-y-auto px-4 pt-8 md:px-10 xl:px-16"
+          class="min-h-0 flex-1 overflow-y-auto px-4 pt-8"
+          :class="isImageBoardMode ? '' : 'md:px-10 xl:px-16'"
           :style="{ paddingBottom: `${composerSpacerHeight}px` }"
         >
           <div v-if="!selectedKey && !loadingKeys" class="flex h-full items-center justify-center text-center">
             <div class="max-w-sm">
               <Icon name="key" size="xl" class="mx-auto text-slate-300 dark:text-dark-600" />
               <p class="mt-3 text-sm font-semibold text-slate-700 dark:text-dark-100">{{ t('playground.noKeys') }}</p>
+            </div>
+          </div>
+
+          <div
+            v-else-if="isImageBoardMode"
+            ref="imageBoardRoot"
+            class="image-board-root mx-auto max-w-[1280px]"
+            @pointerdown="handleImageBoardPointerDown"
+          >
+            <div v-if="imageBoardTasks.length">
+              <div class="image-board-grid">
+                <article
+                v-for="task in paginatedImageBoardTasks"
+                :key="task.message.id"
+                class="image-board-card"
+                :class="[
+                  task.message.error ? 'is-error' : '',
+                  isImageBoardTaskSelected(task.message.id) ? 'is-selected' : ''
+                ]"
+                :data-image-board-task-id="task.message.id"
+                @click="handleImageBoardCardClick(task)"
+              >
+                <span v-if="isImageBoardTaskSelected(task.message.id)" class="image-board-card-selected" aria-hidden="true">
+                  <Icon name="check" size="xs" />
+                </span>
+                <div class="image-board-card-media">
+                  <template v-if="task.message.images?.length">
+                    <img
+                      :src="task.message.images[0].url"
+                      :alt="t('playground.generatedImageAlt', { n: 1 })"
+                      class="h-full w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                    >
+                    <span class="pointer-events-none absolute left-2 top-2 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
+                      {{ imageMessageSizeLabel(task.message) }}
+                    </span>
+                    <span
+                      v-if="task.message.images.length > 1"
+                      class="pointer-events-none absolute bottom-2 right-2 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur"
+                    >
+                      {{ t('playground.imageResultCount', { count: task.message.images.length }) }}
+                    </span>
+                  </template>
+                  <div v-else class="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+                    <span v-if="task.message.pending" class="spinner h-6 w-6"></span>
+                    <Icon v-else-if="task.message.error" name="exclamationCircle" size="lg" class="text-red-400" />
+                    <Icon v-else name="sparkles" size="lg" class="text-slate-300 dark:text-dark-600" />
+                    <p
+                      class="text-xs leading-5"
+                      :class="task.message.error ? 'text-red-600 dark:text-red-300' : 'text-slate-500 dark:text-dark-300'"
+                    >
+                      {{ task.message.progress || task.message.content || t('playground.generatingImages') }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex min-h-0 flex-1 flex-col p-3">
+                  <div class="mb-2 min-h-0 flex-1 overflow-hidden">
+                    <p class="line-clamp-3 text-sm leading-relaxed text-slate-700 dark:text-dark-100" :title="task.prompt">
+                      {{ task.prompt || t('playground.attachmentOnlyPrompt') }}
+                    </p>
+                  </div>
+                  <div class="mt-auto flex flex-col gap-1.5">
+                    <div class="image-board-card-tags pt-0.5 pr-2">
+                      <span v-if="task.message.model" :title="task.message.model">{{ task.message.model }}</span>
+                      <span>{{ imageMessageSizeLabel(task.message) }}</span>
+                      <span>{{ formatImageGenerationDuration(task.message.durationMs) }}</span>
+                    </div>
+                    <div class="mt-0.5 flex max-w-full items-center justify-end gap-1 overflow-x-auto pr-2">
+                      <button
+                        v-if="task.message.images?.length && task.message.images[0]"
+                        type="button"
+                        class="image-board-card-action"
+                        :title="t('playground.redrawImage')"
+                        :aria-label="t('playground.redrawImage')"
+                        @pointerdown.stop
+                        @click.stop="redrawImageBoardTask(task, 0)"
+                      >
+                        <Icon name="edit" size="xs" />
+                      </button>
+                      <button
+                        v-if="task.message.images?.length"
+                        type="button"
+                        class="image-board-card-action"
+                        :title="t('playground.viewOriginalImage')"
+                        :aria-label="t('playground.viewOriginalImage')"
+                        @pointerdown.stop
+                        @click.stop="openImagePreview(task.message, 0)"
+                      >
+                        <Icon name="eye" size="xs" />
+                      </button>
+                      <button
+                        type="button"
+                        class="image-board-card-action"
+                        :title="t('playground.reuseImageConfig')"
+                        :aria-label="t('playground.reuseImageConfig')"
+                        @pointerdown.stop
+                        @click.stop="reuseImageBoardTask(task)"
+                      >
+                        <Icon name="refresh" size="xs" />
+                      </button>
+                      <button
+                        type="button"
+                        class="image-board-card-action hover:!text-red-500"
+                        :title="t('common.delete')"
+                        :aria-label="t('common.delete')"
+                        @pointerdown.stop
+                        @click.stop="deleteImageBoardTask(task)"
+                      >
+                        <Icon name="trash" size="xs" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                </article>
+              </div>
+              <div v-if="imageBoardSelection" class="image-board-selection-box" :style="imageBoardSelectionBoxStyle"></div>
+              <nav v-if="imageBoardPageCount > 1" class="image-board-pagination" :aria-label="t('playground.imageBoardPagination')">
+                <button type="button" :disabled="imageBoardPage === 1" :title="t('playground.imageBoardPreviousPage')" :aria-label="t('playground.imageBoardPreviousPage')" @click="selectImageBoardPage(imageBoardPage - 1)">
+                  <Icon name="chevronLeft" size="sm" />
+                </button>
+                <template v-for="(item, index) in imageBoardPaginationItems" :key="`${item}-${index}`">
+                  <span v-if="item === 'ellipsis'" aria-hidden="true">...</span>
+                  <button v-else type="button" :class="item === imageBoardPage ? 'is-active' : ''" :aria-current="item === imageBoardPage ? 'page' : undefined" @click="selectImageBoardPage(item)">
+                    {{ item }}
+                  </button>
+                </template>
+                <button type="button" :disabled="imageBoardPage === imageBoardPageCount" :title="t('playground.imageBoardNextPage')" :aria-label="t('playground.imageBoardNextPage')" @click="selectImageBoardPage(imageBoardPage + 1)">
+                  <Icon name="chevronRight" size="sm" />
+                </button>
+              </nav>
+            </div>
+            <div v-else class="flex h-full min-h-[360px] items-center justify-center text-center">
+              <div class="max-w-md">
+                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-sky-50 text-sky-500 dark:bg-sky-950/40 dark:text-sky-300">
+                  <Icon name="grid" size="lg" />
+                </div>
+                <p class="mt-4 text-base font-semibold text-slate-800 dark:text-white">{{ t('playground.imageBoardEmpty') }}</p>
+              </div>
             </div>
           </div>
 
@@ -414,89 +582,58 @@
           </div>
         </main>
 
-        <footer ref="composerDock" class="pointer-events-none absolute bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent px-4 pb-4 pt-10 dark:from-dark-950 dark:via-dark-950 md:px-10 xl:px-16">
-          <div class="playground-composer-shell pointer-events-auto mx-auto max-w-[1220px] rounded-lg border border-slate-200 bg-white/95 p-3 shadow-[0_20px_60px_-28px_rgba(15,23,42,0.35)] backdrop-blur dark:border-dark-700 dark:bg-dark-900/95">
-            <div v-if="showComposerConfig" class="composer-config-panel px-1 pb-3">
-              <div class="composer-runtime-row">
-                <div class="composer-runtime-grid">
-                <Select
-                  v-model="selectedKeyId"
-                  class="playground-compact-select"
-                  :options="keySelectOptions"
-                  :placeholder="t('playground.selectKey')"
-                  searchable
-                >
-                  <template #selected="{ option }">
-                    <span v-if="option" class="playground-select-value">
-                      <span class="playground-platform-icon" :class="platformIconClass(optionPlatform(option) || '')">
-                        <PlatformIcon :platform="optionPlatform(option)" size="xs" />
-                      </span>
-                      <span class="truncate">{{ option.label }}</span>
-                    </span>
-                    <span v-else>{{ t('playground.selectKey') }}</span>
-                  </template>
-                  <template #option="{ option, selected }">
-                    <div class="playground-select-option">
-                      <span class="playground-platform-icon" :class="platformIconClass(optionPlatform(option) || '')">
-                        <PlatformIcon :platform="optionPlatform(option)" size="xs" />
-                      </span>
-                      <span class="min-w-0 flex-1 truncate text-left">{{ option.label }}</span>
-                      <Icon v-if="selected" name="check" size="sm" class="text-primary-500" />
-                    </div>
-                  </template>
-                </Select>
-
-                <Select
-                  v-model="selectedModel"
-                  class="playground-compact-select composer-model-select"
-                  :options="modelSelectOptions"
-                  :placeholder="t('playground.selectModel')"
-                  searchable
-                >
-                  <template #selected="{ option }">
-                    <span v-if="option" class="playground-select-value">
-                      <span class="playground-platform-icon" :class="platformIconClass(optionPlatform(option) || '')">
-                        <PlatformIcon :platform="optionPlatform(option)" size="xs" />
-                      </span>
-                      <span class="truncate">{{ option.label }}</span>
-                    </span>
-                    <span v-else>{{ t('playground.selectModel') }}</span>
-                  </template>
-                  <template #option="{ option, selected }">
-                    <div class="playground-select-option">
-                      <span class="playground-platform-icon" :class="platformIconClass(optionPlatform(option) || '')">
-                        <PlatformIcon :platform="optionPlatform(option)" size="xs" />
-                      </span>
-                      <span class="min-w-0 flex-1 truncate text-left">{{ option.label }}</span>
-                      <Icon v-if="selected" name="check" size="sm" class="text-primary-500" />
-                    </div>
-                  </template>
-                </Select>
-                </div>
-
-                <div class="composer-config-actions">
-                <button
-                  type="button"
-                  class="composer-config-icon-button"
-                  :title="t('playground.refreshModels')"
-                  :disabled="!selectedKey || loadingModels"
-                  @click="loadModels"
-                >
-                  <Icon name="refresh" size="sm" :class="loadingModels ? 'animate-spin' : ''" />
-                </button>
-
+        <footer ref="composerDock" class="pointer-events-none absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent px-4 pb-4 pt-10 dark:from-dark-950 dark:via-dark-950 md:px-10 xl:px-16">
+          <div ref="composerShell" class="playground-composer-shell pointer-events-auto mx-auto max-w-[1220px] rounded-lg border border-slate-200 bg-white/95 p-3 shadow-[0_20px_60px_-28px_rgba(15,23,42,0.35)] backdrop-blur dark:border-dark-700 dark:bg-dark-900/95">
+            <div v-if="activeComposerPanel" class="composer-control-panel">
+              <section v-if="activeComposerPanel === 'model'" class="composer-model-picker" :aria-label="t('playground.model')">
+                <aside class="composer-model-groups">
+                  <p class="composer-panel-label">{{ t('playground.modelGroups') }}</p>
                   <button
+                    v-for="group in composerModelGroups"
+                    :key="group.id"
                     type="button"
-                    class="composer-config-icon-button"
-                    :title="t('playground.hideComposerConfig')"
-                    @click="showComposerConfig = false"
+                    class="composer-model-group"
+                    :class="composerModelGroup === group.id ? 'is-active' : ''"
+                    :aria-pressed="composerModelGroup === group.id"
+                    @click="composerModelGroup = group.id"
                   >
-                    <Icon name="eyeOff" size="sm" />
+                    <PlatformIcon v-if="group.platform" :platform="group.platform" size="xs" />
+                    <span class="truncate">{{ group.label }}</span>
+                    <Icon v-if="composerModelGroup === group.id" name="check" size="xs" />
                   </button>
+                </aside>
+                <div class="composer-model-results">
+                  <div class="composer-model-search">
+                    <Icon name="search" size="sm" />
+                    <input
+                      v-model="composerModelSearch"
+                      type="search"
+                      :placeholder="t('playground.searchModels')"
+                    >
+                  </div>
+                  <div v-if="filteredComposerModels.length" class="composer-model-list" role="listbox" :aria-label="t('playground.selectModel')">
+                    <button
+                      v-for="model in filteredComposerModels"
+                      :key="model.id"
+                      type="button"
+                      class="composer-model-option"
+                      :class="model.id === selectedModel ? 'is-selected' : ''"
+                      :aria-selected="model.id === selectedModel"
+                      role="option"
+                      @click="selectComposerModel(model.id)"
+                    >
+                      <span class="playground-platform-icon" :class="platformIconClass(platformForModel(model.id, model.owned_by) || '')">
+                        <PlatformIcon :platform="platformForModel(model.id, model.owned_by)" size="xs" />
+                      </span>
+                      <span class="min-w-0 flex-1 truncate text-left">{{ model.label || model.id }}</span>
+                      <Icon v-if="model.id === selectedModel" name="check" size="sm" class="text-sky-600 dark:text-sky-300" />
+                    </button>
+                  </div>
+                  <p v-else class="composer-model-empty">{{ t('common.noOptionsFound') }}</p>
                 </div>
-              </div>
+              </section>
 
-              <div v-if="mode === 'image'" class="composer-image-grid">
+              <section v-else-if="activeComposerPanel === 'image'" class="composer-image-panel" :aria-label="t('playground.composerImageGeneration')">
                 <button
                   type="button"
                   class="image-option-button"
@@ -558,18 +695,54 @@
                   <span>{{ optimizingPrompt ? t('playground.optimizingPrompt') : t('playground.promptOptimizerSettings') }}</span>
                   <strong>{{ imagePromptStyleLabel() }}</strong>
                 </button>
-              </div>
-            </div>
+              </section>
 
-            <div v-else class="flex justify-end px-1 pb-3">
-              <button
-                type="button"
-                class="composer-config-icon-button"
-                :title="t('playground.showComposerConfig')"
-                @click="showComposerConfig = true"
-              >
-                <Icon name="eye" size="sm" />
-              </button>
+              <section v-else class="composer-more-panel" :aria-label="t('playground.composerMore')">
+                <div class="min-w-0">
+                  <p class="composer-panel-label">{{ t('playground.apiKey') }}</p>
+                  <Select
+                    v-model="selectedKeyId"
+                    class="playground-compact-select"
+                    :options="keySelectOptions"
+                    :placeholder="t('playground.selectKey')"
+                    searchable
+                  >
+                    <template #selected="{ option }">
+                      <span v-if="option" class="playground-select-value">
+                        <span class="playground-platform-icon" :class="platformIconClass(optionPlatform(option) || '')">
+                          <PlatformIcon :platform="optionPlatform(option)" size="xs" />
+                        </span>
+                        <span class="truncate">{{ option.label }}</span>
+                      </span>
+                      <span v-else>{{ t('playground.selectKey') }}</span>
+                    </template>
+                    <template #option="{ option, selected }">
+                      <div class="playground-select-option">
+                        <span class="playground-platform-icon" :class="platformIconClass(optionPlatform(option) || '')">
+                          <PlatformIcon :platform="optionPlatform(option)" size="xs" />
+                        </span>
+                        <span class="min-w-0 flex-1 truncate text-left">{{ option.label }}</span>
+                        <Icon v-if="selected" name="check" size="sm" class="text-primary-500" />
+                      </div>
+                    </template>
+                  </Select>
+                </div>
+                <div class="composer-more-actions">
+                  <button
+                    type="button"
+                    class="composer-more-action"
+                    :disabled="!selectedKey || loadingModels"
+                    @click="loadModels"
+                  >
+                    <Icon name="refresh" size="sm" :class="loadingModels ? 'animate-spin' : ''" />
+                    <span>{{ t('playground.refreshModels') }}</span>
+                  </button>
+                  <button type="button" class="composer-more-action" @click="openAdvancedComposerSettings">
+                    <Icon name="cog" size="sm" />
+                    <span>{{ t('playground.advancedSettings') }}</span>
+                  </button>
+                </div>
+              </section>
             </div>
 
             <div v-if="pendingAttachments.length" class="mb-2 flex flex-wrap gap-2 px-1">
@@ -580,13 +753,7 @@
                 :class="attachment.kind === 'image' && attachmentPreviewUrl(attachment) ? 'playground-pending-attachment-image' : ''"
                 :title="attachment.name"
               >
-                <button
-                  v-if="attachment.kind === 'image' && attachmentPreviewUrl(attachment)"
-                  type="button"
-                  class="h-full w-full"
-                  :title="t('playground.editAttachmentImage')"
-                  @click="openDoodleEditor(attachment)"
-                >
+                <div v-if="attachment.kind === 'image' && attachmentPreviewUrl(attachment)" class="h-full w-full">
                   <img
                     :src="attachmentPreviewUrl(attachment)"
                     :alt="attachment.name"
@@ -594,7 +761,16 @@
                     loading="lazy"
                     decoding="async"
                   >
-                </button>
+                  <button
+                    type="button"
+                    class="playground-attachment-edit"
+                    :title="t('playground.editAttachmentImage')"
+                    :aria-label="t('playground.editAttachmentImage')"
+                    @click="openDoodleEditor(attachment)"
+                  >
+                    <Icon name="edit" size="sm" />
+                  </button>
+                </div>
                 <template v-else>
                   <Icon name="document" size="xs" />
                   <span class="truncate">{{ attachment.name }}</span>
@@ -607,12 +783,9 @@
 
             <div
               v-if="playgroundNotice"
-              class="mb-3 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs leading-5"
-              :class="playgroundNotice.type === 'error'
-                ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300'
-                : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200'"
+              class="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
             >
-              <Icon :name="playgroundNotice.type === 'error' ? 'exclamationCircle' : 'infoCircle'" size="sm" class="mt-0.5 shrink-0" />
+              <Icon name="infoCircle" size="sm" class="mt-0.5 shrink-0" />
               <span class="min-w-0 break-words">{{ playgroundNotice.message }}</span>
             </div>
 
@@ -661,15 +834,6 @@
               ></textarea>
 
               <div class="flex shrink-0 items-end gap-2">
-                <input ref="fileInput" type="file" multiple class="hidden" :accept="mode === 'image' ? 'image/*' : undefined" @change="handleFileChange" />
-                <button
-                  type="button"
-                  class="flex h-10 w-10 items-center justify-center rounded-lg text-sky-500 transition hover:bg-sky-50 disabled:opacity-50 dark:hover:bg-sky-950/40"
-                  :title="t('playground.uploadFile')"
-                  @click="fileInput?.click()"
-                >
-                  <Icon name="upload" size="md" />
-                </button>
                 <button
                   v-if="running"
                   type="button"
@@ -690,6 +854,54 @@
                   <Icon name="arrowRight" size="md" />
                 </button>
               </div>
+            </div>
+
+            <div class="composer-toolbar" role="toolbar" :aria-label="t('playground.composerOptions')">
+              <input ref="fileInput" type="file" multiple class="hidden" :accept="mode === 'image' ? 'image/*' : undefined" @change="handleFileChange" />
+              <button
+                type="button"
+                class="composer-toolbar-button composer-toolbar-icon-button"
+                :title="t('playground.uploadFile')"
+                :aria-label="t('playground.uploadFile')"
+                @click="fileInput?.click()"
+              >
+                <Icon name="plus" size="md" />
+              </button>
+              <span class="composer-toolbar-divider" aria-hidden="true"></span>
+              <button
+                type="button"
+                class="composer-toolbar-button composer-toolbar-model-button"
+                :class="activeComposerPanel === 'model' ? 'is-active' : ''"
+                :aria-expanded="activeComposerPanel === 'model'"
+                aria-haspopup="listbox"
+                @click="toggleComposerPanel('model')"
+              >
+                <Icon name="cpu" size="sm" />
+                <span class="max-w-[180px] truncate">{{ selectedModel || t('playground.selectModel') }}</span>
+                <Icon name="chevronDown" size="xs" />
+              </button>
+              <button
+                type="button"
+                class="composer-toolbar-button"
+                :class="activeComposerPanel === 'image' ? 'is-active' : ''"
+                :aria-expanded="activeComposerPanel === 'image'"
+                aria-haspopup="dialog"
+                @click="openImageComposerOptions"
+              >
+                <Icon name="sparkles" size="sm" />
+                <span>{{ t('playground.composerImageGeneration') }}</span>
+              </button>
+              <button
+                type="button"
+                class="composer-toolbar-button"
+                :class="activeComposerPanel === 'more' ? 'is-active' : ''"
+                :aria-expanded="activeComposerPanel === 'more'"
+                aria-haspopup="dialog"
+                @click="toggleComposerPanel('more')"
+              >
+                <Icon name="more" size="sm" />
+                <span>{{ t('playground.composerMore') }}</span>
+              </button>
             </div>
 
           </div>
@@ -947,6 +1159,116 @@
       </section>
     </div>
 
+    <div v-if="imageBoardDetailTask" class="fixed inset-0 z-[75] flex items-center justify-center p-4" @click.self="closeImageBoardDetail()">
+      <div class="absolute inset-0 bg-black/20 backdrop-blur-md dark:bg-black/40"></div>
+      <section class="relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-white/50 bg-white/90 shadow-[0_8px_40px_rgb(0,0,0,0.12)] ring-1 ring-black/5 backdrop-blur-xl dark:border-white/[0.08] dark:bg-dark-900/90 dark:shadow-[0_8px_40px_rgb(0,0,0,0.4)] dark:ring-white/10 md:flex-row" role="dialog" aria-modal="true" :aria-label="t('playground.imageBoardTaskDetails')">
+        <div class="flex h-14 items-center justify-end px-4 md:hidden">
+          <button type="button" class="rounded-full p-1 text-slate-400 transition hover:bg-slate-100 dark:text-dark-400 dark:hover:bg-white/[0.06]" :title="t('common.close')" :aria-label="t('common.close')" @click="closeImageBoardDetail()">
+            <Icon name="x" size="lg" />
+          </button>
+        </div>
+        <div class="relative flex h-64 min-h-[16rem] w-full shrink-0 items-center justify-center bg-slate-100 dark:bg-black/20 md:h-auto md:w-1/2">
+          <template v-if="imageBoardDetailCurrentImage">
+            <img
+              :src="imageBoardDetailCurrentImage.url"
+              :alt="t('playground.generatedImageAlt', { n: imageBoardDetailImageIndex + 1 })"
+              class="max-h-[calc(100%-2rem)] max-w-[calc(100%-2rem)] cursor-pointer object-contain"
+              loading="lazy"
+              decoding="async"
+              @click="openImageBoardDetailImage(imageBoardDetailImageIndex)"
+            >
+            <div class="pointer-events-none absolute left-4 top-[15px] flex items-center gap-1.5">
+              <span v-if="imageBoardDetailRatioLabel" class="rounded bg-black/50 px-2 py-0.5 font-mono text-xs text-white backdrop-blur-sm">{{ imageBoardDetailRatioLabel }}</span>
+              <span class="rounded bg-black/50 px-2 py-0.5 text-xs font-medium text-white/90 backdrop-blur-sm">{{ imageMessageSizeLabel(imageBoardDetailTask.message) }}</span>
+            </div>
+            <button type="button" class="absolute right-3 top-[15px] flex items-center justify-center rounded bg-black/50 px-1.5 py-0.5 text-white backdrop-blur-sm transition hover:bg-black/70 focus:outline-none focus:ring-1 focus:ring-white/50" :title="t('playground.downloadImage')" :aria-label="t('playground.downloadImage')" @click="downloadImageBoardDetailImage()">
+              <Icon name="download" size="sm" :stroke-width="2" />
+            </button>
+            <template v-if="imageBoardDetailImages.length > 1">
+              <button type="button" class="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/30 p-1.5 text-white transition hover:bg-black/50" :title="t('playground.previousImage')" :aria-label="t('playground.previousImage')" @click="navigateImageBoardDetail(-1)">
+                <Icon name="chevronLeft" size="md" :stroke-width="2" />
+              </button>
+              <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/30 p-1.5 text-white transition hover:bg-black/50" :title="t('playground.nextImage')" :aria-label="t('playground.nextImage')" @click="navigateImageBoardDetail(1)">
+                <Icon name="chevronRight" size="md" :stroke-width="2" />
+              </button>
+              <span class="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white">{{ imageBoardDetailImageIndex + 1 }} / {{ imageBoardDetailImages.length }}</span>
+            </template>
+          </template>
+          <div v-else class="w-full max-w-md px-4 text-center">
+            <span v-if="imageBoardDetailTask.message.pending" class="spinner mx-auto h-10 w-10"></span>
+            <Icon v-else-if="imageBoardDetailTask.message.error" name="exclamationCircle" size="xl" class="mx-auto text-red-400" />
+            <Icon v-else name="sparkles" size="xl" class="mx-auto text-slate-300 dark:text-dark-600" />
+            <p class="mt-3 text-sm leading-6 text-slate-500 dark:text-dark-300">{{ imageBoardDetailTask.message.progress || imageBoardDetailTask.message.content || t('playground.generatingImages') }}</p>
+          </div>
+        </div>
+
+        <aside class="relative flex min-h-0 w-full flex-col overflow-hidden p-5 md:w-1/2">
+          <button type="button" class="absolute right-3 top-3 hidden rounded-full p-1 text-slate-400 transition hover:bg-slate-100 dark:text-dark-400 dark:hover:bg-white/[0.06] md:flex" :title="t('common.close')" :aria-label="t('common.close')" @click="closeImageBoardDetail()">
+            <Icon name="x" size="md" />
+          </button>
+
+          <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+            <div class="mb-2 flex items-center gap-1.5">
+              <h3 class="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-dark-400">{{ t('playground.imageBoardInput') }}</h3>
+              <button type="button" class="rounded p-1 text-slate-400 transition hover:bg-slate-100 dark:text-dark-400 dark:hover:bg-white/[0.06]" :title="t('common.copy')" :aria-label="t('common.copy')" @click="copyText(imageBoardDetailTask.prompt)">
+                <Icon name="copy" size="sm" />
+              </button>
+            </div>
+            <p class="mb-4 max-h-40 overflow-y-auto whitespace-pre-wrap break-words pr-2 text-sm leading-relaxed text-slate-700 dark:text-dark-100">{{ imageBoardDetailTask.prompt || t('playground.attachmentOnlyPrompt') }}</p>
+
+            <h3 class="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-dark-400">{{ t('playground.imageBoardParameterConfig') }}</h3>
+            <div class="mb-2 min-w-0 overflow-hidden rounded-lg bg-slate-50 px-3 py-2 text-xs dark:bg-white/[0.03]">
+              <span class="text-slate-400 dark:text-dark-400">{{ t('playground.imageBoardSource') }}</span>
+              <div class="mt-0.5 truncate pr-2">
+                <span class="font-medium text-slate-700 dark:text-dark-100">{{ imageBoardTaskSource(imageBoardDetailTask) }}</span>
+                <span v-if="imageBoardDetailTask.message.model" class="text-slate-400 dark:text-dark-400"> · {{ imageBoardDetailTask.message.model }}</span>
+              </div>
+            </div>
+            <div class="mb-4 grid min-w-0 grid-cols-2 gap-2 text-xs">
+              <div class="min-w-0 overflow-hidden rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
+                <span class="text-slate-400 dark:text-dark-400">{{ t('playground.imageBoardSize') }}</span>
+                <div class="mt-0.5 truncate pr-2 font-medium text-slate-700 dark:text-dark-100">{{ imageMessageSizeLabel(imageBoardDetailTask.message) }}</div>
+              </div>
+              <div class="min-w-0 overflow-hidden rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
+                <span class="text-slate-400 dark:text-dark-400">{{ t('playground.imageBoardQuality') }}</span>
+                <div class="mt-0.5 truncate pr-2 font-medium text-slate-700 dark:text-dark-100">{{ imageBoardDetailTask.message.imageConfig?.quality || '-' }}</div>
+              </div>
+              <div class="min-w-0 overflow-hidden rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
+                <span class="text-slate-400 dark:text-dark-400">{{ t('playground.imageBoardFormat') }}</span>
+                <div class="mt-0.5 truncate pr-2 font-medium text-slate-700 dark:text-dark-100">{{ imageBoardDetailTask.message.imageConfig?.outputFormat?.toUpperCase() || '-' }}</div>
+              </div>
+              <div class="min-w-0 overflow-hidden rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
+                <span class="text-slate-400 dark:text-dark-400">{{ t('playground.imageBoardCount') }}</span>
+                <div class="mt-0.5 truncate pr-2 font-medium text-slate-700 dark:text-dark-100">{{ imageBoardDetailImages.length }}</div>
+              </div>
+            </div>
+            <div class="mb-4 text-xs text-slate-400 dark:text-dark-400">
+              <span>{{ t('playground.imageBoardCreatedAt', { time: imageBoardTaskDate(imageBoardDetailTask.message.createdAt) }) }}</span>
+              <span> · {{ t('playground.imageBoardDuration') }} {{ formatImageGenerationDuration(imageBoardDetailTask.message.durationMs) }}</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-4 gap-2 border-t border-slate-100 pt-4 dark:border-white/[0.08] sm:flex">
+            <button type="button" class="col-span-2 flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-50 px-3 py-2 text-sm font-medium text-blue-600 transition hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 sm:flex-1" @click="reuseImageBoardTask(imageBoardDetailTask)">
+              <Icon name="undo" size="sm" :stroke-width="2" />
+              {{ t('playground.reuseImageConfig') }}
+            </button>
+            <button type="button" class="col-span-2 flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-green-50 px-3 py-2 text-sm font-medium text-green-600 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20 sm:flex-1" :disabled="!imageBoardDetailCurrentImage" @click="imageBoardDetailCurrentImage && redrawImageBoardTask(imageBoardDetailTask, imageBoardDetailImageIndex)">
+              <Icon name="edit" size="sm" :stroke-width="2" />
+              {{ t('playground.imageBoardEditOutput') }}
+            </button>
+            <button type="button" class="col-span-3 flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 sm:flex-1" @click="deleteImageBoardTask(imageBoardDetailTask)">
+              <Icon name="trash" size="sm" :stroke-width="2" />
+              {{ t('playground.imageBoardDeleteTask') }}
+            </button>
+            <button type="button" class="col-span-1 flex w-full items-center justify-center rounded-xl transition sm:w-11" :class="imageBoardDetailTask.message.favorite ? 'bg-yellow-50 text-yellow-500 hover:bg-yellow-100 dark:bg-yellow-500/10 dark:hover:bg-yellow-500/20' : 'bg-slate-50 text-slate-400 hover:bg-yellow-50 hover:text-yellow-500 dark:bg-white/[0.04] dark:hover:bg-yellow-500/10'" :title="imageBoardDetailTask.message.favorite ? t('playground.imageBoardUnfavorite') : t('playground.imageBoardFavorite')" :aria-label="imageBoardDetailTask.message.favorite ? t('playground.imageBoardUnfavorite') : t('playground.imageBoardFavorite')" @click="toggleImageBoardTaskFavorite(imageBoardDetailTask)">
+              <Icon name="star" size="md" :stroke-width="2" :class="imageBoardDetailTask.message.favorite ? 'fill-current' : ''" />
+            </button>
+          </div>
+        </aside>
+      </section>
+    </div>
+
     <div v-if="doodleEditor" class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-2 sm:p-4" @click.self="closeDoodleEditor()">
       <section class="flex h-[min(92vh,900px)] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl dark:border-dark-700 dark:bg-dark-900" :aria-busy="doodleSaving">
         <header class="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-dark-700">
@@ -966,6 +1288,9 @@
             </button>
             <button type="button" class="doodle-tool-button" :class="doodleTool === 'eraser' ? 'is-active' : ''" :title="t('playground.doodleEraser')" :disabled="doodleSaving" @click="doodleTool = 'eraser'">
               <Icon name="eraser" size="sm" />
+            </button>
+            <button type="button" class="doodle-tool-button" :class="doodleTool === 'sticker' ? 'is-active' : ''" :title="t('playground.doodleStickers')" :disabled="doodleSaving" @click="toggleDoodleStickerPanel">
+              <Icon name="sparkles" size="sm" />
             </button>
           </div>
 
@@ -991,6 +1316,22 @@
             <span class="w-7 text-right tabular-nums">{{ doodleBrushSize }}</span>
           </label>
 
+          <label class="flex min-w-[160px] flex-1 items-center gap-2 text-xs font-medium text-slate-500 dark:text-dark-300">
+            <span class="shrink-0">{{ t('playground.doodleOpacity') }}</span>
+            <input v-model.number="doodleBrushOpacity" type="range" min="0.1" max="1" step="0.05" class="min-w-[80px] flex-1 accent-sky-500 disabled:cursor-wait disabled:opacity-50" :disabled="doodleSaving || doodleTool === 'eraser' || doodleTool === 'sticker'">
+            <span class="w-9 text-right tabular-nums">{{ Math.round(doodleBrushOpacity * 100) }}%</span>
+          </label>
+
+          <div class="inline-flex items-center overflow-hidden rounded-lg border border-slate-200 dark:border-dark-700" :aria-label="t('playground.doodleZoom')">
+            <button type="button" class="doodle-tool-button" :title="t('playground.doodleZoomOut')" :disabled="doodleSaving || doodleZoom <= 0.25" @click="adjustDoodleZoom(-0.25)">
+              <Icon name="minus" size="sm" />
+            </button>
+            <span class="min-w-12 px-1 text-center text-xs font-medium tabular-nums text-slate-500 dark:text-dark-300">{{ Math.round(doodleZoom * 100) }}%</span>
+            <button type="button" class="doodle-tool-button" :title="t('playground.doodleZoomIn')" :disabled="doodleSaving || doodleZoom >= 3" @click="adjustDoodleZoom(0.25)">
+              <Icon name="plus" size="sm" />
+            </button>
+          </div>
+
           <div class="ml-auto flex items-center gap-1">
             <button type="button" class="doodle-action-button" :disabled="doodleSaving || doodleStrokes.length === 0" :title="t('playground.doodleUndo')" @click="undoDoodleStroke">
               <Icon name="undo" size="sm" />
@@ -1004,11 +1345,32 @@
           </div>
         </div>
 
-        <div class="doodle-canvas-stage min-h-0 flex-1 overflow-hidden p-3 sm:p-5">
+        <div v-if="doodleStickerPanelOpen" class="doodle-sticker-panel border-b border-slate-200 px-3 py-2 dark:border-dark-700">
+          <p class="mb-1.5 text-xs font-medium text-slate-500 dark:text-dark-300">{{ t('playground.doodleStickers') }}</p>
+          <div class="flex flex-wrap gap-1">
+            <button
+              v-for="sticker in doodleStickers"
+              :key="sticker"
+              type="button"
+              class="doodle-sticker-button"
+              :class="doodleSelectedSticker === sticker ? 'is-active' : ''"
+              :title="sticker"
+              :aria-label="sticker"
+              :aria-pressed="doodleSelectedSticker === sticker"
+              :disabled="doodleSaving"
+              @click="selectDoodleSticker(sticker)"
+            >
+              {{ sticker }}
+            </button>
+          </div>
+        </div>
+
+        <div ref="doodleCanvasViewport" class="doodle-canvas-stage min-h-0 flex-1 overflow-auto p-3 sm:p-5">
           <canvas
             ref="doodleCanvas"
-            class="block max-h-full max-w-full touch-none rounded border border-slate-300 bg-white shadow-sm dark:border-dark-600"
+            class="block shrink-0 touch-none rounded border border-slate-300 bg-white shadow-sm dark:border-dark-600"
             :class="doodleSaving ? 'pointer-events-none cursor-wait' : ''"
+            :style="{ width: `${Math.round(doodleCanvasWidth * doodleZoom)}px`, height: `${Math.round(doodleCanvasHeight * doodleZoom)}px` }"
             :aria-label="t('playground.doodleCanvas')"
             @pointerdown="handleDoodlePointerDown"
             @pointermove="handleDoodlePointerMove"
@@ -1141,7 +1503,8 @@ import userChannelsAPI, { type UserAvailableChannel } from '@/api/channels'
 import { useAppStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateOnly, formatRelativeTime, formatTime } from '@/utils/format'
-import { platformIconClass } from '@/utils/platformColors'
+import { platformIconClass, platformLabel } from '@/utils/platformColors'
+import { buildImageBoardTasksFromThreads, imageBoardRectsIntersect, type ImageBoardThreadTask } from '@/utils/playgroundBoardTools'
 import { firstImageDescription, mapClientPointToCanvas, wrapGalleryIndex } from '@/utils/playgroundImageTools'
 import { toCloneablePlaygroundState } from '@/utils/playgroundPersistence'
 import {
@@ -1159,7 +1522,10 @@ type IconName = InstanceType<typeof Icon>['$props']['name']
 type ImageSizeMode = 'auto' | 'ratio' | 'custom'
 type ImageResolution = '1K' | '2K' | '4K'
 type ImagePromptStyle = 'auto' | 'photo' | 'illustration' | 'anime' | 'cinematic' | 'product' | 'poster' | 'watercolor' | 'pixel'
-type DoodleTool = 'brush' | 'eraser'
+type DoodleDrawingTool = 'brush' | 'eraser'
+type DoodleTool = DoodleDrawingTool | 'sticker'
+type ImageWorkspaceMode = 'chat' | 'board'
+type ComposerPanel = 'model' | 'image' | 'more'
 type PlaygroundRestorableRunRequest = Omit<PlaygroundRunRequest, 'apiKey'>
 
 interface DoodlePoint {
@@ -1168,17 +1534,34 @@ interface DoodlePoint {
 }
 
 interface DoodleStroke {
-  tool: DoodleTool
+  kind: 'stroke'
+  tool: DoodleDrawingTool
   color: string
   size: number
+  opacity: number
   points: DoodlePoint[]
 }
+
+interface DoodleSticker {
+  kind: 'sticker'
+  emoji: string
+  size: number
+  point: DoodlePoint
+}
+
+type DoodleOperation = DoodleStroke | DoodleSticker
 
 interface DoodleEditorState {
   attachmentId: string
   name: string
   naturalWidth: number
   naturalHeight: number
+}
+
+interface ComposerModelGroup {
+  id: string
+  label: string
+  platform?: GroupPlatform
 }
 
 interface PlaygroundAttachment {
@@ -1212,6 +1595,7 @@ interface PlaygroundMessage {
   runRequest?: PlaygroundRestorableRunRequest
   durationMs?: number
   error?: boolean
+  favorite?: boolean
 }
 
 interface PlaygroundPersistedPayload {
@@ -1237,6 +1621,7 @@ interface PlaygroundPersistedPayload {
   imageCount: number
   outputFormat: string
   imagePromptStyle: ImagePromptStyle
+  imageWorkspaceMode?: ImageWorkspaceMode
   promptOptimizerModel: string
   showComposerConfig: boolean
   composerInputHeight: number
@@ -1256,6 +1641,25 @@ interface PlaygroundThread {
   running?: boolean
   lastRunError?: string
   unreadCount?: number
+}
+
+type PlaygroundImageBoardTask = ImageBoardThreadTask<PlaygroundMessage, PlaygroundThread>
+
+interface ImageBoardSelection {
+  startX: number
+  startY: number
+  currentX: number
+  currentY: number
+}
+
+interface ImageBoardSelectionState {
+  pointerId: number
+  taskId: string | null
+  additive: boolean
+  initialSelectedIds: Set<string>
+  startX: number
+  startY: number
+  didDrag: boolean
 }
 
 interface PlaygroundRunContext {
@@ -1366,13 +1770,17 @@ const loadingKeys = ref(false)
 const loadingModels = ref(false)
 const showSettings = ref(false)
 const showAssistantDetails = ref(true)
-const showComposerConfig = ref(true)
+const showComposerConfig = ref(false)
+const activeComposerPanel = ref<ComposerPanel | null>(null)
+const composerModelGroup = ref('all')
+const composerModelSearch = ref('')
 const composerInputHeight = ref(112)
 const composerInputResizing = ref(false)
 const composerDragActive = ref(false)
 const showImageSizeModal = ref(false)
 const showPromptOptimizerModal = ref(false)
 const mode = ref<PlaygroundMode>('chat')
+const imageWorkspaceMode = ref<ImageWorkspaceMode>('chat')
 const models = ref<PlaygroundModel[]>([])
 const selectedModel = ref('')
 const selectedModelsByMode = ref<Partial<Record<PlaygroundMode, string>>>({})
@@ -1404,9 +1812,16 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const historyImportInput = ref<HTMLInputElement | null>(null)
 const messageScroller = ref<HTMLElement | null>(null)
 const composerDock = ref<HTMLElement | null>(null)
+const composerShell = ref<HTMLElement | null>(null)
 const composerSpacerHeight = ref(260)
 const imagePreviewViewport = ref<HTMLElement | null>(null)
 const imagePreview = ref<PlaygroundImagePreview | null>(null)
+const imageBoardRoot = ref<HTMLElement | null>(null)
+const imageBoardDetailTask = ref<PlaygroundImageBoardTask | null>(null)
+const imageBoardDetailImageIndex = ref(0)
+const imageBoardPage = ref(1)
+const selectedImageBoardTaskIds = ref<Set<string>>(new Set())
+const imageBoardSelection = ref<ImageBoardSelection | null>(null)
 const expandedImageDescriptions = ref<Set<string>>(new Set())
 const imagePreviewZoom = ref(1)
 const imagePreviewPanX = ref(0)
@@ -1419,11 +1834,18 @@ const imagePreviewViewportHeight = ref(0)
 const suppressNextImagePreviewBackdropClick = ref(false)
 const doodleEditor = ref<DoodleEditorState | null>(null)
 const doodleCanvas = ref<HTMLCanvasElement | null>(null)
+const doodleCanvasViewport = ref<HTMLElement | null>(null)
 const doodleTool = ref<DoodleTool>('brush')
 const doodleColor = ref('#ef4444')
 const doodleBrushSize = ref(12)
-const doodleStrokes = ref<DoodleStroke[]>([])
-const doodleRedoStrokes = ref<DoodleStroke[]>([])
+const doodleBrushOpacity = ref(1)
+const doodleZoom = ref(1)
+const doodleCanvasWidth = ref(0)
+const doodleCanvasHeight = ref(0)
+const doodleStickerPanelOpen = ref(false)
+const doodleSelectedSticker = ref('😀')
+const doodleStrokes = ref<DoodleOperation[]>([])
+const doodleRedoStrokes = ref<DoodleOperation[]>([])
 const doodleSaving = ref(false)
 let modelAbortController: AbortController | null = null
 const runAbortControllers = new Map<string, PlaygroundRunHandle>()
@@ -1443,6 +1865,8 @@ let doodleOverlayCanvas: HTMLCanvasElement | null = null
 let doodlePointerId: number | null = null
 let doodleRenderFrame: number | null = null
 let composerInputResizeState: { pointerId: number; startY: number; height: number } | null = null
+let imageBoardSelectionState: ImageBoardSelectionState | null = null
+let suppressImageBoardCardClickUntil = 0
 let playgroundDBPromise: Promise<IDBDatabase> | null = null
 const imageObjectURLs = new Set<string>()
 const persistedAttachmentStorageIds = new Set<string>()
@@ -1468,6 +1892,7 @@ const PLAYGROUND_CHAT_IMAGE_EDGE_STEPS = [1568, 1280, 1024, 768]
 const PLAYGROUND_CHAT_IMAGE_QUALITY_STEPS = [0.82, 0.72, 0.62, 0.52]
 const PLAYGROUND_DOODLE_MAX_DISPLAY_EDGE = 1600
 const doodleColors = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#0ea5e9', '#8b5cf6', '#ffffff', '#111827']
+const doodleStickers = ['😀', '😍', '🤩', '😎', '🥳', '🔥', '✨', '⭐', '💥', '💯', '❤️', '👍', '👋', '🎨', '🎯', '🚀', '🌈', '🍀', '🌸', '💡', '🎉', '🎈', '🪄', '👑']
 const playgroundInstanceId = `playground-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 const imageResolutionEdges: Record<ImageResolution, number> = {
   '1K': 1024,
@@ -1510,6 +1935,47 @@ const keySelectOptions = computed<SelectOption[]>(() => activeKeys.value.map((ke
 const selectedKey = computed(() => activeKeys.value.find((key) => String(key.id) === selectedKeyId.value) || null)
 const activeThread = computed(() => threads.value.find((thread) => thread.id === activeThreadId.value) || null)
 const currentMessages = computed(() => activeThread.value?.messages || [])
+const imageBoardTasks = computed<PlaygroundImageBoardTask[]>(() => buildImageBoardTasksFromThreads(threads.value))
+const imageBoardPageSize = 18
+const imageBoardPageCount = computed(() => Math.max(1, Math.ceil(imageBoardTasks.value.length / imageBoardPageSize)))
+const paginatedImageBoardTasks = computed(() => {
+  const start = (imageBoardPage.value - 1) * imageBoardPageSize
+  return imageBoardTasks.value.slice(start, start + imageBoardPageSize)
+})
+const imageBoardPaginationItems = computed<Array<number | 'ellipsis'>>(() => {
+  const total = imageBoardPageCount.value
+  const current = imageBoardPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1)
+  const pages = new Set([1, total, current - 1, current, current + 1])
+  const sortedPages = [...pages].filter((page) => page >= 1 && page <= total).sort((left, right) => left - right)
+  const items: Array<number | 'ellipsis'> = []
+  for (const page of sortedPages) {
+    const previous = items[items.length - 1]
+    if (typeof previous === 'number' && page - previous > 1) items.push('ellipsis')
+    items.push(page)
+  }
+  return items
+})
+watch(imageBoardPageCount, (pageCount) => {
+  if (imageBoardPage.value > pageCount) {
+    imageBoardPage.value = pageCount
+    clearImageBoardSelection()
+  }
+})
+const isImageBoardMode = computed(() => mode.value === 'image' && imageWorkspaceMode.value === 'board')
+const imageBoardDetailImages = computed(() => imageBoardDetailTask.value?.message.images || [])
+const imageBoardDetailCurrentImage = computed(() => imageBoardDetailImages.value[imageBoardDetailImageIndex.value] || null)
+const imageBoardDetailRatioLabel = computed(() => imageBoardDetailTask.value?.message.imageConfig?.ratio || '')
+const imageBoardSelectionBoxStyle = computed(() => {
+  const selection = imageBoardSelection.value
+  if (!selection) return {}
+  return {
+    left: `${Math.min(selection.startX, selection.currentX)}px`,
+    top: `${Math.min(selection.startY, selection.currentY)}px`,
+    width: `${Math.abs(selection.currentX - selection.startX)}px`,
+    height: `${Math.abs(selection.currentY - selection.startY)}px`
+  }
+})
 const running = computed(() => Boolean(activeThread.value?.running))
 const draftPrompt = computed({
   get: () => activeThread.value?.draftPrompt || '',
@@ -1595,9 +2061,6 @@ const userAvatarInitial = computed(() => {
 })
 
 const playgroundNotice = computed(() => {
-  if (lastRunError.value) {
-    return { type: 'error' as const, message: lastRunError.value }
-  }
   if (modelLoadError.value) {
     return { type: 'warning' as const, message: modelLoadError.value }
   }
@@ -1680,12 +2143,34 @@ const imageModels = computed(() => {
   return result
 })
 const visibleModels = computed(() => mode.value === 'image' ? imageModels.value : chatModels.value)
-const modelSelectOptions = computed<SelectOption[]>(() => visibleModels.value.map((model) => ({
-  value: model.id,
-  label: model.label || model.id,
-  description: model.owned_by,
-  platform: platformForModel(model.id, model.owned_by)
-})))
+const composerModelGroups = computed<ComposerModelGroup[]>(() => {
+  const groups: ComposerModelGroup[] = [{ id: 'all', label: t('playground.allModelGroups') }]
+  const seen = new Set<string>(['all'])
+
+  for (const model of visibleModels.value) {
+    const platform = platformForModel(model.id, model.owned_by)
+    const id = platform || 'other'
+    if (seen.has(id)) continue
+    seen.add(id)
+    groups.push({
+      id,
+      label: composerModelGroupLabel(platform),
+      platform
+    })
+  }
+
+  return groups
+})
+const filteredComposerModels = computed(() => {
+  const search = composerModelSearch.value.trim().toLowerCase()
+  return visibleModels.value.filter((model) => {
+    const groupMatches = composerModelGroup.value === 'all'
+      || (platformForModel(model.id, model.owned_by) || 'other') === composerModelGroup.value
+    if (!groupMatches) return false
+    if (!search) return true
+    return `${model.id} ${model.label || ''} ${model.owned_by || ''}`.toLowerCase().includes(search)
+  })
+})
 
 const imageQualitySelectOptions = computed<SelectOption[]>(() => [
   { value: 'auto', label: `${t('playground.quality')}：${t('playground.qualityAuto')}` },
@@ -2598,6 +3083,7 @@ function buildPlaygroundPayload(): PlaygroundPersistedPayload {
     imageCount: imageCount.value,
     outputFormat: outputFormat.value,
     imagePromptStyle: imagePromptStyle.value,
+    imageWorkspaceMode: imageWorkspaceMode.value,
     promptOptimizerModel: promptOptimizerModel.value,
     showComposerConfig: showComposerConfig.value,
     composerInputHeight: composerInputHeight.value,
@@ -2706,6 +3192,7 @@ function applyPlaygroundPayload(payload: Record<string, unknown>) {
   imageCount.value = typeof payload.imageCount === 'number' ? payload.imageCount : imageCount.value
   outputFormat.value = typeof payload.outputFormat === 'string' ? payload.outputFormat : outputFormat.value
   imagePromptStyle.value = isImagePromptStyle(payload.imagePromptStyle) ? payload.imagePromptStyle : imagePromptStyle.value
+  imageWorkspaceMode.value = payload.imageWorkspaceMode === 'board' ? 'board' : 'chat'
   promptOptimizerModel.value = typeof payload.promptOptimizerModel === 'string' ? payload.promptOptimizerModel : promptOptimizerModel.value
   showComposerConfig.value = typeof payload.showComposerConfig === 'boolean' ? payload.showComposerConfig : showComposerConfig.value
   composerInputHeight.value = typeof payload.composerInputHeight === 'number'
@@ -2885,6 +3372,11 @@ function formatMessageTime(timestamp: number): string {
   return formatTime(new Date(timestamp))
 }
 
+function imageBoardTaskDate(timestamp: number): string {
+  const date = new Date(timestamp)
+  return `${formatDateOnly(date)} ${formatMessageTime(timestamp)}`
+}
+
 function renderMessageMarkdown(content: string): string {
   if (!content) return ''
   const html = marked.parse(content) as string
@@ -2945,6 +3437,111 @@ function selectThread(id: string) {
   mobileHistoryOpen.value = false
   selectDefaultModel()
   scrollMessagesToBottom()
+}
+
+function openImageBoardDetail(task: PlaygroundImageBoardTask) {
+  imageBoardDetailImageIndex.value = 0
+  imageBoardDetailTask.value = task
+}
+
+function closeImageBoardDetail() {
+  imageBoardDetailTask.value = null
+  imageBoardDetailImageIndex.value = 0
+}
+
+function openImageBoardDetailImage(index: number) {
+  const task = imageBoardDetailTask.value
+  if (!task) return
+  closeImageBoardDetail()
+  void openImagePreview(task.message, index)
+}
+
+function navigateImageBoardDetail(direction: -1 | 1) {
+  const total = imageBoardDetailImages.value.length
+  if (total <= 1) return
+  imageBoardDetailImageIndex.value = (imageBoardDetailImageIndex.value + direction + total) % total
+}
+
+async function downloadImageBoardDetailImage() {
+  const task = imageBoardDetailTask.value
+  const image = imageBoardDetailCurrentImage.value
+  if (!task || !image) return
+  try {
+    const blob = await resolveGeneratedImageBlob(image)
+    if (!blob) throw new Error(t('playground.imageCacheMissing'))
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = imagePreviewDownloadName(task.message.createdAt, imageBoardDetailImageIndex.value, blob.type || image.mimeType || 'image/png')
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    appStore.showError((error as Error)?.message || t('playground.imageCacheMissing'))
+  }
+}
+
+function activateImageBoardTaskThread(task: PlaygroundImageBoardTask) {
+  if (activeThreadId.value !== task.thread.id) {
+    selectThread(task.thread.id)
+  }
+}
+
+async function redrawImageBoardTask(task: PlaygroundImageBoardTask, index: number) {
+  const image = task.message.images?.[index]
+  if (!image) return
+  closeImageBoardDetail()
+  activateImageBoardTaskThread(task)
+  await redrawGeneratedImage(task.message, image, index)
+}
+
+async function reuseImageBoardTask(task: PlaygroundImageBoardTask) {
+  await reuseImageConfig(task.message)
+  closeImageBoardDetail()
+}
+
+function isImageBoardTaskSelected(taskId: string): boolean {
+  return selectedImageBoardTaskIds.value.has(taskId)
+}
+
+function imageBoardTaskSource(task: PlaygroundImageBoardTask): string {
+  const platform = messagePlatform(task.message)
+  return platform ? platformLabel(platform) : task.thread.title
+}
+
+function toggleImageBoardTaskFavorite(task: PlaygroundImageBoardTask) {
+  task.message.favorite = !task.message.favorite
+}
+
+function toggleImageBoardTaskSelection(taskId: string) {
+  const task = imageBoardTasks.value.find((item) => item.message.id === taskId)
+  if (!task || task.message.pending) return
+  const next = new Set(selectedImageBoardTaskIds.value)
+  if (next.has(taskId)) next.delete(taskId)
+  else next.add(taskId)
+  selectedImageBoardTaskIds.value = next
+}
+
+function clearImageBoardSelection() {
+  selectedImageBoardTaskIds.value = new Set()
+}
+
+function selectImageBoardPage(nextPage: number) {
+  const page = Math.min(Math.max(1, nextPage), imageBoardPageCount.value)
+  if (page === imageBoardPage.value) return
+  imageBoardPage.value = page
+  clearImageBoardSelection()
+  void nextTick(() => messageScroller.value?.scrollTo({ top: 0, behavior: 'smooth' }))
+}
+
+function deleteImageBoardTask(task: PlaygroundImageBoardTask) {
+  deleteMessageFromThread(task.thread, task.message.id)
+}
+
+function handleImageBoardCardClick(task: PlaygroundImageBoardTask) {
+  if (Date.now() < suppressImageBoardCardClickUntil) return
+  openImageBoardDetail(task)
 }
 
 function deleteThread(id: string) {
@@ -3137,6 +3734,55 @@ function selectMode(nextMode: PlaygroundMode) {
   }
   mobileHistoryOpen.value = false
   selectDefaultModel()
+}
+
+function selectImageWorkspace(nextWorkspace: ImageWorkspaceMode) {
+  imageWorkspaceMode.value = nextWorkspace
+  nextTick(updateComposerSpacer)
+}
+
+function composerModelGroupLabel(platform?: GroupPlatform): string {
+  if (platform === 'openai') return 'OpenAI'
+  if (platform === 'anthropic') return 'Anthropic'
+  if (platform === 'gemini') return 'Google Gemini'
+  if (platform === 'antigravity') return 'Antigravity'
+  return t('playground.otherModelGroups')
+}
+
+function closeComposerPanel() {
+  activeComposerPanel.value = null
+  composerModelSearch.value = ''
+  void nextTick(updateComposerSpacer)
+}
+
+function toggleComposerPanel(panel: ComposerPanel) {
+  const willOpen = activeComposerPanel.value !== panel
+  activeComposerPanel.value = willOpen ? panel : null
+  if (panel === 'model') {
+    composerModelSearch.value = ''
+    const selectedPlatform = selectedModel.value
+      ? platformForModel(selectedModel.value)
+      : undefined
+    composerModelGroup.value = selectedPlatform || 'all'
+  }
+  void nextTick(updateComposerSpacer)
+}
+
+function selectComposerModel(model: string) {
+  selectedModel.value = model
+  closeComposerPanel()
+}
+
+function openImageComposerOptions() {
+  if (mode.value !== 'image') {
+    selectMode('image')
+  }
+  toggleComposerPanel('image')
+}
+
+function openAdvancedComposerSettings() {
+  closeComposerPanel()
+  showSettings.value = true
 }
 
 function rememberSelectedModelForMode(targetMode: PlaygroundMode = mode.value) {
@@ -3625,6 +4271,8 @@ async function openDoodleEditor(attachment: PlaygroundAttachment) {
     doodleStrokes.value = []
     doodleRedoStrokes.value = []
     doodleTool.value = 'brush'
+    doodleBrushOpacity.value = 1
+    doodleStickerPanelOpen.value = false
     doodleEditor.value = {
       attachmentId: attachment.id,
       name: attachment.name,
@@ -3637,10 +4285,14 @@ async function openDoodleEditor(attachment: PlaygroundAttachment) {
     const ratio = Math.min(1, PLAYGROUND_DOODLE_MAX_DISPLAY_EDGE / Math.max(image.naturalWidth, image.naturalHeight))
     canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio))
     canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio))
+    doodleCanvasWidth.value = canvas.width
+    doodleCanvasHeight.value = canvas.height
     doodleOverlayCanvas = document.createElement('canvas')
     doodleOverlayCanvas.width = canvas.width
     doodleOverlayCanvas.height = canvas.height
     renderDoodleCanvas()
+    await nextTick()
+    fitDoodleCanvas()
   } catch (error) {
     closeDoodleEditor()
     appStore.showError((error as Error)?.message || t('playground.doodleLoadFailed'))
@@ -3659,6 +4311,10 @@ function closeDoodleEditor(force = false) {
   doodleEditor.value = null
   doodleStrokes.value = []
   doodleRedoStrokes.value = []
+  doodleCanvasWidth.value = 0
+  doodleCanvasHeight.value = 0
+  doodleZoom.value = 1
+  doodleStickerPanelOpen.value = false
   doodleSaving.value = false
 }
 
@@ -3667,24 +4323,63 @@ function selectDoodleColor(color: string) {
   doodleTool.value = 'brush'
 }
 
-function drawDoodleStroke(context: CanvasRenderingContext2D, stroke: DoodleStroke) {
-  if (stroke.points.length === 0) return
+function clampDoodleZoom(value: number): number {
+  return Math.min(3, Math.max(0.25, Math.round(value * 100) / 100))
+}
+
+function adjustDoodleZoom(delta: number) {
+  doodleZoom.value = clampDoodleZoom(doodleZoom.value + delta)
+}
+
+function fitDoodleCanvas() {
+  const viewport = doodleCanvasViewport.value
+  if (!viewport || !doodleCanvasWidth.value || !doodleCanvasHeight.value) return
+  const availableWidth = Math.max(1, viewport.clientWidth - 32)
+  const availableHeight = Math.max(1, viewport.clientHeight - 32)
+  doodleZoom.value = clampDoodleZoom(Math.min(1, availableWidth / doodleCanvasWidth.value, availableHeight / doodleCanvasHeight.value))
+}
+
+function toggleDoodleStickerPanel() {
+  doodleTool.value = 'sticker'
+  doodleStickerPanelOpen.value = !doodleStickerPanelOpen.value
+}
+
+function selectDoodleSticker(sticker: string) {
+  doodleSelectedSticker.value = sticker
+  doodleTool.value = 'sticker'
+  doodleStickerPanelOpen.value = true
+}
+
+function drawDoodleOperation(context: CanvasRenderingContext2D, operation: DoodleOperation) {
   context.save()
-  context.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over'
-  context.strokeStyle = stroke.color
-  context.fillStyle = stroke.color
-  context.lineWidth = stroke.size
+  if (operation.kind === 'sticker') {
+    context.font = `${operation.size}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+    context.fillText(operation.emoji, operation.point.x, operation.point.y)
+    context.restore()
+    return
+  }
+  if (operation.points.length === 0) {
+    context.restore()
+    return
+  }
+  context.globalCompositeOperation = operation.tool === 'eraser' ? 'destination-out' : 'source-over'
+  context.globalAlpha = operation.tool === 'brush' ? operation.opacity : 1
+  context.strokeStyle = operation.color
+  context.fillStyle = operation.color
+  context.lineWidth = operation.size
   context.lineCap = 'round'
   context.lineJoin = 'round'
-  if (stroke.points.length === 1) {
-    const point = stroke.points[0]
+  if (operation.points.length === 1) {
+    const point = operation.points[0]
     context.beginPath()
-    context.arc(point.x, point.y, stroke.size / 2, 0, Math.PI * 2)
+    context.arc(point.x, point.y, operation.size / 2, 0, Math.PI * 2)
     context.fill()
   } else {
     context.beginPath()
-    context.moveTo(stroke.points[0].x, stroke.points[0].y)
-    for (const point of stroke.points.slice(1)) {
+    context.moveTo(operation.points[0].x, operation.points[0].y)
+    for (const point of operation.points.slice(1)) {
       context.lineTo(point.x, point.y)
     }
     context.stroke()
@@ -3701,7 +4396,7 @@ function renderDoodleCanvas() {
   const context = canvas.getContext('2d')
   if (!overlayContext || !context) return
   overlayContext.clearRect(0, 0, overlay.width, overlay.height)
-  for (const stroke of doodleStrokes.value) drawDoodleStroke(overlayContext, stroke)
+  for (const operation of doodleStrokes.value) drawDoodleOperation(overlayContext, operation)
   context.clearRect(0, 0, canvas.width, canvas.height)
   context.drawImage(image, 0, 0, canvas.width, canvas.height)
   context.drawImage(overlay, 0, 0)
@@ -3728,13 +4423,26 @@ function handleDoodlePointerDown(event: PointerEvent) {
   const point = doodlePointFromEvent(event)
   if (!canvas || !point) return
   event.preventDefault()
+  doodleRedoStrokes.value = []
+  if (doodleTool.value === 'sticker') {
+    doodleStrokes.value = [...doodleStrokes.value, {
+      kind: 'sticker',
+      emoji: doodleSelectedSticker.value,
+      size: Math.min(160, Math.max(40, doodleBrushSize.value * 5)),
+      point
+    }]
+    scheduleDoodleRender()
+    return
+  }
   canvas.setPointerCapture(event.pointerId)
   doodlePointerId = event.pointerId
-  doodleRedoStrokes.value = []
+  const tool: DoodleDrawingTool = doodleTool.value === 'eraser' ? 'eraser' : 'brush'
   doodleStrokes.value = [...doodleStrokes.value, {
-    tool: doodleTool.value,
+    kind: 'stroke',
+    tool,
     color: doodleColor.value,
     size: doodleBrushSize.value,
+    opacity: doodleBrushOpacity.value,
     points: [point]
   }]
   scheduleDoodleRender()
@@ -3743,9 +4451,9 @@ function handleDoodlePointerDown(event: PointerEvent) {
 function handleDoodlePointerMove(event: PointerEvent) {
   if (doodlePointerId !== event.pointerId) return
   const point = doodlePointFromEvent(event)
-  const stroke = doodleStrokes.value[doodleStrokes.value.length - 1]
-  if (!point || !stroke) return
-  stroke.points.push(point)
+  const operation = doodleStrokes.value[doodleStrokes.value.length - 1]
+  if (!point || !operation || operation.kind !== 'stroke') return
+  operation.points.push(point)
   scheduleDoodleRender()
 }
 
@@ -3862,6 +4570,12 @@ function closeImagePreview() {
 }
 
 function handlePlaygroundGlobalKeydown(event: KeyboardEvent) {
+  if (activeComposerPanel.value && event.key === 'Escape') {
+    event.preventDefault()
+    closeComposerPanel()
+    return
+  }
+
   if (doodleEditor.value) {
     if (event.key === 'Escape') {
       event.preventDefault()
@@ -3874,6 +4588,18 @@ function handlePlaygroundGlobalKeydown(event: KeyboardEvent) {
       if (event.shiftKey) redoDoodleStroke()
       else undoDoodleStroke()
     }
+    return
+  }
+  if (imageBoardDetailTask.value) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeImageBoardDetail()
+    }
+    return
+  }
+  if (event.key === 'Escape' && selectedImageBoardTaskIds.value.size > 0) {
+    event.preventDefault()
+    clearImageBoardSelection()
     return
   }
   if (!imagePreview.value) return
@@ -3892,6 +4618,10 @@ function handlePlaygroundGlobalKeydown(event: KeyboardEvent) {
 function deleteMessage(messageId: string) {
   const thread = activeThread.value
   if (!thread) return
+  deleteMessageFromThread(thread, messageId)
+}
+
+function deleteMessageFromThread(thread: PlaygroundThread, messageId: string) {
   const deleted = thread.messages.find((message) => message.id === messageId)
   clearScheduledRunRecovery(deleted?.runId)
   revokeImageObjectURLs(deleted?.images)
@@ -3902,12 +4632,118 @@ function deleteMessage(messageId: string) {
     next.delete(messageId)
     expandedImageDescriptions.value = next
   }
+  if (imageBoardDetailTask.value?.message.id === messageId) {
+    closeImageBoardDetail()
+  }
+  if (selectedImageBoardTaskIds.value.has(messageId)) {
+    const next = new Set(selectedImageBoardTaskIds.value)
+    next.delete(messageId)
+    selectedImageBoardTaskIds.value = next
+  }
   thread.updatedAt = Date.now()
+  syncThreadRunning(thread)
+}
+
+function updateImageBoardSelection(clientX: number, clientY: number) {
+  const state = imageBoardSelectionState
+  const root = imageBoardRoot.value
+  if (!state || !root) return
+  const left = Math.min(state.startX, clientX)
+  const right = Math.max(state.startX, clientX)
+  const top = Math.min(state.startY, clientY)
+  const bottom = Math.max(state.startY, clientY)
+  const next = new Set(state.initialSelectedIds)
+  const initiallySelected = state.initialSelectedIds
+  const cards = root.querySelectorAll<HTMLElement>('[data-image-board-task-id]')
+  for (const card of cards) {
+    const taskId = card.dataset.imageBoardTaskId
+    if (!taskId) continue
+    const task = imageBoardTasks.value.find((item) => item.message.id === taskId)
+    if (!task || task.message.pending) continue
+    const rect = card.getBoundingClientRect()
+    const intersects = imageBoardRectsIntersect(
+      { left, top, right, bottom },
+      { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }
+    )
+    if (intersects) {
+      if (initiallySelected.has(taskId)) next.delete(taskId)
+      else next.add(taskId)
+    } else if (!initiallySelected.has(taskId)) {
+      next.delete(taskId)
+    }
+  }
+  selectedImageBoardTaskIds.value = next
+  imageBoardSelection.value = {
+    startX: state.startX,
+    startY: state.startY,
+    currentX: clientX,
+    currentY: clientY
+  }
+}
+
+function cleanupImageBoardPointerSelection() {
+  imageBoardSelectionState = null
+  imageBoardSelection.value = null
+  document.body.classList.remove('select-none')
+  window.removeEventListener('pointermove', handleImageBoardPointerMove)
+  window.removeEventListener('pointerup', handleImageBoardPointerUp)
+  window.removeEventListener('pointercancel', handleImageBoardPointerUp)
+}
+
+function handleImageBoardPointerDown(event: PointerEvent) {
+  if (event.button !== 0 || !(event.target instanceof Element)) return
+  if (event.target.closest('button, a, input, textarea, select')) return
+  const root = imageBoardRoot.value
+  if (!root || !root.contains(event.target)) return
+  const card = event.target.closest<HTMLElement>('[data-image-board-task-id]')
+  const taskId = card?.dataset.imageBoardTaskId || null
+  const task = taskId ? imageBoardTasks.value.find((item) => item.message.id === taskId) : null
+  const additive = event.ctrlKey || event.metaKey
+  imageBoardSelectionState = {
+    pointerId: event.pointerId,
+    taskId: task?.message.pending ? null : taskId,
+    additive,
+    initialSelectedIds: new Set(selectedImageBoardTaskIds.value),
+    startX: event.clientX,
+    startY: event.clientY,
+    didDrag: false
+  }
+  window.addEventListener('pointermove', handleImageBoardPointerMove)
+  window.addEventListener('pointerup', handleImageBoardPointerUp)
+  window.addEventListener('pointercancel', handleImageBoardPointerUp)
+}
+
+function handleImageBoardPointerMove(event: PointerEvent) {
+  const state = imageBoardSelectionState
+  if (!state || state.pointerId !== event.pointerId) return
+  if (!state.didDrag && Math.hypot(event.clientX - state.startX, event.clientY - state.startY) < 6) return
+  state.didDrag = true
+  document.body.classList.add('select-none')
+  event.preventDefault()
+  updateImageBoardSelection(event.clientX, event.clientY)
+}
+
+function handleImageBoardPointerUp(event: PointerEvent) {
+  const state = imageBoardSelectionState
+  if (!state || state.pointerId !== event.pointerId) return
+  if (state.didDrag) {
+    suppressImageBoardCardClickUntil = Date.now() + 250
+  } else if (state.additive && state.taskId) {
+    toggleImageBoardTaskSelection(state.taskId)
+    suppressImageBoardCardClickUntil = Date.now() + 250
+  } else if (!state.taskId) {
+    clearImageBoardSelection()
+  }
+  cleanupImageBoardPointerSelection()
 }
 
 async function scrollMessagesToBottom() {
   await nextTick()
   if (messageScroller.value) {
+    if (isImageBoardMode.value) {
+      messageScroller.value.scrollTop = 0
+      return
+    }
     messageScroller.value.scrollTop = messageScroller.value.scrollHeight
   }
 }
@@ -5030,6 +5866,7 @@ watch(() => ({
   imageCount: imageCount.value,
   outputFormat: outputFormat.value,
   imagePromptStyle: imagePromptStyle.value,
+  imageWorkspaceMode: imageWorkspaceMode.value,
   promptOptimizerModel: promptOptimizerModel.value,
   showComposerConfig: showComposerConfig.value,
   composerInputHeight: composerInputHeight.value,
@@ -5088,6 +5925,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   playgroundViewMounted = false
+  cleanupImageBoardPointerSelection()
   closeDoodleEditor(true)
   closeImagePreview()
   revokeAllImageObjectURLs()
@@ -5120,6 +5958,278 @@ onBeforeUnmount(() => {
 .playground-composer-shell {
   container-name: playground-composer;
   container-type: inline-size;
+}
+
+.composer-control-panel {
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: rgb(255 255 255);
+  box-shadow: 0 14px 30px -24px rgb(15 23 42 / 0.42);
+}
+
+.composer-model-picker {
+  display: grid;
+  min-height: 13.5rem;
+  grid-template-columns: 10rem minmax(0, 1fr);
+}
+
+.composer-model-groups {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+  overflow-y: auto;
+  border-right: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 0.625rem;
+}
+
+.composer-panel-label {
+  margin: 0 0 0.375rem;
+  padding: 0 0.375rem;
+  color: rgb(100 116 139);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1rem;
+}
+
+.composer-model-group,
+.composer-model-option,
+.composer-more-action,
+.composer-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.375rem;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.composer-model-group {
+  min-height: 2.25rem;
+  padding: 0.5rem 0.625rem;
+  color: rgb(71 85 105);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.composer-model-group:hover,
+.composer-model-group.is-active {
+  background: rgb(255 255 255);
+  color: rgb(2 132 199);
+}
+
+.composer-model-group svg:last-child {
+  margin-left: auto;
+}
+
+.composer-model-results {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 0.625rem;
+}
+
+.composer-model-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.375rem;
+  color: rgb(148 163 184);
+  padding: 0 0.625rem;
+}
+
+.composer-model-search:focus-within {
+  border-color: rgb(125 211 252);
+  box-shadow: 0 0 0 2px rgb(186 230 253 / 0.72);
+}
+
+.composer-model-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  padding: 0.5rem 0;
+  color: rgb(30 41 59);
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  outline: 0;
+}
+
+.composer-model-list {
+  display: grid;
+  min-height: 0;
+  gap: 0.125rem;
+  overflow-y: auto;
+  padding-top: 0.5rem;
+}
+
+.composer-model-option {
+  min-height: 2.25rem;
+  padding: 0.5rem 0.625rem;
+  color: rgb(51 65 85);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.composer-model-option:hover,
+.composer-model-option.is-selected {
+  background: rgb(240 249 255);
+  color: rgb(3 105 161);
+}
+
+.composer-model-empty {
+  margin: auto 0;
+  padding: 1rem;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.composer-image-panel {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+  padding: 0.625rem;
+}
+
+.composer-image-panel > * {
+  min-width: 0;
+  width: 100%;
+}
+
+.composer-more-panel {
+  display: grid;
+  grid-template-columns: minmax(13rem, 1fr) auto;
+  align-items: end;
+  gap: 0.75rem;
+  padding: 0.625rem;
+}
+
+.composer-more-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.composer-more-action {
+  min-height: 2.25rem;
+  padding: 0.5rem 0.625rem;
+  color: rgb(71 85 105);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.composer-more-action:hover:not(:disabled) {
+  background: rgb(240 249 255);
+  color: rgb(2 132 199);
+}
+
+.composer-more-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.composer-toolbar {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.125rem;
+  overflow-x: auto;
+  padding: 0.625rem 0.125rem 0.125rem;
+  scrollbar-width: none;
+}
+
+.composer-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.composer-toolbar-button {
+  min-height: 2.125rem;
+  flex: 0 0 auto;
+  padding: 0.375rem 0.625rem;
+  color: rgb(71 85 105);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.composer-toolbar-button:hover,
+.composer-toolbar-button.is-active {
+  background: rgb(240 249 255);
+  color: rgb(2 132 199);
+}
+
+.composer-toolbar-icon-button {
+  width: 2.125rem;
+  justify-content: center;
+  padding: 0;
+}
+
+.composer-toolbar-model-button {
+  max-width: min(18rem, 42vw);
+}
+
+.composer-toolbar-divider {
+  height: 1.25rem;
+  width: 1px;
+  flex: 0 0 1px;
+  background: rgb(226 232 240);
+  margin: 0 0.25rem;
+}
+
+.dark .composer-control-panel {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  box-shadow: 0 14px 30px -24px rgb(0 0 0 / 0.66);
+}
+
+.dark .composer-model-groups {
+  border-color: rgb(51 65 85);
+  background: rgb(2 6 23 / 0.48);
+}
+
+.dark .composer-panel-label,
+.dark .composer-model-empty {
+  color: rgb(148 163 184);
+}
+
+.dark .composer-model-group,
+.dark .composer-model-option,
+.dark .composer-more-action,
+.dark .composer-toolbar-button {
+  color: rgb(203 213 225);
+}
+
+.dark .composer-model-group:hover,
+.dark .composer-model-group.is-active,
+.dark .composer-model-option:hover,
+.dark .composer-model-option.is-selected,
+.dark .composer-more-action:hover:not(:disabled),
+.dark .composer-toolbar-button:hover,
+.dark .composer-toolbar-button.is-active {
+  background: rgb(12 74 110 / 0.32);
+  color: rgb(125 211 252);
+}
+
+.dark .composer-model-search {
+  border-color: rgb(51 65 85);
+}
+
+.dark .composer-model-search:focus-within {
+  border-color: rgb(3 105 161);
+  box-shadow: 0 0 0 2px rgb(7 89 133 / 0.5);
+}
+
+.dark .composer-model-search input {
+  color: rgb(241 245 249);
+}
+
+.dark .composer-toolbar-divider {
+  background: rgb(51 65 85);
 }
 
 .composer-config-panel {
@@ -5369,6 +6479,335 @@ onBeforeUnmount(() => {
   color: rgb(147 197 253);
 }
 
+.image-workspace-switch {
+  display: inline-flex;
+  min-height: 2.25rem;
+  overflow: hidden;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: rgb(255 255 255);
+}
+
+.image-workspace-switch button {
+  display: inline-flex;
+  min-width: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.image-workspace-switch button + button {
+  border-left: 1px solid rgb(226 232 240);
+}
+
+.image-workspace-switch button:hover {
+  background: rgb(240 249 255);
+  color: rgb(2 132 199);
+}
+
+.image-workspace-switch button.is-active {
+  background: rgb(14 165 233);
+  color: rgb(255 255 255);
+}
+
+.dark .image-workspace-switch {
+  border-color: rgb(55 65 81);
+  background: rgb(15 23 42);
+}
+
+.dark .image-workspace-switch button {
+  color: rgb(203 213 225);
+}
+
+.dark .image-workspace-switch button + button {
+  border-color: rgb(55 65 81);
+}
+
+.dark .image-workspace-switch button:hover {
+  background: rgb(12 74 110 / 0.32);
+  color: rgb(125 211 252);
+}
+
+.image-board-root {
+  position: relative;
+  min-height: 50vh;
+}
+
+.image-board-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+}
+
+.image-board-card {
+  position: relative;
+  display: flex;
+  height: 10rem;
+  min-height: 10rem;
+  overflow: hidden;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: rgb(255 255 255);
+  cursor: pointer;
+  will-change: transform;
+  transition: box-shadow 200ms ease, border-color 200ms ease, background-color 200ms ease, transform 200ms ease;
+}
+
+.image-board-card:hover {
+  border-color: rgb(209 213 219);
+  box-shadow: 0 10px 15px -3px rgb(15 23 42 / 0.1), 0 4px 6px -4px rgb(15 23 42 / 0.1);
+}
+
+.image-board-card.is-error {
+  border-color: rgb(254 202 202);
+}
+
+.image-board-card.is-selected {
+  border-color: rgb(59 130 246);
+  box-shadow: 0 4px 6px -1px rgb(15 23 42 / 0.1), 0 2px 4px -2px rgb(15 23 42 / 0.1), 0 0 0 2px rgb(59 130 246 / 0.5);
+}
+
+.image-board-card-media {
+  position: relative;
+  height: 100%;
+  width: 10rem;
+  flex: 0 0 10rem;
+  overflow: hidden;
+  background: rgb(248 250 252);
+}
+
+.image-board-card-selected {
+  position: absolute;
+  right: 0.5rem;
+  top: 0.5rem;
+  z-index: 10;
+  display: inline-flex;
+  height: 1.25rem;
+  width: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgb(59 130 246);
+  color: rgb(255 255 255);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.24);
+}
+
+.image-board-selection-box {
+  position: fixed;
+  z-index: 30;
+  pointer-events: none;
+  border: 1px solid rgb(59 130 246 / 0.5);
+  background: rgb(59 130 246 / 0.2);
+}
+
+.image-board-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding-bottom: 2.5rem;
+}
+
+.image-board-pagination button {
+  display: inline-flex;
+  height: 2rem;
+  min-width: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.image-board-pagination button:hover:not(:disabled) {
+  background: rgb(240 249 255);
+  color: rgb(2 132 199);
+}
+
+.image-board-pagination button.is-active {
+  background: rgb(14 165 233);
+  color: rgb(255 255 255);
+}
+
+.image-board-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.image-board-pagination span {
+  display: inline-flex;
+  height: 2rem;
+  min-width: 1rem;
+  align-items: center;
+  justify-content: center;
+  color: rgb(148 163 184);
+  font-size: 0.75rem;
+}
+
+.image-board-card-tags {
+  display: flex;
+  min-width: 0;
+  gap: 0.375rem;
+  overflow-x: auto;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  scrollbar-width: none;
+}
+
+.image-board-card-tags::-webkit-scrollbar {
+  display: none;
+}
+
+.image-board-card-tags span {
+  max-width: 9rem;
+  overflow: hidden;
+  border-radius: 0.25rem;
+  background: rgb(241 245 249);
+  padding: 0.125rem 0.375rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-board-card-action {
+  display: inline-flex;
+  height: 1.875rem;
+  width: 1.875rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  color: rgb(100 116 139);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.image-board-card-action:hover {
+  background: rgb(240 249 255);
+  color: rgb(2 132 199);
+}
+
+.dark .image-board-card {
+  border-color: rgb(255 255 255 / 0.08);
+  background: rgb(17 24 39);
+}
+
+.dark .image-board-card:hover {
+  border-color: rgb(255 255 255 / 0.18);
+  background: rgb(31 41 55 / 0.8);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.22), 0 4px 6px -4px rgb(0 0 0 / 0.22);
+}
+
+.dark .image-board-card.is-error {
+  border-color: rgb(127 29 29 / 0.8);
+}
+
+.dark .image-board-card.is-selected {
+  border-color: rgb(59 130 246);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.2), 0 2px 4px -2px rgb(0 0 0 / 0.2), 0 0 0 2px rgb(59 130 246 / 0.5);
+}
+
+.dark .image-board-pagination button {
+  color: rgb(203 213 225);
+}
+
+.dark .image-board-pagination button:hover:not(:disabled) {
+  background: rgb(12 74 110 / 0.32);
+  color: rgb(125 211 252);
+}
+
+.dark .image-board-pagination span {
+  color: rgb(148 163 184);
+}
+
+.dark .image-board-card-media {
+  background: rgb(0 0 0 / 0.2);
+}
+
+.dark .image-board-card-tags {
+  color: rgb(203 213 225);
+}
+
+.dark .image-board-card-tags span {
+  background: rgb(30 41 59);
+}
+
+.dark .image-board-card-action {
+  color: rgb(203 213 225);
+}
+
+.dark .image-board-card-action:hover {
+  background: rgb(12 74 110 / 0.32);
+  color: rgb(125 211 252);
+}
+
+.image-board-detail-images {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.image-board-detail-image {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: rgb(248 250 252);
+}
+
+.image-board-detail-parameters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.image-board-detail-parameters div {
+  min-width: 0;
+  border-bottom: 1px solid rgb(241 245 249);
+  padding-bottom: 0.5rem;
+}
+
+.image-board-detail-parameters dt {
+  color: rgb(100 116 139);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+}
+
+.image-board-detail-parameters dd {
+  margin-top: 0.125rem;
+  overflow: hidden;
+  color: rgb(30 41 59);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dark .image-board-detail-image {
+  border-color: rgb(55 65 81);
+  background: rgb(2 6 23);
+}
+
+.dark .image-board-detail-parameters div {
+  border-color: rgb(30 41 59);
+}
+
+.dark .image-board-detail-parameters dt {
+  color: rgb(148 163 184);
+}
+
+.dark .image-board-detail-parameters dd {
+  color: rgb(226 232 240);
+}
+
 .playground-image-strip {
   display: flex;
   width: max-content;
@@ -5402,8 +6841,56 @@ onBeforeUnmount(() => {
   background: rgb(241 245 249);
 }
 
+.doodle-canvas-stage canvas {
+  margin: auto;
+}
+
+.doodle-sticker-panel {
+  background: rgb(248 250 252);
+}
+
+.doodle-sticker-button {
+  display: inline-flex;
+  height: 2.125rem;
+  width: 2.125rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  background: rgb(255 255 255);
+  font-size: 1.125rem;
+  line-height: 1;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.doodle-sticker-button:hover:not(:disabled),
+.doodle-sticker-button.is-active {
+  border-color: rgb(125 211 252);
+  background: rgb(240 249 255);
+  transform: translateY(-1px);
+}
+
+.doodle-sticker-button:disabled {
+  cursor: wait;
+  opacity: 0.45;
+}
+
 .dark .doodle-canvas-stage {
   background: rgb(2 6 23);
+}
+
+.dark .doodle-sticker-panel {
+  background: rgb(2 6 23 / 0.48);
+}
+
+.dark .doodle-sticker-button {
+  background: rgb(15 23 42);
+}
+
+.dark .doodle-sticker-button:hover:not(:disabled),
+.dark .doodle-sticker-button.is-active {
+  border-color: rgb(3 105 161);
+  background: rgb(12 74 110 / 0.32);
 }
 
 .doodle-tool-button,
@@ -5470,6 +6957,22 @@ onBeforeUnmount(() => {
     width: 9rem;
     flex-basis: 9rem;
   }
+
+  .image-board-detail-images {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 640px) {
+  .image-board-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .image-board-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (hover: none) {
@@ -5483,6 +6986,12 @@ onBeforeUnmount(() => {
 
   .playground-thumbnail-actions button:last-child {
     display: none;
+  }
+
+  .playground-attachment-edit {
+    opacity: 1;
+    pointer-events: auto;
+    background: rgb(15 23 42 / 0.38);
   }
 }
 
@@ -5514,6 +7023,30 @@ onBeforeUnmount(() => {
   padding: 0;
 }
 
+.playground-attachment-edit {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(15 23 42 / 0.46);
+  color: rgb(255 255 255);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease, background-color 150ms ease;
+}
+
+.playground-pending-attachment-image:hover .playground-attachment-edit,
+.playground-pending-attachment-image:focus-within .playground-attachment-edit {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.playground-attachment-edit:hover {
+  background: rgb(14 116 144 / 0.66);
+}
+
 .playground-attachment-chip-image {
   cursor: zoom-in;
 }
@@ -5530,6 +7063,7 @@ onBeforeUnmount(() => {
   position: absolute;
   right: 0.125rem;
   top: 0.125rem;
+  z-index: 20;
   height: 1.125rem;
   width: 1.125rem;
   border-radius: 9999px;
@@ -5712,6 +7246,14 @@ onBeforeUnmount(() => {
 }
 
 @container playground-composer (max-width: 860px) {
+  .composer-image-panel {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .composer-image-panel > :nth-child(n + 4) {
+    grid-column: span 1;
+  }
+
   .composer-image-grid {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
@@ -5726,6 +7268,39 @@ onBeforeUnmount(() => {
 }
 
 @container playground-composer (max-width: 640px) {
+  .composer-model-picker {
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+  }
+
+  .composer-image-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .composer-image-panel > :nth-child(n) {
+    grid-column: auto;
+  }
+
+  .composer-more-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .composer-more-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .composer-more-action {
+    justify-content: center;
+  }
+
+  .composer-toolbar-button {
+    min-height: 2.5rem;
+  }
+
+  .composer-toolbar-icon-button {
+    width: 2.5rem;
+  }
+
   .composer-runtime-row {
     flex-direction: column;
     align-items: stretch;
@@ -5785,6 +7360,20 @@ onBeforeUnmount(() => {
 }
 
 @container playground-composer (max-width: 420px) {
+  .composer-model-picker {
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+  }
+
+  .composer-model-group,
+  .composer-model-option {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .composer-toolbar-model-button {
+    max-width: 10rem;
+  }
+
   .composer-runtime-grid,
   .composer-image-grid {
     grid-template-columns: minmax(0, 1fr);

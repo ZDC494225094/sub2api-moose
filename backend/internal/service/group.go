@@ -1,12 +1,12 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 )
 
@@ -20,7 +20,7 @@ type Group struct {
 	Platform       string
 	RateMultiplier float64
 	// 高峰时段倍率：peak_rate_enabled 为 true 且当前时刻处于 [PeakStart, PeakEnd) 时，
-	// token 计费倍率额外乘以 PeakRateMultiplier。详见 PeakMultiplierAt。
+	// token 计费直接使用 PeakRateMultiplier 作为最终倍率。详见 PeakMultiplierAt。
 	PeakRateEnabled    bool
 	PeakStart          string
 	PeakEnd            string
@@ -232,31 +232,38 @@ func parseMinutes(hhmm string) (int, bool) {
 	return h*60 + m, true
 }
 
-// PeakMultiplierAt 返回指定时刻 now 的高峰因子。
-//   - 未启用 / 未配置 / 配置非法（start>=end 或格式错误） / 非高峰时段 → 返回 1.0（安全降级）
-//   - 区间为左闭右开 [PeakStart, PeakEnd)，仅支持当日区间，不支持跨天（如 22:00-次日02:00）
+// peakRateAt 返回指定时刻 now 是否处于高峰，以及高峰时应直接使用的最终 token 计费倍率。
+//   - 未启用 / 未配置 / 配置非法（start==end 或格式错误） / 非高峰时段 → 返回 1.0（安全降级）
+//   - 区间为左闭右开 [PeakStart, PeakEnd)，支持跨午夜（如 22:00-次日02:00）
 //   - 时刻基于全局系统时区（timezone.Location）判定
 //
 // 该方法是纯函数，不读取任何外部状态，便于单测。
-func (g *Group) PeakMultiplierAt(now time.Time) float64 {
+func (g *Group) peakRateAt(now time.Time) (float64, bool) {
 	if g == nil || !g.PeakRateEnabled || g.PeakStart == "" || g.PeakEnd == "" {
-		return 1.0
+		return 1.0, false
 	}
 	start, ok1 := parseMinutes(g.PeakStart)
 	end, ok2 := parseMinutes(g.PeakEnd)
-	if !ok1 || !ok2 || start >= end {
-		return 1.0
+	if !ok1 || !ok2 || start == end {
+		return 1.0, false
 	}
 	t := now.In(timezone.Location())
 	cur := t.Hour()*60 + t.Minute()
-	if cur >= start && cur < end {
-		return g.PeakRateMultiplier
+	if (start < end && cur >= start && cur < end) ||
+		(start > end && (cur >= start || cur < end)) {
+		return g.PeakRateMultiplier, true
 	}
-	return 1.0
+	return 1.0, false
+}
+
+// PeakMultiplierAt 返回高峰时配置的最终倍率；非高峰或配置非法时返回 1.0。
+func (g *Group) PeakMultiplierAt(now time.Time) float64 {
+	rate, _ := g.peakRateAt(now)
+	return rate
 }
 
 // ValidatePeakRateConfig 是高峰倍率配置的唯一校验来源，供 handler 与 service 层共用。
-// enabled=true 时要求 start/end 合法且 end>start（不支持跨天），multiplier>=0。
+// enabled=true 时要求 start/end 合法且不相同（支持跨午夜），multiplier>=0。
 // multiplier=0 是允许的，表示高峰 token 请求按 0 倍计费，可用于折扣/免费策略。
 // enabled=false 时放行。
 func ValidatePeakRateConfig(enabled bool, start, end string, multiplier float64) error {
@@ -264,21 +271,21 @@ func ValidatePeakRateConfig(enabled bool, start, end string, multiplier float64)
 		return nil
 	}
 	if start == "" || end == "" {
-		return errors.New("peak_rate_enabled 为 true 时 peak_start 与 peak_end 必填")
+		return infraerrors.BadRequest("INVALID_PEAK_RATE_CONFIG", "启用高峰倍率时，高峰开始和高峰结束时间必填")
 	}
 	st, okStart := parseMinutes(start)
 	if !okStart {
-		return fmt.Errorf("peak_start 格式应为 HH:MM，got %q", start)
+		return infraerrors.BadRequest("INVALID_PEAK_RATE_CONFIG", fmt.Sprintf("高峰开始时间格式应为 HH:MM，当前值为 %q", start))
 	}
 	en, okEnd := parseMinutes(end)
 	if !okEnd {
-		return fmt.Errorf("peak_end 格式应为 HH:MM，got %q", end)
+		return infraerrors.BadRequest("INVALID_PEAK_RATE_CONFIG", fmt.Sprintf("高峰结束时间格式应为 HH:MM，当前值为 %q", end))
 	}
-	if st >= en {
-		return errors.New("peak_end 必须大于 peak_start（不支持跨天区间，如 22:00-02:00）")
+	if st == en {
+		return infraerrors.BadRequest("INVALID_PEAK_RATE_CONFIG", "高峰开始和高峰结束时间不能相同")
 	}
 	if multiplier < 0 {
-		return errors.New("peak_rate_multiplier 不能为负")
+		return infraerrors.BadRequest("INVALID_PEAK_RATE_CONFIG", "高峰倍率不能为负")
 	}
 	return nil
 }
@@ -305,16 +312,17 @@ func NormalizePeakRateConfig(enabled bool, start, end string, multiplier float64
 	return enabled, start, end, multiplier
 }
 
-// computePeakAwareMultipliers 把"基础 token 倍率 base"（已含系统/分组/用户级倍率，但不含高峰）
-// 拆分为最终 token 倍率与图片按次倍率：图片按次倍率基于 base 现算、不受高峰影响；token 倍率在 base 上叠加高峰因子。
+// computePeakAwareMultipliers 把"基础 token 倍率 base"（已含系统/分组/用户级倍率）
+// 拆分为最终 token 倍率与图片按次倍率：图片按次倍率基于 base 现算、不受高峰影响；高峰时 token 倍率直接替换为配置值。
 // gateway_service.recordUsageCore 与 openai_gateway_service.RecordUsage 共用此函数，
-// 锁死"高峰因子只乘入 token 倍率、图片按次倍率不受影响"这一叠加顺序——任何调换都会被 group_peak_rate_test 覆盖。
+// 锁死"高峰倍率覆盖 token 倍率、图片按次倍率不受影响"这一规则。
 func computePeakAwareMultipliers(apiKey *APIKey, base float64, now time.Time) (text, image float64) {
 	image = resolveImageRateMultiplier(apiKey, base)
-	peak := 1.0
+	text = base
 	if apiKey != nil && apiKey.Group != nil {
-		peak = apiKey.Group.PeakMultiplierAt(now)
+		if peakRate, active := apiKey.Group.peakRateAt(now); active {
+			text = peakRate
+		}
 	}
-	text = base * peak
 	return
 }

@@ -950,8 +950,8 @@ export default {
         enable: 'Enable peak rate multiplier',
         peakStart: 'Peak start',
         peakEnd: 'Peak end',
-        peakMultiplier: 'Peak multiplier',
-        multiplierHint: 'Applies to token billing multiplier; image tokens in token billing are also affected. 0 means peak token requests are billed at 0x.'
+        peakMultiplier: 'Peak final rate',
+        multiplierHint: 'Used directly as the final token billing rate during peak hours; it is not multiplied by the group or user rate. Image tokens in token billing are also affected. 0 means peak token requests are free.'
       },
       modelsList: {
         title: 'Custom /v1/models Model List',

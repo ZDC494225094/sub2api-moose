@@ -46,7 +46,7 @@ func TestCalculateOpenAIRecordUsageCostWebSearchPerCall(t *testing.T) {
 	svc := &OpenAIGatewayService{billingService: &BillingService{}}
 	groupID := int64(11)
 
-	// 分组未配置单价：默认 0.01。按次搜索使用不含高峰因子的基础倍率（第 4 个倍率参数 2.0），
+	// 分组未配置单价：默认 0.01。按次搜索使用不受高峰覆盖的基础倍率（第 4 个倍率参数 2.0），
 	// 即使 token 倍率（含高峰，3.0）更高也不采用。
 	apiKey := &APIKey{ID: 1, GroupID: &groupID, Group: &Group{ID: groupID, Platform: PlatformOpenAI}}
 	result := &OpenAIForwardResult{Model: "gpt-5.6-sol", UpstreamModel: "gpt-5.6-sol", WebSearchCalls: 1}
