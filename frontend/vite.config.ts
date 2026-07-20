@@ -2,6 +2,49 @@ import { defineConfig, loadEnv, Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character] || character)
+}
+
+function isSafeImageUrl(value: string): boolean {
+  const trimmed = value.trim()
+  if ((trimmed.startsWith('/') && !trimmed.startsWith('//')) || /^data:image\//i.test(trimmed)) {
+    return true
+  }
+  try {
+    const parsed = new URL(trimmed)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function injectBranding(html: string, config: { site_name?: string; site_logo?: string }): string {
+  let brandedHtml = html
+  const siteName = config.site_name?.trim()
+  if (siteName) {
+    brandedHtml = brandedHtml.replace(
+      /<title>[^<]*<\/title>/i,
+      `<title>${escapeHtml(siteName)} - AI API Gateway</title>`,
+    )
+  }
+
+  const siteLogo = config.site_logo?.trim()
+  if (siteLogo && isSafeImageUrl(siteLogo)) {
+    brandedHtml = brandedHtml.replace(
+      /<link\s+rel=["']icon["'][^>]*>/i,
+      `<link rel="icon" href="${escapeHtml(siteLogo)}" />`,
+    )
+  }
+  return brandedHtml
+}
+
 /**
  * Vite 插件：开发模式下注入公开配置到 index.html
  * 与生产模式的后端注入行为保持一致，消除闪烁
@@ -22,7 +65,7 @@ function injectPublicSettings(backendUrl: string): Plugin {
             if (data.code === 0 && data.data) {
               const encoded = Buffer.from(JSON.stringify(data.data), 'utf8').toString('base64')
               const meta = `<meta name="app-config" content="${encoded}" />`
-              return html.replace('</head>', `${meta}\n</head>`)
+              return injectBranding(html, data.data).replace('</head>', `${meta}\n</head>`)
             }
           }
         } catch (e) {
@@ -139,6 +182,11 @@ export default defineConfig(async ({ mode }) => {
             // 国际化
             if (id.includes('/vue-i18n/') || id.includes('/@intlify/')) {
               return 'vendor-i18n'
+            }
+
+            // Stripe 仅在支付流程中按需加载，避免进入首页公共依赖。
+            if (id.includes('/@stripe/stripe-js/')) {
+              return 'vendor-stripe'
             }
 
             // 其他小型第三方库合并

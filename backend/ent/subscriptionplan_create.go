@@ -82,6 +82,20 @@ func (_c *SubscriptionPlanCreate) SetNillableDisplayPurchaseCount(v *int) *Subsc
 	return _c
 }
 
+// SetCurrency sets the "currency" field.
+func (_c *SubscriptionPlanCreate) SetCurrency(v string) *SubscriptionPlanCreate {
+	_c.mutation.SetCurrency(v)
+	return _c
+}
+
+// SetNillableCurrency sets the "currency" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillableCurrency(v *string) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetCurrency(*v)
+	}
+	return _c
+}
+
 // SetValidityDays sets the "validity_days" field.
 func (_c *SubscriptionPlanCreate) SetValidityDays(v int) *SubscriptionPlanCreate {
 	_c.mutation.SetValidityDays(v)
@@ -237,6 +251,10 @@ func (_c *SubscriptionPlanCreate) defaults() {
 		v := subscriptionplan.DefaultDisplayPurchaseCount
 		_c.mutation.SetDisplayPurchaseCount(v)
 	}
+	if _, ok := _c.mutation.Currency(); !ok {
+		v := subscriptionplan.DefaultCurrency
+		_c.mutation.SetCurrency(v)
+	}
 	if _, ok := _c.mutation.ValidityDays(); !ok {
 		v := subscriptionplan.DefaultValidityDays
 		_c.mutation.SetValidityDays(v)
@@ -292,6 +310,14 @@ func (_c *SubscriptionPlanCreate) check() error {
 	}
 	if _, ok := _c.mutation.DisplayPurchaseCount(); !ok {
 		return &ValidationError{Name: "display_purchase_count", err: errors.New(`ent: missing required field "SubscriptionPlan.display_purchase_count"`)}
+	}
+	if _, ok := _c.mutation.Currency(); !ok {
+		return &ValidationError{Name: "currency", err: errors.New(`ent: missing required field "SubscriptionPlan.currency"`)}
+	}
+	if v, ok := _c.mutation.Currency(); ok {
+		if err := subscriptionplan.CurrencyValidator(v); err != nil {
+			return &ValidationError{Name: "currency", err: fmt.Errorf(`ent: validator failed for field "SubscriptionPlan.currency": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.ValidityDays(); !ok {
 		return &ValidationError{Name: "validity_days", err: errors.New(`ent: missing required field "SubscriptionPlan.validity_days"`)}
@@ -377,6 +403,10 @@ func (_c *SubscriptionPlanCreate) createSpec() (*SubscriptionPlan, *sqlgraph.Cre
 	if value, ok := _c.mutation.DisplayPurchaseCount(); ok {
 		_spec.SetField(subscriptionplan.FieldDisplayPurchaseCount, field.TypeInt, value)
 		_node.DisplayPurchaseCount = value
+	}
+	if value, ok := _c.mutation.Currency(); ok {
+		_spec.SetField(subscriptionplan.FieldCurrency, field.TypeString, value)
+		_node.Currency = value
 	}
 	if value, ok := _c.mutation.ValidityDays(); ok {
 		_spec.SetField(subscriptionplan.FieldValidityDays, field.TypeInt, value)
@@ -561,6 +591,18 @@ func (u *SubscriptionPlanUpsert) UpdateDisplayPurchaseCount() *SubscriptionPlanU
 // AddDisplayPurchaseCount adds v to the "display_purchase_count" field.
 func (u *SubscriptionPlanUpsert) AddDisplayPurchaseCount(v int) *SubscriptionPlanUpsert {
 	u.Add(subscriptionplan.FieldDisplayPurchaseCount, v)
+	return u
+}
+
+// SetCurrency sets the "currency" field.
+func (u *SubscriptionPlanUpsert) SetCurrency(v string) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldCurrency, v)
+	return u
+}
+
+// UpdateCurrency sets the "currency" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdateCurrency() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldCurrency)
 	return u
 }
 
@@ -821,6 +863,20 @@ func (u *SubscriptionPlanUpsertOne) AddDisplayPurchaseCount(v int) *Subscription
 func (u *SubscriptionPlanUpsertOne) UpdateDisplayPurchaseCount() *SubscriptionPlanUpsertOne {
 	return u.Update(func(s *SubscriptionPlanUpsert) {
 		s.UpdateDisplayPurchaseCount()
+	})
+}
+
+// SetCurrency sets the "currency" field.
+func (u *SubscriptionPlanUpsertOne) SetCurrency(v string) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetCurrency(v)
+	})
+}
+
+// UpdateCurrency sets the "currency" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdateCurrency() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateCurrency()
 	})
 }
 
@@ -1263,6 +1319,20 @@ func (u *SubscriptionPlanUpsertBulk) AddDisplayPurchaseCount(v int) *Subscriptio
 func (u *SubscriptionPlanUpsertBulk) UpdateDisplayPurchaseCount() *SubscriptionPlanUpsertBulk {
 	return u.Update(func(s *SubscriptionPlanUpsert) {
 		s.UpdateDisplayPurchaseCount()
+	})
+}
+
+// SetCurrency sets the "currency" field.
+func (u *SubscriptionPlanUpsertBulk) SetCurrency(v string) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetCurrency(v)
+	})
+}
+
+// UpdateCurrency sets the "currency" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdateCurrency() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateCurrency()
 	})
 }
 

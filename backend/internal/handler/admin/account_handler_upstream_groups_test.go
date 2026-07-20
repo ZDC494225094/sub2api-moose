@@ -15,7 +15,7 @@ import (
 func setupAccountUpstreamGroupsRouter() (*gin.Engine, *stubAdminService) {
 	gin.SetMode(gin.TestMode)
 	adminSvc := newStubAdminService()
-	handler := NewAccountHandler(adminSvc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := NewAccountHandler(adminSvc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	router := gin.New()
 	router.GET("/api/v1/admin/accounts/upstream-groups", handler.ListUpstreamGroups)
 	return router, adminSvc

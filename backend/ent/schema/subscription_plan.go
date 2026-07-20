@@ -45,6 +45,9 @@ func (SubscriptionPlan) Fields() []ent.Field {
 			Nillable(),
 		field.Int("display_purchase_count").
 			Default(0),
+		field.String("currency").
+			MaxLen(3).
+			Default(""),
 		field.Int("validity_days").
 			Default(30),
 		field.String("validity_unit").

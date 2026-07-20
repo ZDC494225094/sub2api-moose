@@ -129,6 +129,9 @@ func (r *apiKeySelectionUserRepo) BatchSetConcurrency(context.Context, []int64, 
 func (r *apiKeySelectionUserRepo) BatchAddConcurrency(context.Context, []int64, int) (int, error) {
 	panic("unexpected BatchAddConcurrency call")
 }
+func (r *apiKeySelectionUserRepo) BatchUpdateLimits(context.Context, []int64, *int, *int) (int, error) {
+	panic("unexpected BatchUpdateLimits call")
+}
 func (r *apiKeySelectionUserRepo) ExistsByEmail(context.Context, string) (bool, error) {
 	panic("unexpected ExistsByEmail call")
 }

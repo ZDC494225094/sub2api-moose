@@ -26,7 +26,7 @@ func (s *accountSortOrderAdminServiceStub) UpdateAccountSortOrders(_ context.Con
 func setupAccountSortOrderRouter() (*gin.Engine, *accountSortOrderAdminServiceStub) {
 	gin.SetMode(gin.TestMode)
 	adminSvc := &accountSortOrderAdminServiceStub{stubAdminService: newStubAdminService()}
-	handler := NewAccountHandler(adminSvc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := NewAccountHandler(adminSvc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	router := gin.New()
 	router.PUT("/api/v1/admin/accounts/sort-order", handler.UpdateSortOrder)
 	return router, adminSvc

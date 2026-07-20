@@ -435,6 +435,58 @@ func TestBulkAssignSubscriptionCreatesIndependentInstancesForAllUsers(t *testing
 	require.Len(t, user3Active, 2)
 }
 
+func TestBulkAssignSubscriptionCreatesIndependentInstanceWhenExpiredMatchExists(t *testing.T) {
+	groupRepo := &subscriptionGroupRepoStub{
+		group: &Group{ID: 1, SubscriptionType: SubscriptionTypeSubscription},
+	}
+	subRepo := newSubscriptionUserSubRepoStub()
+	oldStart := time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC)
+	subRepo.seed(&UserSubscription{
+		ID:              24,
+		UserID:          4,
+		GroupID:         1,
+		StartsAt:        oldStart,
+		ExpiresAt:       oldStart.AddDate(0, 0, 7),
+		Status:          SubscriptionStatusExpired,
+		DailyUsageUSD:   1,
+		WeeklyUsageUSD:  2,
+		MonthlyUsageUSD: 3,
+		Notes:           "bulk",
+	})
+
+	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	before := time.Now()
+	result, err := svc.BulkAssignSubscription(context.Background(), &BulkAssignSubscriptionInput{
+		UserIDs:      []int64{4},
+		GroupID:      1,
+		ValidityDays: 7,
+		Notes:        "bulk",
+	})
+	after := time.Now()
+
+	require.NoError(t, err)
+	require.Equal(t, 1, result.SuccessCount)
+	require.Equal(t, 1, result.CreatedCount)
+	require.Equal(t, 0, result.ReusedCount)
+	require.Equal(t, "created", result.Statuses[4])
+	require.Len(t, result.Subscriptions, 1)
+	created := result.Subscriptions[0]
+	require.NotEqual(t, int64(24), created.ID)
+	require.Equal(t, SubscriptionStatusActive, created.Status)
+	require.False(t, created.StartsAt.Before(before))
+	require.False(t, created.StartsAt.After(after))
+	require.Equal(t, created.StartsAt.AddDate(0, 0, 7), created.ExpiresAt)
+	require.Zero(t, created.DailyUsageUSD)
+	require.Zero(t, created.WeeklyUsageUSD)
+	require.Zero(t, created.MonthlyUsageUSD)
+	require.Equal(t, "bulk", created.Notes)
+
+	original, err := subRepo.GetByID(context.Background(), 24)
+	require.NoError(t, err)
+	require.Equal(t, SubscriptionStatusExpired, original.Status)
+	require.Equal(t, float64(1), original.DailyUsageUSD)
+}
+
 func TestAssignSubscriptionKeepsWorkingWhenIdempotencyStoreUnavailable(t *testing.T) {
 	groupRepo := &subscriptionGroupRepoStub{
 		group: &Group{ID: 1, SubscriptionType: SubscriptionTypeSubscription},

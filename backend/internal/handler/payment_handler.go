@@ -81,6 +81,7 @@ func (h *PaymentHandler) respondPlansForSale(c *gin.Context) {
 			WeeklyLimitUSD: gi.WeeklyLimitUSD, MonthlyLimitUSD: gi.MonthlyLimitUSD,
 			ModelScopes: gi.ModelScopes,
 			Name:        p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
+			Currency:     p.Currency,
 			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: parseFeatures(p.Features),
 			ProductName: p.ProductName, ForSale: p.ForSale, SortOrder: p.SortOrder,
 			DiscountRate: planDiscountRate(p.Price, p.OriginalPrice), PurchaseCount: visiblePlanPurchaseCount(p, purchaseCounts[int64(p.ID)]),
@@ -126,6 +127,7 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 			WeeklyLimitUSD: gi.WeeklyLimitUSD, MonthlyLimitUSD: gi.MonthlyLimitUSD,
 			ModelScopes: gi.ModelScopes,
 			Name:        p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
+			Currency:     p.Currency,
 			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: parseFeatures(p.Features),
 			ProductName: p.ProductName, ForSale: p.ForSale, SortOrder: p.SortOrder,
 			DiscountRate: planDiscountRate(p.Price, p.OriginalPrice), PurchaseCount: visiblePlanPurchaseCount(p, purchaseCounts[int64(p.ID)]),
@@ -272,6 +274,7 @@ type checkoutPlan struct {
 	Description        string   `json:"description"`
 	Price              float64  `json:"price"`
 	OriginalPrice      *float64 `json:"original_price,omitempty"`
+	Currency           string   `json:"currency,omitempty"`
 	ValidityDays       int      `json:"validity_days"`
 	ValidityUnit       string   `json:"validity_unit"`
 	Features           []string `json:"features"`
