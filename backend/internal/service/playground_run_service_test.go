@@ -57,6 +57,93 @@ func TestPlaygroundRunServiceExecuteImageUsesGenerationsWithoutUploads(t *testin
 	}
 }
 
+func TestPlaygroundRunServiceExecuteGeminiNativeImage(t *testing.T) {
+	var gotPath string
+	var gotPayload map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		if err := json.NewDecoder(r.Body).Decode(&gotPayload); err != nil {
+			t.Fatalf("decode payload: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"candidates":[{"content":{"parts":[{"text":"done"},{"inlineData":{"mimeType":"image/png","data":"aW1hZ2U="}}]}}]}`))
+	}))
+	defer server.Close()
+
+	svc := NewPlaygroundRunService()
+	svc.runs["1:gemini"] = &PlaygroundRun{ID: "gemini", UserID: 1, Mode: "image", Status: PlaygroundRunRunning}
+	_, err := svc.executeImage(context.Background(), "1:gemini", PlaygroundRunRequest{
+		APIKey:   "sk-test",
+		Platform: "gemini",
+		Model:    "gemini-3.1-flash-image-preview",
+		Prompt:   "draw a cat",
+		Size:     "1024x1024",
+		N:        1,
+	}, server.URL, time.Now())
+	if err != nil {
+		t.Fatalf("execute Gemini image: %v", err)
+	}
+	svc.update("1:gemini", func(run *PlaygroundRun) { run.Status = PlaygroundRunSucceeded })
+	if gotPath != "/v1beta/models/gemini-3.1-flash-image-preview:generateContent" {
+		t.Fatalf("path = %q", gotPath)
+	}
+	config, ok := gotPayload["generationConfig"].(map[string]any)
+	if !ok || config["responseModalities"] == nil {
+		t.Fatalf("generation config = %#v", gotPayload["generationConfig"])
+	}
+	run, ok := svc.Get(1, "gemini")
+	if !ok || len(run.Images) != 1 || run.Images[0].AssetIndex == nil {
+		t.Fatalf("run images = %+v", run.Images)
+	}
+	asset, found, err := svc.GetImage(1, "gemini", 0)
+	if err != nil || !found || string(asset.Data) != "image" {
+		t.Fatalf("image asset = found:%v err:%v data:%q", found, err, asset.Data)
+	}
+}
+
+func TestPlaygroundRunServiceExecuteOpenAIProtocolGeminiImageUsesImagesAPI(t *testing.T) {
+	var gotPath string
+	var gotPayload map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		if err := json.NewDecoder(r.Body).Decode(&gotPayload); err != nil {
+			t.Fatalf("decode payload: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"b64_json":"aW1hZ2U="}]}`))
+	}))
+	defer server.Close()
+
+	svc := NewPlaygroundRunService()
+	svc.runs["1:openai-gemini"] = &PlaygroundRun{ID: "openai-gemini", UserID: 1, Mode: "image", Status: PlaygroundRunRunning}
+	_, err := svc.executeImage(context.Background(), "1:openai-gemini", PlaygroundRunRequest{
+		APIKey:   "sk-test",
+		Platform: "openai",
+		Model:    "gemini-3.1-flash-image-preview",
+		Prompt:   "draw a cat",
+		Size:     "1024x1024",
+		N:        1,
+	}, server.URL, time.Now())
+	if err != nil {
+		t.Fatalf("execute OpenAI protocol Gemini image: %v", err)
+	}
+	svc.update("1:openai-gemini", func(run *PlaygroundRun) { run.Status = PlaygroundRunSucceeded })
+	if gotPath != "/v1/images/generations" {
+		t.Fatalf("path = %q", gotPath)
+	}
+	if gotPayload["model"] != "gemini-3.1-flash-image-preview" {
+		t.Fatalf("model = %#v", gotPayload["model"])
+	}
+	run, ok := svc.Get(1, "openai-gemini")
+	if !ok || len(run.Images) != 1 || run.Images[0].AssetIndex == nil {
+		t.Fatalf("run images = %+v", run.Images)
+	}
+	asset, found, err := svc.GetImage(1, "openai-gemini", 0)
+	if err != nil || !found || string(asset.Data) != "image" {
+		t.Fatalf("image asset = found:%v err:%v data:%q", found, err, asset.Data)
+	}
+}
+
 func TestPlaygroundRunServiceExecuteImageFansOutConcurrentSingleImageRequests(t *testing.T) {
 	const imageCount = 4
 	var requestCount atomic.Int32

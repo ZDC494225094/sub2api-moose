@@ -1,4 +1,5 @@
 import { apiClient } from './client'
+import type { GroupPlatform } from '@/types'
 
 export interface PlaygroundModel {
   id: string
@@ -81,6 +82,7 @@ export interface PlaygroundRunRequest {
   id?: string
   mode: 'chat' | 'image'
   apiKey: string
+  platform?: GroupPlatform
   endpointBase?: string
   displayEndpoint?: string
   model: string

@@ -36,6 +36,7 @@ type PlaygroundRunRequest struct {
 	ID               string                     `json:"id"`
 	Mode             string                     `json:"mode"`
 	APIKey           string                     `json:"apiKey"`
+	Platform         string                     `json:"platform"`
 	EndpointBase     string                     `json:"endpointBase"`
 	DisplayEndpoint  string                     `json:"displayEndpoint"`
 	Model            string                     `json:"model"`
@@ -407,6 +408,9 @@ func (s *PlaygroundRunService) executeImage(ctx context.Context, key string, req
 		outputFormat = "png"
 	}
 	imageInputs := filterPlaygroundImageInputs(request.Images)
+	if isGeminiImageGenerationModel(request.Model) && playgroundImageUsesGeminiNativeAPI(request) {
+		return s.executeGeminiNativeImage(ctx, key, request, baseURL, started, imageInputs, outputFormat, imageCount)
+	}
 	if len(imageInputs) > 0 {
 		return s.executeImageEdit(ctx, key, request, baseURL, started, imageInputs, outputFormat, imageCount)
 	}
@@ -438,6 +442,85 @@ func (s *PlaygroundRunService) executeImage(ctx context.Context, key string, req
 	return s.executeParallelImageRequests(ctx, key, started, imageCount, func(requestCtx context.Context) ([]PlaygroundRunImage, error) {
 		return s.executeImageRequest(requestCtx, endpointURL, request.APIKey, "application/json", bytes.NewReader(responseBody), outputFormat)
 	})
+}
+
+func (s *PlaygroundRunService) executeGeminiNativeImage(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string, started time.Time, images []PlaygroundRunImageInput, outputFormat string, imageCount int) (json.RawMessage, error) {
+	parts := make([]any, 0, 1+len(images))
+	if prompt := strings.TrimSpace(request.Prompt); prompt != "" {
+		parts = append(parts, map[string]any{"text": prompt})
+	}
+	for _, image := range images {
+		data, contentType, err := decodePlaygroundImageDataURL(image.DataURL)
+		if err != nil {
+			return nil, err
+		}
+		if requestContentType := strings.TrimSpace(image.Type); strings.HasPrefix(strings.ToLower(requestContentType), "image/") {
+			contentType = requestContentType
+		}
+		parts = append(parts, map[string]any{
+			"inlineData": map[string]any{
+				"mimeType": contentType,
+				"data":     base64.StdEncoding.EncodeToString(data),
+			},
+		})
+	}
+	if len(parts) == 0 {
+		parts = append(parts, map[string]any{"text": ""})
+	}
+	generationConfig := map[string]any{"responseModalities": []string{"TEXT", "IMAGE"}}
+	if aspectRatio := playgroundImageAspectRatio(request.Size); aspectRatio != "" {
+		generationConfig["imageConfig"] = map[string]any{"aspectRatio": aspectRatio}
+	}
+	payload := map[string]any{
+		"contents":         []any{map[string]any{"role": "user", "parts": parts}},
+		"generationConfig": generationConfig,
+	}
+	model := strings.TrimSpace(request.Model)
+	if strings.ContainsAny(model, "/\\") {
+		return nil, errors.New("invalid Gemini image model")
+	}
+	endpoint := "/v1beta/models/" + model + ":generateContent"
+	endpointURL, err := buildPlaygroundRunEndpointURL(baseURL, playgroundImageEndpointBase(request), endpoint)
+	if err != nil {
+		return nil, err
+	}
+	responseBody, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return s.executeParallelImageRequests(ctx, key, started, imageCount, func(requestCtx context.Context) ([]PlaygroundRunImage, error) {
+		return s.executeGeminiImageRequest(requestCtx, endpointURL, request.APIKey, responseBody, outputFormat)
+	})
+}
+
+func (s *PlaygroundRunService) executeGeminiImageRequest(ctx context.Context, endpointURL, apiKey string, body []byte, outputFormat string) ([]PlaygroundRunImage, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpointURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, parsePlaygroundUpstreamError(resp)
+	}
+	limitedBody := &io.LimitedReader{R: resp.Body, N: 128<<20 + 1}
+	var payload any
+	if err := json.NewDecoder(limitedBody).Decode(&payload); err != nil {
+		return nil, err
+	}
+	if limitedBody.N <= 0 {
+		return nil, errors.New("playground image response exceeds 128 MiB")
+	}
+	images := extractPlaygroundImagesFromAny(payload, outputFormat)
+	if len(images) == 0 {
+		return nil, errors.New("no images returned by image model")
+	}
+	return images, nil
 }
 
 func (s *PlaygroundRunService) executeImageEdit(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string, started time.Time, images []PlaygroundRunImageInput, outputFormat string, imageCount int) (json.RawMessage, error) {
@@ -918,6 +1001,139 @@ func extractPlaygroundImages(payload playgroundImageUpstreamResponse, outputForm
 	return images
 }
 
+func extractPlaygroundImagesFromAny(payload any, outputFormat string) []PlaygroundRunImage {
+	if outputFormat == "" {
+		outputFormat = "png"
+	}
+	fallbackMimeType := playgroundImageContentType(nil, "image/"+strings.ToLower(outputFormat))
+	images := make([]PlaygroundRunImage, 0, 1)
+	seen := make(map[string]struct{})
+	addData := func(data []byte, mimeType, revisedPrompt string) {
+		if len(data) == 0 {
+			return
+		}
+		mimeType = playgroundImageContentType(data, mimeType)
+		key := mimeType + ":" + base64.StdEncoding.EncodeToString(data)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		images = append(images, PlaygroundRunImage{RevisedPrompt: revisedPrompt, MimeType: mimeType, data: data})
+	}
+	addURL := func(rawURL, mimeType, revisedPrompt string) {
+		rawURL = strings.TrimSpace(rawURL)
+		if rawURL == "" {
+			return
+		}
+		if strings.HasPrefix(strings.ToLower(rawURL), "data:") {
+			data, contentType, err := decodePlaygroundImageDataURL(rawURL)
+			if err == nil {
+				addData(data, contentType, revisedPrompt)
+			}
+			return
+		}
+		key := "url:" + rawURL
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		images = append(images, PlaygroundRunImage{URL: rawURL, RevisedPrompt: revisedPrompt, MimeType: mimeType})
+	}
+	var walk func(any)
+	walk = func(value any) {
+		switch item := value.(type) {
+		case []any:
+			for _, entry := range item {
+				walk(entry)
+			}
+		case map[string]any:
+			revisedPrompt, _ := item["revised_prompt"].(string)
+			if revisedPrompt == "" {
+				revisedPrompt, _ = item["revisedPrompt"].(string)
+			}
+			if inline, ok := item["inlineData"].(map[string]any); ok {
+				data, _ := inline["data"].(string)
+				mimeType, _ := inline["mimeType"].(string)
+				decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(data))
+				if err == nil {
+					addData(decoded, mimeType, revisedPrompt)
+				}
+			}
+			if inline, ok := item["inline_data"].(map[string]any); ok {
+				data, _ := inline["data"].(string)
+				mimeType, _ := inline["mime_type"].(string)
+				decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(data))
+				if err == nil {
+					addData(decoded, mimeType, revisedPrompt)
+				}
+			}
+			if imageURL, ok := item["image_url"].(map[string]any); ok {
+				urlValue, _ := imageURL["url"].(string)
+				addURL(urlValue, "", revisedPrompt)
+			} else if imageURL, ok := item["image_url"].(string); ok {
+				addURL(imageURL, "", revisedPrompt)
+			}
+			if b64, ok := item["b64_json"].(string); ok {
+				decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(b64))
+				if err == nil {
+					addData(decoded, fallbackMimeType, revisedPrompt)
+				}
+			}
+			if itemType, _ := item["type"].(string); itemType == "image_generation_call" {
+				if result, ok := item["result"].(string); ok {
+					decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(result))
+					if err == nil {
+						addData(decoded, fallbackMimeType, revisedPrompt)
+					}
+				}
+			}
+			if content, ok := item["content"].(string); ok && strings.HasPrefix(strings.ToLower(strings.TrimSpace(content)), "data:") {
+				addURL(content, "", revisedPrompt)
+			}
+			for _, entry := range item {
+				walk(entry)
+			}
+		}
+	}
+	walk(payload)
+	return images
+}
+
+func playgroundImageUsesGeminiNativeAPI(request PlaygroundRunRequest) bool {
+	switch strings.ToLower(strings.TrimSpace(request.Platform)) {
+	case "gemini", "antigravity":
+		return true
+	}
+	return strings.Contains(strings.ToLower(normalizePlaygroundEndpointBase(request.EndpointBase)), "v1beta")
+}
+
+func playgroundImageEndpointBase(request PlaygroundRunRequest) string {
+	if strings.TrimSpace(request.EndpointBase) != "" {
+		return request.EndpointBase
+	}
+	switch strings.ToLower(strings.TrimSpace(request.Platform)) {
+	case "gemini":
+		return "/v1beta"
+	case "antigravity":
+		return "/antigravity/v1beta"
+	default:
+		return "/v1"
+	}
+}
+
+func playgroundImageAspectRatio(size string) string {
+	switch normalizePlaygroundImageSize(size) {
+	case "1024x1024":
+		return "1:1"
+	case "1536x1024":
+		return "3:2"
+	case "1024x1536":
+		return "2:3"
+	default:
+		return ""
+	}
+}
+
 func playgroundImageContentType(data []byte, fallback string) string {
 	if len(data) > 0 {
 		if detected := strings.ToLower(strings.TrimSpace(strings.Split(http.DetectContentType(data), ";")[0])); isPlaygroundImageContentType(detected) {
@@ -1001,7 +1217,10 @@ func buildPlaygroundRunEndpointURL(baseURL, endpointBase, endpoint string) (stri
 	}
 	base := normalizePlaygroundEndpointBase(endpointBase)
 	endpointPath := "/" + strings.TrimLeft(strings.TrimSpace(endpoint), "/")
-	relativePath := strings.TrimPrefix(endpointPath, "/v1")
+	relativePath := strings.TrimPrefix(endpointPath, "/v1beta")
+	if relativePath == endpointPath {
+		relativePath = strings.TrimPrefix(endpointPath, "/v1")
+	}
 	if strings.HasSuffix(base, endpointPath) || (relativePath != "" && strings.HasSuffix(base, relativePath)) {
 		root.Path = base
 		return root.String(), nil

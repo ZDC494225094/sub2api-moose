@@ -455,7 +455,17 @@ func applyOpenAIImagesDefaults(req *OpenAIImagesRequest) {
 }
 
 func isOpenAIImageGenerationModel(model string) bool {
-	return IsGPTImageGenerationModel(model) || isGrokImageGenerationModel(model)
+	return IsGPTImageGenerationModel(model) || isGrokImageGenerationModel(model) || isGeminiImageGenerationModel(model)
+}
+
+// isGeminiImageGenerationModel identifies Gemini image-generation model names
+// exposed by OpenAI-compatible providers (for example NanoBanana models).
+func isGeminiImageGenerationModel(model string) bool {
+	lower := strings.ToLower(strings.TrimSpace(model))
+	if strings.Contains(lower, "nano-banana") || strings.Contains(lower, "nanobanana") {
+		return true
+	}
+	return strings.Contains(lower, "gemini") && strings.Contains(lower, "image")
 }
 
 // IsGPTImageGenerationModel identifies the GPT native image-generation model family.
