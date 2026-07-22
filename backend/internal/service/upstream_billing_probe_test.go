@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -20,10 +21,11 @@ import (
 
 type upstreamBillingProbeAccountRepo struct {
 	AccountRepository
-	mu          sync.Mutex
-	accounts    map[int64]*Account
-	updates     map[int64][]map[string]any
-	bulkUpdates []AccountBulkUpdate
+	mu             sync.Mutex
+	accounts       map[int64]*Account
+	updates        map[int64][]map[string]any
+	bulkUpdates    []AccountBulkUpdate
+	groupRateSyncs map[int64][]float64
 }
 
 type staleDueUpstreamBillingProbeAccountRepo struct {
@@ -111,6 +113,24 @@ func (r *upstreamBillingProbeAccountRepo) UpdateExtra(_ context.Context, id int6
 }
 
 func (r *upstreamBillingProbeAccountRepo) UpdateUpstreamBillingProbeSnapshot(_ context.Context, expected *Account, snapshot *UpstreamBillingProbeSnapshot) error {
+	return r.updateUpstreamBillingProbeSnapshot(expected, snapshot, nil)
+}
+
+func (r *upstreamBillingProbeAccountRepo) UpdateUpstreamBillingProbeSnapshotAndRateMultiplier(_ context.Context, expected *Account, snapshot *UpstreamBillingProbeSnapshot, rateMultiplier float64) error {
+	return r.updateUpstreamBillingProbeSnapshot(expected, snapshot, &rateMultiplier)
+}
+
+func (r *upstreamBillingProbeAccountRepo) SyncGroupRateMultipliersFromUpstreamBillingProbe(_ context.Context, accountID int64, rateMultiplier float64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.groupRateSyncs == nil {
+		r.groupRateSyncs = make(map[int64][]float64)
+	}
+	r.groupRateSyncs[accountID] = append(r.groupRateSyncs[accountID], rateMultiplier)
+	return nil
+}
+
+func (r *upstreamBillingProbeAccountRepo) updateUpstreamBillingProbeSnapshot(expected *Account, snapshot *UpstreamBillingProbeSnapshot, rateMultiplier *float64) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	account := r.accounts[expected.ID]
@@ -121,6 +141,9 @@ func (r *upstreamBillingProbeAccountRepo) UpdateUpstreamBillingProbeSnapshot(_ c
 		account.Extra = make(map[string]any)
 	}
 	account.Extra[UpstreamBillingProbeExtraKey] = snapshot
+	if rateMultiplier != nil {
+		account.RateMultiplier = rateMultiplier
+	}
 	return nil
 }
 
@@ -225,11 +248,25 @@ func TestUpstreamBillingProbeSettingsDefaultsAndValidation(t *testing.T) {
 	require.Equal(t, 30, settings.IntervalMinutes)
 
 	err = settingsService.SetUpstreamBillingProbeSettings(context.Background(), &UpstreamBillingProbeSettings{
+		Enabled: false,
+	})
+	require.NoError(t, err)
+	settings, err = settingsService.GetUpstreamBillingProbeSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 30, settings.IntervalMinutes)
+
+	err = settingsService.SetUpstreamBillingProbeSettings(context.Background(), &UpstreamBillingProbeSettings{
 		Enabled:         false,
-		IntervalMinutes: 4,
+		IntervalMinutes: -1,
 	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "interval_minutes must be between 5 and 1440")
+	require.Contains(t, err.Error(), "interval_minutes must be between 1 and 1440")
+
+	err = settingsService.SetUpstreamBillingProbeSettings(context.Background(), &UpstreamBillingProbeSettings{
+		Enabled:         true,
+		IntervalMinutes: 1,
+	})
+	require.NoError(t, err)
 
 	err = settingsService.SetUpstreamBillingProbeSettings(context.Background(), &UpstreamBillingProbeSettings{
 		Enabled:         false,
@@ -256,6 +293,92 @@ func TestUpstreamBillingProbeSettingsDefaultsAndValidation(t *testing.T) {
 	settings, err = settingsService.GetUpstreamBillingProbeSettings(context.Background())
 	require.ErrorContains(t, err, "parse upstream billing probe settings")
 	require.Nil(t, settings)
+}
+
+func TestUpstreamBillingProbeAutoSyncsValidatedRateMultiplier(t *testing.T) {
+	initialRate := 1.25
+	account := &Account{
+		ID:             19,
+		Platform:       PlatformOpenAI,
+		Type:           AccountTypeAPIKey,
+		Status:         StatusActive,
+		Concurrency:    1,
+		RateMultiplier: &initialRate,
+		Extra: map[string]any{
+			UpstreamBillingProbeIntervalExtraKey: 60,
+			UpstreamBillingProbeAutoSyncExtraKey: true,
+		},
+		Credentials: map[string]any{
+			"api_key":  "sk-sensitive",
+			"base_url": "https://upstream.example/v1",
+		},
+	}
+	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
+	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{
+		SettingKeyUpstreamBillingProbeSettings: `{"enabled":true,"interval_minutes":30}`,
+	}}
+	svc := newUpstreamBillingProbeTestService(repo, &upstreamBillingProbeHTTPStub{}, settingsRepo)
+	svc.now = func() time.Time { return time.Date(2026, 7, 13, 1, 0, 0, 0, time.UTC) }
+
+	snapshot, err := svc.ProbeAccount(context.Background(), account.ID)
+
+	require.NoError(t, err)
+	require.Equal(t, UpstreamBillingProbeStatusOK, snapshot.Status)
+	require.NotNil(t, account.RateMultiplier)
+	require.Equal(t, 0.8, *account.RateMultiplier)
+	require.Same(t, snapshot, account.Extra[UpstreamBillingProbeExtraKey])
+	require.NotNil(t, snapshot.ReceivedAt)
+	require.NotNil(t, snapshot.FreshUntil)
+	require.Equal(t, 120*time.Minute, snapshot.FreshUntil.Sub(*snapshot.ReceivedAt))
+}
+
+func TestUpstreamBillingProbeUsesDatabaseDecodedAccountInterval(t *testing.T) {
+	var extra map[string]any
+	require.NoError(t, json.Unmarshal([]byte(`{
+		"upstream_billing_probe_enabled": true,
+		"upstream_billing_probe_interval_minutes": 5
+	}`), &extra))
+	account := &Account{
+		ID: 20, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Concurrency: 1,
+		Extra:       extra,
+		Credentials: map[string]any{"api_key": "sk-sensitive", "base_url": "https://upstream.example"},
+	}
+	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
+	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{
+		SettingKeyUpstreamBillingProbeSettings: `{"enabled":true,"interval_minutes":30}`,
+	}}
+	svc := newUpstreamBillingProbeTestService(repo, &upstreamBillingProbeHTTPStub{}, settingsRepo)
+	fixedNow := time.Date(2026, 7, 13, 1, 0, 0, 0, time.UTC)
+	svc.now = func() time.Time { return fixedNow }
+
+	snapshot, err := svc.ProbeAccount(context.Background(), account.ID)
+
+	require.NoError(t, err)
+	require.NotNil(t, snapshot.ReceivedAt)
+	require.NotNil(t, snapshot.FreshUntil)
+	require.Equal(t, 5, snapshot.IntervalMinutes)
+	require.Equal(t, 10*time.Minute, snapshot.FreshUntil.Sub(*snapshot.ReceivedAt))
+	require.False(t, snapshot.NextProbeAt.Before(fixedNow.Add(4*time.Minute)))
+	require.False(t, snapshot.NextProbeAt.After(fixedNow.Add(6*time.Minute)))
+}
+
+func TestScheduledProbeSyncsReferenceGroupsButManualProbeDoesNot(t *testing.T) {
+	account := &Account{
+		ID: 21, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Concurrency: 1,
+		Extra:       map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
+		Credentials: map[string]any{"api_key": "sk-sensitive", "base_url": "https://upstream.example"},
+	}
+	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
+	svc := newUpstreamBillingProbeTestService(repo, &upstreamBillingProbeHTTPStub{}, &upstreamBillingProbeSettingRepo{})
+	svc.now = func() time.Time { return time.Date(2026, 7, 13, 1, 0, 0, 0, time.UTC) }
+
+	_, err := svc.probeScheduledAccount(context.Background(), account.ID, 30)
+	require.NoError(t, err)
+	require.Equal(t, []float64{0.8}, repo.groupRateSyncs[account.ID])
+
+	_, err = svc.ProbeAccount(context.Background(), account.ID)
+	require.NoError(t, err)
+	require.Equal(t, []float64{0.8}, repo.groupRateSyncs[account.ID])
 }
 
 func TestUpstreamBillingProbeSuccessPersistsSanitizedSnapshot(t *testing.T) {

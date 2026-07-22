@@ -315,7 +315,7 @@ export default {
         enabled: '启用全局自动探测',
         enabledHint: '开启后，仅对账号自身已启用自动检测的账号执行定时探测；关闭后停止所有定时探测，手动探测不受影响。',
         intervalMinutes: '探测周期（分钟）',
-        intervalHint: '范围 5–1440 分钟。成功探测结果的有效期为两个探测周期。',
+        intervalHint: '范围 1–1440 分钟。成功探测结果的有效期为两个探测周期。',
         saved: '上游倍率自动探测设置已保存',
         saveFailed: '保存上游倍率自动探测设置失败'
       },

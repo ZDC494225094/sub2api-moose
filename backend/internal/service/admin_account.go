@@ -469,6 +469,9 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 	// Probe state is system-managed. New accounts always start with auto probe disabled.
 	delete(accountExtra, UpstreamBillingProbeEnabledExtraKey)
 	delete(accountExtra, UpstreamBillingProbeExtraKey)
+	if err := normalizeUpstreamBillingProbeAccountExtra(input.Platform, input.Type, accountExtra); err != nil {
+		return nil, err
+	}
 	account := &Account{
 		Name:          input.Name,
 		Notes:         normalizeAccountNotes(input.Notes),
@@ -624,6 +627,9 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		if err != nil {
 			return nil, err
 		}
+		if err := normalizeUpstreamBillingProbeAccountExtra(account.Platform, account.Type, normalizedExtra); err != nil {
+			return nil, err
+		}
 	}
 	previousProbeIdentity := upstreamBillingProbeIdentity(account)
 	// 安全/身份不变量(影子账号):通用更新路径被 edit/re-auth/refresh/batch 共用,
@@ -711,6 +717,32 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 				normalizedExtra[key] = v
 			}
 		}
+		if isUpstreamBillingProbeAccount(account) {
+			for _, key := range []string{
+				UpstreamBillingProbeIntervalExtraKey,
+				UpstreamBillingProbeAutoSyncExtraKey,
+			} {
+				if _, requested := normalizedExtra[key]; requested {
+					continue
+				}
+				if value, ok := account.Extra[key]; ok {
+					normalizedExtra[key] = value
+				}
+			}
+		}
+		probeConfigChanged := !reflect.DeepEqual(account.Extra[UpstreamBillingProbeIntervalExtraKey], normalizedExtra[UpstreamBillingProbeIntervalExtraKey]) ||
+			!reflect.DeepEqual(account.Extra[UpstreamBillingProbeAutoSyncExtraKey], normalizedExtra[UpstreamBillingProbeAutoSyncExtraKey])
+		if !probeConfigChanged {
+			if _, intervalRequested := input.Extra[UpstreamBillingProbeIntervalExtraKey]; intervalRequested {
+				configuredInterval := upstreamBillingProbeIntervalMinutes(&Account{Extra: normalizedExtra}, upstreamBillingProbeDefaultIntervalMinutes)
+				if snapshot := decodeUpstreamBillingProbeSnapshot(account.Extra); snapshot != nil && snapshot.IntervalMinutes != configuredInterval {
+					probeConfigChanged = true
+				}
+			}
+		}
+		if probeConfigChanged {
+			delete(normalizedExtra, UpstreamBillingProbeExtraKey)
+		}
 		if hasRequestedProbeEnabled {
 			if isUpstreamBillingProbeAccount(account) {
 				normalizedExtra[UpstreamBillingProbeEnabledExtraKey] = requestedProbeEnabled
@@ -752,6 +784,8 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		delete(account.Extra, UpstreamBillingProbeExtraKey)
 		if !isUpstreamBillingProbeAccount(account) {
 			delete(account.Extra, UpstreamBillingProbeEnabledExtraKey)
+			delete(account.Extra, UpstreamBillingProbeIntervalExtraKey)
+			delete(account.Extra, UpstreamBillingProbeAutoSyncExtraKey)
 		}
 	}
 	// 只在指针非 nil 时更新 Concurrency（支持设置为 0）
@@ -875,6 +909,9 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	// Managed probe state may only enter through the dedicated typed field below.
 	delete(input.Extra, UpstreamBillingProbeEnabledExtraKey)
 	delete(input.Extra, UpstreamBillingProbeExtraKey)
+	_, hasProbeIntervalUpdate := input.Extra[UpstreamBillingProbeIntervalExtraKey]
+	_, hasProbeAutoSyncUpdate := input.Extra[UpstreamBillingProbeAutoSyncExtraKey]
+	hasProbeConfigUpdate := hasProbeIntervalUpdate || hasProbeAutoSyncUpdate
 
 	if len(input.AccountIDs) == 0 && input.Filters != nil {
 		accountIDs, err := s.resolveBulkUpdateTargetIDs(ctx, input.Filters)
@@ -904,14 +941,14 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 
 	// 预取所有目标账号，供凭据守卫/代理守卫/混合渠道检查共用，避免多次 DB 查询。
 	var cachedTargets []*Account
-	if len(input.Credentials) > 0 || input.ProxyID != nil || needMixedChannelCheck || hasLongContextBillingUpdate || input.ProbeEnabled != nil {
+	if len(input.Credentials) > 0 || input.ProxyID != nil || needMixedChannelCheck || hasLongContextBillingUpdate || input.ProbeEnabled != nil || hasProbeConfigUpdate {
 		loaded, err := s.accountRepo.GetByIDs(ctx, input.AccountIDs)
 		if err != nil {
 			return nil, err
 		}
 		cachedTargets = loaded
 	}
-	if input.ProbeEnabled != nil {
+	if input.ProbeEnabled != nil || hasProbeConfigUpdate {
 		targetsByID := make(map[int64]*Account, len(cachedTargets))
 		for _, account := range cachedTargets {
 			if account != nil {
@@ -925,6 +962,9 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 			}
 			if !isUpstreamBillingProbeAccount(account) {
 				return nil, ErrUpstreamBillingProbeAccountInvalid
+			}
+			if err := normalizeUpstreamBillingProbeAccountExtra(account.Platform, account.Type, input.Extra); err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -1008,6 +1048,12 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 			repoUpdates.Extra = make(map[string]any)
 		}
 		repoUpdates.Extra[UpstreamBillingProbeEnabledExtraKey] = *input.ProbeEnabled
+	}
+	if hasProbeConfigUpdate {
+		if repoUpdates.Extra == nil {
+			repoUpdates.Extra = make(map[string]any)
+		}
+		repoUpdates.Extra[UpstreamBillingProbeExtraKey] = nil
 	}
 	if updatesUpstreamBillingProbeIdentity(input.Credentials) || input.ProxyID != nil {
 		if repoUpdates.Extra == nil {

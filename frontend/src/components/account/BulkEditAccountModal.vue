@@ -890,6 +890,40 @@
             :options="upstreamBillingAutoProbeOptions"
             aria-labelledby="bulk-edit-upstream-billing-auto-probe-label"
           />
+          <div
+            v-if="upstreamBillingAutoProbeMode === 'enabled'"
+            class="mt-4 grid gap-4 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)] sm:items-start"
+          >
+            <label class="block">
+              <span class="input-label">{{ t('admin.accounts.upstreamBilling.intervalMinutes') }}</span>
+              <div class="flex items-center gap-2">
+                <input
+                  v-model.number="upstreamBillingProbeIntervalMinutes"
+                  type="number"
+                  min="1"
+                  max="1440"
+                  class="input w-28"
+                  :disabled="!enableUpstreamBillingAutoProbe"
+                  data-testid="bulk-edit-upstream-billing-probe-interval"
+                />
+                <span class="text-sm text-gray-500 dark:text-gray-400">{{ t('admin.accounts.upstreamBilling.minutesUnit') }}</span>
+              </div>
+              <span class="input-hint">{{ t('admin.accounts.upstreamBilling.intervalHint') }}</span>
+            </label>
+            <label
+              class="flex min-h-10 cursor-pointer items-center gap-2 pt-6 text-sm text-gray-700 dark:text-gray-200 sm:pt-7"
+              :title="t('admin.accounts.upstreamBilling.autoSyncRateMultiplierHint')"
+            >
+              <input
+                v-model="upstreamBillingAutoSyncRateMultiplier"
+                type="checkbox"
+                :disabled="!enableUpstreamBillingAutoProbe"
+                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                data-testid="bulk-edit-upstream-billing-auto-sync-rate-multiplier"
+              />
+              <span>{{ t('admin.accounts.upstreamBilling.autoSyncRateMultiplier') }}</span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -1432,6 +1466,8 @@ const openaiPassthroughEnabled = ref(false)
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const upstreamBillingAutoProbeMode = ref<'enabled' | 'disabled'>('enabled')
+const upstreamBillingProbeIntervalMinutes = ref<number | null>(30)
+const upstreamBillingAutoSyncRateMultiplier = ref(false)
 const codexCLIOnlyEnabled = ref(false)
 const codexCLIOnlyAppServerEnabled = ref(false)
 const openAICompactMode = ref<OpenAICompactMode>('auto')
@@ -1694,7 +1730,14 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
   }
 
   if (enableUpstreamBillingAutoProbe.value) {
-    updates.upstream_billing_probe_enabled = upstreamBillingAutoProbeMode.value === 'enabled'
+    const probeEnabled = upstreamBillingAutoProbeMode.value === 'enabled'
+    updates.upstream_billing_probe_enabled = probeEnabled
+    const extra = ensureExtra()
+    extra.upstream_billing_probe_auto_sync_rate_multiplier =
+      probeEnabled && upstreamBillingAutoSyncRateMultiplier.value
+    if (probeEnabled) {
+      extra.upstream_billing_probe_interval_minutes = upstreamBillingProbeIntervalMinutes.value
+    }
   }
 
   if (enableCodexCLIOnly.value) {
@@ -1856,6 +1899,14 @@ const handleSubmit = async () => {
     }
   }
 
+  if (enableUpstreamBillingAutoProbe.value && upstreamBillingAutoProbeMode.value === 'enabled') {
+    const interval = upstreamBillingProbeIntervalMinutes.value
+    if (interval == null || !Number.isInteger(interval) || interval < 1 || interval > 1440) {
+      appStore.showError(t('admin.accounts.upstreamBilling.intervalInvalid'))
+      return
+    }
+  }
+
   const built = buildUpdatePayload()
   if (!built) {
     appStore.showError(t('admin.accounts.bulkEdit.noFieldsSelected'))
@@ -1976,6 +2027,8 @@ watch(
       openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
       openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
       upstreamBillingAutoProbeMode.value = 'enabled'
+      upstreamBillingProbeIntervalMinutes.value = 30
+      upstreamBillingAutoSyncRateMultiplier.value = false
       codexCLIOnlyEnabled.value = false
       codexCLIOnlyAppServerEnabled.value = false
       openAICompactMode.value = 'auto'

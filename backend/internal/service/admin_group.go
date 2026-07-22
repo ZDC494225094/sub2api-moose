@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -130,6 +131,34 @@ func defaultAllowImageGenerationForPlatform(platform string) bool {
 	return platform == PlatformGrok
 }
 
+func (s *adminServiceImpl) normalizeGroupBillingRateSyncConfig(
+	ctx context.Context,
+	platform string,
+	accountID *int64,
+	markup float64,
+) (*int64, float64, error) {
+	if math.IsNaN(markup) || math.IsInf(markup, 0) || markup < 0 {
+		return nil, 0, infraerrors.BadRequest("INVALID_GROUP_BILLING_RATE_MARKUP", "billing_rate_markup must be a finite number >= 0")
+	}
+	if platform != PlatformOpenAI {
+		return nil, 0, nil
+	}
+	if accountID == nil {
+		return nil, markup, nil
+	}
+	if *accountID <= 0 {
+		return nil, 0, infraerrors.BadRequest("INVALID_GROUP_BILLING_RATE_SYNC_ACCOUNT", "billing_rate_sync_account_id must be positive")
+	}
+	account, err := s.accountRepo.GetByID(ctx, *accountID)
+	if err != nil {
+		return nil, 0, infraerrors.BadRequest("INVALID_GROUP_BILLING_RATE_SYNC_ACCOUNT", "reference account not found")
+	}
+	if account.Platform != PlatformOpenAI || account.Type != AccountTypeAPIKey {
+		return nil, 0, infraerrors.BadRequest("INVALID_GROUP_BILLING_RATE_SYNC_ACCOUNT", "reference account must be an OpenAI API key account")
+	}
+	return accountID, markup, nil
+}
+
 func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupInput) (*Group, error) {
 	if input.RateMultiplier <= 0 {
 		return nil, errors.New("rate_multiplier must be > 0")
@@ -138,6 +167,15 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	platform := input.Platform
 	if platform == "" {
 		platform = PlatformAnthropic
+	}
+	billingRateSyncAccountID, billingRateMarkup, err := s.normalizeGroupBillingRateSyncConfig(
+		ctx,
+		platform,
+		input.BillingRateSyncAccountID,
+		input.BillingRateMarkup,
+	)
+	if err != nil {
+		return nil, err
 	}
 
 	subscriptionType := input.SubscriptionType
@@ -265,6 +303,8 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		Description:                     input.Description,
 		Platform:                        platform,
 		RateMultiplier:                  input.RateMultiplier,
+		BillingRateSyncAccountID:        billingRateSyncAccountID,
+		BillingRateMarkup:               billingRateMarkup,
 		IsExclusive:                     input.IsExclusive,
 		Status:                          StatusActive,
 		SubscriptionType:                subscriptionType,
@@ -447,6 +487,25 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 		}
 		group.RateMultiplier = *input.RateMultiplier
 	}
+	billingRateSyncAccountID := group.BillingRateSyncAccountID
+	if input.BillingRateSyncAccountIDSet {
+		billingRateSyncAccountID = input.BillingRateSyncAccountID
+	}
+	billingRateMarkup := group.BillingRateMarkup
+	if input.BillingRateMarkup != nil {
+		billingRateMarkup = *input.BillingRateMarkup
+	}
+	billingRateSyncAccountID, billingRateMarkup, err = s.normalizeGroupBillingRateSyncConfig(
+		ctx,
+		group.Platform,
+		billingRateSyncAccountID,
+		billingRateMarkup,
+	)
+	if err != nil {
+		return nil, err
+	}
+	group.BillingRateSyncAccountID = billingRateSyncAccountID
+	group.BillingRateMarkup = billingRateMarkup
 	if input.IsExclusive != nil {
 		group.IsExclusive = *input.IsExclusive
 	}

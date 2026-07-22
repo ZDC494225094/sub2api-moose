@@ -594,6 +594,11 @@
           />
           <p class="input-hint">{{ t("admin.groups.rateMultiplierHint") }}</p>
         </div>
+        <GroupBillingRateSyncFields
+          v-if="createForm.platform === 'openai'"
+          v-model:account-id="createForm.billing_rate_sync_account_id"
+          v-model:markup="createForm.billing_rate_markup"
+        />
         <div>
           <label class="input-label">{{ t("admin.groups.form.rpmLimit") }}</label>
           <input
@@ -2106,6 +2111,11 @@
             data-tour="group-form-multiplier"
           />
         </div>
+        <GroupBillingRateSyncFields
+          v-if="editForm.platform === 'openai'"
+          v-model:account-id="editForm.billing_rate_sync_account_id"
+          v-model:markup="editForm.billing_rate_markup"
+        />
         <div>
           <label class="input-label">{{ t("admin.groups.form.rpmLimit") }}</label>
           <input
@@ -3616,6 +3626,7 @@ import Icon from "@/components/icons/Icon.vue";
 import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipliersModal.vue";
 import GroupRPMOverridesModal from "@/components/admin/group/GroupRPMOverridesModal.vue";
 import GroupAccountsModal from "@/components/admin/group/GroupAccountsModal.vue";
+import GroupBillingRateSyncFields from "@/components/admin/group/GroupBillingRateSyncFields.vue";
 import { extractApiErrorMessage } from "@/utils/apiError";
 import GroupCapacityBadge from "@/components/common/GroupCapacityBadge.vue";
 import { VueDraggable } from "vue-draggable-plus";
@@ -4031,6 +4042,8 @@ const createForm = reactive({
   description: "",
   platform: "anthropic" as GroupPlatform,
   rate_multiplier: 1.0,
+  billing_rate_sync_account_id: null as number | null,
+  billing_rate_markup: 0,
   is_exclusive: false,
   subscription_type: "standard" as SubscriptionType,
   daily_limit_usd: null as number | null,
@@ -4377,6 +4390,8 @@ const editForm = reactive({
   description: "",
   platform: "anthropic" as GroupPlatform,
   rate_multiplier: 1.0,
+  billing_rate_sync_account_id: null as number | null,
+  billing_rate_markup: 0,
   is_exclusive: false,
   status: "active" as "active" | "inactive",
   subscription_type: "standard" as SubscriptionType,
@@ -4785,6 +4800,8 @@ const closeCreateModal = () => {
   createForm.description = "";
   createForm.platform = "anthropic";
   createForm.rate_multiplier = 1.0;
+  createForm.billing_rate_sync_account_id = null;
+  createForm.billing_rate_markup = 0;
   createForm.is_exclusive = false;
   createForm.subscription_type = "standard";
   createForm.daily_limit_usd = null;
@@ -4857,11 +4874,19 @@ const handleCreateGroup = async () => {
     appStore.showError(t("admin.groups.nameRequired"));
     return;
   }
+  const billingRateMarkup = Number(createForm.billing_rate_markup);
+  if (!Number.isFinite(billingRateMarkup) || billingRateMarkup < 0) {
+    appStore.showError(t("admin.groups.billingRateSync.markupInvalid"));
+    return;
+  }
   submitting.value = true;
   try {
     // 构建请求数据，包含模型路由配置
     const requestData = {
       ...createForm,
+      billing_rate_sync_account_id:
+        createForm.platform === "openai" ? createForm.billing_rate_sync_account_id : null,
+      billing_rate_markup: createForm.platform === "openai" ? billingRateMarkup : 0,
       daily_limit_usd: normalizeOptionalLimit(
         createForm.daily_limit_usd as number | string | null,
       ),
@@ -4948,6 +4973,8 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.description = group.description || "";
   editForm.platform = group.platform;
   editForm.rate_multiplier = group.rate_multiplier;
+  editForm.billing_rate_sync_account_id = group.billing_rate_sync_account_id ?? null;
+  editForm.billing_rate_markup = group.billing_rate_markup ?? 0;
   editForm.is_exclusive = group.is_exclusive;
   editForm.status = group.status;
   editForm.subscription_type = group.subscription_type || "standard";
@@ -5019,6 +5046,8 @@ const closeEditModal = () => {
   editingGroup.value = null;
   editModelRoutingRules.value = [];
   editForm.copy_accounts_from_group_ids = [];
+  editForm.billing_rate_sync_account_id = null;
+  editForm.billing_rate_markup = 0;
   editForm.peak_rate_enabled = false;
   editForm.peak_start = "";
   editForm.peak_end = "";
@@ -5039,12 +5068,20 @@ const handleUpdateGroup = async () => {
     appStore.showError(t("admin.groups.nameRequired"));
     return;
   }
+  const billingRateMarkup = Number(editForm.billing_rate_markup);
+  if (!Number.isFinite(billingRateMarkup) || billingRateMarkup < 0) {
+    appStore.showError(t("admin.groups.billingRateSync.markupInvalid"));
+    return;
+  }
 
   submitting.value = true;
   try {
     // 转换 fallback_group_id: null -> 0 (后端使用 0 表示清除)
     const payload = {
       ...editForm,
+      billing_rate_sync_account_id:
+        editForm.platform === "openai" ? editForm.billing_rate_sync_account_id : null,
+      billing_rate_markup: editForm.platform === "openai" ? billingRateMarkup : 0,
       daily_limit_usd: normalizeOptionalLimit(
         editForm.daily_limit_usd as number | string | null,
       ),

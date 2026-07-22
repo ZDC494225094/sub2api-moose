@@ -23,10 +23,25 @@ func TestLockAndMergeAccountProbeExtraUsesCurrentDatabaseSnapshot(t *testing.T) 
 		identityUnchanged bool
 		databaseEnabled   any
 		databaseSnapshot  any
+		databaseInterval  any
+		databaseAutoSync  any
 		inputExtra        map[string]any
 		wantSnapshot      any
 		wantEnabled       any
 	}{
+		{
+			name:              "probe configuration change clears stale snapshot",
+			identityUnchanged: true,
+			databaseEnabled:   []byte(`true`),
+			databaseSnapshot:  []byte(`{"status":"ok"}`),
+			databaseInterval:  []byte(`30`),
+			databaseAutoSync:  []byte(`false`),
+			inputExtra: map[string]any{
+				service.UpstreamBillingProbeIntervalExtraKey: 60,
+				service.UpstreamBillingProbeAutoSyncExtraKey: false,
+			},
+			wantEnabled: true,
+		},
 		{
 			name:              "ordinary edit preserves current enable flag and snapshot created after account load",
 			identityUnchanged: true,
@@ -81,8 +96,8 @@ func TestLockAndMergeAccountProbeExtraUsesCurrentDatabaseSnapshot(t *testing.T) 
 
 			mock.ExpectQuery(`(?s)`+regexp.QuoteMeta("SELECT")+`.*`+regexp.QuoteMeta("FOR NO KEY UPDATE")).
 				WithArgs(int64(27), service.PlatformOpenAI, service.AccountTypeAPIKey, `{"api_key":"sk-test"}`, nil).
-				WillReturnRows(sqlmock.NewRows([]string{"identity_unchanged", "enabled", "snapshot"}).
-					AddRow(tt.identityUnchanged, tt.databaseEnabled, tt.databaseSnapshot))
+				WillReturnRows(sqlmock.NewRows([]string{"identity_unchanged", "enabled", "snapshot", "interval", "auto_sync"}).
+					AddRow(tt.identityUnchanged, tt.databaseEnabled, tt.databaseSnapshot, tt.databaseInterval, tt.databaseAutoSync))
 
 			account := &service.Account{
 				ID:          27,
@@ -236,8 +251,8 @@ func TestUpdateWithUpstreamBillingProbeEnabledRollsBackWhenOutboxFails(t *testin
 	mock.ExpectBegin()
 	mock.ExpectQuery(`(?s)`+regexp.QuoteMeta("SELECT")+`.*`+regexp.QuoteMeta("FOR NO KEY UPDATE")).
 		WithArgs(int64(27), service.PlatformOpenAI, service.AccountTypeAPIKey, `{"api_key":"sk-test"}`, nil).
-		WillReturnRows(sqlmock.NewRows([]string{"identity_unchanged", "enabled", "snapshot"}).
-			AddRow(true, []byte(`true`), []byte(`{"status":"ok"}`)))
+		WillReturnRows(sqlmock.NewRows([]string{"identity_unchanged", "enabled", "snapshot", "interval", "auto_sync"}).
+			AddRow(true, []byte(`true`), []byte(`{"status":"ok"}`), nil, nil))
 	mock.ExpectExec(`(?s)UPDATE .*accounts.*SET.*WHERE .*id.*`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(`(?s)SELECT .* FROM "accounts" WHERE "id" = \$1`).

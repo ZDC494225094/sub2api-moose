@@ -21945,6 +21945,10 @@ type GroupMutation struct {
 	description                             *string
 	rate_multiplier                         *float64
 	addrate_multiplier                      *float64
+	billing_rate_sync_account_id            *int64
+	addbilling_rate_sync_account_id         *int64
+	billing_rate_markup                     *float64
+	addbilling_rate_markup                  *float64
 	peak_rate_enabled                       *bool
 	peak_start                              *string
 	peak_end                                *string
@@ -22391,6 +22395,132 @@ func (m *GroupMutation) AddedRateMultiplier() (r float64, exists bool) {
 func (m *GroupMutation) ResetRateMultiplier() {
 	m.rate_multiplier = nil
 	m.addrate_multiplier = nil
+}
+
+// SetBillingRateSyncAccountID sets the "billing_rate_sync_account_id" field.
+func (m *GroupMutation) SetBillingRateSyncAccountID(i int64) {
+	m.billing_rate_sync_account_id = &i
+	m.addbilling_rate_sync_account_id = nil
+}
+
+// BillingRateSyncAccountID returns the value of the "billing_rate_sync_account_id" field in the mutation.
+func (m *GroupMutation) BillingRateSyncAccountID() (r int64, exists bool) {
+	v := m.billing_rate_sync_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBillingRateSyncAccountID returns the old "billing_rate_sync_account_id" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldBillingRateSyncAccountID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBillingRateSyncAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBillingRateSyncAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBillingRateSyncAccountID: %w", err)
+	}
+	return oldValue.BillingRateSyncAccountID, nil
+}
+
+// AddBillingRateSyncAccountID adds i to the "billing_rate_sync_account_id" field.
+func (m *GroupMutation) AddBillingRateSyncAccountID(i int64) {
+	if m.addbilling_rate_sync_account_id != nil {
+		*m.addbilling_rate_sync_account_id += i
+	} else {
+		m.addbilling_rate_sync_account_id = &i
+	}
+}
+
+// AddedBillingRateSyncAccountID returns the value that was added to the "billing_rate_sync_account_id" field in this mutation.
+func (m *GroupMutation) AddedBillingRateSyncAccountID() (r int64, exists bool) {
+	v := m.addbilling_rate_sync_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearBillingRateSyncAccountID clears the value of the "billing_rate_sync_account_id" field.
+func (m *GroupMutation) ClearBillingRateSyncAccountID() {
+	m.billing_rate_sync_account_id = nil
+	m.addbilling_rate_sync_account_id = nil
+	m.clearedFields[group.FieldBillingRateSyncAccountID] = struct{}{}
+}
+
+// BillingRateSyncAccountIDCleared returns if the "billing_rate_sync_account_id" field was cleared in this mutation.
+func (m *GroupMutation) BillingRateSyncAccountIDCleared() bool {
+	_, ok := m.clearedFields[group.FieldBillingRateSyncAccountID]
+	return ok
+}
+
+// ResetBillingRateSyncAccountID resets all changes to the "billing_rate_sync_account_id" field.
+func (m *GroupMutation) ResetBillingRateSyncAccountID() {
+	m.billing_rate_sync_account_id = nil
+	m.addbilling_rate_sync_account_id = nil
+	delete(m.clearedFields, group.FieldBillingRateSyncAccountID)
+}
+
+// SetBillingRateMarkup sets the "billing_rate_markup" field.
+func (m *GroupMutation) SetBillingRateMarkup(f float64) {
+	m.billing_rate_markup = &f
+	m.addbilling_rate_markup = nil
+}
+
+// BillingRateMarkup returns the value of the "billing_rate_markup" field in the mutation.
+func (m *GroupMutation) BillingRateMarkup() (r float64, exists bool) {
+	v := m.billing_rate_markup
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBillingRateMarkup returns the old "billing_rate_markup" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldBillingRateMarkup(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBillingRateMarkup is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBillingRateMarkup requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBillingRateMarkup: %w", err)
+	}
+	return oldValue.BillingRateMarkup, nil
+}
+
+// AddBillingRateMarkup adds f to the "billing_rate_markup" field.
+func (m *GroupMutation) AddBillingRateMarkup(f float64) {
+	if m.addbilling_rate_markup != nil {
+		*m.addbilling_rate_markup += f
+	} else {
+		m.addbilling_rate_markup = &f
+	}
+}
+
+// AddedBillingRateMarkup returns the value that was added to the "billing_rate_markup" field in this mutation.
+func (m *GroupMutation) AddedBillingRateMarkup() (r float64, exists bool) {
+	v := m.addbilling_rate_markup
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetBillingRateMarkup resets all changes to the "billing_rate_markup" field.
+func (m *GroupMutation) ResetBillingRateMarkup() {
+	m.billing_rate_markup = nil
+	m.addbilling_rate_markup = nil
 }
 
 // SetPeakRateEnabled sets the "peak_rate_enabled" field.
@@ -24908,7 +25038,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 49)
+	fields := make([]string, 0, 51)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -24926,6 +25056,12 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.rate_multiplier != nil {
 		fields = append(fields, group.FieldRateMultiplier)
+	}
+	if m.billing_rate_sync_account_id != nil {
+		fields = append(fields, group.FieldBillingRateSyncAccountID)
+	}
+	if m.billing_rate_markup != nil {
+		fields = append(fields, group.FieldBillingRateMarkup)
 	}
 	if m.peak_rate_enabled != nil {
 		fields = append(fields, group.FieldPeakRateEnabled)
@@ -25076,6 +25212,10 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.Description()
 	case group.FieldRateMultiplier:
 		return m.RateMultiplier()
+	case group.FieldBillingRateSyncAccountID:
+		return m.BillingRateSyncAccountID()
+	case group.FieldBillingRateMarkup:
+		return m.BillingRateMarkup()
 	case group.FieldPeakRateEnabled:
 		return m.PeakRateEnabled()
 	case group.FieldPeakStart:
@@ -25183,6 +25323,10 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldDescription(ctx)
 	case group.FieldRateMultiplier:
 		return m.OldRateMultiplier(ctx)
+	case group.FieldBillingRateSyncAccountID:
+		return m.OldBillingRateSyncAccountID(ctx)
+	case group.FieldBillingRateMarkup:
+		return m.OldBillingRateMarkup(ctx)
 	case group.FieldPeakRateEnabled:
 		return m.OldPeakRateEnabled(ctx)
 	case group.FieldPeakStart:
@@ -25319,6 +25463,20 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRateMultiplier(v)
+		return nil
+	case group.FieldBillingRateSyncAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBillingRateSyncAccountID(v)
+		return nil
+	case group.FieldBillingRateMarkup:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBillingRateMarkup(v)
 		return nil
 	case group.FieldPeakRateEnabled:
 		v, ok := value.(bool)
@@ -25632,6 +25790,12 @@ func (m *GroupMutation) AddedFields() []string {
 	if m.addrate_multiplier != nil {
 		fields = append(fields, group.FieldRateMultiplier)
 	}
+	if m.addbilling_rate_sync_account_id != nil {
+		fields = append(fields, group.FieldBillingRateSyncAccountID)
+	}
+	if m.addbilling_rate_markup != nil {
+		fields = append(fields, group.FieldBillingRateMarkup)
+	}
 	if m.addpeak_rate_multiplier != nil {
 		fields = append(fields, group.FieldPeakRateMultiplier)
 	}
@@ -25702,6 +25866,10 @@ func (m *GroupMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case group.FieldRateMultiplier:
 		return m.AddedRateMultiplier()
+	case group.FieldBillingRateSyncAccountID:
+		return m.AddedBillingRateSyncAccountID()
+	case group.FieldBillingRateMarkup:
+		return m.AddedBillingRateMarkup()
 	case group.FieldPeakRateMultiplier:
 		return m.AddedPeakRateMultiplier()
 	case group.FieldDailyLimitUsd:
@@ -25757,6 +25925,20 @@ func (m *GroupMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddRateMultiplier(v)
+		return nil
+	case group.FieldBillingRateSyncAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBillingRateSyncAccountID(v)
+		return nil
+	case group.FieldBillingRateMarkup:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBillingRateMarkup(v)
 		return nil
 	case group.FieldPeakRateMultiplier:
 		v, ok := value.(float64)
@@ -25912,6 +26094,9 @@ func (m *GroupMutation) ClearedFields() []string {
 	if m.FieldCleared(group.FieldDescription) {
 		fields = append(fields, group.FieldDescription)
 	}
+	if m.FieldCleared(group.FieldBillingRateSyncAccountID) {
+		fields = append(fields, group.FieldBillingRateSyncAccountID)
+	}
 	if m.FieldCleared(group.FieldDuplicateOperationID) {
 		fields = append(fields, group.FieldDuplicateOperationID)
 	}
@@ -25973,6 +26158,9 @@ func (m *GroupMutation) ClearField(name string) error {
 		return nil
 	case group.FieldDescription:
 		m.ClearDescription()
+		return nil
+	case group.FieldBillingRateSyncAccountID:
+		m.ClearBillingRateSyncAccountID()
 		return nil
 	case group.FieldDuplicateOperationID:
 		m.ClearDuplicateOperationID()
@@ -26041,6 +26229,12 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldRateMultiplier:
 		m.ResetRateMultiplier()
+		return nil
+	case group.FieldBillingRateSyncAccountID:
+		m.ResetBillingRateSyncAccountID()
+		return nil
+	case group.FieldBillingRateMarkup:
+		m.ResetBillingRateMarkup()
 		return nil
 	case group.FieldPeakRateEnabled:
 		m.ResetPeakRateEnabled()

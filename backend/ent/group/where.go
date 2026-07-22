@@ -85,6 +85,16 @@ func RateMultiplier(v float64) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldRateMultiplier, v))
 }
 
+// BillingRateSyncAccountID applies equality check predicate on the "billing_rate_sync_account_id" field. It's identical to BillingRateSyncAccountIDEQ.
+func BillingRateSyncAccountID(v int64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldBillingRateSyncAccountID, v))
+}
+
+// BillingRateMarkup applies equality check predicate on the "billing_rate_markup" field. It's identical to BillingRateMarkupEQ.
+func BillingRateMarkup(v float64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldBillingRateMarkup, v))
+}
+
 // PeakRateEnabled applies equality check predicate on the "peak_rate_enabled" field. It's identical to PeakRateEnabledEQ.
 func PeakRateEnabled(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldPeakRateEnabled, v))
@@ -588,6 +598,96 @@ func RateMultiplierLT(v float64) predicate.Group {
 // RateMultiplierLTE applies the LTE predicate on the "rate_multiplier" field.
 func RateMultiplierLTE(v float64) predicate.Group {
 	return predicate.Group(sql.FieldLTE(FieldRateMultiplier, v))
+}
+
+// BillingRateSyncAccountIDEQ applies the EQ predicate on the "billing_rate_sync_account_id" field.
+func BillingRateSyncAccountIDEQ(v int64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldBillingRateSyncAccountID, v))
+}
+
+// BillingRateSyncAccountIDNEQ applies the NEQ predicate on the "billing_rate_sync_account_id" field.
+func BillingRateSyncAccountIDNEQ(v int64) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldBillingRateSyncAccountID, v))
+}
+
+// BillingRateSyncAccountIDIn applies the In predicate on the "billing_rate_sync_account_id" field.
+func BillingRateSyncAccountIDIn(vs ...int64) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldBillingRateSyncAccountID, vs...))
+}
+
+// BillingRateSyncAccountIDNotIn applies the NotIn predicate on the "billing_rate_sync_account_id" field.
+func BillingRateSyncAccountIDNotIn(vs ...int64) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldBillingRateSyncAccountID, vs...))
+}
+
+// BillingRateSyncAccountIDGT applies the GT predicate on the "billing_rate_sync_account_id" field.
+func BillingRateSyncAccountIDGT(v int64) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldBillingRateSyncAccountID, v))
+}
+
+// BillingRateSyncAccountIDGTE applies the GTE predicate on the "billing_rate_sync_account_id" field.
+func BillingRateSyncAccountIDGTE(v int64) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldBillingRateSyncAccountID, v))
+}
+
+// BillingRateSyncAccountIDLT applies the LT predicate on the "billing_rate_sync_account_id" field.
+func BillingRateSyncAccountIDLT(v int64) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldBillingRateSyncAccountID, v))
+}
+
+// BillingRateSyncAccountIDLTE applies the LTE predicate on the "billing_rate_sync_account_id" field.
+func BillingRateSyncAccountIDLTE(v int64) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldBillingRateSyncAccountID, v))
+}
+
+// BillingRateSyncAccountIDIsNil applies the IsNil predicate on the "billing_rate_sync_account_id" field.
+func BillingRateSyncAccountIDIsNil() predicate.Group {
+	return predicate.Group(sql.FieldIsNull(FieldBillingRateSyncAccountID))
+}
+
+// BillingRateSyncAccountIDNotNil applies the NotNil predicate on the "billing_rate_sync_account_id" field.
+func BillingRateSyncAccountIDNotNil() predicate.Group {
+	return predicate.Group(sql.FieldNotNull(FieldBillingRateSyncAccountID))
+}
+
+// BillingRateMarkupEQ applies the EQ predicate on the "billing_rate_markup" field.
+func BillingRateMarkupEQ(v float64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldBillingRateMarkup, v))
+}
+
+// BillingRateMarkupNEQ applies the NEQ predicate on the "billing_rate_markup" field.
+func BillingRateMarkupNEQ(v float64) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldBillingRateMarkup, v))
+}
+
+// BillingRateMarkupIn applies the In predicate on the "billing_rate_markup" field.
+func BillingRateMarkupIn(vs ...float64) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldBillingRateMarkup, vs...))
+}
+
+// BillingRateMarkupNotIn applies the NotIn predicate on the "billing_rate_markup" field.
+func BillingRateMarkupNotIn(vs ...float64) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldBillingRateMarkup, vs...))
+}
+
+// BillingRateMarkupGT applies the GT predicate on the "billing_rate_markup" field.
+func BillingRateMarkupGT(v float64) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldBillingRateMarkup, v))
+}
+
+// BillingRateMarkupGTE applies the GTE predicate on the "billing_rate_markup" field.
+func BillingRateMarkupGTE(v float64) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldBillingRateMarkup, v))
+}
+
+// BillingRateMarkupLT applies the LT predicate on the "billing_rate_markup" field.
+func BillingRateMarkupLT(v float64) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldBillingRateMarkup, v))
+}
+
+// BillingRateMarkupLTE applies the LTE predicate on the "billing_rate_markup" field.
+func BillingRateMarkupLTE(v float64) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldBillingRateMarkup, v))
 }
 
 // PeakRateEnabledEQ applies the EQ predicate on the "peak_rate_enabled" field.

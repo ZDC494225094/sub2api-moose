@@ -45,6 +45,16 @@ func (Group) Fields() []ent.Field {
 		field.Float("rate_multiplier").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
 			Default(1.0),
+		field.Int64("billing_rate_sync_account_id").
+			Optional().
+			Nillable().
+			Positive().
+			Comment("自动探测后同步分组倍率的 OpenAI API Key 参考账号 ID"),
+		field.Float("billing_rate_markup").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
+			Default(0).
+			Min(0).
+			Comment("参考账号上游声明倍率之上的加价倍率"),
 		// 高峰时段倍率（added by migration 158）
 		field.Bool("peak_rate_enabled").
 			Default(false).
@@ -250,6 +260,7 @@ func (Group) Indexes() []ent.Index {
 		index.Fields("is_exclusive"),
 		index.Fields("deleted_at"),
 		index.Fields("sort_order"),
+		index.Fields("billing_rate_sync_account_id"),
 		index.Fields("duplicate_operation_id").
 			Unique().
 			StorageKey("idx_groups_duplicate_operation_id_active").

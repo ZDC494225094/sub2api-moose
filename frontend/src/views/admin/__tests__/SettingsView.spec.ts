@@ -200,7 +200,7 @@ vi.mock("vue-i18n", async () => {
     "admin.settings.upstreamBillingProbe.enabled": "启用全局自动探测",
     "admin.settings.upstreamBillingProbe.enabledHint": "开启后，仅对账号自身已启用自动检测的账号执行定时探测。",
     "admin.settings.upstreamBillingProbe.intervalMinutes": "探测周期（分钟）",
-    "admin.settings.upstreamBillingProbe.intervalHint": "范围 5–1440 分钟。",
+    "admin.settings.upstreamBillingProbe.intervalHint": "范围 1–1440 分钟。",
     "admin.settings.upstreamBillingProbe.saved": "上游倍率自动探测设置已保存",
     "admin.settings.upstreamBillingProbe.saveFailed": "保存上游倍率自动探测设置失败",
     "admin.settings.site.uploadImage": "上传图片",

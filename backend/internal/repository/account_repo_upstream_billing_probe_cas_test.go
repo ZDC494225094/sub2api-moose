@@ -120,6 +120,70 @@ func TestUpdateUpstreamBillingProbeSnapshotCommitsSnapshotAndOutboxAtomically(t 
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestUpdateUpstreamBillingProbeSnapshotAndRateMultiplierCommitsAtomically(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	driver := entsql.OpenDB(dialect.Postgres, db)
+	client := dbent.NewClient(dbent.Driver(driver))
+	t.Cleanup(func() { _ = client.Close() })
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`(?s)`+regexp.QuoteMeta("UPDATE accounts")+`.*`+regexp.QuoteMeta("rate_multiplier = $2")+`.*`+regexp.QuoteMeta("WHERE id = $3")+`.*`+regexp.QuoteMeta("AND credentials = $6::jsonb")+`.*`+regexp.QuoteMeta("COALESCE(extra -> 'upstream_billing_probe', 'null'::jsonb) = $8::jsonb")+`.*`+regexp.QuoteMeta("COALESCE(extra -> 'upstream_billing_probe_enabled', 'null'::jsonb) = $9::jsonb")).
+		WithArgs(sqlmock.AnyArg(), 0.8, int64(17), service.PlatformOpenAI, service.AccountTypeAPIKey, `{"api_key":"sk-test"}`, nil, "null", "true").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO scheduler_outbox")).
+		WithArgs(service.SchedulerOutboxEventAccountChanged, int64(17), nil, nil, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	repo := newAccountRepositoryWithSQL(client, db, nil)
+	account := &service.Account{
+		ID:          17,
+		Platform:    service.PlatformOpenAI,
+		Type:        service.AccountTypeAPIKey,
+		Credentials: map[string]any{"api_key": "sk-test"},
+		Extra: map[string]any{
+			service.UpstreamBillingProbeEnabledExtraKey: true,
+		},
+	}
+
+	err = repo.UpdateUpstreamBillingProbeSnapshotAndRateMultiplier(
+		context.Background(),
+		account,
+		&service.UpstreamBillingProbeSnapshot{Status: service.UpstreamBillingProbeStatusOK},
+		0.8,
+	)
+
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestSyncGroupRateMultipliersFromUpstreamBillingProbeAddsEachMarkup(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.Postgres, db)))
+	t.Cleanup(func() { _ = client.Close() })
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(`(?s)UPDATE groups.*rate_multiplier = \$2::numeric \+ billing_rate_markup.*billing_rate_sync_account_id = \$1.*RETURNING id`).
+		WithArgs(int64(17), 0.2).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(5)).AddRow(int64(9)))
+	for _, groupID := range []int64{5, 9} {
+		mock.ExpectExec(regexp.QuoteMeta("INSERT INTO scheduler_outbox")).
+			WithArgs(service.SchedulerOutboxEventGroupChanged, nil, groupID, nil, sqlmock.AnyArg()).
+			WillReturnResult(sqlmock.NewResult(1, 1))
+	}
+	mock.ExpectCommit()
+
+	repo := newAccountRepositoryWithSQL(client, db, nil)
+	err = repo.SyncGroupRateMultipliersFromUpstreamBillingProbe(context.Background(), 17, 0.2)
+
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestUpdateUpstreamBillingProbeSnapshotRejectsChangedProxyIdentity(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)

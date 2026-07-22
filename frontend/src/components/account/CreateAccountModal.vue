@@ -1151,19 +1151,53 @@
 
         <div
           v-if="form.platform === 'openai'"
-          class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
+          class="border-t border-gray-200 pt-4 dark:border-dark-600"
         >
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.upstreamBilling.autoProbe') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
-            </p>
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <label class="input-label mb-0">{{ t('admin.accounts.upstreamBilling.autoProbe') }}</label>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
+              </p>
+            </div>
+            <Toggle
+              v-model="upstreamBillingAutoProbeEnabled"
+              data-testid="upstream-billing-auto-probe"
+              :aria-label="t('admin.accounts.upstreamBilling.autoProbe')"
+            />
           </div>
-          <Toggle
-            v-model="upstreamBillingAutoProbeEnabled"
-            data-testid="upstream-billing-auto-probe"
-            :aria-label="t('admin.accounts.upstreamBilling.autoProbe')"
-          />
+          <div
+            v-if="upstreamBillingAutoProbeEnabled"
+            class="mt-4 grid gap-4 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)] sm:items-start"
+          >
+            <label class="block">
+              <span class="input-label">{{ t('admin.accounts.upstreamBilling.intervalMinutes') }}</span>
+              <div class="flex items-center gap-2">
+                <input
+                  v-model.number="upstreamBillingProbeIntervalMinutes"
+                  type="number"
+                  min="1"
+                  max="1440"
+                  class="input w-28"
+                  data-testid="upstream-billing-probe-interval"
+                />
+                <span class="text-sm text-gray-500 dark:text-gray-400">{{ t('admin.accounts.upstreamBilling.minutesUnit') }}</span>
+              </div>
+              <span class="input-hint">{{ t('admin.accounts.upstreamBilling.intervalHint') }}</span>
+            </label>
+            <label
+              class="flex min-h-10 cursor-pointer items-center gap-2 pt-6 text-sm text-gray-700 dark:text-gray-200 sm:pt-7"
+              :title="t('admin.accounts.upstreamBilling.autoSyncRateMultiplierHint')"
+            >
+              <input
+                v-model="upstreamBillingAutoSyncRateMultiplier"
+                type="checkbox"
+                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                data-testid="upstream-billing-auto-sync-rate-multiplier"
+              />
+              <span>{{ t('admin.accounts.upstreamBilling.autoSyncRateMultiplier') }}</span>
+            </label>
+          </div>
         </div>
 
         <!-- Gemini API Key tier selection -->
@@ -3697,6 +3731,8 @@ const addMethod = ref<AddMethod>('oauth') // For oauth-based: 'oauth' or 'setup-
 const apiKeyBaseUrl = ref('https://api.anthropic.com')
 const apiKeyValue = ref('')
 const upstreamBillingAutoProbeEnabled = ref(true)
+const upstreamBillingProbeIntervalMinutes = ref<number | null>(30)
+const upstreamBillingAutoSyncRateMultiplier = ref(false)
 
 const syncPreviewCredentials = computed(() => {
   if (!apiKeyValue.value) return undefined
@@ -4636,6 +4672,8 @@ const resetForm = () => {
   apiKeyBaseUrl.value = 'https://api.anthropic.com'
   apiKeyValue.value = ''
   upstreamBillingAutoProbeEnabled.value = true
+  upstreamBillingProbeIntervalMinutes.value = 30
+  upstreamBillingAutoSyncRateMultiplier.value = false
   editQuotaLimit.value = null
   editQuotaDailyLimit.value = null
   editQuotaWeeklyLimit.value = null
@@ -4742,6 +4780,13 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
   } else if (accountCategory.value === 'apikey') {
     extra.openai_apikey_responses_websockets_v2_mode = openaiAPIKeyResponsesWebSocketV2Mode.value
     extra.openai_apikey_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiAPIKeyResponsesWebSocketV2Mode.value)
+    const probeInterval = upstreamBillingProbeIntervalMinutes.value
+    extra.upstream_billing_probe_interval_minutes =
+      probeInterval != null && Number.isInteger(probeInterval) && probeInterval >= 1 && probeInterval <= 1440
+        ? probeInterval
+        : 30
+    extra.upstream_billing_probe_auto_sync_rate_multiplier =
+      upstreamBillingAutoProbeEnabled.value && upstreamBillingAutoSyncRateMultiplier.value
   }
   // 清理兼容旧键，统一改用分类型开关。
   delete extra.responses_websockets_v2_enabled
@@ -5056,6 +5101,13 @@ const handleSubmit = async () => {
   }
 
   // For apikey type, create directly
+  if (form.platform === 'openai' && upstreamBillingAutoProbeEnabled.value) {
+    const interval = upstreamBillingProbeIntervalMinutes.value
+    if (interval == null || !Number.isInteger(interval) || interval < 1 || interval > 1440) {
+      appStore.showError(t('admin.accounts.upstreamBilling.intervalInvalid'))
+      return
+    }
+  }
   if (!apiKeyValue.value.trim()) {
     appStore.showError(t('admin.accounts.pleaseEnterApiKey'))
     return

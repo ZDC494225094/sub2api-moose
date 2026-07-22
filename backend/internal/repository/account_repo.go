@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -586,7 +587,9 @@ func lockAndMergeAccountProbeExtra(ctx context.Context, client *dbent.Client, ac
 			AND credentials = $4::jsonb
 			AND proxy_id IS NOT DISTINCT FROM $5,
 			extra -> 'upstream_billing_probe_enabled',
-			extra -> 'upstream_billing_probe'
+			extra -> 'upstream_billing_probe',
+			extra -> 'upstream_billing_probe_interval_minutes',
+			extra -> 'upstream_billing_probe_auto_sync_rate_multiplier'
 		FROM accounts
 		WHERE id = $1 AND deleted_at IS NULL
 		FOR NO KEY UPDATE
@@ -606,8 +609,10 @@ func lockAndMergeAccountProbeExtra(ctx context.Context, client *dbent.Client, ac
 		identityUnchanged bool
 		currentEnabled    []byte
 		currentSnapshot   []byte
+		currentInterval   []byte
+		currentAutoSync   []byte
 	)
-	if err := rows.Scan(&identityUnchanged, &currentEnabled, &currentSnapshot); err != nil {
+	if err := rows.Scan(&identityUnchanged, &currentEnabled, &currentSnapshot, &currentInterval, &currentAutoSync); err != nil {
 		return nil, err
 	}
 	if err := rows.Err(); err != nil {
@@ -632,7 +637,15 @@ func lockAndMergeAccountProbeExtra(ctx context.Context, client *dbent.Client, ac
 			probeExplicitlyDisabled = true
 		}
 	}
-	if !identityUnchanged || probeExplicitlyDisabled || len(currentSnapshot) == 0 || string(currentSnapshot) == "null" {
+	intervalUnchanged, err := accountProbeExtraFieldMatches(account.Extra, service.UpstreamBillingProbeIntervalExtraKey, currentInterval)
+	if err != nil {
+		return nil, err
+	}
+	autoSyncUnchanged, err := accountProbeExtraFieldMatches(account.Extra, service.UpstreamBillingProbeAutoSyncExtraKey, currentAutoSync)
+	if err != nil {
+		return nil, err
+	}
+	if !identityUnchanged || !intervalUnchanged || !autoSyncUnchanged || probeExplicitlyDisabled || len(currentSnapshot) == 0 || string(currentSnapshot) == "null" {
 		return extra, nil
 	}
 	var snapshot any
@@ -641,6 +654,21 @@ func lockAndMergeAccountProbeExtra(ctx context.Context, client *dbent.Client, ac
 	}
 	extra[service.UpstreamBillingProbeExtraKey] = snapshot
 	return extra, nil
+}
+
+func accountProbeExtraFieldMatches(extra map[string]any, key string, current []byte) (bool, error) {
+	var expected any
+	if extra != nil {
+		expected = extra[key]
+	}
+	expectedJSON, err := json.Marshal(expected)
+	if err != nil {
+		return false, err
+	}
+	if len(current) == 0 {
+		current = []byte("null")
+	}
+	return string(expectedJSON) == string(current), nil
 }
 
 func (r *accountRepository) UpdateCredentials(ctx context.Context, id int64, credentials map[string]any) error {
@@ -2817,20 +2845,43 @@ func (r *accountRepository) UpdateUpstreamBillingProbeSnapshot(
 	account *service.Account,
 	snapshot *service.UpstreamBillingProbeSnapshot,
 ) error {
+	return r.updateUpstreamBillingProbeSnapshot(ctx, account, snapshot, nil)
+}
+
+// UpdateUpstreamBillingProbeSnapshotAndRateMultiplier atomically stores the
+// probe result and applies its validated effective rate to account billing.
+func (r *accountRepository) UpdateUpstreamBillingProbeSnapshotAndRateMultiplier(
+	ctx context.Context,
+	account *service.Account,
+	snapshot *service.UpstreamBillingProbeSnapshot,
+	rateMultiplier float64,
+) error {
+	if rateMultiplier < 0 || math.IsNaN(rateMultiplier) || math.IsInf(rateMultiplier, 0) {
+		return fmt.Errorf("rate_multiplier must be a finite number >= 0")
+	}
+	return r.updateUpstreamBillingProbeSnapshot(ctx, account, snapshot, &rateMultiplier)
+}
+
+func (r *accountRepository) updateUpstreamBillingProbeSnapshot(
+	ctx context.Context,
+	account *service.Account,
+	snapshot *service.UpstreamBillingProbeSnapshot,
+	rateMultiplier *float64,
+) error {
 	if account == nil || snapshot == nil {
 		return service.ErrAccountNilInput
 	}
 	if dbent.TxFromContext(ctx) == nil {
 		tx, err := r.client.Tx(ctx)
 		if errors.Is(err, dbent.ErrTxStarted) {
-			return r.updateUpstreamBillingProbeSnapshotInTx(ctx, account, snapshot)
+			return r.updateUpstreamBillingProbeSnapshotInTx(ctx, account, snapshot, rateMultiplier)
 		}
 		if err != nil {
 			return err
 		}
 		defer func() { _ = tx.Rollback() }()
 
-		if err := r.updateUpstreamBillingProbeSnapshotInTx(dbent.NewTxContext(ctx, tx), account, snapshot); err != nil {
+		if err := r.updateUpstreamBillingProbeSnapshotInTx(dbent.NewTxContext(ctx, tx), account, snapshot, rateMultiplier); err != nil {
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -2841,13 +2892,14 @@ func (r *accountRepository) UpdateUpstreamBillingProbeSnapshot(
 		r.syncSchedulerAccountSnapshot(ctx, account.ID)
 		return nil
 	}
-	return r.updateUpstreamBillingProbeSnapshotInTx(ctx, account, snapshot)
+	return r.updateUpstreamBillingProbeSnapshotInTx(ctx, account, snapshot, rateMultiplier)
 }
 
 func (r *accountRepository) updateUpstreamBillingProbeSnapshotInTx(
 	ctx context.Context,
 	account *service.Account,
 	snapshot *service.UpstreamBillingProbeSnapshot,
+	rateMultiplier *float64,
 ) error {
 	payload, err := json.Marshal(map[string]any{service.UpstreamBillingProbeExtraKey: snapshot})
 	if err != nil {
@@ -2885,18 +2937,36 @@ func (r *accountRepository) updateUpstreamBillingProbeSnapshotInTx(
 	if account.ProxyID != nil {
 		proxyID = *account.ProxyID
 	}
-	result, err := client.ExecContext(ctx, `
-		UPDATE accounts
-		SET extra = COALESCE(extra, '{}'::jsonb) || $1::jsonb, updated_at = NOW()
-		WHERE id = $2
-			AND platform = $3
-			AND type = $4
-			AND credentials = $5::jsonb
-			AND proxy_id IS NOT DISTINCT FROM $6
-			AND COALESCE(extra -> 'upstream_billing_probe', 'null'::jsonb) = $7::jsonb
-			AND COALESCE(extra -> 'upstream_billing_probe_enabled', 'null'::jsonb) = $8::jsonb
-			AND deleted_at IS NULL
-	`, string(payload), account.ID, account.Platform, account.Type, string(credentials), proxyID, string(expectedSnapshotJSON), string(expectedEnabledJSON))
+	var result sql.Result
+	if rateMultiplier == nil {
+		result, err = client.ExecContext(ctx, `
+			UPDATE accounts
+			SET extra = COALESCE(extra, '{}'::jsonb) || $1::jsonb, updated_at = NOW()
+			WHERE id = $2
+				AND platform = $3
+				AND type = $4
+				AND credentials = $5::jsonb
+				AND proxy_id IS NOT DISTINCT FROM $6
+				AND COALESCE(extra -> 'upstream_billing_probe', 'null'::jsonb) = $7::jsonb
+				AND COALESCE(extra -> 'upstream_billing_probe_enabled', 'null'::jsonb) = $8::jsonb
+				AND deleted_at IS NULL
+		`, string(payload), account.ID, account.Platform, account.Type, string(credentials), proxyID, string(expectedSnapshotJSON), string(expectedEnabledJSON))
+	} else {
+		result, err = client.ExecContext(ctx, `
+			UPDATE accounts
+			SET extra = COALESCE(extra, '{}'::jsonb) || $1::jsonb,
+				rate_multiplier = $2,
+				updated_at = NOW()
+			WHERE id = $3
+				AND platform = $4
+				AND type = $5
+				AND credentials = $6::jsonb
+				AND proxy_id IS NOT DISTINCT FROM $7
+				AND COALESCE(extra -> 'upstream_billing_probe', 'null'::jsonb) = $8::jsonb
+				AND COALESCE(extra -> 'upstream_billing_probe_enabled', 'null'::jsonb) = $9::jsonb
+				AND deleted_at IS NULL
+		`, string(payload), *rateMultiplier, account.ID, account.Platform, account.Type, string(credentials), proxyID, string(expectedSnapshotJSON), string(expectedEnabledJSON))
+	}
 	if err != nil {
 		return err
 	}
@@ -2908,6 +2978,79 @@ func (r *accountRepository) updateUpstreamBillingProbeSnapshotInTx(
 		return service.ErrUpstreamBillingProbeIdentityChanged
 	}
 	return enqueueSchedulerOutbox(ctx, client, service.SchedulerOutboxEventAccountChanged, &account.ID, nil, nil)
+}
+
+// SyncGroupRateMultipliersFromUpstreamBillingProbe applies one scheduled
+// probe's effective upstream rate to every group using accountID as reference.
+// Each group's additive markup remains independent.
+func (r *accountRepository) SyncGroupRateMultipliersFromUpstreamBillingProbe(
+	ctx context.Context,
+	accountID int64,
+	rateMultiplier float64,
+) error {
+	if accountID <= 0 {
+		return fmt.Errorf("account_id must be positive")
+	}
+	if rateMultiplier < 0 || math.IsNaN(rateMultiplier) || math.IsInf(rateMultiplier, 0) {
+		return fmt.Errorf("rate_multiplier must be a finite number >= 0")
+	}
+	if dbent.TxFromContext(ctx) != nil {
+		return r.syncGroupRateMultipliersFromUpstreamBillingProbeInTx(ctx, accountID, rateMultiplier)
+	}
+	tx, err := r.client.Tx(ctx)
+	if errors.Is(err, dbent.ErrTxStarted) {
+		return r.syncGroupRateMultipliersFromUpstreamBillingProbeInTx(ctx, accountID, rateMultiplier)
+	}
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := r.syncGroupRateMultipliersFromUpstreamBillingProbeInTx(dbent.NewTxContext(ctx, tx), accountID, rateMultiplier); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (r *accountRepository) syncGroupRateMultipliersFromUpstreamBillingProbeInTx(
+	ctx context.Context,
+	accountID int64,
+	rateMultiplier float64,
+) error {
+	client := clientFromContext(ctx, r.client)
+	rows, err := client.QueryContext(ctx, `
+		UPDATE groups
+		SET rate_multiplier = $2::numeric + billing_rate_markup,
+			updated_at = NOW()
+		WHERE billing_rate_sync_account_id = $1
+			AND deleted_at IS NULL
+			AND rate_multiplier IS DISTINCT FROM ($2::numeric + billing_rate_markup)
+		RETURNING id
+	`, accountID, rateMultiplier)
+	if err != nil {
+		return err
+	}
+	groupIDs := make([]int64, 0)
+	for rows.Next() {
+		var groupID int64
+		if err := rows.Scan(&groupID); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		groupIDs = append(groupIDs, groupID)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	for _, groupID := range groupIDs {
+		if err := enqueueSchedulerOutbox(ctx, client, service.SchedulerOutboxEventGroupChanged, nil, &groupID, nil); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func lockAndMatchProbeProxyIdentity(ctx context.Context, client *dbent.Client, account *service.Account) (bool, error) {

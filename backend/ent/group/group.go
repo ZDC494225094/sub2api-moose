@@ -28,6 +28,10 @@ const (
 	FieldDescription = "description"
 	// FieldRateMultiplier holds the string denoting the rate_multiplier field in the database.
 	FieldRateMultiplier = "rate_multiplier"
+	// FieldBillingRateSyncAccountID holds the string denoting the billing_rate_sync_account_id field in the database.
+	FieldBillingRateSyncAccountID = "billing_rate_sync_account_id"
+	// FieldBillingRateMarkup holds the string denoting the billing_rate_markup field in the database.
+	FieldBillingRateMarkup = "billing_rate_markup"
 	// FieldPeakRateEnabled holds the string denoting the peak_rate_enabled field in the database.
 	FieldPeakRateEnabled = "peak_rate_enabled"
 	// FieldPeakStart holds the string denoting the peak_start field in the database.
@@ -195,6 +199,8 @@ var Columns = []string{
 	FieldName,
 	FieldDescription,
 	FieldRateMultiplier,
+	FieldBillingRateSyncAccountID,
+	FieldBillingRateMarkup,
 	FieldPeakRateEnabled,
 	FieldPeakStart,
 	FieldPeakEnd,
@@ -277,6 +283,12 @@ var (
 	NameValidator func(string) error
 	// DefaultRateMultiplier holds the default value on creation for the "rate_multiplier" field.
 	DefaultRateMultiplier float64
+	// BillingRateSyncAccountIDValidator is a validator for the "billing_rate_sync_account_id" field. It is called by the builders before save.
+	BillingRateSyncAccountIDValidator func(int64) error
+	// DefaultBillingRateMarkup holds the default value on creation for the "billing_rate_markup" field.
+	DefaultBillingRateMarkup float64
+	// BillingRateMarkupValidator is a validator for the "billing_rate_markup" field. It is called by the builders before save.
+	BillingRateMarkupValidator func(float64) error
 	// DefaultPeakRateEnabled holds the default value on creation for the "peak_rate_enabled" field.
 	DefaultPeakRateEnabled bool
 	// DefaultPeakStart holds the default value on creation for the "peak_start" field.
@@ -387,6 +399,16 @@ func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 // ByRateMultiplier orders the results by the rate_multiplier field.
 func ByRateMultiplier(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRateMultiplier, opts...).ToFunc()
+}
+
+// ByBillingRateSyncAccountID orders the results by the billing_rate_sync_account_id field.
+func ByBillingRateSyncAccountID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBillingRateSyncAccountID, opts...).ToFunc()
+}
+
+// ByBillingRateMarkup orders the results by the billing_rate_markup field.
+func ByBillingRateMarkup(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBillingRateMarkup, opts...).ToFunc()
 }
 
 // ByPeakRateEnabled orders the results by the peak_rate_enabled field.

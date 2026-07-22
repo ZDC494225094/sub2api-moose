@@ -64,6 +64,27 @@ func TestCreateAccountAcceptsDedicatedUpstreamBillingProbeSetting(t *testing.T) 
 	require.ErrorIs(t, err, ErrUpstreamBillingProbeAccountInvalid)
 }
 
+func TestCreateAccountAcceptsPerAccountUpstreamBillingProbeConfig(t *testing.T) {
+	enabled := true
+	repo := &upstreamBillingProbeAccountRepo{}
+	created, err := (&adminServiceImpl{accountRepo: repo}).CreateAccount(context.Background(), &CreateAccountInput{
+		Name:                 "upstream",
+		Platform:             PlatformOpenAI,
+		Type:                 AccountTypeAPIKey,
+		Credentials:          map[string]any{"api_key": "sk-test"},
+		ProbeEnabled:         &enabled,
+		SkipDefaultGroupBind: true,
+		Extra: map[string]any{
+			UpstreamBillingProbeIntervalExtraKey: float64(60),
+			UpstreamBillingProbeAutoSyncExtraKey: true,
+		},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 60, created.Extra[UpstreamBillingProbeIntervalExtraKey])
+	require.Equal(t, true, created.Extra[UpstreamBillingProbeAutoSyncExtraKey])
+}
+
 func TestUpdateAccountPreservesManagedUpstreamBillingProbeStateForUnrelatedEdit(t *testing.T) {
 	accountID := int64(110)
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
@@ -364,6 +385,88 @@ func TestUpdateAccountRejectsInvalidProbeEnabled(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestUpdateAccountAppliesProbeConfigAndInvalidatesSnapshot(t *testing.T) {
+	accountID := int64(115)
+	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
+		accountID: {
+			ID:       accountID,
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeAPIKey,
+			Status:   StatusActive,
+			Extra: map[string]any{
+				UpstreamBillingProbeEnabledExtraKey:  true,
+				UpstreamBillingProbeIntervalExtraKey: 30,
+				UpstreamBillingProbeAutoSyncExtraKey: false,
+				UpstreamBillingProbeExtraKey:         map[string]any{"status": "ok"},
+			},
+		},
+	}}
+
+	updated, err := (&adminServiceImpl{accountRepo: repo}).UpdateAccount(context.Background(), accountID, &UpdateAccountInput{
+		Extra: map[string]any{
+			UpstreamBillingProbeIntervalExtraKey: float64(60),
+			UpstreamBillingProbeAutoSyncExtraKey: true,
+		},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 60, updated.Extra[UpstreamBillingProbeIntervalExtraKey])
+	require.Equal(t, true, updated.Extra[UpstreamBillingProbeAutoSyncExtraKey])
+	require.NotContains(t, updated.Extra, UpstreamBillingProbeExtraKey)
+}
+
+func TestUpdateAccountRepairsStaleProbePlanWhenSavedIntervalIsUnchanged(t *testing.T) {
+	for _, tc := range []struct {
+		name             string
+		snapshotInterval int
+		wantSnapshot     bool
+	}{
+		{name: "old thirty minute plan is cleared", snapshotInterval: 30, wantSnapshot: false},
+		{name: "matching five minute plan is preserved", snapshotInterval: 5, wantSnapshot: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			accountID := int64(117)
+			repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
+				accountID: {
+					ID: accountID, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive,
+					Extra: map[string]any{
+						UpstreamBillingProbeEnabledExtraKey:  true,
+						UpstreamBillingProbeIntervalExtraKey: 5,
+						UpstreamBillingProbeExtraKey: map[string]any{
+							"status":           "ok",
+							"interval_minutes": tc.snapshotInterval,
+						},
+					},
+				},
+			}}
+
+			updated, err := (&adminServiceImpl{accountRepo: repo}).UpdateAccount(context.Background(), accountID, &UpdateAccountInput{
+				Extra: map[string]any{UpstreamBillingProbeIntervalExtraKey: float64(5)},
+			})
+
+			require.NoError(t, err)
+			if tc.wantSnapshot {
+				require.Contains(t, updated.Extra, UpstreamBillingProbeExtraKey)
+			} else {
+				require.NotContains(t, updated.Extra, UpstreamBillingProbeExtraKey)
+			}
+		})
+	}
+}
+
+func TestUpdateAccountRejectsInvalidProbeInterval(t *testing.T) {
+	accountID := int64(116)
+	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
+		accountID: {ID: accountID, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive},
+	}}
+
+	_, err := (&adminServiceImpl{accountRepo: repo}).UpdateAccount(context.Background(), accountID, &UpdateAccountInput{
+		Extra: map[string]any{UpstreamBillingProbeIntervalExtraKey: float64(0)},
+	})
+
+	require.ErrorContains(t, err, "upstream_billing_probe_interval_minutes must be between 1 and 1440")
+}
+
 func TestBulkUpdateAccountsDropsManagedUpstreamBillingProbeState(t *testing.T) {
 	repo := &upstreamBillingProbeAccountRepo{}
 	svc := &adminServiceImpl{accountRepo: repo}
@@ -407,6 +510,29 @@ func TestBulkUpdateAccountsAcceptsDedicatedUpstreamBillingProbeSetting(t *testin
 			require.Equal(t, enabled, *repo.bulkUpdates[0].ProbeEnabled)
 		})
 	}
+}
+
+func TestBulkUpdateAccountsAcceptsPerAccountProbeConfig(t *testing.T) {
+	enabled := true
+	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
+		1: {ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+		2: {ID: 2, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+	}}
+
+	result, err := (&adminServiceImpl{accountRepo: repo}).BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{
+		AccountIDs:   []int64{1, 2},
+		ProbeEnabled: &enabled,
+		Extra: map[string]any{
+			UpstreamBillingProbeIntervalExtraKey: float64(90),
+			UpstreamBillingProbeAutoSyncExtraKey: true,
+		},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 2, result.Success)
+	require.Equal(t, 90, repo.bulkUpdates[0].Extra[UpstreamBillingProbeIntervalExtraKey])
+	require.Equal(t, true, repo.bulkUpdates[0].Extra[UpstreamBillingProbeAutoSyncExtraKey])
+	require.Nil(t, repo.bulkUpdates[0].Extra[UpstreamBillingProbeExtraKey])
 }
 
 func TestBulkUpdateAccountsRejectsProbeSettingForIneligibleTargetBeforeWrite(t *testing.T) {

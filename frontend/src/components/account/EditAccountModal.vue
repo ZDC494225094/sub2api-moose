@@ -1600,19 +1600,53 @@
 
       <div
         v-if="account?.platform === 'openai' && account?.type === 'apikey'"
-        class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
-        <div>
-          <label class="input-label mb-0">{{ t('admin.accounts.upstreamBilling.autoProbe') }}</label>
-          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
-          </p>
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <label class="input-label mb-0">{{ t('admin.accounts.upstreamBilling.autoProbe') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
+            </p>
+          </div>
+          <Toggle
+            v-model="upstreamBillingAutoProbeEnabled"
+            data-testid="upstream-billing-auto-probe"
+            :aria-label="t('admin.accounts.upstreamBilling.autoProbe')"
+          />
         </div>
-        <Toggle
-          v-model="upstreamBillingAutoProbeEnabled"
-          data-testid="upstream-billing-auto-probe"
-          :aria-label="t('admin.accounts.upstreamBilling.autoProbe')"
-        />
+        <div
+          v-if="upstreamBillingAutoProbeEnabled"
+          class="mt-4 grid gap-4 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)] sm:items-start"
+        >
+          <label class="block">
+            <span class="input-label">{{ t('admin.accounts.upstreamBilling.intervalMinutes') }}</span>
+            <div class="flex items-center gap-2">
+              <input
+                v-model.number="upstreamBillingProbeIntervalMinutes"
+                type="number"
+                min="1"
+                max="1440"
+                class="input w-28"
+                data-testid="upstream-billing-probe-interval"
+              />
+              <span class="text-sm text-gray-500 dark:text-gray-400">{{ t('admin.accounts.upstreamBilling.minutesUnit') }}</span>
+            </div>
+            <span class="input-hint">{{ t('admin.accounts.upstreamBilling.intervalHint') }}</span>
+          </label>
+          <label
+            class="flex min-h-10 cursor-pointer items-center gap-2 pt-6 text-sm text-gray-700 dark:text-gray-200 sm:pt-7"
+            :title="t('admin.accounts.upstreamBilling.autoSyncRateMultiplierHint')"
+          >
+            <input
+              v-model="upstreamBillingAutoSyncRateMultiplier"
+              type="checkbox"
+              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              data-testid="upstream-billing-auto-sync-rate-multiplier"
+            />
+            <span>{{ t('admin.accounts.upstreamBilling.autoSyncRateMultiplier') }}</span>
+          </label>
+        </div>
       </div>
 
       <!-- Anthropic API Key 自动透传开关 -->
@@ -2765,6 +2799,8 @@ const autoPause7dThreshold = ref<number | null>(null)
 const autoPause5hDisabled = ref(false)
 const autoPause7dDisabled = ref(false)
 const upstreamBillingAutoProbeEnabled = ref(false)
+const upstreamBillingProbeIntervalMinutes = ref<number | null>(30)
+const upstreamBillingAutoSyncRateMultiplier = ref(false)
 const mixedScheduling = ref(false) // For antigravity accounts: enable mixed scheduling
 const allowOverages = ref(false) // For antigravity accounts: enable AI Credits overages
 const antigravityProjectId = ref('')
@@ -3249,6 +3285,12 @@ const syncFormFromAccount = (newAccount: Account | null) => {
 	autoPause5hDisabled.value = extra?.auto_pause_5h_disabled === true
 	autoPause7dDisabled.value = extra?.auto_pause_7d_disabled === true
 	upstreamBillingAutoProbeEnabled.value = extra?.upstream_billing_probe_enabled === true
+	upstreamBillingProbeIntervalMinutes.value =
+		typeof extra?.upstream_billing_probe_interval_minutes === 'number'
+			? extra.upstream_billing_probe_interval_minutes
+			: 30
+	upstreamBillingAutoSyncRateMultiplier.value =
+		extra?.upstream_billing_probe_auto_sync_rate_multiplier === true
 
   // Load OpenAI passthrough toggle (OpenAI OAuth/SetupToken/API Key)
   openaiPassthroughEnabled.value = false
@@ -4003,6 +4045,14 @@ const handleSubmit = async () => {
     return
   }
 
+  if (props.account.platform === 'openai' && props.account.type === 'apikey' && upstreamBillingAutoProbeEnabled.value) {
+    const interval = upstreamBillingProbeIntervalMinutes.value
+    if (interval == null || !Number.isInteger(interval) || interval < 1 || interval > 1440) {
+      appStore.showError(t('admin.accounts.upstreamBilling.intervalInvalid'))
+      return
+    }
+  }
+
   const updatePayload: Record<string, unknown> = { ...form }
   updatePayload.upstream_group = form.upstream_group.trim()
   try {
@@ -4504,6 +4554,13 @@ const handleSubmit = async () => {
           newExtra.openai_responses_mode = openAIResponsesMode.value
         }
 			newExtra.upstream_billing_probe_enabled = upstreamBillingAutoProbeEnabled.value
+			const probeInterval = upstreamBillingProbeIntervalMinutes.value
+			newExtra.upstream_billing_probe_interval_minutes =
+				probeInterval != null && Number.isInteger(probeInterval) && probeInterval >= 1 && probeInterval <= 1440
+					? probeInterval
+					: 30
+			newExtra.upstream_billing_probe_auto_sync_rate_multiplier =
+				upstreamBillingAutoProbeEnabled.value && upstreamBillingAutoSyncRateMultiplier.value
 		}
 		if (autoPause5hThreshold.value != null && autoPause5hThreshold.value > 0) {
 			newExtra.auto_pause_5h_threshold = autoPause5hThreshold.value / 100

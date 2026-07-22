@@ -150,6 +150,8 @@ type Group struct {
 // 注意：普通用户接口不得返回 model_routing/account_count/account_groups 等内部信息。
 type AdminGroup struct {
 	Group
+	BillingRateSyncAccountID *int64  `json:"billing_rate_sync_account_id"`
+	BillingRateMarkup        float64 `json:"billing_rate_markup"`
 
 	// 模型路由配置（仅 anthropic 平台使用）
 	ModelRouting        map[string][]int64 `json:"model_routing"`

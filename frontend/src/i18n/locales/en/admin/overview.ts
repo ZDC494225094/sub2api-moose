@@ -860,6 +860,17 @@ export default {
       groupUpdatedSuccess: 'Group updated successfully',
       groupDeletedSuccess: 'Group deleted successfully',
       rateMultiplierHint: 'Cost multiplier for this group (e.g., 1.5 = 150% of base cost)',
+      billingRateSync: {
+        title: 'Sync Group Rate from Account',
+        hint: 'After each successful automatic probe, the group rate becomes the detected upstream rate plus this markup.',
+        referenceAccount: 'Reference Account',
+        referencePlaceholder: 'Select an OpenAI API key account',
+        markup: 'Additive Markup',
+        preview: 'Last detected {detected} + markup {markup} = final rate {final}',
+        noAccounts: 'No OpenAI API key accounts available',
+        loadFailed: 'Failed to load reference accounts',
+        markupInvalid: 'The additive markup must be a finite number greater than or equal to 0'
+      },
       exclusiveHint: 'Exclusive group, manually assign to specific users',
       exclusiveTooltip: {
         title: 'What is an exclusive group?',

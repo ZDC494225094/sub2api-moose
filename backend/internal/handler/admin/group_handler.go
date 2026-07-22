@@ -30,6 +30,30 @@ type optionalLimitField struct {
 	value *float64
 }
 
+type optionalInt64Field struct {
+	set   bool
+	value *int64
+}
+
+func (f *optionalInt64Field) UnmarshalJSON(data []byte) error {
+	f.set = true
+	trimmed := bytes.TrimSpace(data)
+	if bytes.Equal(trimmed, []byte("null")) {
+		f.value = nil
+		return nil
+	}
+	var value int64
+	if err := json.Unmarshal(trimmed, &value); err != nil {
+		return fmt.Errorf("invalid integer value: %s", string(trimmed))
+	}
+	f.value = &value
+	return nil
+}
+
+func (f optionalInt64Field) ToServiceInput() (*int64, bool) {
+	return f.value, f.set
+}
+
 func (f *optionalLimitField) UnmarshalJSON(data []byte) error {
 	f.set = true
 
@@ -85,15 +109,17 @@ func NewGroupHandler(adminService service.AdminService, dashboardService *servic
 
 // CreateGroupRequest represents create group request
 type CreateGroupRequest struct {
-	Name             string             `json:"name" binding:"required"`
-	Description      string             `json:"description"`
-	Platform         string             `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok"`
-	RateMultiplier   float64            `json:"rate_multiplier"`
-	IsExclusive      bool               `json:"is_exclusive"`
-	SubscriptionType string             `json:"subscription_type" binding:"omitempty,oneof=standard subscription"`
-	DailyLimitUSD    optionalLimitField `json:"daily_limit_usd"`
-	WeeklyLimitUSD   optionalLimitField `json:"weekly_limit_usd"`
-	MonthlyLimitUSD  optionalLimitField `json:"monthly_limit_usd"`
+	Name                     string             `json:"name" binding:"required"`
+	Description              string             `json:"description"`
+	Platform                 string             `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok"`
+	RateMultiplier           float64            `json:"rate_multiplier"`
+	BillingRateSyncAccountID *int64             `json:"billing_rate_sync_account_id"`
+	BillingRateMarkup        float64            `json:"billing_rate_markup"`
+	IsExclusive              bool               `json:"is_exclusive"`
+	SubscriptionType         string             `json:"subscription_type" binding:"omitempty,oneof=standard subscription"`
+	DailyLimitUSD            optionalLimitField `json:"daily_limit_usd"`
+	WeeklyLimitUSD           optionalLimitField `json:"weekly_limit_usd"`
+	MonthlyLimitUSD          optionalLimitField `json:"monthly_limit_usd"`
 	// 图片生成计费配置（antigravity 和 gemini 平台使用，负数表示清除配置）
 	AllowImageGeneration            bool     `json:"allow_image_generation"`
 	AllowBatchImageGeneration       bool     `json:"allow_batch_image_generation"`
@@ -138,16 +164,18 @@ type CreateGroupRequest struct {
 
 // UpdateGroupRequest represents update group request
 type UpdateGroupRequest struct {
-	Name             string             `json:"name"`
-	Description      *string            `json:"description"`
-	Platform         string             `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok"`
-	RateMultiplier   *float64           `json:"rate_multiplier"`
-	IsExclusive      *bool              `json:"is_exclusive"`
-	Status           string             `json:"status" binding:"omitempty,oneof=active inactive"`
-	SubscriptionType string             `json:"subscription_type" binding:"omitempty,oneof=standard subscription"`
-	DailyLimitUSD    optionalLimitField `json:"daily_limit_usd"`
-	WeeklyLimitUSD   optionalLimitField `json:"weekly_limit_usd"`
-	MonthlyLimitUSD  optionalLimitField `json:"monthly_limit_usd"`
+	Name                     string             `json:"name"`
+	Description              *string            `json:"description"`
+	Platform                 string             `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok"`
+	RateMultiplier           *float64           `json:"rate_multiplier"`
+	BillingRateSyncAccountID optionalInt64Field `json:"billing_rate_sync_account_id"`
+	BillingRateMarkup        *float64           `json:"billing_rate_markup"`
+	IsExclusive              *bool              `json:"is_exclusive"`
+	Status                   string             `json:"status" binding:"omitempty,oneof=active inactive"`
+	SubscriptionType         string             `json:"subscription_type" binding:"omitempty,oneof=standard subscription"`
+	DailyLimitUSD            optionalLimitField `json:"daily_limit_usd"`
+	WeeklyLimitUSD           optionalLimitField `json:"weekly_limit_usd"`
+	MonthlyLimitUSD          optionalLimitField `json:"monthly_limit_usd"`
 	// 图片生成计费配置（antigravity 和 gemini 平台使用，负数表示清除配置）
 	AllowImageGeneration            *bool    `json:"allow_image_generation"`
 	AllowBatchImageGeneration       *bool    `json:"allow_batch_image_generation"`
@@ -370,6 +398,8 @@ func (h *GroupHandler) Create(c *gin.Context) {
 		Description:                     req.Description,
 		Platform:                        req.Platform,
 		RateMultiplier:                  req.RateMultiplier,
+		BillingRateSyncAccountID:        req.BillingRateSyncAccountID,
+		BillingRateMarkup:               req.BillingRateMarkup,
 		IsExclusive:                     req.IsExclusive,
 		SubscriptionType:                req.SubscriptionType,
 		DailyLimitUSD:                   req.DailyLimitUSD.ToServiceInput(),
@@ -479,12 +509,16 @@ func (h *GroupHandler) Update(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
+	billingRateSyncAccountID, billingRateSyncAccountIDSet := req.BillingRateSyncAccountID.ToServiceInput()
 
 	group, err := h.adminService.UpdateGroup(c.Request.Context(), groupID, &service.UpdateGroupInput{
 		Name:                            req.Name,
 		Description:                     req.Description,
 		Platform:                        req.Platform,
 		RateMultiplier:                  req.RateMultiplier,
+		BillingRateSyncAccountID:        billingRateSyncAccountID,
+		BillingRateSyncAccountIDSet:     billingRateSyncAccountIDSet,
+		BillingRateMarkup:               req.BillingRateMarkup,
 		IsExclusive:                     req.IsExclusive,
 		Status:                          req.Status,
 		SubscriptionType:                req.SubscriptionType,

@@ -625,10 +625,14 @@ describe('EditAccountModal', () => {
     expect(toggle.attributes('aria-checked')).toBe('false')
 
     await toggle.trigger('click')
+    await wrapper.get('[data-testid="upstream-billing-probe-interval"]').setValue(60)
+    await wrapper.get('[data-testid="upstream-billing-auto-sync-rate-multiplier"]').setValue(true)
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.upstream_billing_probe_enabled).toBe(true)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.upstream_billing_probe_interval_minutes).toBe(60)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.upstream_billing_probe_auto_sync_rate_multiplier).toBe(true)
   })
 
   it('clears OpenAI APIKey Responses override when set back to auto', async () => {

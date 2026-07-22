@@ -566,6 +566,9 @@ export interface Group {
 }
 
 export interface AdminGroup extends Group {
+  billing_rate_sync_account_id: number | null
+  billing_rate_markup: number
+
   // 模型路由配置（仅管理员可见，内部信息）
   model_routing: Record<string, number[]> | null
   model_routing_enabled: boolean
@@ -671,6 +674,8 @@ export interface CreateGroupRequest {
   description?: string | null
   platform?: GroupPlatform
   rate_multiplier?: number
+  billing_rate_sync_account_id?: number | null
+  billing_rate_markup?: number
   is_exclusive?: boolean
   subscription_type?: SubscriptionType
   daily_limit_usd?: number | null
@@ -718,6 +723,8 @@ export interface UpdateGroupRequest {
   description?: string | null
   platform?: GroupPlatform
   rate_multiplier?: number
+  billing_rate_sync_account_id?: number | null
+  billing_rate_markup?: number
   is_exclusive?: boolean
   status?: 'active' | 'inactive'
   subscription_type?: SubscriptionType
@@ -919,6 +926,7 @@ export type UpstreamBillingProbeStatus = 'ok' | 'unsupported' | 'failed'
 export interface UpstreamBillingProbeSnapshot {
   status: UpstreamBillingProbeStatus
   data?: UpstreamBillingData
+  interval_minutes?: number
   received_at?: string
   fresh_until?: string
   last_attempt_at: string
@@ -957,6 +965,8 @@ export interface Account {
     model_rate_limits?: Record<string, { rate_limited_at: string; rate_limit_reset_at: string }>
     antigravity_credits_overages?: Record<string, { activated_at: string; active_until: string }>
     upstream_billing_probe_enabled?: boolean
+    upstream_billing_probe_interval_minutes?: number
+    upstream_billing_probe_auto_sync_rate_multiplier?: boolean
     upstream_billing_probe?: UpstreamBillingProbeSnapshot
   } & Record<string, unknown>)
   proxy_id: number | null

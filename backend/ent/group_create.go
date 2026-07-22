@@ -105,6 +105,34 @@ func (_c *GroupCreate) SetNillableRateMultiplier(v *float64) *GroupCreate {
 	return _c
 }
 
+// SetBillingRateSyncAccountID sets the "billing_rate_sync_account_id" field.
+func (_c *GroupCreate) SetBillingRateSyncAccountID(v int64) *GroupCreate {
+	_c.mutation.SetBillingRateSyncAccountID(v)
+	return _c
+}
+
+// SetNillableBillingRateSyncAccountID sets the "billing_rate_sync_account_id" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableBillingRateSyncAccountID(v *int64) *GroupCreate {
+	if v != nil {
+		_c.SetBillingRateSyncAccountID(*v)
+	}
+	return _c
+}
+
+// SetBillingRateMarkup sets the "billing_rate_markup" field.
+func (_c *GroupCreate) SetBillingRateMarkup(v float64) *GroupCreate {
+	_c.mutation.SetBillingRateMarkup(v)
+	return _c
+}
+
+// SetNillableBillingRateMarkup sets the "billing_rate_markup" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableBillingRateMarkup(v *float64) *GroupCreate {
+	if v != nil {
+		_c.SetBillingRateMarkup(*v)
+	}
+	return _c
+}
+
 // SetPeakRateEnabled sets the "peak_rate_enabled" field.
 func (_c *GroupCreate) SetPeakRateEnabled(v bool) *GroupCreate {
 	_c.mutation.SetPeakRateEnabled(v)
@@ -836,6 +864,10 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultRateMultiplier
 		_c.mutation.SetRateMultiplier(v)
 	}
+	if _, ok := _c.mutation.BillingRateMarkup(); !ok {
+		v := group.DefaultBillingRateMarkup
+		_c.mutation.SetBillingRateMarkup(v)
+	}
 	if _, ok := _c.mutation.PeakRateEnabled(); !ok {
 		v := group.DefaultPeakRateEnabled
 		_c.mutation.SetPeakRateEnabled(v)
@@ -973,6 +1005,19 @@ func (_c *GroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.RateMultiplier(); !ok {
 		return &ValidationError{Name: "rate_multiplier", err: errors.New(`ent: missing required field "Group.rate_multiplier"`)}
+	}
+	if v, ok := _c.mutation.BillingRateSyncAccountID(); ok {
+		if err := group.BillingRateSyncAccountIDValidator(v); err != nil {
+			return &ValidationError{Name: "billing_rate_sync_account_id", err: fmt.Errorf(`ent: validator failed for field "Group.billing_rate_sync_account_id": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.BillingRateMarkup(); !ok {
+		return &ValidationError{Name: "billing_rate_markup", err: errors.New(`ent: missing required field "Group.billing_rate_markup"`)}
+	}
+	if v, ok := _c.mutation.BillingRateMarkup(); ok {
+		if err := group.BillingRateMarkupValidator(v); err != nil {
+			return &ValidationError{Name: "billing_rate_markup", err: fmt.Errorf(`ent: validator failed for field "Group.billing_rate_markup": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.PeakRateEnabled(); !ok {
 		return &ValidationError{Name: "peak_rate_enabled", err: errors.New(`ent: missing required field "Group.peak_rate_enabled"`)}
@@ -1146,6 +1191,14 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RateMultiplier(); ok {
 		_spec.SetField(group.FieldRateMultiplier, field.TypeFloat64, value)
 		_node.RateMultiplier = value
+	}
+	if value, ok := _c.mutation.BillingRateSyncAccountID(); ok {
+		_spec.SetField(group.FieldBillingRateSyncAccountID, field.TypeInt64, value)
+		_node.BillingRateSyncAccountID = &value
+	}
+	if value, ok := _c.mutation.BillingRateMarkup(); ok {
+		_spec.SetField(group.FieldBillingRateMarkup, field.TypeFloat64, value)
+		_node.BillingRateMarkup = value
 	}
 	if value, ok := _c.mutation.PeakRateEnabled(); ok {
 		_spec.SetField(group.FieldPeakRateEnabled, field.TypeBool, value)
@@ -1550,6 +1603,48 @@ func (u *GroupUpsert) UpdateRateMultiplier() *GroupUpsert {
 // AddRateMultiplier adds v to the "rate_multiplier" field.
 func (u *GroupUpsert) AddRateMultiplier(v float64) *GroupUpsert {
 	u.Add(group.FieldRateMultiplier, v)
+	return u
+}
+
+// SetBillingRateSyncAccountID sets the "billing_rate_sync_account_id" field.
+func (u *GroupUpsert) SetBillingRateSyncAccountID(v int64) *GroupUpsert {
+	u.Set(group.FieldBillingRateSyncAccountID, v)
+	return u
+}
+
+// UpdateBillingRateSyncAccountID sets the "billing_rate_sync_account_id" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateBillingRateSyncAccountID() *GroupUpsert {
+	u.SetExcluded(group.FieldBillingRateSyncAccountID)
+	return u
+}
+
+// AddBillingRateSyncAccountID adds v to the "billing_rate_sync_account_id" field.
+func (u *GroupUpsert) AddBillingRateSyncAccountID(v int64) *GroupUpsert {
+	u.Add(group.FieldBillingRateSyncAccountID, v)
+	return u
+}
+
+// ClearBillingRateSyncAccountID clears the value of the "billing_rate_sync_account_id" field.
+func (u *GroupUpsert) ClearBillingRateSyncAccountID() *GroupUpsert {
+	u.SetNull(group.FieldBillingRateSyncAccountID)
+	return u
+}
+
+// SetBillingRateMarkup sets the "billing_rate_markup" field.
+func (u *GroupUpsert) SetBillingRateMarkup(v float64) *GroupUpsert {
+	u.Set(group.FieldBillingRateMarkup, v)
+	return u
+}
+
+// UpdateBillingRateMarkup sets the "billing_rate_markup" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateBillingRateMarkup() *GroupUpsert {
+	u.SetExcluded(group.FieldBillingRateMarkup)
+	return u
+}
+
+// AddBillingRateMarkup adds v to the "billing_rate_markup" field.
+func (u *GroupUpsert) AddBillingRateMarkup(v float64) *GroupUpsert {
+	u.Add(group.FieldBillingRateMarkup, v)
 	return u
 }
 
@@ -2391,6 +2486,55 @@ func (u *GroupUpsertOne) AddRateMultiplier(v float64) *GroupUpsertOne {
 func (u *GroupUpsertOne) UpdateRateMultiplier() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRateMultiplier()
+	})
+}
+
+// SetBillingRateSyncAccountID sets the "billing_rate_sync_account_id" field.
+func (u *GroupUpsertOne) SetBillingRateSyncAccountID(v int64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetBillingRateSyncAccountID(v)
+	})
+}
+
+// AddBillingRateSyncAccountID adds v to the "billing_rate_sync_account_id" field.
+func (u *GroupUpsertOne) AddBillingRateSyncAccountID(v int64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddBillingRateSyncAccountID(v)
+	})
+}
+
+// UpdateBillingRateSyncAccountID sets the "billing_rate_sync_account_id" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateBillingRateSyncAccountID() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateBillingRateSyncAccountID()
+	})
+}
+
+// ClearBillingRateSyncAccountID clears the value of the "billing_rate_sync_account_id" field.
+func (u *GroupUpsertOne) ClearBillingRateSyncAccountID() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.ClearBillingRateSyncAccountID()
+	})
+}
+
+// SetBillingRateMarkup sets the "billing_rate_markup" field.
+func (u *GroupUpsertOne) SetBillingRateMarkup(v float64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetBillingRateMarkup(v)
+	})
+}
+
+// AddBillingRateMarkup adds v to the "billing_rate_markup" field.
+func (u *GroupUpsertOne) AddBillingRateMarkup(v float64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddBillingRateMarkup(v)
+	})
+}
+
+// UpdateBillingRateMarkup sets the "billing_rate_markup" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateBillingRateMarkup() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateBillingRateMarkup()
 	})
 }
 
@@ -3515,6 +3659,55 @@ func (u *GroupUpsertBulk) AddRateMultiplier(v float64) *GroupUpsertBulk {
 func (u *GroupUpsertBulk) UpdateRateMultiplier() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRateMultiplier()
+	})
+}
+
+// SetBillingRateSyncAccountID sets the "billing_rate_sync_account_id" field.
+func (u *GroupUpsertBulk) SetBillingRateSyncAccountID(v int64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetBillingRateSyncAccountID(v)
+	})
+}
+
+// AddBillingRateSyncAccountID adds v to the "billing_rate_sync_account_id" field.
+func (u *GroupUpsertBulk) AddBillingRateSyncAccountID(v int64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddBillingRateSyncAccountID(v)
+	})
+}
+
+// UpdateBillingRateSyncAccountID sets the "billing_rate_sync_account_id" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateBillingRateSyncAccountID() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateBillingRateSyncAccountID()
+	})
+}
+
+// ClearBillingRateSyncAccountID clears the value of the "billing_rate_sync_account_id" field.
+func (u *GroupUpsertBulk) ClearBillingRateSyncAccountID() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.ClearBillingRateSyncAccountID()
+	})
+}
+
+// SetBillingRateMarkup sets the "billing_rate_markup" field.
+func (u *GroupUpsertBulk) SetBillingRateMarkup(v float64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetBillingRateMarkup(v)
+	})
+}
+
+// AddBillingRateMarkup adds v to the "billing_rate_markup" field.
+func (u *GroupUpsertBulk) AddBillingRateMarkup(v float64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddBillingRateMarkup(v)
+	})
+}
+
+// UpdateBillingRateMarkup sets the "billing_rate_markup" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateBillingRateMarkup() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateBillingRateMarkup()
 	})
 }
 

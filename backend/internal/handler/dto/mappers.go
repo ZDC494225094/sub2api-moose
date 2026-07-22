@@ -149,6 +149,8 @@ func GroupFromServiceAdmin(g *service.Group) *AdminGroup {
 	}
 	out := &AdminGroup{
 		Group:                       groupFromServiceBase(g),
+		BillingRateSyncAccountID:    g.BillingRateSyncAccountID,
+		BillingRateMarkup:           g.BillingRateMarkup,
 		ModelRouting:                g.ModelRouting,
 		ModelRoutingEnabled:         g.ModelRoutingEnabled,
 		MCPXMLInject:                g.MCPXMLInject,

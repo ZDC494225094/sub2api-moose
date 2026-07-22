@@ -842,6 +842,17 @@ export default {
           '公开分组费率 0.8，您可以创建一个费率 0.7 的专属分组，手动分配给 VIP 用户，让他们享受更优惠的价格。'
       },
       rateMultiplierHint: '1.0 = 标准费率，0.5 = 半价，2.0 = 双倍',
+      billingRateSync: {
+        title: '分组倍率同步账号倍率',
+        hint: '参考账号每次自动探测成功后，分组倍率会更新为上游声明倍率与加价倍率之和。',
+        referenceAccount: '参考账号',
+        referencePlaceholder: '选择 OpenAI API Key 账号',
+        markup: '加价倍率',
+        preview: '最近探测 {detected} + 加价 {markup} = 最终倍率 {final}',
+        noAccounts: '暂无可用的 OpenAI API Key 账号',
+        loadFailed: '参考账号加载失败',
+        markupInvalid: '加价倍率必须是大于或等于 0 的有效数字'
+      },
       platforms: {
         all: '全部平台',
         anthropic: 'Anthropic',

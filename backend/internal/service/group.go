@@ -19,6 +19,10 @@ type Group struct {
 	Description    string
 	Platform       string
 	RateMultiplier float64
+	// BillingRateSyncAccountID 设为 OpenAI API Key 账号时，每次定时探测成功后，
+	// 分组基础倍率会更新为该账号的上游声明倍率 + BillingRateMarkup。
+	BillingRateSyncAccountID *int64
+	BillingRateMarkup        float64
 	// 高峰时段倍率：peak_rate_enabled 为 true 且当前时刻处于 [PeakStart, PeakEnd) 时，
 	// token 计费直接使用 PeakRateMultiplier 作为最终倍率。详见 PeakMultiplierAt。
 	PeakRateEnabled    bool

@@ -126,6 +126,8 @@ func TestDuplicateGroupCopiesConfigurationDeeplyAndResetsRuntimeState(t *testing
 		Description:                     "configuration",
 		Platform:                        PlatformOpenAI,
 		RateMultiplier:                  1.75,
+		BillingRateSyncAccountID:        ptrInt64(13),
+		BillingRateMarkup:               0.15,
 		PeakRateEnabled:                 true,
 		PeakStart:                       "09:00",
 		PeakEnd:                         "18:00",
@@ -198,6 +200,8 @@ func TestDuplicateGroupCopiesConfigurationDeeplyAndResetsRuntimeState(t *testing
 	require.Equal(t, source.Description, duplicate.Description)
 	require.Equal(t, source.Platform, duplicate.Platform)
 	require.Equal(t, source.RateMultiplier, duplicate.RateMultiplier)
+	require.Equal(t, source.BillingRateSyncAccountID, duplicate.BillingRateSyncAccountID)
+	require.Equal(t, source.BillingRateMarkup, duplicate.BillingRateMarkup)
 	require.Equal(t, source.PeakRateMultiplier, duplicate.PeakRateMultiplier)
 	require.Equal(t, source.DefaultValidityDays, duplicate.DefaultValidityDays)
 	require.Equal(t, source.ImagePrice4K, duplicate.ImagePrice4K)

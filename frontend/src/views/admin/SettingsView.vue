@@ -4097,7 +4097,7 @@
                     id="upstream-billing-probe-interval"
                     v-model.number="upstreamBillingProbeForm.interval_minutes"
                     type="number"
-                    min="5"
+                    min="1"
                     max="1440"
                     class="input w-32"
                     data-testid="upstream-billing-probe-interval"

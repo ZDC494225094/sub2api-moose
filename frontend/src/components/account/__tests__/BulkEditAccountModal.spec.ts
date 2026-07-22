@@ -350,12 +350,18 @@ describe('BulkEditAccountModal', () => {
     })
 
     await wrapper.get('#bulk-edit-upstream-billing-auto-probe-enabled').setValue(true)
+    await wrapper.get('[data-testid="bulk-edit-upstream-billing-probe-interval"]').setValue(90)
+    await wrapper.get('[data-testid="bulk-edit-upstream-billing-auto-sync-rate-multiplier"]').setValue(true)
     await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
     await flushPromises()
 
     expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledTimes(1)
     expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith([1, 2], {
-      upstream_billing_probe_enabled: true
+      upstream_billing_probe_enabled: true,
+      extra: {
+        upstream_billing_probe_interval_minutes: 90,
+        upstream_billing_probe_auto_sync_rate_multiplier: true
+      }
     })
   })
 
@@ -372,7 +378,10 @@ describe('BulkEditAccountModal', () => {
 
     expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledTimes(1)
     expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith([1, 2], {
-      upstream_billing_probe_enabled: false
+      upstream_billing_probe_enabled: false,
+      extra: {
+        upstream_billing_probe_auto_sync_rate_multiplier: false
+      }
     })
   })
 
@@ -406,7 +415,11 @@ describe('BulkEditAccountModal', () => {
     expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledTimes(1)
     expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith({
       filters: { platform: 'openai', type: 'apikey', status: 'active' },
-      upstream_billing_probe_enabled: true
+      upstream_billing_probe_enabled: true,
+      extra: {
+        upstream_billing_probe_interval_minutes: 30,
+        upstream_billing_probe_auto_sync_rate_multiplier: false
+      }
     })
   })
 

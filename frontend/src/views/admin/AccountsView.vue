@@ -2367,10 +2367,14 @@ const patchAccountInList = (updatedAccount: Account) => {
 const patchUpstreamBillingSnapshot = (accountID: number, snapshot: UpstreamBillingProbeSnapshot) => {
   const account = accounts.value.find(item => item.id === accountID)
   if (!account) return
+  const detectedRate = snapshot.data?.effective_rate_multiplier
+  const shouldSyncRate = account.extra?.upstream_billing_probe_auto_sync_rate_multiplier === true &&
+    typeof detectedRate === 'number' && Number.isFinite(detectedRate) && detectedRate >= 0
   markUpstreamBillingSortRefresh()
   upstreamBillingNow.value = Date.now()
   patchAccountInList({
     ...account,
+    rate_multiplier: shouldSyncRate ? detectedRate : account.rate_multiplier,
     extra: { ...account.extra, upstream_billing_probe: snapshot }
   })
 }

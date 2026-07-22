@@ -117,6 +117,54 @@ func (_u *GroupUpdate) AddRateMultiplier(v float64) *GroupUpdate {
 	return _u
 }
 
+// SetBillingRateSyncAccountID sets the "billing_rate_sync_account_id" field.
+func (_u *GroupUpdate) SetBillingRateSyncAccountID(v int64) *GroupUpdate {
+	_u.mutation.ResetBillingRateSyncAccountID()
+	_u.mutation.SetBillingRateSyncAccountID(v)
+	return _u
+}
+
+// SetNillableBillingRateSyncAccountID sets the "billing_rate_sync_account_id" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableBillingRateSyncAccountID(v *int64) *GroupUpdate {
+	if v != nil {
+		_u.SetBillingRateSyncAccountID(*v)
+	}
+	return _u
+}
+
+// AddBillingRateSyncAccountID adds value to the "billing_rate_sync_account_id" field.
+func (_u *GroupUpdate) AddBillingRateSyncAccountID(v int64) *GroupUpdate {
+	_u.mutation.AddBillingRateSyncAccountID(v)
+	return _u
+}
+
+// ClearBillingRateSyncAccountID clears the value of the "billing_rate_sync_account_id" field.
+func (_u *GroupUpdate) ClearBillingRateSyncAccountID() *GroupUpdate {
+	_u.mutation.ClearBillingRateSyncAccountID()
+	return _u
+}
+
+// SetBillingRateMarkup sets the "billing_rate_markup" field.
+func (_u *GroupUpdate) SetBillingRateMarkup(v float64) *GroupUpdate {
+	_u.mutation.ResetBillingRateMarkup()
+	_u.mutation.SetBillingRateMarkup(v)
+	return _u
+}
+
+// SetNillableBillingRateMarkup sets the "billing_rate_markup" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableBillingRateMarkup(v *float64) *GroupUpdate {
+	if v != nil {
+		_u.SetBillingRateMarkup(*v)
+	}
+	return _u
+}
+
+// AddBillingRateMarkup adds value to the "billing_rate_markup" field.
+func (_u *GroupUpdate) AddBillingRateMarkup(v float64) *GroupUpdate {
+	_u.mutation.AddBillingRateMarkup(v)
+	return _u
+}
+
 // SetPeakRateEnabled sets the "peak_rate_enabled" field.
 func (_u *GroupUpdate) SetPeakRateEnabled(v bool) *GroupUpdate {
 	_u.mutation.SetPeakRateEnabled(v)
@@ -1183,6 +1231,16 @@ func (_u *GroupUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Group.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.BillingRateSyncAccountID(); ok {
+		if err := group.BillingRateSyncAccountIDValidator(v); err != nil {
+			return &ValidationError{Name: "billing_rate_sync_account_id", err: fmt.Errorf(`ent: validator failed for field "Group.billing_rate_sync_account_id": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.BillingRateMarkup(); ok {
+		if err := group.BillingRateMarkupValidator(v); err != nil {
+			return &ValidationError{Name: "billing_rate_markup", err: fmt.Errorf(`ent: validator failed for field "Group.billing_rate_markup": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.PeakStart(); ok {
 		if err := group.PeakStartValidator(v); err != nil {
 			return &ValidationError{Name: "peak_start", err: fmt.Errorf(`ent: validator failed for field "Group.peak_start": %w`, err)}
@@ -1251,6 +1309,21 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
 		_spec.AddField(group.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.BillingRateSyncAccountID(); ok {
+		_spec.SetField(group.FieldBillingRateSyncAccountID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedBillingRateSyncAccountID(); ok {
+		_spec.AddField(group.FieldBillingRateSyncAccountID, field.TypeInt64, value)
+	}
+	if _u.mutation.BillingRateSyncAccountIDCleared() {
+		_spec.ClearField(group.FieldBillingRateSyncAccountID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.BillingRateMarkup(); ok {
+		_spec.SetField(group.FieldBillingRateMarkup, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedBillingRateMarkup(); ok {
+		_spec.AddField(group.FieldBillingRateMarkup, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.PeakRateEnabled(); ok {
 		_spec.SetField(group.FieldPeakRateEnabled, field.TypeBool, value)
@@ -1877,6 +1950,54 @@ func (_u *GroupUpdateOne) SetNillableRateMultiplier(v *float64) *GroupUpdateOne 
 // AddRateMultiplier adds value to the "rate_multiplier" field.
 func (_u *GroupUpdateOne) AddRateMultiplier(v float64) *GroupUpdateOne {
 	_u.mutation.AddRateMultiplier(v)
+	return _u
+}
+
+// SetBillingRateSyncAccountID sets the "billing_rate_sync_account_id" field.
+func (_u *GroupUpdateOne) SetBillingRateSyncAccountID(v int64) *GroupUpdateOne {
+	_u.mutation.ResetBillingRateSyncAccountID()
+	_u.mutation.SetBillingRateSyncAccountID(v)
+	return _u
+}
+
+// SetNillableBillingRateSyncAccountID sets the "billing_rate_sync_account_id" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableBillingRateSyncAccountID(v *int64) *GroupUpdateOne {
+	if v != nil {
+		_u.SetBillingRateSyncAccountID(*v)
+	}
+	return _u
+}
+
+// AddBillingRateSyncAccountID adds value to the "billing_rate_sync_account_id" field.
+func (_u *GroupUpdateOne) AddBillingRateSyncAccountID(v int64) *GroupUpdateOne {
+	_u.mutation.AddBillingRateSyncAccountID(v)
+	return _u
+}
+
+// ClearBillingRateSyncAccountID clears the value of the "billing_rate_sync_account_id" field.
+func (_u *GroupUpdateOne) ClearBillingRateSyncAccountID() *GroupUpdateOne {
+	_u.mutation.ClearBillingRateSyncAccountID()
+	return _u
+}
+
+// SetBillingRateMarkup sets the "billing_rate_markup" field.
+func (_u *GroupUpdateOne) SetBillingRateMarkup(v float64) *GroupUpdateOne {
+	_u.mutation.ResetBillingRateMarkup()
+	_u.mutation.SetBillingRateMarkup(v)
+	return _u
+}
+
+// SetNillableBillingRateMarkup sets the "billing_rate_markup" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableBillingRateMarkup(v *float64) *GroupUpdateOne {
+	if v != nil {
+		_u.SetBillingRateMarkup(*v)
+	}
+	return _u
+}
+
+// AddBillingRateMarkup adds value to the "billing_rate_markup" field.
+func (_u *GroupUpdateOne) AddBillingRateMarkup(v float64) *GroupUpdateOne {
+	_u.mutation.AddBillingRateMarkup(v)
 	return _u
 }
 
@@ -2959,6 +3080,16 @@ func (_u *GroupUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Group.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.BillingRateSyncAccountID(); ok {
+		if err := group.BillingRateSyncAccountIDValidator(v); err != nil {
+			return &ValidationError{Name: "billing_rate_sync_account_id", err: fmt.Errorf(`ent: validator failed for field "Group.billing_rate_sync_account_id": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.BillingRateMarkup(); ok {
+		if err := group.BillingRateMarkupValidator(v); err != nil {
+			return &ValidationError{Name: "billing_rate_markup", err: fmt.Errorf(`ent: validator failed for field "Group.billing_rate_markup": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.PeakStart(); ok {
 		if err := group.PeakStartValidator(v); err != nil {
 			return &ValidationError{Name: "peak_start", err: fmt.Errorf(`ent: validator failed for field "Group.peak_start": %w`, err)}
@@ -3044,6 +3175,21 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
 		_spec.AddField(group.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.BillingRateSyncAccountID(); ok {
+		_spec.SetField(group.FieldBillingRateSyncAccountID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedBillingRateSyncAccountID(); ok {
+		_spec.AddField(group.FieldBillingRateSyncAccountID, field.TypeInt64, value)
+	}
+	if _u.mutation.BillingRateSyncAccountIDCleared() {
+		_spec.ClearField(group.FieldBillingRateSyncAccountID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.BillingRateMarkup(); ok {
+		_spec.SetField(group.FieldBillingRateMarkup, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedBillingRateMarkup(); ok {
+		_spec.AddField(group.FieldBillingRateMarkup, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.PeakRateEnabled(); ok {
 		_spec.SetField(group.FieldPeakRateEnabled, field.TypeBool, value)

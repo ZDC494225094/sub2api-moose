@@ -729,7 +729,7 @@
                   type="button"
                   class="image-option-button"
                   :disabled="optimizingPrompt"
-                  @click="showPromptOptimizerModal = true"
+                  @click="openPromptOptimizerSettings"
                 >
                   <Icon :name="optimizingPrompt ? 'refresh' : 'brain'" size="xs" :class="optimizingPrompt ? 'animate-spin' : ''" />
                   <span>{{ optimizingPrompt ? t('playground.optimizingPrompt') : t('playground.promptOptimizerSettings') }}</span>
@@ -814,7 +814,7 @@
                 type="button"
                 class="absolute right-16 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-sky-500 transition hover:bg-sky-50 hover:text-sky-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-sky-300 dark:hover:bg-sky-950/40 dark:hover:text-sky-200"
                 :title="optimizingPrompt ? t('playground.optimizingPrompt') : t('playground.optimizePrompt')"
-                :disabled="optimizingPrompt || running || !draftPrompt.trim() || !selectedKey"
+                :disabled="optimizingPrompt || running || !draftPrompt.trim() || !selectedPromptOptimizerKey || !promptOptimizerModel"
                 @click="optimizeImagePrompt"
               >
                 <Icon :name="optimizingPrompt ? 'refresh' : 'sparkles'" size="sm" :class="optimizingPrompt ? 'animate-spin' : ''" />
@@ -961,7 +961,7 @@
     </div>
 
     <div v-if="showImageSizeModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" @click.self="showImageSizeModal = false">
-      <section class="w-full max-w-[560px] rounded-2xl bg-white p-6 shadow-2xl dark:bg-dark-900">
+      <section class="max-h-[calc(100vh-2rem)] w-full max-w-[560px] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-dark-900">
         <div class="flex items-start justify-between gap-4">
           <div>
             <h2 class="text-lg font-semibold text-slate-900 dark:text-white">{{ t('playground.setImageSize') }}</h2>
@@ -1057,7 +1057,7 @@
       </section>
     </div>
 
-    <div v-if="showPromptOptimizerModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" @click.self="showPromptOptimizerModal = false">
+    <div v-if="showPromptOptimizerModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" @click.self="closePromptOptimizerSettings">
       <section class="w-full max-w-[560px] rounded-2xl bg-white p-6 shadow-2xl dark:bg-dark-900">
         <div class="flex items-start justify-between gap-4">
           <div>
@@ -1069,7 +1069,7 @@
           <button
             type="button"
             class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-dark-800 dark:hover:text-white"
-            @click="showPromptOptimizerModal = false"
+            @click="closePromptOptimizerSettings"
           >
             <Icon name="x" size="md" />
           </button>
@@ -1083,10 +1083,10 @@
               :key="String(option.value)"
               type="button"
               class="h-12 rounded-xl border px-2 text-sm font-medium transition"
-              :class="imagePromptStyle === option.value
+              :class="promptOptimizerDraftStyle === option.value
                 ? 'border-sky-500 bg-sky-50 text-sky-600 dark:bg-sky-950/40'
                 : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-dark-700 dark:text-dark-200 dark:hover:bg-dark-800'"
-              @click="imagePromptStyle = option.value as ImagePromptStyle"
+              @click="promptOptimizerDraftStyle = option.value as ImagePromptStyle"
             >
               {{ promptStyleOptionLabel(option) }}
             </button>
@@ -1094,9 +1094,41 @@
         </div>
 
         <div class="mt-7">
+          <label class="input-label">{{ t('playground.optimizerGroup') }}</label>
+          <Select
+            v-model="promptOptimizerDraftKeyId"
+            :options="promptOptimizerGroupOptions"
+            :placeholder="t('playground.selectOptimizerGroup')"
+            searchable
+          >
+            <template #selected="{ option }">
+              <span v-if="option" class="playground-select-value">
+                <span class="playground-platform-icon" :class="platformIconClass(optionPlatform(option) || '')">
+                  <PlatformIcon :platform="optionPlatform(option)" size="xs" />
+                </span>
+                <span class="truncate">{{ option.label }}</span>
+              </span>
+              <span v-else>{{ t('playground.selectOptimizerGroup') }}</span>
+            </template>
+            <template #option="{ option, selected }">
+              <div class="playground-select-option">
+                <span class="playground-platform-icon" :class="platformIconClass(optionPlatform(option) || '')">
+                  <PlatformIcon :platform="optionPlatform(option)" size="xs" />
+                </span>
+                <span class="min-w-0 flex-1 text-left">
+                  <span class="block truncate">{{ option.label }}</span>
+                  <span v-if="option.description" class="block truncate text-xs text-slate-400 dark:text-dark-400">{{ option.description }}</span>
+                </span>
+                <Icon v-if="selected" name="check" size="sm" class="text-primary-500" />
+              </div>
+            </template>
+          </Select>
+        </div>
+
+        <div class="mt-7">
           <label class="input-label">{{ t('playground.optimizerModel') }}</label>
           <Select
-            v-model="promptOptimizerModel"
+            v-model="promptOptimizerDraftModel"
             :options="promptOptimizerModelOptions"
             :placeholder="t('playground.optimizerModel')"
             searchable
@@ -1120,25 +1152,32 @@
               </div>
             </template>
           </Select>
+          <p v-if="loadingPromptOptimizerModels" class="mt-2 text-xs text-slate-400 dark:text-dark-400">
+            {{ t('playground.loadingOptimizerModels') }}
+          </p>
+          <p v-else-if="promptOptimizerModelLoadError" class="mt-2 text-xs text-red-500">
+            {{ promptOptimizerModelLoadError }}
+          </p>
         </div>
 
         <div class="mt-8 rounded-xl bg-slate-50 px-5 py-4 dark:bg-dark-950">
           <p class="text-sm font-semibold text-slate-400 dark:text-dark-300">{{ t('playground.willUse') }}</p>
-          <p class="mt-2 truncate text-2xl font-bold text-slate-800 dark:text-white">{{ imagePromptStyleLabel() }}</p>
-          <p class="mt-1 truncate text-xs text-slate-400 dark:text-dark-400">{{ promptOptimizerModel || t('playground.optimizerModel') }}</p>
+          <p class="mt-2 truncate text-lg font-bold text-slate-800 dark:text-white">{{ imagePromptStyleLabel(promptOptimizerDraftStyle) }}</p>
+          <p class="mt-1 truncate text-xs text-slate-500 dark:text-dark-300">{{ promptOptimizerGroupLabel(promptOptimizerDraftKeyId) }}</p>
+          <p class="mt-1 truncate text-xs text-slate-400 dark:text-dark-400">{{ promptOptimizerDraftModel || t('playground.optimizerModel') }}</p>
         </div>
 
         <div class="mt-8 grid grid-cols-2 gap-3">
-          <button type="button" class="h-12 rounded-xl bg-slate-100 text-sm font-semibold text-slate-600 transition hover:bg-slate-200 dark:bg-dark-800 dark:text-dark-200 dark:hover:bg-dark-700" @click="showPromptOptimizerModal = false">
+          <button type="button" class="h-12 rounded-xl bg-slate-100 text-sm font-semibold text-slate-600 transition hover:bg-slate-200 dark:bg-dark-800 dark:text-dark-200 dark:hover:bg-dark-700" @click="closePromptOptimizerSettings">
             {{ t('common.cancel') }}
           </button>
           <button
             type="button"
             class="h-12 rounded-xl bg-blue-500 text-sm font-semibold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
-            :disabled="optimizingPrompt || running || !draftPrompt.trim() || !selectedKey"
-            @click="optimizeImagePrompt"
+            :disabled="loadingPromptOptimizerModels || !promptOptimizerDraftKeyId || !promptOptimizerDraftModel"
+            @click="savePromptOptimizerSettings"
           >
-            {{ optimizingPrompt ? t('playground.optimizingPrompt') : t('playground.optimizePrompt') }}
+            {{ t('common.save') }}
           </button>
         </div>
       </section>
@@ -1646,6 +1685,7 @@ interface PlaygroundPersistedPayload {
   outputFormat: string
   imagePromptStyle: ImagePromptStyle
   imageWorkspaceMode?: ImageWorkspaceMode
+  promptOptimizerKeyId?: string
   promptOptimizerModel: string
   showComposerConfig: boolean
   composerInputHeight: number
@@ -1827,7 +1867,14 @@ const imageQuality = ref('auto')
 const imageCount = ref(1)
 const outputFormat = ref('png')
 const imagePromptStyle = ref<ImagePromptStyle>('auto')
+const promptOptimizerKeyId = ref('')
 const promptOptimizerModel = ref('')
+const promptOptimizerModels = ref<PlaygroundModel[]>([])
+const promptOptimizerDraftKeyId = ref('')
+const promptOptimizerDraftModel = ref('')
+const promptOptimizerDraftStyle = ref<ImagePromptStyle>('auto')
+const loadingPromptOptimizerModels = ref(false)
+const promptOptimizerModelLoadError = ref('')
 const optimizingPrompt = ref(false)
 let promptOptimizeAbortController: AbortController | null = null
 const threads = ref<PlaygroundThread[]>([])
@@ -1884,6 +1931,7 @@ const doodleStrokes = ref<DoodleOperation[]>([])
 const doodleRedoStrokes = ref<DoodleOperation[]>([])
 const doodleSaving = ref(false)
 let modelAbortController: AbortController | null = null
+let promptOptimizerModelAbortController: AbortController | null = null
 const runAbortControllers = new Map<string, PlaygroundRunHandle>()
 const runRecoveryTimers = new Map<string, number>()
 const runRecoveryAttempts = new Map<string, number>()
@@ -1975,7 +2023,18 @@ const keySelectOptions = computed<SelectOption[]>(() => activeKeys.value.map((ke
   label: key.name,
   platform: key.platform || key.group?.platform
 })))
+const promptOptimizerGroupOptions = computed<SelectOption[]>(() => activeKeys.value.map((key) => ({
+  value: String(key.id),
+  label: key.group?.name || key.name,
+  description: key.group?.name && key.group.name !== key.name ? key.name : undefined,
+  platform: key.platform || key.group?.platform
+})))
 const selectedKey = computed(() => activeKeys.value.find((key) => String(key.id) === selectedKeyId.value) || null)
+const selectedPromptOptimizerKey = computed(() => activeKeys.value.find((key) => String(key.id) === promptOptimizerKeyId.value) || null)
+const promptOptimizerDraftPlatform = computed<GroupPlatform | ''>(() => {
+  const key = activeKeys.value.find((item) => String(item.id) === promptOptimizerDraftKeyId.value)
+  return key?.platform || key?.group?.platform || ''
+})
 const activeThread = computed(() => threads.value.find((thread) => thread.id === activeThreadId.value) || null)
 const currentMessages = computed(() => activeThread.value?.messages || [])
 const imageBoardTasks = computed<PlaygroundImageBoardTask[]>(() => buildImageBoardTasksFromThreads(threads.value))
@@ -2191,11 +2250,12 @@ const imagePromptStyleSelectOptions = computed<SelectOption[]>(() => [
   { value: 'pixel', label: `${t('playground.promptStyle')}：${t('playground.promptStylePixel')}` }
 ])
 
-const promptOptimizerModelOptions = computed<SelectOption[]>(() => chatModels.value.map((model) => ({
+const promptOptimizerChatModels = computed(() => promptOptimizerModels.value.filter((model) => model.id && !isImageModel(model.id)))
+const promptOptimizerModelOptions = computed<SelectOption[]>(() => promptOptimizerChatModels.value.map((model) => ({
   value: model.id,
   label: model.label || model.id,
   description: model.owned_by,
-  platform: platformForModel(model.id, model.owned_by)
+  platform: platformForModel(model.id, model.owned_by, promptOptimizerDraftPlatform.value)
 })))
 
 const modeThreads = computed(() => threads.value.filter((thread) => thread.mode === mode.value))
@@ -2520,13 +2580,13 @@ function optionPlatform(option: SelectOption | Record<string, unknown> | null): 
   return isGroupPlatform(platform) ? platform : undefined
 }
 
-function platformForModel(modelID: string, owner?: string): GroupPlatform | undefined {
+function platformForModel(modelID: string, owner?: string, fallbackPlatform: GroupPlatform | '' = selectedKeyPlatform.value): GroupPlatform | undefined {
   const source = `${modelID} ${owner || ''}`.toLowerCase()
   if (source.includes('claude') || source.includes('anthropic')) return 'anthropic'
   if (source.includes('gemini') || source.includes('google')) return 'gemini'
   if (source.includes('antigravity')) return 'antigravity'
   if (/(\bgpt\b|gpt-|^o\d|dall-e|openai|image)/i.test(source)) return 'openai'
-  return isGroupPlatform(selectedKeyPlatform.value) ? selectedKeyPlatform.value : undefined
+  return isGroupPlatform(fallbackPlatform) ? fallbackPlatform : undefined
 }
 
 function messagePlatform(message: PlaygroundMessage): GroupPlatform | undefined {
@@ -3060,6 +3120,7 @@ function buildPlaygroundPayload(): PlaygroundPersistedPayload {
     outputFormat: outputFormat.value,
     imagePromptStyle: imagePromptStyle.value,
     imageWorkspaceMode: imageWorkspaceMode.value,
+    promptOptimizerKeyId: promptOptimizerKeyId.value,
     promptOptimizerModel: promptOptimizerModel.value,
     showComposerConfig: showComposerConfig.value,
     composerInputHeight: composerManualInputHeight.value,
@@ -3170,6 +3231,7 @@ function applyPlaygroundPayload(payload: Record<string, unknown>) {
   outputFormat.value = typeof payload.outputFormat === 'string' ? payload.outputFormat : outputFormat.value
   imagePromptStyle.value = isImagePromptStyle(payload.imagePromptStyle) ? payload.imagePromptStyle : imagePromptStyle.value
   imageWorkspaceMode.value = payload.imageWorkspaceMode === 'board' ? 'board' : 'chat'
+  promptOptimizerKeyId.value = typeof payload.promptOptimizerKeyId === 'string' ? payload.promptOptimizerKeyId : promptOptimizerKeyId.value
   promptOptimizerModel.value = typeof payload.promptOptimizerModel === 'string' ? payload.promptOptimizerModel : promptOptimizerModel.value
   showComposerConfig.value = typeof payload.showComposerConfig === 'boolean' ? payload.showComposerConfig : showComposerConfig.value
   composerInputHeightCustomized.value = payload.composerInputHeightCustomized === true
@@ -3386,6 +3448,44 @@ function imagePromptStyleLabel(style: ImagePromptStyle = imagePromptStyle.value)
 
 function promptStyleOptionLabel(option: SelectOption): string {
   return String(option.label).replace(`${t('playground.promptStyle')}：`, '')
+}
+
+function promptOptimizerGroupLabel(keyId = promptOptimizerKeyId.value): string {
+  const key = activeKeys.value.find((item) => String(item.id) === keyId)
+  return key?.group?.name || key?.name || t('playground.selectOptimizerGroup')
+}
+
+function openPromptOptimizerSettings() {
+  const savedKeyIsActive = activeKeys.value.some((key) => String(key.id) === promptOptimizerKeyId.value)
+  promptOptimizerDraftKeyId.value = savedKeyIsActive
+    ? promptOptimizerKeyId.value
+    : (activeKeys.value[0] ? String(activeKeys.value[0].id) : '')
+  promptOptimizerDraftModel.value = promptOptimizerModel.value
+  promptOptimizerDraftStyle.value = imagePromptStyle.value
+  showPromptOptimizerModal.value = true
+  void loadPromptOptimizerModels(promptOptimizerDraftKeyId.value)
+}
+
+function closePromptOptimizerSettings() {
+  promptOptimizerModelAbortController?.abort()
+  showPromptOptimizerModal.value = false
+}
+
+function savePromptOptimizerSettings() {
+  const optimizerKeyExists = activeKeys.value.some((key) => String(key.id) === promptOptimizerDraftKeyId.value)
+  if (!optimizerKeyExists) {
+    appStore.showInfo(t('playground.selectOptimizerGroupFirst'))
+    return
+  }
+  if (!promptOptimizerDraftModel.value.trim()) {
+    appStore.showInfo(t('playground.selectOptimizerModelFirst'))
+    return
+  }
+  promptOptimizerKeyId.value = promptOptimizerDraftKeyId.value
+  promptOptimizerModel.value = promptOptimizerDraftModel.value.trim()
+  imagePromptStyle.value = promptOptimizerDraftStyle.value
+  closePromptOptimizerSettings()
+  appStore.showSuccess(t('common.saved'))
 }
 
 function messageDisplayName(message: PlaygroundMessage): string {
@@ -3774,9 +3874,9 @@ function selectDefaultModel() {
   rememberSelectedModelForMode()
 }
 
-function selectDefaultPromptOptimizerModel() {
-  if (promptOptimizerModel.value && chatModels.value.some((model) => model.id === promptOptimizerModel.value)) return
-  promptOptimizerModel.value = chatModels.value[0]?.id || ''
+function selectDefaultPromptOptimizerDraftModel() {
+  if (promptOptimizerDraftModel.value && promptOptimizerChatModels.value.some((model) => model.id === promptOptimizerDraftModel.value)) return
+  promptOptimizerDraftModel.value = promptOptimizerChatModels.value[0]?.id || ''
 }
 
 function buildThreadTitle(prompt: string): string {
@@ -5075,6 +5175,12 @@ async function loadKeys() {
     if (!selectedKeyIsActive) {
       selectedKeyId.value = activeKeys.value.length > 0 ? String(activeKeys.value[0].id) : ''
     }
+    const promptOptimizerKeyWasSelected = Boolean(promptOptimizerKeyId.value)
+    const promptOptimizerKeyIsActive = activeKeys.value.some((key) => String(key.id) === promptOptimizerKeyId.value)
+    if (!promptOptimizerKeyIsActive) {
+      promptOptimizerKeyId.value = selectedKeyId.value || (activeKeys.value[0] ? String(activeKeys.value[0].id) : '')
+      if (promptOptimizerKeyWasSelected) promptOptimizerModel.value = ''
+    }
   } catch (error) {
     appStore.showError((error as Error)?.message || t('playground.loadKeysFailed'))
   } finally {
@@ -5086,7 +5192,6 @@ async function loadModels() {
   if (!selectedKey.value) {
     models.value = []
     selectedModel.value = ''
-    promptOptimizerModel.value = ''
     return
   }
   modelAbortController?.abort()
@@ -5099,16 +5204,45 @@ async function loadModels() {
     if (controller.signal.aborted) return
     models.value = fetched
     selectDefaultModel()
-    selectDefaultPromptOptimizerModel()
   } catch (error) {
     if (controller.signal.aborted) return
     modelLoadError.value = (error as Error)?.message || t('playground.loadModelsFailed')
     appStore.showError(modelLoadError.value)
     selectDefaultModel()
-    selectDefaultPromptOptimizerModel()
   } finally {
     if (modelAbortController === controller) {
       loadingModels.value = false
+    }
+  }
+}
+
+async function loadPromptOptimizerModels(keyId = promptOptimizerDraftKeyId.value) {
+  const optimizerKey = activeKeys.value.find((key) => String(key.id) === keyId)
+  promptOptimizerModelAbortController?.abort()
+  promptOptimizerModels.value = []
+  promptOptimizerModelLoadError.value = ''
+  if (!optimizerKey) {
+    promptOptimizerDraftModel.value = ''
+    loadingPromptOptimizerModels.value = false
+    return
+  }
+
+  const controller = new AbortController()
+  promptOptimizerModelAbortController = controller
+  loadingPromptOptimizerModels.value = true
+  try {
+    const fetched = await fetchModels(optimizerKey.key, undefined, controller.signal)
+    if (controller.signal.aborted || promptOptimizerDraftKeyId.value !== keyId) return
+    promptOptimizerModels.value = fetched
+    selectDefaultPromptOptimizerDraftModel()
+  } catch (error) {
+    if (controller.signal.aborted) return
+    promptOptimizerModelLoadError.value = (error as Error)?.message || t('playground.loadModelsFailed')
+    promptOptimizerDraftModel.value = ''
+  } finally {
+    if (promptOptimizerModelAbortController === controller) {
+      promptOptimizerModelAbortController = null
+      loadingPromptOptimizerModels.value = false
     }
   }
 }
@@ -5130,8 +5264,8 @@ function validateRun(): boolean {
 }
 
 function validatePromptOptimizer(): boolean {
-  if (!selectedKey.value) {
-    appStore.showInfo(t('playground.selectKeyFirst'))
+  if (!selectedPromptOptimizerKey.value) {
+    appStore.showInfo(t('playground.selectOptimizerGroupFirst'))
     return false
   }
   if (!promptOptimizerModel.value.trim()) {
@@ -5575,7 +5709,8 @@ function buildImagePromptOptimizerMessages(prompt: string): PlaygroundChatMessag
 }
 
 async function optimizeImagePrompt() {
-  if (optimizingPrompt.value || !validatePromptOptimizer() || !selectedKey.value) return
+  const optimizerKey = selectedPromptOptimizerKey.value
+  if (optimizingPrompt.value || !validatePromptOptimizer() || !optimizerKey) return
   promptOptimizeAbortController?.abort()
   const controller = new AbortController()
   promptOptimizeAbortController = controller
@@ -5584,7 +5719,7 @@ async function optimizeImagePrompt() {
   let optimized = ''
   try {
     const response = await streamChatCompletion({
-      apiKey: selectedKey.value.key,
+      apiKey: optimizerKey.key,
       model: promptOptimizerModel.value.trim(),
       messages: buildImagePromptOptimizerMessages(originalPrompt),
       temperature: 0.4,
@@ -6096,7 +6231,6 @@ watch(selectedKeyId, () => {
   models.value = []
   selectedModel.value = ''
   selectedModelsByMode.value = {}
-  promptOptimizerModel.value = ''
   modelLoadError.value = ''
   lastRunError.value = ''
   composerModelSearch.value = ''
@@ -6105,8 +6239,13 @@ watch(selectedKeyId, () => {
 
 watch(mode, () => {
   selectDefaultModel()
-  selectDefaultPromptOptimizerModel()
 })
+
+watch(promptOptimizerDraftKeyId, (keyId, previousKeyId) => {
+  if (!showPromptOptimizerModal.value || keyId === previousKeyId) return
+  promptOptimizerDraftModel.value = ''
+  void loadPromptOptimizerModels(keyId)
+}, { flush: 'sync' })
 
 watch(draftPrompt, autoResizeComposerInput)
 
@@ -6138,6 +6277,7 @@ watch(() => ({
   outputFormat: outputFormat.value,
   imagePromptStyle: imagePromptStyle.value,
   imageWorkspaceMode: imageWorkspaceMode.value,
+  promptOptimizerKeyId: promptOptimizerKeyId.value,
   promptOptimizerModel: promptOptimizerModel.value,
   showComposerConfig: showComposerConfig.value,
   composerInputHeight: composerManualInputHeight.value,
@@ -6181,7 +6321,6 @@ onMounted(async () => {
   await loadKeys()
   await loadModels()
   selectDefaultModel()
-  selectDefaultPromptOptimizerModel()
   persistenceReady = true
   resumePendingPlaygroundRuns()
   await writePlaygroundStateNow()
@@ -6215,6 +6354,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keyup', handlePlaygroundGlobalKeyup)
   composerInputResizeState = null
   modelAbortController?.abort()
+  promptOptimizerModelAbortController?.abort()
   promptOptimizeAbortController?.abort()
   for (const handle of runAbortControllers.values()) {
     handle.controller.abort()
