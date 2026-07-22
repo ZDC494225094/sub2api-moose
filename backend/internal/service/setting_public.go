@@ -176,6 +176,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeySiteSubtitle,
 		SettingKeyAPIBaseURL,
 		SettingKeyContactInfo,
+		SettingKeyAfterSalesGroup,
+		SettingKeyCustomerServiceLink,
 		SettingKeyDocURL,
 		SettingKeyHomeContent,
 		SettingKeyHomePricingCompareEnabled,
@@ -305,6 +307,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SiteSubtitle:                     s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),
 		APIBaseURL:                       settings[SettingKeyAPIBaseURL],
 		ContactInfo:                      settings[SettingKeyContactInfo],
+		AfterSalesGroup:                  settings[SettingKeyAfterSalesGroup],
+		CustomerServiceLink:              settings[SettingKeyCustomerServiceLink],
 		DocURL:                           settings[SettingKeyDocURL],
 		HomeContent:                      settings[SettingKeyHomeContent],
 		HomePricingCompareEnabled:        !isFalseSettingValue(settings[SettingKeyHomePricingCompareEnabled]),
@@ -466,6 +470,8 @@ type PublicSettingsInjectionPayload struct {
 	SiteSubtitle                     string                   `json:"site_subtitle"`
 	APIBaseURL                       string                   `json:"api_base_url"`
 	ContactInfo                      string                   `json:"contact_info"`
+	AfterSalesGroup                  string                   `json:"after_sales_group"`
+	CustomerServiceLink              string                   `json:"customer_service_link"`
 	DocURL                           string                   `json:"doc_url"`
 	HomeContent                      string                   `json:"home_content"`
 	HomePricingCompareEnabled        bool                     `json:"home_pricing_compare_enabled"`
@@ -539,6 +545,8 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		SiteSubtitle:                     settings.SiteSubtitle,
 		APIBaseURL:                       settings.APIBaseURL,
 		ContactInfo:                      settings.ContactInfo,
+		AfterSalesGroup:                  settings.AfterSalesGroup,
+		CustomerServiceLink:              settings.CustomerServiceLink,
 		DocURL:                           settings.DocURL,
 		HomeContent:                      settings.HomeContent,
 		HomePricingCompareEnabled:        settings.HomePricingCompareEnabled,

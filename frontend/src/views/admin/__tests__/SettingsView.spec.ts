@@ -348,6 +348,8 @@ const baseSettingsResponse = {
   site_subtitle: "",
   api_base_url: "",
   contact_info: "",
+  after_sales_group: "",
+  customer_service_link: "",
   doc_url: "",
   home_content: "",
   hide_ccs_import_button: false,

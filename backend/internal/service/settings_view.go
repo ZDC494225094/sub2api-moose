@@ -135,6 +135,8 @@ type SystemSettings struct {
 	SiteSubtitle                string
 	APIBaseURL                  string
 	ContactInfo                 string
+	AfterSalesGroup             string
+	CustomerServiceLink         string
 	DocURL                      string
 	HomeContent                 string
 	HomePricingCompareEnabled   bool
@@ -299,6 +301,8 @@ type PublicSettings struct {
 	SiteSubtitle                     string
 	APIBaseURL                       string
 	ContactInfo                      string
+	AfterSalesGroup                  string
+	CustomerServiceLink              string
 	DocURL                           string
 	HomeContent                      string
 	HomePricingCompareEnabled        bool

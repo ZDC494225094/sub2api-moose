@@ -5526,6 +5526,42 @@
                 </p>
               </div>
 
+              <!-- After-sales Group -->
+              <div>
+                <label
+                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  {{ t("admin.settings.site.afterSalesGroup") }}
+                </label>
+                <input
+                  v-model="form.after_sales_group"
+                  type="text"
+                  class="input"
+                  :placeholder="t('admin.settings.site.afterSalesGroupPlaceholder')"
+                />
+                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.site.afterSalesGroupHint") }}
+                </p>
+              </div>
+
+              <!-- Customer Service Link -->
+              <div>
+                <label
+                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  {{ t("admin.settings.site.customerServiceLink") }}
+                </label>
+                <input
+                  v-model="form.customer_service_link"
+                  type="url"
+                  class="input"
+                  :placeholder="t('admin.settings.site.customerServiceLinkPlaceholder')"
+                />
+                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.site.customerServiceLinkHint") }}
+                </p>
+              </div>
+
               <!-- Doc URL -->
               <div>
                 <label
@@ -8653,6 +8689,8 @@ const form = reactive<SettingsForm>({
   site_subtitle: "Subscription to API Conversion Platform",
   api_base_url: "",
   contact_info: "",
+  after_sales_group: "",
+  customer_service_link: "",
   doc_url: "",
   home_content: "",
   home_pricing_compare_enabled: true,
@@ -10094,6 +10132,8 @@ async function saveSettings() {
       site_subtitle: form.site_subtitle,
       api_base_url: form.api_base_url,
       contact_info: form.contact_info,
+      after_sales_group: form.after_sales_group,
+      customer_service_link: form.customer_service_link,
       doc_url: form.doc_url,
       home_content: form.home_content,
       home_pricing_compare_enabled: form.home_pricing_compare_enabled,

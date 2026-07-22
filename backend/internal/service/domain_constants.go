@@ -262,6 +262,8 @@ const (
 	SettingKeySiteSubtitle                = "site_subtitle"                 // 网站副标题
 	SettingKeyAPIBaseURL                  = "api_base_url"                  // API端点地址（用于客户端配置和导入）
 	SettingKeyContactInfo                 = "contact_info"                  // 客服联系方式
+	SettingKeyAfterSalesGroup             = "after_sales_group"             // 售后群号
+	SettingKeyCustomerServiceLink         = "customer_service_link"         // 客服一键跳转链接
 	SettingKeyDocURL                      = "doc_url"                       // 文档链接
 	SettingKeyHomeContent                 = "home_content"                  // 首页内容（支持 Markdown/HTML，或 URL 作为 iframe src）
 	SettingKeyHomePricingCompareEnabled   = "home_pricing_compare_enabled"  // 是否展示首页费用对比区域

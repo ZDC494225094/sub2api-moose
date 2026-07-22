@@ -397,6 +397,8 @@
         </div>
       </footer>
     </main>
+
+    <CustomerServiceFloat />
   </div>
 </template>
 
@@ -404,6 +406,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAppStore, useAuthStore } from '@/stores'
+import CustomerServiceFloat from '@/components/common/CustomerServiceFloat.vue'
 import Icon from '@/components/icons/Icon.vue'
 import AnnouncementPanel from './AnnouncementPanel.vue'
 import type { SubscriptionPlan } from '@/types/payment'

@@ -58,6 +58,13 @@ export default {
     verifying: 'Verifying...',
     processing: 'Processing...',
     contactSupport: 'Contact Support',
+    customerService: {
+      title: 'Customer Support',
+      description: 'Need help? Reach us through the details below.',
+      contact: 'Contact',
+      afterSalesGroup: 'After-sales Group',
+      contactNow: 'Contact Now',
+    },
     add: 'Add',
     invalidEmail: 'Please enter a valid email address',
     optional: 'optional',

@@ -435,6 +435,8 @@ export interface SystemSettings {
   site_subtitle: string;
   api_base_url: string;
   contact_info: string;
+  after_sales_group: string;
+  customer_service_link: string;
   doc_url: string;
   home_content: string;
   home_pricing_compare_enabled: boolean;
@@ -743,6 +745,8 @@ export interface UpdateSettingsRequest {
   site_subtitle?: string;
   api_base_url?: string;
   contact_info?: string;
+  after_sales_group?: string;
+  customer_service_link?: string;
   doc_url?: string;
   home_content?: string;
   home_pricing_compare_enabled?: boolean;

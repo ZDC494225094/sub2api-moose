@@ -64,6 +64,8 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		SiteSubtitle:                     settings.SiteSubtitle,
 		APIBaseURL:                       settings.APIBaseURL,
 		ContactInfo:                      settings.ContactInfo,
+		AfterSalesGroup:                  settings.AfterSalesGroup,
+		CustomerServiceLink:              settings.CustomerServiceLink,
 		DocURL:                           settings.DocURL,
 		HomeContent:                      settings.HomeContent,
 		HomePricingCompareEnabled:        settings.HomePricingCompareEnabled,

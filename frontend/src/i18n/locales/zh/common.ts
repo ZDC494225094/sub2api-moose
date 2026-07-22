@@ -58,6 +58,13 @@ export default {
     verifying: '验证中...',
     processing: '处理中...',
     contactSupport: '联系客服',
+    customerService: {
+      title: '联系客服',
+      description: '需要帮助？请通过以下方式联系我们',
+      contact: '客服联系方式',
+      afterSalesGroup: '售后群号',
+      contactNow: '立即联系',
+    },
     add: '添加',
     invalidEmail: '请输入有效的邮箱地址',
     optional: '可选',

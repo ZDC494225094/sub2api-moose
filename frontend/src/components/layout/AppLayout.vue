@@ -19,6 +19,8 @@
         <slot />
       </main>
     </div>
+
+    <CustomerServiceFloat />
   </div>
 </template>
 
@@ -31,6 +33,7 @@ import { useOnboardingTour } from '@/composables/useOnboardingTour'
 import { useOnboardingStore } from '@/stores/onboarding'
 import AppSidebar from './AppSidebar.vue'
 import AppHeader from './AppHeader.vue'
+import CustomerServiceFloat from '@/components/common/CustomerServiceFloat.vue'
 
 const appStore = useAppStore()
 const authStore = useAuthStore()

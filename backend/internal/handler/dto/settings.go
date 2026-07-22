@@ -143,6 +143,8 @@ type SystemSettings struct {
 	SiteSubtitle                string             `json:"site_subtitle"`
 	APIBaseURL                  string             `json:"api_base_url"`
 	ContactInfo                 string             `json:"contact_info"`
+	AfterSalesGroup             string             `json:"after_sales_group"`
+	CustomerServiceLink         string             `json:"customer_service_link"`
 	DocURL                      string             `json:"doc_url"`
 	HomeContent                 string             `json:"home_content"`
 	HomePricingCompareEnabled   bool               `json:"home_pricing_compare_enabled"`
@@ -341,6 +343,8 @@ type PublicSettings struct {
 	SiteSubtitle                     string                   `json:"site_subtitle"`
 	APIBaseURL                       string                   `json:"api_base_url"`
 	ContactInfo                      string                   `json:"contact_info"`
+	AfterSalesGroup                  string                   `json:"after_sales_group"`
+	CustomerServiceLink              string                   `json:"customer_service_link"`
 	DocURL                           string                   `json:"doc_url"`
 	HomeContent                      string                   `json:"home_content"`
 	HomePricingCompareEnabled        bool                     `json:"home_pricing_compare_enabled"`

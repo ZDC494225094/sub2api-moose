@@ -340,6 +340,8 @@ export const useAppStore = defineStore('app', () => {
         site_subtitle: '',
         api_base_url: apiBaseUrl.value,
         contact_info: contactInfo.value,
+        after_sales_group: '',
+        customer_service_link: '',
         doc_url: docUrl.value,
         home_content: '',
         home_pricing_compare_enabled: true,
