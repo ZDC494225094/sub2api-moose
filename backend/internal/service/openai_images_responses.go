@@ -1293,7 +1293,6 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthNonStreamingResponse(
 	if strings.TrimSpace(firstMeta.Model) == "" {
 		firstMeta.Model = strings.TrimSpace(fallbackModel)
 	}
-
 	responseBody, err := buildOpenAIImagesAPIResponse(results, createdAt, usageRaw, firstMeta, responseFormat)
 	if err != nil {
 		return OpenAIUsage{}, 0, nil, err
@@ -1679,6 +1678,11 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 	if err := validateOpenAIImagesModel(requestModel); err != nil {
 		return nil, err
 	}
+	if isGPTImage2GenerationModel(requestModel) {
+		if normalizedSize, ok := normalizeGPTImage2SizeString(parsed.Size); ok {
+			parsed.Size = normalizedSize
+		}
+	}
 	logger.LegacyPrintf(
 		"service.openai_gateway",
 		"[OpenAI] Images request routing request_model=%s endpoint=%s account_type=%s uploads=%d",
@@ -1805,6 +1809,21 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 	} else {
 		usage, imageCount, imageOutputSizes, err = s.handleOpenAIImagesOAuthNonStreamingResponse(resp, c, parsed.ResponseFormat, requestModel)
 		if err != nil {
+			if imageCount > 0 {
+				return &OpenAIForwardResult{
+					RequestID:        resp.Header.Get("x-request-id"),
+					Usage:            usage,
+					Model:            requestModel,
+					UpstreamModel:    requestModel,
+					Stream:           parsed.Stream,
+					ResponseHeaders:  resp.Header.Clone(),
+					Duration:         time.Since(startTime),
+					ImageCount:       imageCount,
+					ImageSize:        parsed.SizeTier,
+					ImageInputSize:   parsed.Size,
+					ImageOutputSizes: imageOutputSizes,
+				}, err
+			}
 			return nil, s.handleOpenAIImagesOAuthResponseError(
 				upstreamCtx,
 				c,

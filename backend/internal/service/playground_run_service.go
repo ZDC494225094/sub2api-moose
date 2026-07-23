@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
@@ -71,6 +72,8 @@ type PlaygroundRunImage struct {
 	RevisedPrompt string `json:"revisedPrompt,omitempty"`
 	AssetIndex    *int   `json:"assetIndex,omitempty"`
 	MimeType      string `json:"mimeType,omitempty"`
+	Width         int    `json:"width,omitempty"`
+	Height        int    `json:"height,omitempty"`
 
 	data []byte
 }
@@ -408,6 +411,9 @@ func (s *PlaygroundRunService) executeImage(ctx context.Context, key string, req
 		outputFormat = "png"
 	}
 	imageInputs := filterPlaygroundImageInputs(request.Images)
+	if isGiteeImageGenerationModel(request.Model) {
+		return s.executeGiteeZImage(ctx, key, request, baseURL, started, imageInputs, outputFormat, imageCount)
+	}
 	if isGeminiImageGenerationModel(request.Model) && playgroundImageUsesGeminiNativeAPI(request) {
 		return s.executeGeminiNativeImage(ctx, key, request, baseURL, started, imageInputs, outputFormat, imageCount)
 	}
@@ -417,7 +423,7 @@ func (s *PlaygroundRunService) executeImage(ctx context.Context, key string, req
 	payload := map[string]any{
 		"model":           request.Model,
 		"prompt":          request.Prompt,
-		"size":            normalizePlaygroundImageSize(request.Size),
+		"size":            playgroundImageRequestSize(request.Model, request.Size),
 		"n":               1,
 		"response_format": "b64_json",
 	}
@@ -429,6 +435,49 @@ func (s *PlaygroundRunService) executeImage(ctx context.Context, key string, req
 	}
 	if outputFormat != "" {
 		payload["output_format"] = outputFormat
+	}
+
+	endpointURL, err := buildPlaygroundRunEndpointURL(baseURL, request.EndpointBase, "/v1/images/generations")
+	if err != nil {
+		return nil, err
+	}
+	responseBody, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return s.executeParallelImageRequests(ctx, key, started, imageCount, func(requestCtx context.Context) ([]PlaygroundRunImage, error) {
+		return s.executeImageRequest(requestCtx, endpointURL, request.APIKey, "application/json", bytes.NewReader(responseBody), outputFormat)
+	})
+}
+
+func (s *PlaygroundRunService) executeGiteeZImage(
+	ctx context.Context,
+	key string,
+	request PlaygroundRunRequest,
+	baseURL string,
+	started time.Time,
+	images []PlaygroundRunImageInput,
+	outputFormat string,
+	imageCount int,
+) (json.RawMessage, error) {
+	payload := map[string]any{
+		"model":                 request.Model,
+		"prompt":                request.Prompt,
+		"num_images_per_prompt": 1,
+		"negative_prompt":       "blurry ugly bad",
+		"num_inference_steps":   9,
+		"seed":                  0,
+		"guidance_scale":        1,
+	}
+	if len(images) > 0 {
+		data, _, err := decodePlaygroundImageDataURL(images[0].DataURL)
+		if err != nil {
+			return nil, err
+		}
+		payload["control_image"] = base64.StdEncoding.EncodeToString(data)
+		payload["control_mode"] = "HED"
+		payload["control_context_scale"] = 0.75
+		payload["image_scale"] = 1
 	}
 
 	endpointURL, err := buildPlaygroundRunEndpointURL(baseURL, request.EndpointBase, "/v1/images/generations")
@@ -533,7 +582,7 @@ func (s *PlaygroundRunService) executeImageEdit(ctx context.Context, key string,
 	if err := writer.WriteField("prompt", request.Prompt); err != nil {
 		return nil, err
 	}
-	if err := writer.WriteField("size", normalizePlaygroundImageSize(request.Size)); err != nil {
+	if err := writer.WriteField("size", playgroundImageRequestSize(request.Model, request.Size)); err != nil {
 		return nil, err
 	}
 	if err := writer.WriteField("n", "1"); err != nil {
@@ -973,9 +1022,12 @@ func extractPlaygroundImages(payload playgroundImageUpstreamResponse, outputForm
 			if err != nil {
 				continue
 			}
+			width, height, _ := detectOpenAIImageBytesDimensions(decoded)
 			images = append(images, PlaygroundRunImage{
 				RevisedPrompt: record.RevisedPrompt,
 				MimeType:      playgroundImageContentType(decoded, contentType),
+				Width:         width,
+				Height:        height,
 				data:          decoded,
 			})
 			continue
@@ -992,9 +1044,12 @@ func extractPlaygroundImages(payload playgroundImageUpstreamResponse, outputForm
 		}
 		decoded := record.B64JSON
 		record.B64JSON = nil
+		width, height, _ := detectOpenAIImageBytesDimensions(decoded)
 		images = append(images, PlaygroundRunImage{
 			RevisedPrompt: record.RevisedPrompt,
 			MimeType:      playgroundImageContentType(decoded, requestedMimeType),
+			Width:         width,
+			Height:        height,
 			data:          decoded,
 		})
 	}
@@ -1018,7 +1073,14 @@ func extractPlaygroundImagesFromAny(payload any, outputFormat string) []Playgrou
 			return
 		}
 		seen[key] = struct{}{}
-		images = append(images, PlaygroundRunImage{RevisedPrompt: revisedPrompt, MimeType: mimeType, data: data})
+		width, height, _ := detectOpenAIImageBytesDimensions(data)
+		images = append(images, PlaygroundRunImage{
+			RevisedPrompt: revisedPrompt,
+			MimeType:      mimeType,
+			Width:         width,
+			Height:        height,
+			data:          data,
+		})
 	}
 	addURL := func(rawURL, mimeType, revisedPrompt string) {
 		rawURL = strings.TrimSpace(rawURL)
@@ -1208,6 +1270,95 @@ func normalizePlaygroundImageSize(size string) string {
 		return "1536x1024"
 	}
 	return "1024x1536"
+}
+
+func playgroundImageRequestSize(model, size string) string {
+	model = strings.ToLower(strings.TrimSpace(model))
+	if model == "gpt-image-2" || strings.HasPrefix(model, "gpt-image-2-") {
+		if normalized, ok := normalizeGPTImage2SizeString(size); ok {
+			return normalized
+		}
+	}
+	return normalizePlaygroundImageSize(size)
+}
+
+func normalizeGPTImage2SizeString(size string) (string, bool) {
+	trimmed := strings.ToLower(strings.TrimSpace(size))
+	matches := regexp.MustCompile(`^(\d+)x(\d+)$`).FindStringSubmatch(trimmed)
+	if len(matches) != 3 {
+		return "", false
+	}
+	var width, height int
+	_, _ = fmt.Sscanf(trimmed, "%dx%d", &width, &height)
+	if width <= 0 || height <= 0 {
+		return "", false
+	}
+	return fitGPTImage2Size(width, height), true
+}
+
+func fitGPTImage2Size(width, height int) string {
+	const (
+		maxEdge        = 3840
+		minPixels      = 655360
+		maxPixels      = 8294400
+		maxAspectRatio = 3.0
+		step           = 16
+	)
+	pixels := width * height
+	aspectRatio := math.Max(float64(width)/float64(height), float64(height)/float64(width))
+	if width <= maxEdge && height <= maxEdge &&
+		pixels >= minPixels && pixels <= maxPixels &&
+		aspectRatio <= maxAspectRatio && width%step == 0 && height%step == 0 {
+		return fmt.Sprintf("%dx%d", width, height)
+	}
+
+	scaledWidth := float64(width)
+	scaledHeight := float64(height)
+	if scaledWidth/scaledHeight > maxAspectRatio {
+		scaledHeight = scaledWidth / maxAspectRatio
+	} else if scaledHeight/scaledWidth > maxAspectRatio {
+		scaledWidth = scaledHeight / maxAspectRatio
+	}
+
+	scale := 1.0
+	if longest := math.Max(scaledWidth, scaledHeight); longest > maxEdge {
+		scale = math.Min(scale, float64(maxEdge)/longest)
+	}
+	if adjustedPixels := scaledWidth * scaledHeight; adjustedPixels > maxPixels {
+		scale = math.Min(scale, math.Sqrt(maxPixels/adjustedPixels))
+	}
+	if adjustedPixels := scaledWidth * scaledHeight * scale * scale; adjustedPixels < minPixels {
+		scale = math.Sqrt(minPixels / (scaledWidth * scaledHeight))
+	}
+	scaledWidth *= scale
+	scaledHeight *= scale
+	width = int(math.Floor(scaledWidth/step) * step)
+	height = int(math.Floor(scaledHeight/step) * step)
+	if width*height < minPixels {
+		width = int(math.Ceil(scaledWidth/step) * step)
+		height = int(math.Ceil(scaledHeight/step) * step)
+	}
+	if float64(width)/float64(height) > maxAspectRatio {
+		height = int(math.Ceil(float64(width)/maxAspectRatio/step) * step)
+	} else if float64(height)/float64(width) > maxAspectRatio {
+		width = int(math.Ceil(float64(height)/maxAspectRatio/step) * step)
+	}
+	targetRatio := scaledWidth / scaledHeight
+	for width > maxEdge || height > maxEdge || width*height > maxPixels {
+		if float64(width)/float64(height) > targetRatio {
+			width -= step
+		} else {
+			height -= step
+		}
+	}
+	for width*height < minPixels {
+		if float64(width)/float64(height) < targetRatio {
+			width += step
+		} else {
+			height += step
+		}
+	}
+	return fmt.Sprintf("%dx%d", width, height)
 }
 
 func buildPlaygroundRunEndpointURL(baseURL, endpointBase, endpoint string) (string, error) {

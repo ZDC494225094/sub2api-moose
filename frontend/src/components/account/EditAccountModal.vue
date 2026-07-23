@@ -26,6 +26,20 @@
         <p class="input-hint">{{ t('admin.accounts.notesHint') }}</p>
       </div>
 
+      <div
+        v-if="isGiteeAI"
+        class="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/60 dark:bg-red-950/20"
+        data-testid="gitee-account-provider"
+      >
+        <Icon name="globe" size="sm" class="mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-gray-900 dark:text-white">Gitee AI</p>
+          <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+            {{ t('admin.accounts.gitee.providerDesc') }}
+          </p>
+        </div>
+      </div>
+
       <!-- API Key fields (only for apikey type) -->
       <div v-if="account.type === 'apikey'" class="space-y-4">
         <div>
@@ -35,8 +49,10 @@
             type="text"
             class="input"
             :placeholder="
-              account.platform === 'openai'
-                ? 'https://api.openai.com'
+              isGiteeAI
+                ? GITEE_AI_BASE_URL
+                : account.platform === 'openai'
+                  ? 'https://api.openai.com'
                 : account.platform === 'gemini'
                   ? 'https://generativelanguage.googleapis.com'
                   : account.platform === 'antigravity'
@@ -64,8 +80,10 @@
             data-lpignore="true"
             data-bwignore="true"
             :placeholder="
-              account.platform === 'openai'
-                ? 'sk-proj-...'
+              isGiteeAI
+                ? 'gitee-ai-...'
+                : account.platform === 'openai'
+                  ? 'sk-proj-...'
                 : account.platform === 'gemini'
                   ? 'AIza...'
                   : account.platform === 'antigravity'
@@ -1433,7 +1451,7 @@
 
       <!-- OpenAI 自动透传开关（OAuth/API Key） -->
       <div
-        v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
+        v-if="account?.platform === 'openai' && !isGiteeAI && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -1463,7 +1481,7 @@
 
       <!-- OpenAI Codex hosted image_generation bridge policy -->
       <div
-        v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
+        v-if="account?.platform === 'openai' && !isGiteeAI && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="overflow-hidden rounded-lg border border-sky-100 bg-sky-50/60 shadow-sm dark:border-sky-900/50 dark:bg-sky-950/20">
@@ -1523,7 +1541,7 @@
 
       <!-- OpenAI WS Mode 三态（off/ctx_pool/passthrough） -->
       <div
-        v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
+        v-if="account?.platform === 'openai' && !isGiteeAI && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -1599,7 +1617,7 @@
       </div>
 
       <div
-        v-if="account?.platform === 'openai' && account?.type === 'apikey'"
+        v-if="account?.platform === 'openai' && !isGiteeAI && account?.type === 'apikey'"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between gap-4">
@@ -1822,7 +1840,7 @@
 
       <!-- OpenAI API 长上下文计费开关 -->
       <div
-        v-if="account?.platform === 'openai' && !isSparkShadow && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
+        v-if="account?.platform === 'openai' && !isGiteeAI && !isSparkShadow && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between gap-4">
@@ -1927,7 +1945,7 @@
       </div>
 
       <div
-        v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
+        v-if="account?.platform === 'openai' && !isGiteeAI && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="flex items-center justify-between">
@@ -2013,7 +2031,7 @@
       </div>
 
       <div
-        v-if="account?.platform === 'openai'"
+        v-if="account?.platform === 'openai' && !isGiteeAI"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="space-y-2">
@@ -2651,6 +2669,12 @@ import {
 } from '@/components/account/credentialsBuilder'
 import { formatDateTime, formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
+import {
+  GITEE_AI_BASE_URL,
+  GITEE_AI_PROVIDER,
+  UPSTREAM_PROVIDER_EXTRA_KEY,
+  isGiteeAIAccount
+} from '@/utils/accountProvider'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
 import {
   OPENAI_WS_MODE_CTX_POOL,
@@ -2680,6 +2704,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const isGiteeAI = computed(() => isGiteeAIAccount(props.account))
 const emit = defineEmits<{
   close: []
   updated: [account: Account]
@@ -2696,6 +2721,7 @@ const isSparkShadow = computed(() => props.account?.parent_account_id != null)
 // Platform-specific hint for Base URL
 const baseUrlHint = computed(() => {
   if (!props.account) return t('admin.accounts.baseUrlHint')
+  if (isGiteeAI.value) return t('admin.accounts.gitee.baseUrlHint')
   if (props.account.platform === 'openai') return t('admin.accounts.openai.baseUrlHint')
   if (props.account.platform === 'gemini') return t('admin.accounts.gemini.baseUrlHint')
   if (props.account.platform === 'grok') return ''
@@ -3142,6 +3168,7 @@ const tempUnschedPresets = computed(() => [
 
 // Computed: default base URL based on platform
 const defaultBaseUrl = computed(() => {
+  if (isGiteeAI.value) return GITEE_AI_BASE_URL
   if (props.account?.platform === 'openai') return 'https://api.openai.com'
   if (props.account?.platform === 'gemini') return 'https://generativelanguage.googleapis.com'
   if (props.account?.platform === 'grok') return 'https://api.x.ai/v1'
@@ -3468,8 +3495,10 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   if (newAccount.type === 'apikey' && newAccount.credentials) {
     const credentials = newAccount.credentials as Record<string, unknown>
     const platformDefaultUrl =
-      newAccount.platform === 'openai'
-        ? 'https://api.openai.com'
+      isGiteeAIAccount(newAccount)
+        ? GITEE_AI_BASE_URL
+        : newAccount.platform === 'openai'
+          ? 'https://api.openai.com'
         : newAccount.platform === 'gemini'
           ? 'https://generativelanguage.googleapis.com'
           : newAccount.platform === 'grok'
@@ -3539,8 +3568,10 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
   } else {
     const platformDefaultUrl =
-      newAccount.platform === 'openai'
-        ? 'https://api.openai.com'
+      isGiteeAIAccount(newAccount)
+        ? GITEE_AI_BASE_URL
+        : newAccount.platform === 'openai'
+          ? 'https://api.openai.com'
         : newAccount.platform === 'gemini'
           ? 'https://generativelanguage.googleapis.com'
           : newAccount.platform === 'grok'
@@ -4615,6 +4646,10 @@ const handleSubmit = async () => {
         } else {
           delete newExtra.codex_cli_only_allow_app_server
         }
+      }
+
+      if (isGiteeAI.value) {
+        newExtra[UPSTREAM_PROVIDER_EXTRA_KEY] = GITEE_AI_PROVIDER
       }
 
       updatePayload.extra = newExtra

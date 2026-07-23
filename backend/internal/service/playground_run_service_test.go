@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -36,7 +37,7 @@ func TestPlaygroundRunServiceExecuteImageUsesGenerationsWithoutUploads(t *testin
 		EndpointBase: "/v1",
 		Model:        "gpt-image-2",
 		Prompt:       "draw a cat",
-		Size:         "1024x1024",
+		Size:         "4096x2304",
 		N:            1,
 		OutputFormat: "png",
 	}, server.URL, time.Now())
@@ -54,6 +55,131 @@ func TestPlaygroundRunServiceExecuteImageUsesGenerationsWithoutUploads(t *testin
 	}
 	if gotPayload["n"] != float64(1) {
 		t.Fatalf("n = %v, want 1", gotPayload["n"])
+	}
+	if gotPayload["size"] != "3840x2160" {
+		t.Fatalf("size = %v, want 3840x2160", gotPayload["size"])
+	}
+}
+
+func TestPlaygroundImageRequestSizePreservesGPTImage2Dimensions(t *testing.T) {
+	tests := []struct {
+		model string
+		size  string
+		want  string
+	}{
+		{model: "gpt-image-2", size: "4096x4096", want: "2880x2880"},
+		{model: "gpt-image-2-2026-04-21", size: "4096x2304", want: "3840x2160"},
+		{model: "gpt-image-2", size: "4096x3072", want: "3312x2480"},
+		{model: "gpt-image-2", size: "256x256", want: "816x816"},
+		{model: "gpt-image-2", size: "4096x256", want: "3840x1280"},
+		{model: "gpt-image-1.5", size: "4096x4096", want: "1024x1024"},
+		{model: "gpt-image-2", size: "invalid", want: "auto"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.model+"/"+tt.size, func(t *testing.T) {
+			if got := playgroundImageRequestSize(tt.model, tt.size); got != tt.want {
+				t.Fatalf("playgroundImageRequestSize(%q, %q) = %q, want %q", tt.model, tt.size, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPlaygroundRunServiceExecuteGiteeZImageUsesProviderPayload(t *testing.T) {
+	var gotPath string
+	var gotPayload map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		if err := json.NewDecoder(r.Body).Decode(&gotPayload); err != nil {
+			t.Fatalf("decode payload: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"b64_json":"aW1hZ2U="}]}`))
+	}))
+	defer server.Close()
+
+	svc := NewPlaygroundRunService()
+	svc.runs["1:gitee"] = &PlaygroundRun{ID: "gitee", UserID: 1, Mode: "image", Status: PlaygroundRunRunning}
+	_, err := svc.executeImage(context.Background(), "1:gitee", PlaygroundRunRequest{
+		APIKey:       "sk-test",
+		EndpointBase: "/v1",
+		Model:        "z-image-turbo",
+		Prompt:       "draw a city portrait",
+		Size:         "4096x4096",
+		N:            1,
+		Quality:      "high",
+		Background:   "transparent",
+		OutputFormat: "webp",
+	}, server.URL, time.Now())
+	if err != nil {
+		t.Fatalf("execute Gitee Z-Image: %v", err)
+	}
+	if gotPath != "/v1/images/generations" {
+		t.Fatalf("path = %q, want /v1/images/generations", gotPath)
+	}
+	for key, want := range map[string]any{
+		"model":                 "z-image-turbo",
+		"prompt":                "draw a city portrait",
+		"num_images_per_prompt": float64(1),
+		"negative_prompt":       "blurry ugly bad",
+		"num_inference_steps":   float64(9),
+		"seed":                  float64(0),
+		"guidance_scale":        float64(1),
+	} {
+		if gotPayload[key] != want {
+			t.Fatalf("%s = %#v, want %#v", key, gotPayload[key], want)
+		}
+	}
+	for _, key := range []string{"size", "n", "response_format", "quality", "background", "output_format"} {
+		if _, exists := gotPayload[key]; exists {
+			t.Fatalf("Gitee Z-Image payload must not contain %q: %#v", key, gotPayload)
+		}
+	}
+}
+
+func TestPlaygroundRunServiceExecuteGiteeZImageUsesControlImage(t *testing.T) {
+	var gotPath string
+	var gotPayload map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		if err := json.NewDecoder(r.Body).Decode(&gotPayload); err != nil {
+			t.Fatalf("decode payload: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"url":"https://example.com/generated.png"}]}`))
+	}))
+	defer server.Close()
+
+	svc := NewPlaygroundRunService()
+	svc.runs["1:gitee-control"] = &PlaygroundRun{ID: "gitee-control", UserID: 1, Mode: "image", Status: PlaygroundRunRunning}
+	_, err := svc.executeImage(context.Background(), "1:gitee-control", PlaygroundRunRequest{
+		APIKey:       "sk-test",
+		EndpointBase: "/v1",
+		Model:        "z-image-turbo",
+		Prompt:       "follow the edges",
+		N:            1,
+		OutputFormat: "png",
+		Images: []PlaygroundRunImageInput{{
+			Name:    "control.png",
+			Type:    "image/png",
+			DataURL: "data:image/png;base64,cG5nLWJ5dGVz",
+		}},
+	}, server.URL, time.Now())
+	if err != nil {
+		t.Fatalf("execute Gitee controlled Z-Image: %v", err)
+	}
+	if gotPath != "/v1/images/generations" {
+		t.Fatalf("path = %q, want /v1/images/generations", gotPath)
+	}
+	for key, want := range map[string]any{
+		"control_image":         "cG5nLWJ5dGVz",
+		"control_mode":          "HED",
+		"control_context_scale": 0.75,
+		"image_scale":           float64(1),
+	} {
+		if gotPayload[key] != want {
+			t.Fatalf("%s = %#v, want %#v", key, gotPayload[key], want)
+		}
 	}
 }
 
@@ -364,6 +490,22 @@ func TestExtractPlaygroundImagesConvertsInlineURLAndDetectsMimeType(t *testing.T
 	}
 	if images[0].URL != "" || images[0].MimeType != "image/png" || len(images[0].data) == 0 {
 		t.Fatalf("image = %+v, data_len=%d", images[0], len(images[0].data))
+	}
+}
+
+func TestExtractPlaygroundImagesReportsActualDimensions(t *testing.T) {
+	encoded := encodeOpenAIImageTestPNG(t, 1086, 1448)
+	var payload playgroundImageUpstreamResponse
+	if err := json.Unmarshal([]byte(fmt.Sprintf(`{"data":[{"b64_json":%q}]}`, encoded)), &payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+
+	images := extractPlaygroundImages(payload, "png")
+	if len(images) != 1 {
+		t.Fatalf("image count = %d, want 1", len(images))
+	}
+	if images[0].Width != 1086 || images[0].Height != 1448 {
+		t.Fatalf("actual dimensions = %dx%d, want 1086x1448", images[0].Width, images[0].Height)
 	}
 }
 

@@ -58,6 +58,140 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_JSON(t *testing.T) {
 	require.False(t, parsed.Multipart)
 }
 
+func TestRewriteOpenAIImagesModel_PreservesGiteeImageControls(t *testing.T) {
+	body := []byte(`{
+		"model":"z-image-turbo",
+		"prompt":"draw a city portrait",
+		"num_images_per_prompt":0,
+		"negative_prompt":"blurry ugly bad",
+		"num_inference_steps":9,
+		"seed":0,
+		"guidance_scale":1,
+		"control_image":"base64-image",
+		"control_mode":"HED",
+		"control_context_scale":0.75,
+		"image_scale":1
+	}`)
+
+	rewritten, contentType, err := rewriteOpenAIImagesModel(body, "application/json", "z-image-turbo-v2")
+	require.NoError(t, err)
+	require.Equal(t, "application/json", contentType)
+	require.Equal(t, "z-image-turbo-v2", gjson.GetBytes(rewritten, "model").String())
+	require.Equal(t, "blurry ugly bad", gjson.GetBytes(rewritten, "negative_prompt").String())
+	require.Equal(t, int64(9), gjson.GetBytes(rewritten, "num_inference_steps").Int())
+	require.Equal(t, "base64-image", gjson.GetBytes(rewritten, "control_image").String())
+	require.Equal(t, "HED", gjson.GetBytes(rewritten, "control_mode").String())
+	require.Equal(t, 0.75, gjson.GetBytes(rewritten, "control_context_scale").Float())
+	require.Equal(t, int64(1), gjson.GetBytes(rewritten, "image_scale").Int())
+}
+
+func TestValidateOpenAIImagesModel_AcceptsGiteeZImageFamily(t *testing.T) {
+	for _, model := range []string{"z-image-turbo", " Z-IMAGE-TURBO ", "z-image-turbo-v2"} {
+		require.NoError(t, validateOpenAIImagesModel(model), model)
+	}
+	require.Error(t, validateOpenAIImagesModel("z-image"))
+}
+
+func TestNormalizeGiteeZImageRequest(t *testing.T) {
+	body := []byte(`{
+		"model":"z-image-turbo",
+		"prompt":"draw a city portrait",
+		"num_images_per_prompt":0,
+		"negative_prompt":"blurry ugly bad",
+		"control_image":"base64-image",
+		"control_mode":"HED",
+		"size":"1024x1024",
+		"n":1,
+		"response_format":"b64_json",
+		"quality":"high",
+		"background":"auto",
+		"output_format":"png"
+	}`)
+
+	normalized, err := normalizeGiteeZImageRequest(body, "application/json")
+	require.NoError(t, err)
+	require.Equal(t, int64(1), gjson.GetBytes(normalized, "num_images_per_prompt").Int())
+	require.Equal(t, "base64-image", gjson.GetBytes(normalized, "control_image").String())
+	require.Equal(t, "HED", gjson.GetBytes(normalized, "control_mode").String())
+	for _, field := range []string{"size", "n", "response_format", "quality", "background", "output_format"} {
+		require.False(t, gjson.GetBytes(normalized, field).Exists(), field)
+	}
+
+	preserved, err := normalizeGiteeZImageRequest([]byte(`{"num_images_per_prompt":2}`), "application/json")
+	require.NoError(t, err)
+	require.Equal(t, int64(2), gjson.GetBytes(preserved, "num_images_per_prompt").Int())
+}
+
+func TestNormalizeGPTImage2RequestSize(t *testing.T) {
+	body := []byte(`{
+		"model":"gpt-image-2",
+		"prompt":"draw a city portrait",
+		"size":"4096x4096",
+		"quality":"high"
+	}`)
+
+	normalized, err := normalizeGPTImage2RequestSize(body, "application/json")
+	require.NoError(t, err)
+	require.Equal(t, "2880x2880", gjson.GetBytes(normalized, "size").String())
+	require.Equal(t, "draw a city portrait", gjson.GetBytes(normalized, "prompt").String())
+	require.Equal(t, "high", gjson.GetBytes(normalized, "quality").String())
+
+	landscape, err := normalizeGPTImage2RequestSize([]byte(`{"size":"4096x2304"}`), "application/json")
+	require.NoError(t, err)
+	require.Equal(t, "3840x2160", gjson.GetBytes(landscape, "size").String())
+}
+
+func TestNormalizeGPTImage2RequestSize_MultipartPreservesOtherParts(t *testing.T) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.SetBoundary("gpt-image-size-test-boundary"))
+	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
+	require.NoError(t, writer.WriteField("prompt", "keep this prompt"))
+	require.NoError(t, writer.WriteField("size", "4096x2304"))
+
+	imageHeader := make(textproto.MIMEHeader)
+	imageHeader.Set("Content-Disposition", `form-data; name="image"; filename="source.png"`)
+	imageHeader.Set("Content-Type", "image/png")
+	imageHeader.Set("X-Test-Part", "preserved")
+	imagePart, err := writer.CreatePart(imageHeader)
+	require.NoError(t, err)
+	_, err = imagePart.Write([]byte("source-image-bytes"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	contentType := writer.FormDataContentType()
+	normalized, err := normalizeGPTImage2RequestSize(body.Bytes(), contentType)
+	require.NoError(t, err)
+
+	reader := multipart.NewReader(bytes.NewReader(normalized), writer.Boundary())
+	fields := make(map[string]string)
+	var gotImageHeader textproto.MIMEHeader
+	var gotImage []byte
+	for {
+		part, nextErr := reader.NextPart()
+		if nextErr == io.EOF {
+			break
+		}
+		require.NoError(t, nextErr)
+		partBody, readErr := io.ReadAll(part)
+		require.NoError(t, readErr)
+		require.NoError(t, part.Close())
+		if part.FileName() == "" {
+			fields[part.FormName()] = string(partBody)
+			continue
+		}
+		gotImageHeader = cloneMultipartHeader(part.Header)
+		gotImage = partBody
+	}
+
+	require.Equal(t, "gpt-image-2", fields["model"])
+	require.Equal(t, "keep this prompt", fields["prompt"])
+	require.Equal(t, "3840x2160", fields["size"])
+	require.Equal(t, "image/png", gotImageHeader.Get("Content-Type"))
+	require.Equal(t, "preserved", gotImageHeader.Get("X-Test-Part"))
+	require.Equal(t, []byte("source-image-bytes"), gotImage)
+}
+
 func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEdit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -301,7 +435,7 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_PromptOnlyDefaultsRemainBa
 	require.Equal(t, OpenAIImagesCapabilityBasic, parsed.RequiredCapability)
 }
 
-func TestOpenAIGatewayServiceParseOpenAIImagesRequest_ExplicitSizeRequiresNativeCapability(t *testing.T) {
+func TestOpenAIGatewayServiceParseOpenAIImagesRequest_ExplicitGPTImage2SizeRequiresExactSizeCapability(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := []byte(`{"prompt":"draw a cat","size":"1024x1024"}`)
 

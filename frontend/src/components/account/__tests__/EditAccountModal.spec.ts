@@ -291,6 +291,19 @@ function buildOpenAISetupTokenAccount() {
   } as any
 }
 
+function buildGiteeAIAccount() {
+  return {
+    ...buildAccount(),
+    id: 7,
+    name: 'Gitee AI Key',
+    credentials: {
+      api_key: 'gitee-key',
+      base_url: 'https://ai.gitee.com/v1'
+    },
+    extra: {}
+  } as any
+}
+
 function mountModal(account = buildAccount()) {
   return mount(EditAccountModal, {
     props: {
@@ -318,6 +331,23 @@ function mountModal(account = buildAccount()) {
 describe('EditAccountModal', () => {
   beforeEach(() => {
     authIsSimpleMode.value = true
+  })
+
+  it('recognizes a historical Gitee Base URL and persists provider metadata on save', async () => {
+    const account = buildGiteeAIAccount()
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    expect(wrapper.find('[data-testid="gitee-account-provider"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('admin.accounts.gitee.baseUrlHint')
+    expect(wrapper.find('[data-testid="upstream-billing-auto-probe"]').exists()).toBe(false)
+
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.base_url).toBe('https://ai.gitee.com/v1')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.upstream_provider).toBe('gitee')
   })
 
   it('updates the explicit upstream group without changing the Base URL', async () => {

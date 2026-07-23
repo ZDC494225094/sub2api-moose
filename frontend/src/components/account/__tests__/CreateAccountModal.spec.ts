@@ -160,6 +160,35 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     createOpenAICodexPATMock.mockReset().mockResolvedValue({})
   })
 
+  it('creates a Gitee AI account through the OpenAI-compatible API-key flow', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Gitee AI')
+
+    expect(wrapper.find('[data-testid="gitee-account-type-api-key"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="upstream-billing-auto-probe"]').exists()).toBe(false)
+
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('Gitee image account')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('gitee-test-key')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]).toMatchObject({
+      name: 'Gitee image account',
+      platform: 'openai',
+      type: 'apikey',
+      credentials: {
+        base_url: 'https://ai.gitee.com/v1',
+        api_key: 'gitee-test-key'
+      },
+      extra: {
+        upstream_provider: 'gitee'
+      },
+      upstream_billing_probe_enabled: false
+    })
+    expect(probeUpstreamBillingMock).not.toHaveBeenCalled()
+  })
+
   it('sends false explicitly for normal OpenAI account creation by default', async () => {
     await submitApiKeyAccount('openai')
 

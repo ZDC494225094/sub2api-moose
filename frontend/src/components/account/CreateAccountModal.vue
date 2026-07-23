@@ -75,7 +75,7 @@
             type="button"
             @click="form.platform = 'anthropic'"
             :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
+              'flex min-w-[8rem] flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
               form.platform === 'anthropic'
                 ? 'bg-white text-orange-600 shadow-sm dark:bg-dark-600 dark:text-orange-400'
                 : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
@@ -86,10 +86,10 @@
           </button>
           <button
             type="button"
-            @click="form.platform = 'openai'"
+            @click="selectOpenAICompatibleProvider('openai')"
             :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'openai'
+              'flex min-w-[8rem] flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
+              form.platform === 'openai' && !isGiteeAI
                 ? 'bg-white text-green-600 shadow-sm dark:bg-dark-600 dark:text-green-400'
                 : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
             ]"
@@ -113,7 +113,7 @@
             type="button"
             @click="form.platform = 'gemini'"
             :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
+              'flex min-w-[8rem] flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
               form.platform === 'gemini'
                 ? 'bg-white text-blue-600 shadow-sm dark:bg-dark-600 dark:text-blue-400'
                 : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
@@ -138,7 +138,7 @@
             type="button"
             @click="form.platform = 'antigravity'"
             :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
+              'flex min-w-[8rem] flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
               form.platform === 'antigravity'
                 ? 'bg-white text-purple-600 shadow-sm dark:bg-dark-600 dark:text-purple-400'
                 : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
@@ -151,7 +151,7 @@
             type="button"
             @click="form.platform = 'grok'"
             :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
+              'flex min-w-[8rem] flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
               form.platform === 'grok'
                 ? 'bg-white text-zinc-900 shadow-sm dark:bg-dark-600 dark:text-zinc-100'
                 : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
@@ -159,6 +159,20 @@
           >
             <PlatformIcon platform="grok" size="sm" />
             Grok
+          </button>
+          <button
+            type="button"
+            data-testid="gitee-platform-option"
+            @click="selectOpenAICompatibleProvider('gitee')"
+            :class="[
+              'flex min-w-[8rem] flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
+              isGiteeAI
+                ? 'bg-white text-red-600 shadow-sm dark:bg-dark-600 dark:text-red-400'
+                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+            ]"
+          >
+            <Icon name="globe" size="sm" />
+            Gitee AI
           </button>
         </div>
       </div>
@@ -294,7 +308,7 @@
       </div>
 
       <!-- Account Type Selection (OpenAI) -->
-      <div v-if="form.platform === 'openai'">
+      <div v-if="form.platform === 'openai' && !isGiteeAI">
         <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
         <div class="mt-2 grid grid-cols-2 gap-3" data-tour="account-form-type">
           <button
@@ -349,6 +363,23 @@
             </div>
           </button>
 
+        </div>
+      </div>
+
+      <!-- Gitee AI uses the OpenAI-compatible API Key flow. -->
+      <div v-if="isGiteeAI">
+        <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
+        <div
+          class="mt-2 flex items-center gap-3 rounded-lg border-2 border-red-500 bg-red-50 p-3 text-left dark:bg-red-900/20"
+          data-testid="gitee-account-type-api-key"
+        >
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-500 text-white">
+            <Icon name="key" size="sm" />
+          </div>
+          <div>
+            <span class="block text-sm font-medium text-gray-900 dark:text-white">API Key</span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.gitee.accountTypeDesc') }}</span>
+          </div>
         </div>
       </div>
 
@@ -1113,8 +1144,10 @@
             type="text"
             class="input"
             :placeholder="
-              form.platform === 'openai'
-                ? 'https://api.openai.com'
+              isGiteeAI
+                ? GITEE_AI_BASE_URL
+                : form.platform === 'openai'
+                  ? 'https://api.openai.com'
                 : form.platform === 'gemini'
                   ? 'https://generativelanguage.googleapis.com'
                   : form.platform === 'grok'
@@ -1137,8 +1170,10 @@
             required
             class="input font-mono"
             :placeholder="
-              form.platform === 'openai'
-                ? 'sk-proj-...'
+              isGiteeAI
+                ? 'gitee-ai-...'
+                : form.platform === 'openai'
+                  ? 'sk-proj-...'
                 : form.platform === 'gemini'
                   ? 'AIza...'
                   : form.platform === 'grok'
@@ -1150,7 +1185,7 @@
         </div>
 
         <div
-          v-if="form.platform === 'openai'"
+          v-if="form.platform === 'openai' && !isGiteeAI"
           class="border-t border-gray-200 pt-4 dark:border-dark-600"
         >
           <div class="flex items-center justify-between gap-4">
@@ -2793,7 +2828,7 @@
 
       <!-- OpenAI 自动透传开关（OAuth/API Key） -->
       <div
-        v-if="form.platform === 'openai'"
+        v-if="form.platform === 'openai' && !isGiteeAI"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -2823,7 +2858,7 @@
 
       <!-- OpenAI WS Mode 三态（off/ctx_pool/passthrough） -->
       <div
-        v-if="form.platform === 'openai' && (accountCategory === 'oauth-based' || accountCategory === 'apikey')"
+        v-if="form.platform === 'openai' && !isGiteeAI && (accountCategory === 'oauth-based' || accountCategory === 'apikey')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -2912,7 +2947,7 @@
 
       <!-- OpenAI OAuth Codex 官方客户端限制开关 -->
       <div
-        v-if="form.platform === 'openai' && (accountCategory === 'oauth-based' || accountCategory === 'apikey')"
+        v-if="form.platform === 'openai' && !isGiteeAI && (accountCategory === 'oauth-based' || accountCategory === 'apikey')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between gap-4">
@@ -3000,7 +3035,7 @@
 
       <!-- OpenAI Compact 能力配置 -->
       <div
-        v-if="form.platform === 'openai' && (accountCategory === 'oauth-based' || accountCategory === 'apikey')"
+        v-if="form.platform === 'openai' && !isGiteeAI && (accountCategory === 'oauth-based' || accountCategory === 'apikey')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="flex items-center justify-between">
@@ -3596,6 +3631,11 @@ import {
 } from '@/components/account/credentialsBuilder'
 import { formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
+import {
+  GITEE_AI_BASE_URL,
+  GITEE_AI_PROVIDER,
+  UPSTREAM_PROVIDER_EXTRA_KEY
+} from '@/utils/accountProvider'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
 import {
   OPENAI_WS_MODE_CTX_POOL,
@@ -3628,6 +3668,33 @@ interface OAuthFlowExposed {
 const { t } = useI18n()
 const authStore = useAuthStore()
 
+const selectedOpenAIProvider = ref<'openai' | 'gitee'>('openai')
+const isGiteeAI = computed(
+  () => form.platform === 'openai' && selectedOpenAIProvider.value === GITEE_AI_PROVIDER
+)
+
+const selectOpenAICompatibleProvider = (provider: 'openai' | 'gitee') => {
+  const providerChanged = form.platform !== 'openai' || selectedOpenAIProvider.value !== provider
+  selectedOpenAIProvider.value = provider
+  form.platform = 'openai'
+  accountCategory.value = provider === GITEE_AI_PROVIDER ? 'apikey' : 'oauth-based'
+  apiKeyBaseUrl.value = provider === GITEE_AI_PROVIDER ? GITEE_AI_BASE_URL : 'https://api.openai.com'
+  upstreamBillingAutoProbeEnabled.value = provider !== GITEE_AI_PROVIDER
+  upstreamBillingAutoSyncRateMultiplier.value = false
+  openaiPassthroughEnabled.value = false
+  openAILongContextBillingEnabled.value = false
+  openAICompactMode.value = 'auto'
+  if (providerChanged) {
+    allowedModels.value = []
+    modelMappings.value = []
+    openAICompactModelMappings.value = []
+    openAIResponsesMode.value = 'auto'
+    openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
+    headerOverrideEnabled.value = false
+    headerOverrideRows.value = []
+  }
+}
+
 const oauthStepTitle = computed(() => {
   if (form.platform === 'openai') return t('admin.accounts.oauth.openai.title')
   if (form.platform === 'gemini') return t('admin.accounts.oauth.gemini.title')
@@ -3638,6 +3705,7 @@ const oauthStepTitle = computed(() => {
 
 // Platform-specific hints for API Key type
 const baseUrlHint = computed(() => {
+  if (isGiteeAI.value) return t('admin.accounts.gitee.baseUrlHint')
   if (form.platform === 'openai') return t('admin.accounts.openai.baseUrlHint')
   if (form.platform === 'gemini') return t('admin.accounts.gemini.baseUrlHint')
   if (form.platform === 'grok') return ''
@@ -3645,6 +3713,7 @@ const baseUrlHint = computed(() => {
 })
 
 const apiKeyHint = computed(() => {
+  if (isGiteeAI.value) return t('admin.accounts.gitee.apiKeyHint')
   if (form.platform === 'openai') return t('admin.accounts.openai.apiKeyHint')
   if (form.platform === 'gemini') return t('admin.accounts.gemini.apiKeyHint')
   if (form.platform === 'grok') return ''
@@ -4222,7 +4291,7 @@ watch(
     // Reset base URL based on platform
     apiKeyBaseUrl.value =
       (newPlatform === 'openai')
-        ? 'https://api.openai.com'
+        ? isGiteeAI.value ? GITEE_AI_BASE_URL : 'https://api.openai.com'
         : newPlatform === 'gemini'
           ? 'https://generativelanguage.googleapis.com'
           : newPlatform === 'grok'
@@ -4253,6 +4322,14 @@ watch(
       modelRestrictionMode.value = 'mapping'
       form.concurrency = 1
       form.load_factor = null
+    }
+    if (newPlatform === 'openai' && isGiteeAI.value) {
+      accountCategory.value = 'apikey'
+      upstreamBillingAutoProbeEnabled.value = false
+      upstreamBillingAutoSyncRateMultiplier.value = false
+    }
+    if (newPlatform !== 'openai') {
+      selectedOpenAIProvider.value = 'openai'
     }
     if (newPlatform !== 'gemini' && newPlatform !== 'anthropic' && accountCategory.value === 'service_account') {
       accountCategory.value = 'oauth-based'
@@ -4654,6 +4731,7 @@ const submitCreateAccount = async (payload: CreateAccountRequest) => {
 // Methods
 const resetForm = () => {
   step.value = 1
+  selectedOpenAIProvider.value = 'openai'
   form.name = ''
   form.notes = ''
   form.platform = 'anthropic'
@@ -4774,6 +4852,16 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
   }
 
   const extra: Record<string, unknown> = { ...(base || {}) }
+  if (isGiteeAI.value) {
+    extra[UPSTREAM_PROVIDER_EXTRA_KEY] = GITEE_AI_PROVIDER
+    if (openAITextGenerationCapabilityEnabled.value && openAIResponsesMode.value !== 'auto') {
+      extra.openai_responses_mode = openAIResponsesMode.value
+    } else {
+      delete extra.openai_responses_mode
+    }
+    return extra
+  }
+
   if (accountCategory.value === 'oauth-based') {
     extra.openai_oauth_responses_websockets_v2_mode = openaiOAuthResponsesWebSocketV2Mode.value
     extra.openai_oauth_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiOAuthResponsesWebSocketV2Mode.value)
@@ -5115,8 +5203,10 @@ const handleSubmit = async () => {
 
   // Determine default base URL based on platform
   const defaultBaseUrl =
-    form.platform === 'openai'
-      ? 'https://api.openai.com'
+    isGiteeAI.value
+      ? GITEE_AI_BASE_URL
+      : form.platform === 'openai'
+        ? 'https://api.openai.com'
       : form.platform === 'gemini'
         ? 'https://generativelanguage.googleapis.com'
         : form.platform === 'grok'

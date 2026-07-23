@@ -3,7 +3,8 @@
     <!-- Row 1: Platform + Type -->
     <div class="inline-flex items-center overflow-hidden rounded-md">
       <span :class="['inline-flex items-center gap-1 px-2 py-1', platformClass]">
-        <PlatformIcon :platform="platform" size="xs" />
+        <Icon v-if="isGiteeAI" name="globe" size="xs" data-testid="gitee-platform-icon" />
+        <PlatformIcon v-else :platform="platform" size="xs" />
         <span>{{ platformLabel }}</span>
       </span>
       <span :class="['inline-flex items-center gap-1 px-1.5 py-1', typeClass]">
@@ -81,11 +82,16 @@ interface Props {
   planType?: string
   privacyMode?: string
   subscriptionExpiresAt?: string
+  upstreamProvider?: string
 }
 
 const props = defineProps<Props>()
+const isGiteeAI = computed(
+  () => props.platform === 'openai' && props.upstreamProvider?.trim().toLowerCase() === 'gitee'
+)
 
 const platformLabel = computed(() => {
+  if (isGiteeAI.value) return 'Gitee AI'
   if (props.platform === 'anthropic') return 'Anthropic'
   if (props.platform === 'openai') return 'OpenAI'
   if (props.platform === 'antigravity') return 'Antigravity'
@@ -163,6 +169,9 @@ const planIconName = computed<'bolt' | null>(() => {
 })
 
 const platformClass = computed(() => {
+  if (isGiteeAI.value) {
+    return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+  }
   if (props.platform === 'anthropic') {
     return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
   }
@@ -179,6 +188,9 @@ const platformClass = computed(() => {
 })
 
 const typeClass = computed(() => {
+  if (isGiteeAI.value) {
+    return 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+  }
   if (props.platform === 'anthropic') {
     return 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400'
   }

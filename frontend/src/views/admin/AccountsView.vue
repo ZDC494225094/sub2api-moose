@@ -410,6 +410,7 @@
             <div class="flex min-w-0 flex-col gap-1">
               <div class="flex flex-wrap items-center gap-1">
                 <PlatformTypeBadge :platform="row.platform" :type="row.type"
+                  :upstream-provider="getAccountUpstreamProvider(row)"
                   :auth-mode="getOpenAIAuthMode(row)"
                   :plan-type="getAccountPlanType(row)"
                   :privacy-mode="row.extra?.privacy_mode || row.parent_privacy_mode"
@@ -724,6 +725,7 @@ import Icon from '@/components/icons/Icon.vue'
 import ErrorPassthroughRulesModal from '@/components/admin/ErrorPassthroughRulesModal.vue'
 import TLSFingerprintProfilesModal from '@/components/admin/TLSFingerprintProfilesModal.vue'
 import { buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
+import { getAccountUpstreamProvider } from '@/utils/accountProvider'
 import { formatDateTime, formatRelativeTime } from '@/utils/format'
 import { proxyExpiryBadgeClass, proxyExpiryLabelKey } from '@/utils/proxyExpiry'
 import { extractApiErrorMessage } from '@/utils/apiError'
@@ -1875,6 +1877,7 @@ type OpenAICompactBadgeState = 'active' | 'blocked' | 'auto'
 
 function getOpenAICompactState(row: any): OpenAICompactBadgeState | null {
   if (row.platform !== 'openai' || (row.type !== 'oauth' && row.type !== 'apikey')) return null
+  if (getAccountUpstreamProvider(row) === 'gitee') return null
   const extra = row.extra as Record<string, unknown> | undefined
   const mode = typeof extra?.openai_compact_mode === 'string' ? extra.openai_compact_mode : 'auto'
   if (mode === 'force_on') return 'active'

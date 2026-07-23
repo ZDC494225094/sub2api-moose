@@ -82,4 +82,18 @@ describe('PlatformTypeBadge OpenAI authentication modes', () => {
     await wrapper.setProps({ authMode: undefined })
     expect(wrapper.text()).toContain('OAuth')
   })
+
+  it('renders Gitee AI for an identified OpenAI-compatible account', () => {
+    const wrapper = mount(PlatformTypeBadge, {
+      props: {
+        platform: 'openai',
+        type: 'apikey',
+        upstreamProvider: 'gitee',
+      },
+    })
+
+    expect(wrapper.text()).toContain('Gitee AI')
+    expect(wrapper.text()).not.toContain('OpenAI')
+    expect(wrapper.find('[data-testid="gitee-platform-icon"]').exists()).toBe(true)
+  })
 })

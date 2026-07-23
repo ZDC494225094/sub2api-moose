@@ -39,7 +39,7 @@ const (
 	openAIImageBackendUserAgent    = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 	openAIImageMaxDownloadBytes    = 20 << 20 // 20MB per image download
 	openAIImageMaxUploadPartSize   = 20 << 20 // 20MB per multipart upload part
-	openAIImagesResponsesMainModel = "gpt-5.4-mini"
+	openAIImagesResponsesMainModel = "gpt-5.6"
 )
 
 type OpenAIImagesCapability string
@@ -468,6 +468,12 @@ func isGeminiImageGenerationModel(model string) bool {
 	return strings.Contains(lower, "gemini") && strings.Contains(lower, "image")
 }
 
+// isGiteeImageGenerationModel identifies Gitee AI's Z-Image model family.
+func isGiteeImageGenerationModel(model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	return strings.HasPrefix(model, "z-image-")
+}
+
 // IsGPTImageGenerationModel identifies the GPT native image-generation model family.
 func IsGPTImageGenerationModel(model string) bool {
 	model = strings.ToLower(strings.TrimSpace(model))
@@ -483,7 +489,7 @@ func isGrokImageGenerationModel(model string) bool {
 
 func validateOpenAIImagesModel(model string) error {
 	model = strings.TrimSpace(model)
-	if isOpenAIImageGenerationModel(model) {
+	if isOpenAIImageGenerationModel(model) || isGiteeImageGenerationModel(model) {
 		return nil
 	}
 	if model == "" {
@@ -611,6 +617,18 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	if err != nil {
 		return nil, err
 	}
+	if isGiteeImageGenerationModel(upstreamModel) {
+		forwardBody, err = normalizeGiteeZImageRequest(forwardBody, forwardContentType)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if isGPTImage2GenerationModel(upstreamModel) {
+		forwardBody, err = normalizeGPTImage2RequestSize(forwardBody, forwardContentType)
+		if err != nil {
+			return nil, err
+		}
+	}
 	upstreamCtx, releaseUpstreamCtx := detachStreamUpstreamContext(ctx, parsed.Stream)
 	defer releaseUpstreamCtx()
 
@@ -718,6 +736,21 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	} else {
 		nonStreamUsage, nonStreamCount, nonStreamSizes, err := s.handleOpenAIImagesNonStreamingResponse(resp, c)
 		if err != nil {
+			if nonStreamCount > 0 {
+				return &OpenAIForwardResult{
+					RequestID:        resp.Header.Get("x-request-id"),
+					Usage:            nonStreamUsage,
+					Model:            requestModel,
+					UpstreamModel:    upstreamModel,
+					Stream:           parsed.Stream,
+					ResponseHeaders:  resp.Header.Clone(),
+					Duration:         time.Since(startTime),
+					ImageCount:       nonStreamCount,
+					ImageSize:        parsed.SizeTier,
+					ImageInputSize:   parsed.Size,
+					ImageOutputSizes: nonStreamSizes,
+				}, err
+			}
 			return nil, err
 		}
 		usage = nonStreamUsage
@@ -818,6 +851,116 @@ func rewriteOpenAIImagesModel(body []byte, contentType string, model string) ([]
 	return rewritten, contentType, nil
 }
 
+func normalizeGiteeZImageRequest(body []byte, contentType string) ([]byte, error) {
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err == nil && strings.EqualFold(mediaType, "multipart/form-data") {
+		return body, nil
+	}
+	if !gjson.ValidBytes(body) {
+		return nil, fmt.Errorf("normalize Gitee Z-Image request: invalid JSON body")
+	}
+
+	normalized := body
+	count := gjson.GetBytes(normalized, "num_images_per_prompt")
+	if !count.Exists() || count.Type != gjson.Number || count.Int() < 1 {
+		normalized, err = sjson.SetBytes(normalized, "num_images_per_prompt", 1)
+		if err != nil {
+			return nil, fmt.Errorf("normalize Gitee Z-Image image count: %w", err)
+		}
+	}
+	for _, field := range []string{"size", "n", "response_format", "quality", "background", "output_format"} {
+		normalized, err = sjson.DeleteBytes(normalized, field)
+		if err != nil {
+			return nil, fmt.Errorf("remove unsupported Gitee Z-Image field %q: %w", field, err)
+		}
+	}
+	return normalized, nil
+}
+
+func isGPTImage2GenerationModel(model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	return model == "gpt-image-2" || strings.HasPrefix(model, "gpt-image-2-")
+}
+
+func normalizeGPTImage2RequestSize(body []byte, contentType string) ([]byte, error) {
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err == nil && strings.EqualFold(mediaType, "multipart/form-data") {
+		return normalizeGPTImage2MultipartRequestSize(body, contentType)
+	}
+	if !gjson.ValidBytes(body) {
+		return nil, fmt.Errorf("normalize GPT image size: invalid JSON body")
+	}
+	size := gjson.GetBytes(body, "size")
+	if !size.Exists() || size.Type != gjson.String {
+		return body, nil
+	}
+	normalizedSize, ok := normalizeGPTImage2SizeString(size.String())
+	if !ok {
+		return body, nil
+	}
+	return sjson.SetBytes(body, "size", normalizedSize)
+}
+
+func normalizeGPTImage2MultipartRequestSize(body []byte, contentType string) ([]byte, error) {
+	_, params, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return nil, fmt.Errorf("normalize GPT image multipart size: parse content-type: %w", err)
+	}
+	boundary := strings.TrimSpace(params["boundary"])
+	if boundary == "" {
+		return nil, fmt.Errorf("normalize GPT image multipart size: boundary is required")
+	}
+
+	reader := multipart.NewReader(bytes.NewReader(body), boundary)
+	var buffer bytes.Buffer
+	writer := multipart.NewWriter(&buffer)
+	if err := writer.SetBoundary(boundary); err != nil {
+		return nil, fmt.Errorf("normalize GPT image multipart size: preserve boundary: %w", err)
+	}
+
+	for {
+		part, err := reader.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("normalize GPT image multipart size: read part: %w", err)
+		}
+
+		target, err := writer.CreatePart(cloneMultipartHeader(part.Header))
+		if err != nil {
+			_ = part.Close()
+			return nil, fmt.Errorf("normalize GPT image multipart size: create part: %w", err)
+		}
+
+		if strings.TrimSpace(part.FormName()) == "size" && part.FileName() == "" {
+			value, readErr := io.ReadAll(part)
+			_ = part.Close()
+			if readErr != nil {
+				return nil, fmt.Errorf("normalize GPT image multipart size: read size field: %w", readErr)
+			}
+			if normalizedSize, ok := normalizeGPTImage2SizeString(string(value)); ok {
+				value = []byte(normalizedSize)
+			}
+			if _, err := target.Write(value); err != nil {
+				return nil, fmt.Errorf("normalize GPT image multipart size: write size field: %w", err)
+			}
+			continue
+		}
+
+		if _, err := io.Copy(target, part); err != nil {
+			_ = part.Close()
+			return nil, fmt.Errorf("normalize GPT image multipart size: copy part: %w", err)
+		}
+		_ = part.Close()
+	}
+
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("normalize GPT image multipart size: finalize body: %w", err)
+	}
+	return buffer.Bytes(), nil
+}
+
 func rewriteOpenAIImagesMultipartModel(body []byte, contentType string, model string) ([]byte, string, error) {
 	_, params, err := mime.ParseMediaType(contentType)
 	if err != nil {
@@ -887,11 +1030,22 @@ func cloneMultipartHeader(src textproto.MIMEHeader) textproto.MIMEHeader {
 	return dst
 }
 
-func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http.Response, c *gin.Context) (OpenAIUsage, int, []string, error) {
+func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(
+	resp *http.Response,
+	c *gin.Context,
+) (OpenAIUsage, int, []string, error) {
 	body, err := ReadUpstreamResponseBody(resp.Body, s.cfg, c, openAITooLargeError)
 	if err != nil {
 		return OpenAIUsage{}, 0, nil, err
 	}
+	usage, _ := extractOpenAIUsageFromJSONBytes(body)
+	imageCount := extractOpenAIImageCountFromJSONBytes(body)
+	imageOutputSizes := collectOpenAIResponseImageOutputSizesFromJSONBytes(body)
+	decodedResults := openAIImagesAPIResponseResultsWithActualSizes(body)
+	if decodedSizes := openAIResponsesImageResultSizes(decodedResults); len(decodedSizes) > 0 {
+		imageOutputSizes = decodedSizes
+	}
+	body = annotateOpenAIImagesAPIResponseActualSizes(body, decodedResults)
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	contentType := "application/json"
 	if s.cfg != nil && !s.cfg.Security.ResponseHeaders.Enabled {
@@ -900,9 +1054,39 @@ func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http
 		}
 	}
 	c.Data(resp.StatusCode, contentType, body)
+	return usage, imageCount, imageOutputSizes, nil
+}
 
-	usage, _ := extractOpenAIUsageFromJSONBytes(body)
-	return usage, extractOpenAIImageCountFromJSONBytes(body), collectOpenAIResponseImageOutputSizesFromJSONBytes(body), nil
+func openAIImagesAPIResponseResultsWithActualSizes(body []byte) []openAIResponsesImageResult {
+	data := gjson.GetBytes(body, "data")
+	if !data.IsArray() {
+		return nil
+	}
+	items := data.Array()
+	results := make([]openAIResponsesImageResult, 0, len(items))
+	for _, item := range items {
+		encoded := strings.TrimSpace(item.Get("b64_json").String())
+		results = append(results, openAIResponsesImageResult{
+			Result: encoded,
+			Size:   detectOpenAIImageResultSize(encoded),
+		})
+	}
+	return results
+}
+
+func annotateOpenAIImagesAPIResponseActualSizes(body []byte, results []openAIResponsesImageResult) []byte {
+	annotated := body
+	for index, result := range results {
+		size := strings.TrimSpace(result.Size)
+		if size == "" {
+			continue
+		}
+		updated, err := sjson.SetBytes(annotated, fmt.Sprintf("data.%d.size", index), size)
+		if err == nil {
+			annotated = updated
+		}
+	}
+	return annotated
 }
 
 func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponse(

@@ -486,6 +486,12 @@ export default {
       apiKeyRequired: 'API Key *',
       apiKeyPlaceholder: 'sk-ant-api03-...',
       apiKeyHint: 'Your Claude Console API Key',
+      gitee: {
+        accountTypeDesc: 'Use a Gitee AI API key with its OpenAI-compatible API',
+        baseUrlHint: 'Gitee AI OpenAI-compatible endpoint; defaults to https://ai.gitee.com/v1',
+        apiKeyHint: 'A Gitee AI API key created in the Model Ark workspace',
+        providerDesc: 'This account calls models through the Gitee AI OpenAI-compatible API.'
+      },
       // OpenAI specific hints
       openai: {
         baseUrlHint: 'Leave default for official OpenAI API',

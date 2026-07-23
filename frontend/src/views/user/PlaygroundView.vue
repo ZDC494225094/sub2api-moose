@@ -270,7 +270,7 @@
                       decoding="async"
                     >
                     <span class="pointer-events-none absolute left-2 top-2 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
-                      {{ imageMessageSizeLabel(task.message) }}
+                      {{ imageMessageSizeLabel(task.message, task.message.images?.[0]) }}
                     </span>
                     <span
                       v-if="task.message.images.length > 1"
@@ -515,7 +515,7 @@
                           </button>
                         </div>
                         <span class="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/75 to-transparent px-2 pb-1.5 pt-5 text-[10px] font-semibold text-white">
-                          <span class="truncate">{{ imageMessageSizeLabel(message) }}</span>
+                          <span class="truncate">{{ imageMessageSizeLabel(message, image) }}</span>
                           <span class="shrink-0">{{ formatImageGenerationDuration(message.durationMs) }}</span>
                         </span>
                       </div>
@@ -1203,7 +1203,7 @@
             >
             <div class="pointer-events-none absolute left-4 top-4 flex items-center gap-1.5">
               <span v-if="imageBoardDetailRatioLabel" class="rounded-lg border border-sky-300/50 bg-sky-500/90 px-2 py-1 font-mono text-xs font-semibold text-white shadow-sm backdrop-blur-sm">{{ imageBoardDetailRatioLabel }}</span>
-              <span class="rounded-lg border border-white/20 bg-slate-950/75 px-2 py-1 text-xs font-semibold text-white shadow-sm backdrop-blur-sm">{{ imageMessageSizeLabel(imageBoardDetailTask.message) }}</span>
+              <span class="rounded-lg border border-white/20 bg-slate-950/75 px-2 py-1 text-xs font-semibold text-white shadow-sm backdrop-blur-sm">{{ imageMessageSizeLabel(imageBoardDetailTask.message, imageBoardDetailCurrentImage) }}</span>
             </div>
             <button type="button" class="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg border border-white/70 bg-white/95 text-slate-700 shadow-sm transition hover:scale-105 hover:bg-sky-500 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-300 dark:border-white/20 dark:bg-dark-900/95 dark:text-dark-100 dark:hover:bg-sky-500 dark:focus:ring-sky-800" :title="t('playground.downloadImage')" :aria-label="t('playground.downloadImage')" @click="downloadImageBoardDetailImage()">
               <Icon name="download" size="sm" :stroke-width="2" />
@@ -1573,7 +1573,7 @@ import { useAuthStore } from '@/stores/auth'
 import { formatDateOnly, formatRelativeTime, formatTime } from '@/utils/format'
 import { platformIconClass, platformLabel } from '@/utils/platformColors'
 import { buildImageBoardTasksFromThreads, imageBoardRectsIntersect, type ImageBoardThreadTask } from '@/utils/playgroundBoardTools'
-import { firstImageDescription, mapClientPointToCanvas, wrapGalleryIndex } from '@/utils/playgroundImageTools'
+import { firstActualImageSize, firstImageDescription, fitGptImage2Size, mapClientPointToCanvas, wrapGalleryIndex } from '@/utils/playgroundImageTools'
 import { toCloneablePlaygroundState } from '@/utils/playgroundPersistence'
 import {
   isRecoverablePlaygroundError,
@@ -1797,6 +1797,8 @@ interface PlaygroundConversationExportImage {
   url?: string
   mimeType?: string
   revisedPrompt?: string
+  width?: number
+  height?: number
 }
 
 interface PlaygroundConversationExportPayload {
@@ -2134,10 +2136,13 @@ const lastRunError = computed({
 const effectiveModel = computed(() => selectedModel.value.trim())
 const effectiveImageSize = computed(() => {
   if (imageSizeMode.value === 'auto') return 'auto'
+  let size = ''
   if (imageSizeMode.value === 'custom') {
-    return `${clampImageDimension(customImageWidth.value)}x${clampImageDimension(customImageHeight.value)}`
+    size = `${clampImageDimension(customImageWidth.value)}x${clampImageDimension(customImageHeight.value)}`
+  } else {
+    size = calculateImageSize(imageResolution.value, imageRatio.value)
   }
-  return calculateImageSize(imageResolution.value, imageRatio.value)
+  return fitGptImage2Size(effectiveModel.value, size)
 })
 const imagePreviewBaseSize = computed(() => {
   const naturalWidth = imagePreviewNaturalWidth.value || 1024
@@ -3424,7 +3429,9 @@ function renderMessageMarkdown(content: string): string {
   return DOMPurify.sanitize(html)
 }
 
-function imageMessageSizeLabel(message: PlaygroundMessage): string {
+function imageMessageSizeLabel(message: PlaygroundMessage, image?: PlaygroundImageResult): string {
+  const actualSize = firstActualImageSize(image ? [image] : message.images)
+  if (actualSize) return actualSize
   const size = message.imageConfig?.size?.trim()
   if (size) return size
   return message.images?.length ? t('playground.imageResultCount', { count: message.images.length }) : '-'
@@ -3676,7 +3683,9 @@ async function buildConversationExportPayload(): Promise<PlaygroundConversationE
         const exportedImage: PlaygroundConversationExportImage = {
           id: storageId,
           mimeType: image.mimeType,
-          revisedPrompt: image.revisedPrompt
+          revisedPrompt: image.revisedPrompt,
+          width: image.width,
+          height: image.height
         }
         const persisted = await loadPlaygroundImageFromDB(storageId).catch(() => null)
         if (persisted?.blob) {
@@ -3751,7 +3760,9 @@ function extractConversationImportPayload(rawPayload: unknown): {
         dataUrl: typeof image.dataUrl === 'string' ? image.dataUrl : undefined,
         url: typeof image.url === 'string' ? image.url : undefined,
         mimeType: typeof image.mimeType === 'string' ? image.mimeType : undefined,
-        revisedPrompt: typeof image.revisedPrompt === 'string' ? image.revisedPrompt : undefined
+        revisedPrompt: typeof image.revisedPrompt === 'string' ? image.revisedPrompt : undefined,
+        width: typeof image.width === 'number' ? image.width : undefined,
+        height: typeof image.height === 'number' ? image.height : undefined
       })
     }
   }
@@ -5571,7 +5582,9 @@ async function hydratePlaygroundRunImages(run: PlaygroundRun, signal: AbortSigna
     return {
       url: dataUrl,
       revisedPrompt: image.revisedPrompt,
-      mimeType
+      mimeType,
+      width: image.width,
+      height: image.height
     }
   }))
 }

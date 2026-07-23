@@ -2,6 +2,7 @@ package service
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
@@ -29,18 +30,31 @@ func detectOpenAIImageResultSize(encoded string) string {
 
 	for _, encoding := range []*base64.Encoding{base64.StdEncoding, base64.RawStdEncoding} {
 		decoded := base64.NewDecoder(encoding, strings.NewReader(payload))
-		buffered := bufio.NewReader(io.LimitReader(decoded, maxOpenAIImageDimensionProbeBytes))
-		prefix, _ := buffered.Peek(30)
-		if width, height, ok := detectOpenAIWebPDimensions(prefix); ok {
+		if width, height, ok := detectOpenAIImageReaderDimensions(io.LimitReader(decoded, maxOpenAIImageDimensionProbeBytes)); ok {
 			return fmt.Sprintf("%dx%d", width, height)
 		}
-		cfg, _, err := image.DecodeConfig(buffered)
-		if err != nil || cfg.Width <= 0 || cfg.Height <= 0 {
-			continue
-		}
-		return fmt.Sprintf("%dx%d", cfg.Width, cfg.Height)
 	}
 	return ""
+}
+
+func detectOpenAIImageBytesDimensions(data []byte) (int, int, bool) {
+	if len(data) == 0 {
+		return 0, 0, false
+	}
+	return detectOpenAIImageReaderDimensions(io.LimitReader(bytes.NewReader(data), maxOpenAIImageDimensionProbeBytes))
+}
+
+func detectOpenAIImageReaderDimensions(reader io.Reader) (int, int, bool) {
+	buffered := bufio.NewReader(reader)
+	prefix, _ := buffered.Peek(30)
+	if width, height, ok := detectOpenAIWebPDimensions(prefix); ok {
+		return width, height, true
+	}
+	cfg, _, err := image.DecodeConfig(buffered)
+	if err != nil || cfg.Width <= 0 || cfg.Height <= 0 {
+		return 0, 0, false
+	}
+	return cfg.Width, cfg.Height, true
 }
 
 func detectOpenAIWebPDimensions(header []byte) (int, int, bool) {

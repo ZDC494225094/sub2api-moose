@@ -69,6 +69,8 @@ export interface PlaygroundImageResult {
   revisedPrompt?: string
   assetIndex?: number
   mimeType?: string
+  width?: number
+  height?: number
 }
 
 export interface PlaygroundImageResponse {
