@@ -68,6 +68,7 @@ export default {
     "setImageSize": "设置图像尺寸",
     "currentImageSize": "当前",
     "baseResolution": "基准分辨率",
+    "resolutionUnsupportedForRatio": "{ratio} 不支持 {resolution}",
     "imageRatio": "图像比例",
     "customWidthHeight": "自定义宽高",
     "width": "宽度",

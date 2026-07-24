@@ -1000,10 +1000,14 @@
               v-for="resolution in imageResolutionOptions"
               :key="resolution"
               type="button"
+              :disabled="!isImageResolutionSupported(resolution)"
+              :title="isImageResolutionSupported(resolution) ? '' : t('playground.resolutionUnsupportedForRatio', { ratio: imageRatio, resolution })"
               class="h-12 rounded-xl border text-base font-medium transition"
-              :class="imageResolution === resolution
-                ? 'border-sky-500 bg-sky-50 text-sky-600 dark:bg-sky-950/40'
-                : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-dark-700 dark:text-dark-200 dark:hover:bg-dark-800'"
+              :class="!isImageResolutionSupported(resolution)
+                ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-300 dark:border-dark-800 dark:bg-dark-900 dark:text-dark-600'
+                : imageResolution === resolution
+                  ? 'border-sky-500 bg-sky-50 text-sky-600 dark:bg-sky-950/40'
+                  : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-dark-700 dark:text-dark-200 dark:hover:bg-dark-800'"
               @click="imageResolution = resolution"
             >
               {{ resolution }}
@@ -1032,8 +1036,8 @@
         <div v-else-if="imageSizeMode === 'custom'" class="mt-7">
           <p class="text-sm font-semibold text-slate-400 dark:text-dark-300">{{ t('playground.customWidthHeight') }}</p>
           <div class="mt-3 grid grid-cols-2 gap-3">
-            <input v-model.number="customImageWidth" type="number" min="256" max="4096" step="64" class="input" :placeholder="t('playground.width')" />
-            <input v-model.number="customImageHeight" type="number" min="256" max="4096" step="64" class="input" :placeholder="t('playground.height')" />
+            <input v-model.number="customImageWidth" type="number" min="256" :max="currentImageMaxDimension" step="64" class="input" :placeholder="t('playground.width')" />
+            <input v-model.number="customImageHeight" type="number" min="256" :max="currentImageMaxDimension" step="64" class="input" :placeholder="t('playground.height')" />
           </div>
         </div>
 
@@ -1573,7 +1577,7 @@ import { useAuthStore } from '@/stores/auth'
 import { formatDateOnly, formatRelativeTime, formatTime } from '@/utils/format'
 import { platformIconClass, platformLabel } from '@/utils/platformColors'
 import { buildImageBoardTasksFromThreads, imageBoardRectsIntersect, type ImageBoardThreadTask } from '@/utils/playgroundBoardTools'
-import { firstActualImageSize, firstImageDescription, mapClientPointToCanvas, wrapGalleryIndex } from '@/utils/playgroundImageTools'
+import { firstActualImageSize, firstImageDescription, gptImage2SizeFor, isGptImage2Model, mapClientPointToCanvas, wrapGalleryIndex } from '@/utils/playgroundImageTools'
 import { toCloneablePlaygroundState } from '@/utils/playgroundPersistence'
 import {
   isRecoverablePlaygroundError,
@@ -1992,6 +1996,7 @@ const imageResolutionEdges: Record<ImageResolution, number> = {
   '2K': 2048,
   '4K': 4096
 }
+const GPT_IMAGE_2_MAX_DIMENSION = 3840
 
 const modeOptions = computed(() => [
   { value: 'chat' as const, label: t('playground.chatMode'), icon: 'chat' as IconName },
@@ -2000,16 +2005,12 @@ const modeOptions = computed(() => [
   { value: 'audio' as const, label: t('playground.audioMode'), icon: 'cloud' as IconName }
 ])
 
-const imageSizeOptions = computed(() => [
-  { value: '1:1', label: '1:1' },
-  { value: '3:2', label: '3:2' },
-  { value: '2:3', label: '2:3' },
-  { value: '16:9', label: '16:9' },
-  { value: '9:16', label: '9:16' },
-  { value: '4:3', label: '4:3' },
-  { value: '3:4', label: '3:4' },
-  { value: '21:9', label: '21:9' }
-])
+const imageSizeOptions = computed(() => {
+  const ratios = isGptImage2Model(selectedModel.value)
+    ? ['1:1', '16:9', '9:16', '2:1', '1:2', '21:9', '9:21']
+    : ['1:1', '3:2', '2:3', '16:9', '9:16', '4:3', '3:4', '21:9']
+  return ratios.map((value) => ({ value, label: value }))
+})
 
 const imageSizeModeOptions = computed<Array<{ value: ImageSizeMode; label: string }>>(() => [
   { value: 'auto', label: t('playground.sizeAuto') },
@@ -2134,12 +2135,13 @@ const lastRunError = computed({
   }
 })
 const effectiveModel = computed(() => selectedModel.value.trim())
+const currentImageMaxDimension = computed(() => isGptImage2Model(effectiveModel.value) ? GPT_IMAGE_2_MAX_DIMENSION : 4096)
 const effectiveImageSize = computed(() => {
   if (imageSizeMode.value === 'auto') return 'auto'
   if (imageSizeMode.value === 'custom') {
-    return `${clampImageDimension(customImageWidth.value)}x${clampImageDimension(customImageHeight.value)}`
+    return `${clampImageDimension(customImageWidth.value, currentImageMaxDimension.value)}x${clampImageDimension(customImageHeight.value, currentImageMaxDimension.value)}`
   }
-  return calculateImageSize(imageResolution.value, imageRatio.value)
+  return calculateImageSize(imageResolution.value, imageRatio.value, effectiveModel.value)
 })
 const imagePreviewBaseSize = computed(() => {
   const naturalWidth = imagePreviewNaturalWidth.value || 1024
@@ -2526,10 +2528,10 @@ async function createChatImageDataURL(blob: Blob, fallbackDataUrl = ''): Promise
   return blobToDataURL(chatBlob)
 }
 
-function clampImageDimension(value: number): number {
+function clampImageDimension(value: number, maxDimension = 4096): number {
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) return 1024
-  return Math.min(Math.max(Math.round(parsed), 256), 4096)
+  return Math.min(Math.max(Math.round(parsed), 256), maxDimension)
 }
 
 function clampComposerInputHeight(value: number): number {
@@ -2538,7 +2540,10 @@ function clampComposerInputHeight(value: number): number {
   return Math.min(Math.max(Math.round(parsed), PLAYGROUND_COMPOSER_MIN_HEIGHT), 360)
 }
 
-function calculateImageSize(resolution: ImageResolution, ratio: string): string {
+function calculateImageSize(resolution: ImageResolution, ratio: string, model: string): string {
+  if (isGptImage2Model(model)) {
+    return gptImage2SizeFor(resolution, ratio) || gptImage2SizeFor('2K', ratio) || '2048x2048'
+  }
   const edge = imageResolutionEdges[resolution] || imageResolutionEdges['2K']
   const [rawW, rawH] = ratio.split(':').map((item) => Number(item))
   if (!rawW || !rawH || ratio === '1:1') {
@@ -2550,6 +2555,10 @@ function calculateImageSize(resolution: ImageResolution, ratio: string): string 
   }
   const width = Math.max(256, Math.round(edge * rawW / rawH))
   return `${width}x${edge}`
+}
+
+function isImageResolutionSupported(resolution: ImageResolution): boolean {
+  return !isGptImage2Model(effectiveModel.value) || gptImage2SizeFor(resolution, imageRatio.value) !== null
 }
 
 function isImagePromptStyle(value: unknown): value is ImagePromptStyle {
@@ -3897,8 +3906,8 @@ function currentImageConfig(): PlaygroundImageConfig {
     sizeMode: imageSizeMode.value,
     resolution: imageResolution.value,
     ratio: imageRatio.value,
-    customWidth: clampImageDimension(customImageWidth.value),
-    customHeight: clampImageDimension(customImageHeight.value),
+    customWidth: clampImageDimension(customImageWidth.value, currentImageMaxDimension.value),
+    customHeight: clampImageDimension(customImageHeight.value, currentImageMaxDimension.value),
     size: effectiveImageSize.value,
     quality: imageQuality.value,
     outputFormat: outputFormat.value,
@@ -6265,6 +6274,17 @@ watch(selectedModel, (value) => {
   if (!value.trim()) return
   rememberSelectedModelForMode()
 })
+
+watch([effectiveModel, imageRatio, imageResolution, customImageWidth, customImageHeight], ([model, ratio, resolution]) => {
+  if (!isGptImage2Model(model)) return
+  if (gptImage2SizeFor('1K', ratio) === null) {
+    imageRatio.value = '1:1'
+  } else if (gptImage2SizeFor(resolution, ratio) === null) {
+    imageResolution.value = '2K'
+  }
+  customImageWidth.value = clampImageDimension(customImageWidth.value, GPT_IMAGE_2_MAX_DIMENSION)
+  customImageHeight.value = clampImageDimension(customImageHeight.value, GPT_IMAGE_2_MAX_DIMENSION)
+}, { immediate: true })
 
 watch(() => ({
   activeThreadId: activeThreadId.value,

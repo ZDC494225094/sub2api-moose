@@ -68,6 +68,7 @@ export default {
     "setImageSize": "Set image size",
     "currentImageSize": "Current",
     "baseResolution": "Base resolution",
+    "resolutionUnsupportedForRatio": "{ratio} does not support {resolution}",
     "imageRatio": "Image ratio",
     "customWidthHeight": "Custom width/height",
     "width": "Width",
