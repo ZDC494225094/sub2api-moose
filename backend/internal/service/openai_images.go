@@ -623,12 +623,6 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 			return nil, err
 		}
 	}
-	if isGPTImage2GenerationModel(upstreamModel) {
-		forwardBody, err = normalizeGPTImage2RequestSize(forwardBody, forwardContentType)
-		if err != nil {
-			return nil, err
-		}
-	}
 	upstreamCtx, releaseUpstreamCtx := detachStreamUpstreamContext(ctx, parsed.Stream)
 	defer releaseUpstreamCtx()
 
@@ -875,90 +869,6 @@ func normalizeGiteeZImageRequest(body []byte, contentType string) ([]byte, error
 		}
 	}
 	return normalized, nil
-}
-
-func isGPTImage2GenerationModel(model string) bool {
-	model = strings.ToLower(strings.TrimSpace(model))
-	return model == "gpt-image-2" || strings.HasPrefix(model, "gpt-image-2-")
-}
-
-func normalizeGPTImage2RequestSize(body []byte, contentType string) ([]byte, error) {
-	mediaType, _, err := mime.ParseMediaType(contentType)
-	if err == nil && strings.EqualFold(mediaType, "multipart/form-data") {
-		return normalizeGPTImage2MultipartRequestSize(body, contentType)
-	}
-	if !gjson.ValidBytes(body) {
-		return nil, fmt.Errorf("normalize GPT image size: invalid JSON body")
-	}
-	size := gjson.GetBytes(body, "size")
-	if !size.Exists() || size.Type != gjson.String {
-		return body, nil
-	}
-	normalizedSize, ok := normalizeGPTImage2SizeString(size.String())
-	if !ok {
-		return body, nil
-	}
-	return sjson.SetBytes(body, "size", normalizedSize)
-}
-
-func normalizeGPTImage2MultipartRequestSize(body []byte, contentType string) ([]byte, error) {
-	_, params, err := mime.ParseMediaType(contentType)
-	if err != nil {
-		return nil, fmt.Errorf("normalize GPT image multipart size: parse content-type: %w", err)
-	}
-	boundary := strings.TrimSpace(params["boundary"])
-	if boundary == "" {
-		return nil, fmt.Errorf("normalize GPT image multipart size: boundary is required")
-	}
-
-	reader := multipart.NewReader(bytes.NewReader(body), boundary)
-	var buffer bytes.Buffer
-	writer := multipart.NewWriter(&buffer)
-	if err := writer.SetBoundary(boundary); err != nil {
-		return nil, fmt.Errorf("normalize GPT image multipart size: preserve boundary: %w", err)
-	}
-
-	for {
-		part, err := reader.NextPart()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, fmt.Errorf("normalize GPT image multipart size: read part: %w", err)
-		}
-
-		target, err := writer.CreatePart(cloneMultipartHeader(part.Header))
-		if err != nil {
-			_ = part.Close()
-			return nil, fmt.Errorf("normalize GPT image multipart size: create part: %w", err)
-		}
-
-		if strings.TrimSpace(part.FormName()) == "size" && part.FileName() == "" {
-			value, readErr := io.ReadAll(part)
-			_ = part.Close()
-			if readErr != nil {
-				return nil, fmt.Errorf("normalize GPT image multipart size: read size field: %w", readErr)
-			}
-			if normalizedSize, ok := normalizeGPTImage2SizeString(string(value)); ok {
-				value = []byte(normalizedSize)
-			}
-			if _, err := target.Write(value); err != nil {
-				return nil, fmt.Errorf("normalize GPT image multipart size: write size field: %w", err)
-			}
-			continue
-		}
-
-		if _, err := io.Copy(target, part); err != nil {
-			_ = part.Close()
-			return nil, fmt.Errorf("normalize GPT image multipart size: copy part: %w", err)
-		}
-		_ = part.Close()
-	}
-
-	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("normalize GPT image multipart size: finalize body: %w", err)
-	}
-	return buffer.Bytes(), nil
 }
 
 func rewriteOpenAIImagesMultipartModel(body []byte, contentType string, model string) ([]byte, string, error) {

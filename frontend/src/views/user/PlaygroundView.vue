@@ -1573,7 +1573,7 @@ import { useAuthStore } from '@/stores/auth'
 import { formatDateOnly, formatRelativeTime, formatTime } from '@/utils/format'
 import { platformIconClass, platformLabel } from '@/utils/platformColors'
 import { buildImageBoardTasksFromThreads, imageBoardRectsIntersect, type ImageBoardThreadTask } from '@/utils/playgroundBoardTools'
-import { firstActualImageSize, firstImageDescription, fitGptImage2Size, mapClientPointToCanvas, wrapGalleryIndex } from '@/utils/playgroundImageTools'
+import { firstActualImageSize, firstImageDescription, mapClientPointToCanvas, wrapGalleryIndex } from '@/utils/playgroundImageTools'
 import { toCloneablePlaygroundState } from '@/utils/playgroundPersistence'
 import {
   isRecoverablePlaygroundError,
@@ -2136,13 +2136,10 @@ const lastRunError = computed({
 const effectiveModel = computed(() => selectedModel.value.trim())
 const effectiveImageSize = computed(() => {
   if (imageSizeMode.value === 'auto') return 'auto'
-  let size = ''
   if (imageSizeMode.value === 'custom') {
-    size = `${clampImageDimension(customImageWidth.value)}x${clampImageDimension(customImageHeight.value)}`
-  } else {
-    size = calculateImageSize(imageResolution.value, imageRatio.value)
+    return `${clampImageDimension(customImageWidth.value)}x${clampImageDimension(customImageHeight.value)}`
   }
-  return fitGptImage2Size(effectiveModel.value, size)
+  return calculateImageSize(imageResolution.value, imageRatio.value)
 })
 const imagePreviewBaseSize = computed(() => {
   const naturalWidth = imagePreviewNaturalWidth.value || 1024

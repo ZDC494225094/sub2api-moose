@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
@@ -1275,90 +1274,9 @@ func normalizePlaygroundImageSize(size string) string {
 func playgroundImageRequestSize(model, size string) string {
 	model = strings.ToLower(strings.TrimSpace(model))
 	if model == "gpt-image-2" || strings.HasPrefix(model, "gpt-image-2-") {
-		if normalized, ok := normalizeGPTImage2SizeString(size); ok {
-			return normalized
-		}
+		return size
 	}
 	return normalizePlaygroundImageSize(size)
-}
-
-func normalizeGPTImage2SizeString(size string) (string, bool) {
-	trimmed := strings.ToLower(strings.TrimSpace(size))
-	matches := regexp.MustCompile(`^(\d+)x(\d+)$`).FindStringSubmatch(trimmed)
-	if len(matches) != 3 {
-		return "", false
-	}
-	var width, height int
-	_, _ = fmt.Sscanf(trimmed, "%dx%d", &width, &height)
-	if width <= 0 || height <= 0 {
-		return "", false
-	}
-	return fitGPTImage2Size(width, height), true
-}
-
-func fitGPTImage2Size(width, height int) string {
-	const (
-		maxEdge        = 3840
-		minPixels      = 655360
-		maxPixels      = 8294400
-		maxAspectRatio = 3.0
-		step           = 16
-	)
-	pixels := width * height
-	aspectRatio := math.Max(float64(width)/float64(height), float64(height)/float64(width))
-	if width <= maxEdge && height <= maxEdge &&
-		pixels >= minPixels && pixels <= maxPixels &&
-		aspectRatio <= maxAspectRatio && width%step == 0 && height%step == 0 {
-		return fmt.Sprintf("%dx%d", width, height)
-	}
-
-	scaledWidth := float64(width)
-	scaledHeight := float64(height)
-	if scaledWidth/scaledHeight > maxAspectRatio {
-		scaledHeight = scaledWidth / maxAspectRatio
-	} else if scaledHeight/scaledWidth > maxAspectRatio {
-		scaledWidth = scaledHeight / maxAspectRatio
-	}
-
-	scale := 1.0
-	if longest := math.Max(scaledWidth, scaledHeight); longest > maxEdge {
-		scale = math.Min(scale, float64(maxEdge)/longest)
-	}
-	if adjustedPixels := scaledWidth * scaledHeight; adjustedPixels > maxPixels {
-		scale = math.Min(scale, math.Sqrt(maxPixels/adjustedPixels))
-	}
-	if adjustedPixels := scaledWidth * scaledHeight * scale * scale; adjustedPixels < minPixels {
-		scale = math.Sqrt(minPixels / (scaledWidth * scaledHeight))
-	}
-	scaledWidth *= scale
-	scaledHeight *= scale
-	width = int(math.Floor(scaledWidth/step) * step)
-	height = int(math.Floor(scaledHeight/step) * step)
-	if width*height < minPixels {
-		width = int(math.Ceil(scaledWidth/step) * step)
-		height = int(math.Ceil(scaledHeight/step) * step)
-	}
-	if float64(width)/float64(height) > maxAspectRatio {
-		height = int(math.Ceil(float64(width)/maxAspectRatio/step) * step)
-	} else if float64(height)/float64(width) > maxAspectRatio {
-		width = int(math.Ceil(float64(height)/maxAspectRatio/step) * step)
-	}
-	targetRatio := scaledWidth / scaledHeight
-	for width > maxEdge || height > maxEdge || width*height > maxPixels {
-		if float64(width)/float64(height) > targetRatio {
-			width -= step
-		} else {
-			height -= step
-		}
-	}
-	for width*height < minPixels {
-		if float64(width)/float64(height) < targetRatio {
-			width += step
-		} else {
-			height += step
-		}
-	}
-	return fmt.Sprintf("%dx%d", width, height)
 }
 
 func buildPlaygroundRunEndpointURL(baseURL, endpointBase, endpoint string) (string, error) {

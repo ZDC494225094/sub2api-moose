@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { firstActualImageSize, firstImageDescription, fitGptImage2Size, mapClientPointToCanvas, wrapGalleryIndex } from '../playgroundImageTools'
+import { firstActualImageSize, firstImageDescription, mapClientPointToCanvas, wrapGalleryIndex } from '../playgroundImageTools'
 
 describe('playground image tools', () => {
   it('uses decoded image dimensions instead of the requested size', () => {
@@ -49,12 +49,4 @@ describe('playground image tools', () => {
     expect(firstImageDescription([])).toBe('')
   })
 
-  it('fits gpt-image-2 sizes within the upstream 4K pixel limits', () => {
-    expect(fitGptImage2Size('gpt-image-2', '4096x4096')).toBe('2880x2880')
-    expect(fitGptImage2Size('gpt-image-2', '4096x2304')).toBe('3840x2160')
-    expect(fitGptImage2Size('gpt-image-2', '4096x3072')).toBe('3312x2480')
-    expect(fitGptImage2Size('gpt-image-2', '256x256')).toBe('816x816')
-    expect(fitGptImage2Size('gpt-image-2', '4096x256')).toBe('3840x1280')
-    expect(fitGptImage2Size('gpt-image-1.5', '4096x4096')).toBe('4096x4096')
-  })
 })

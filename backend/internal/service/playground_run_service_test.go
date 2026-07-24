@@ -37,7 +37,7 @@ func TestPlaygroundRunServiceExecuteImageUsesGenerationsWithoutUploads(t *testin
 		EndpointBase: "/v1",
 		Model:        "gpt-image-2",
 		Prompt:       "draw a cat",
-		Size:         "4096x2304",
+		Size:         "2048x1152",
 		N:            1,
 		OutputFormat: "png",
 	}, server.URL, time.Now())
@@ -56,24 +56,24 @@ func TestPlaygroundRunServiceExecuteImageUsesGenerationsWithoutUploads(t *testin
 	if gotPayload["n"] != float64(1) {
 		t.Fatalf("n = %v, want 1", gotPayload["n"])
 	}
-	if gotPayload["size"] != "3840x2160" {
-		t.Fatalf("size = %v, want 3840x2160", gotPayload["size"])
+	if gotPayload["size"] != "2048x1152" {
+		t.Fatalf("size = %v, want 2048x1152", gotPayload["size"])
 	}
 }
 
-func TestPlaygroundImageRequestSizePreservesGPTImage2Dimensions(t *testing.T) {
+func TestPlaygroundImageRequestSizePassesGPTImage2DimensionsThrough(t *testing.T) {
 	tests := []struct {
 		model string
 		size  string
 		want  string
 	}{
-		{model: "gpt-image-2", size: "4096x4096", want: "2880x2880"},
-		{model: "gpt-image-2-2026-04-21", size: "4096x2304", want: "3840x2160"},
-		{model: "gpt-image-2", size: "4096x3072", want: "3312x2480"},
-		{model: "gpt-image-2", size: "256x256", want: "816x816"},
-		{model: "gpt-image-2", size: "4096x256", want: "3840x1280"},
+		{model: "gpt-image-2", size: "2048x1152", want: "2048x1152"},
+		{model: "gpt-image-2-2026-04-21", size: "4096x2304", want: "4096x2304"},
+		{model: "gpt-image-2", size: "4096x3072", want: "4096x3072"},
+		{model: "gpt-image-2", size: "256x256", want: "256x256"},
+		{model: "gpt-image-2", size: "4096x256", want: "4096x256"},
 		{model: "gpt-image-1.5", size: "4096x4096", want: "1024x1024"},
-		{model: "gpt-image-2", size: "invalid", want: "auto"},
+		{model: "gpt-image-2", size: "invalid", want: "invalid"},
 	}
 
 	for _, tt := range tests {

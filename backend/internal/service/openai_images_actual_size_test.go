@@ -71,20 +71,20 @@ func TestOpenAIGatewayServiceForwardImages_OAuthStreamingUsesDecodedOutputDimens
 }
 
 func TestOpenAIGatewayServiceForwardImages_OAuthReturnsActualSizeForExplicitSizeMismatch(t *testing.T) {
-	run := runOpenAIOAuthImageActualSizeTest(t, false, "3840x2160")
+	run := runOpenAIOAuthImageActualSizeTest(t, false, "2048x1152")
 
 	require.NoError(t, run.err)
 	require.NotNil(t, run.result)
 	require.Equal(t, 1, run.result.ImageCount)
 	require.Equal(t, []string{"1672x941"}, run.result.ImageOutputSizes)
 	require.Equal(t, "gpt-5.6", gjson.GetBytes(run.upstream.lastBody, "model").String())
-	require.Equal(t, "3840x2160", gjson.GetBytes(run.upstream.lastBody, "tools.0.size").String())
+	require.Equal(t, "2048x1152", gjson.GetBytes(run.upstream.lastBody, "tools.0.size").String())
 	require.Equal(t, http.StatusOK, run.recorder.Code)
 	require.Equal(t, "1672x941", gjson.Get(run.recorder.Body.String(), "size").String())
 }
 
 func TestOpenAIGatewayServiceForwardImages_OAuthStreamingReturnsActualSizeForExplicitSizeMismatch(t *testing.T) {
-	run := runOpenAIOAuthImageActualSizeTest(t, true, "3840x2160")
+	run := runOpenAIOAuthImageActualSizeTest(t, true, "2048x1152")
 
 	require.NoError(t, run.err)
 	require.NotNil(t, run.result)
@@ -100,7 +100,7 @@ func TestOpenAIGatewayServiceForwardImages_OAuthStreamingReturnsActualSizeForExp
 
 func TestOpenAIGatewayServiceForwardImages_APIKeyReturnsDecodedB64ActualSize(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	body := []byte(`{"model":"gpt-image-2","prompt":"draw a landscape","size":"3840x2160","response_format":"b64_json"}`)
+	body := []byte(`{"model":"gpt-image-2","prompt":"draw a landscape","size":"2048x1152","response_format":"b64_json"}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -142,7 +142,7 @@ func TestOpenAIGatewayServiceForwardImages_APIKeyReturnsDecodedB64ActualSize(t *
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, "1089x1448", gjson.Get(rec.Body.String(), "data.0.size").String())
 	require.True(t, gjson.Get(rec.Body.String(), "data.0.b64_json").Exists(), rec.Body.String())
-	require.Equal(t, "3840x2160", gjson.GetBytes(upstream.lastBody, "size").String())
+	require.Equal(t, "2048x1152", gjson.GetBytes(upstream.lastBody, "size").String())
 }
 
 func TestOpenAIImagesAPIResponseResultsWithActualSizes_PreservesUnverifiableURLResult(t *testing.T) {

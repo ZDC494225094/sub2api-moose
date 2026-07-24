@@ -122,76 +122,6 @@ func TestNormalizeGiteeZImageRequest(t *testing.T) {
 	require.Equal(t, int64(2), gjson.GetBytes(preserved, "num_images_per_prompt").Int())
 }
 
-func TestNormalizeGPTImage2RequestSize(t *testing.T) {
-	body := []byte(`{
-		"model":"gpt-image-2",
-		"prompt":"draw a city portrait",
-		"size":"4096x4096",
-		"quality":"high"
-	}`)
-
-	normalized, err := normalizeGPTImage2RequestSize(body, "application/json")
-	require.NoError(t, err)
-	require.Equal(t, "2880x2880", gjson.GetBytes(normalized, "size").String())
-	require.Equal(t, "draw a city portrait", gjson.GetBytes(normalized, "prompt").String())
-	require.Equal(t, "high", gjson.GetBytes(normalized, "quality").String())
-
-	landscape, err := normalizeGPTImage2RequestSize([]byte(`{"size":"4096x2304"}`), "application/json")
-	require.NoError(t, err)
-	require.Equal(t, "3840x2160", gjson.GetBytes(landscape, "size").String())
-}
-
-func TestNormalizeGPTImage2RequestSize_MultipartPreservesOtherParts(t *testing.T) {
-	var body bytes.Buffer
-	writer := multipart.NewWriter(&body)
-	require.NoError(t, writer.SetBoundary("gpt-image-size-test-boundary"))
-	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
-	require.NoError(t, writer.WriteField("prompt", "keep this prompt"))
-	require.NoError(t, writer.WriteField("size", "4096x2304"))
-
-	imageHeader := make(textproto.MIMEHeader)
-	imageHeader.Set("Content-Disposition", `form-data; name="image"; filename="source.png"`)
-	imageHeader.Set("Content-Type", "image/png")
-	imageHeader.Set("X-Test-Part", "preserved")
-	imagePart, err := writer.CreatePart(imageHeader)
-	require.NoError(t, err)
-	_, err = imagePart.Write([]byte("source-image-bytes"))
-	require.NoError(t, err)
-	require.NoError(t, writer.Close())
-
-	contentType := writer.FormDataContentType()
-	normalized, err := normalizeGPTImage2RequestSize(body.Bytes(), contentType)
-	require.NoError(t, err)
-
-	reader := multipart.NewReader(bytes.NewReader(normalized), writer.Boundary())
-	fields := make(map[string]string)
-	var gotImageHeader textproto.MIMEHeader
-	var gotImage []byte
-	for {
-		part, nextErr := reader.NextPart()
-		if nextErr == io.EOF {
-			break
-		}
-		require.NoError(t, nextErr)
-		partBody, readErr := io.ReadAll(part)
-		require.NoError(t, readErr)
-		require.NoError(t, part.Close())
-		if part.FileName() == "" {
-			fields[part.FormName()] = string(partBody)
-			continue
-		}
-		gotImageHeader = cloneMultipartHeader(part.Header)
-		gotImage = partBody
-	}
-
-	require.Equal(t, "gpt-image-2", fields["model"])
-	require.Equal(t, "keep this prompt", fields["prompt"])
-	require.Equal(t, "3840x2160", fields["size"])
-	require.Equal(t, "image/png", gotImageHeader.Get("Content-Type"))
-	require.Equal(t, "preserved", gotImageHeader.Get("X-Test-Part"))
-	require.Equal(t, []byte("source-image-bytes"), gotImage)
-}
-
 func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEdit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -435,7 +365,7 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_PromptOnlyDefaultsRemainBa
 	require.Equal(t, OpenAIImagesCapabilityBasic, parsed.RequiredCapability)
 }
 
-func TestOpenAIGatewayServiceParseOpenAIImagesRequest_ExplicitGPTImage2SizeRequiresExactSizeCapability(t *testing.T) {
+func TestOpenAIGatewayServiceParseOpenAIImagesRequest_ExplicitGPTImage2SizeUsesNativeCapability(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := []byte(`{"prompt":"draw a cat","size":"1024x1024"}`)
 
