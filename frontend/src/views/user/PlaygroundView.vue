@@ -784,7 +784,7 @@
             </div>
 
             <div
-              class="relative flex min-h-0 items-stretch gap-3 overflow-hidden rounded-lg border border-slate-200 bg-white px-4 py-3 transition-colors dark:border-dark-700 dark:bg-dark-950"
+              class="relative flex min-h-0 items-stretch gap-3 overflow-hidden rounded-lg border border-slate-200 bg-white px-4 pb-3 pt-7 transition-colors dark:border-dark-700 dark:bg-dark-950"
               :class="[
                 composerInputResizing ? 'select-none' : '',
                 composerDragActive ? 'border-sky-400 bg-sky-50/80 ring-2 ring-sky-200 dark:border-sky-500 dark:bg-sky-950/40 dark:ring-sky-900' : ''
@@ -803,11 +803,11 @@
               </div>
               <button
                 type="button"
-                class="absolute left-1/2 top-0 z-20 flex h-4 w-16 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-500 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-400 dark:hover:border-sky-800 dark:hover:bg-sky-950/40 dark:hover:text-sky-300"
+                class="group absolute left-1/2 top-0 z-20 flex h-8 w-16 -translate-x-1/2 cursor-ns-resize touch-none items-center justify-center text-slate-300 transition-colors hover:text-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 dark:text-dark-500 dark:hover:text-sky-300 dark:focus-visible:ring-sky-800"
                 :title="t('playground.resizeComposerInput')"
-                @pointerdown="handleComposerInputResizePointerDown"
+                @pointerdown.stop="handleComposerInputResizePointerDown"
               >
-                <span class="h-1 w-8 rounded-full bg-current"></span>
+                <span class="h-1 w-7 rounded-full bg-current opacity-70 transition-all duration-150 group-hover:w-9 group-hover:opacity-100 group-focus-visible:w-9 group-focus-visible:opacity-100"></span>
               </button>
               <button
                 v-if="mode === 'image'"
@@ -5136,6 +5136,10 @@ function autoResizeComposerInput() {
   void nextTick(() => {
     const textarea = composerTextarea.value
     if (!textarea) return
+    if (!textarea.value.trim()) {
+      composerInputHeightCustomized.value = false
+      composerManualInputHeight.value = PLAYGROUND_COMPOSER_MIN_HEIGHT
+    }
     const minimum = composerInputHeightCustomized.value
       ? composerManualInputHeight.value
       : PLAYGROUND_COMPOSER_MIN_HEIGHT
@@ -5150,7 +5154,11 @@ function autoResizeComposerInput() {
 }
 
 function handleComposerInputResizePointerDown(event: PointerEvent) {
+  if (event.button !== 0) return
   event.preventDefault()
+  if (event.currentTarget instanceof HTMLElement) {
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
   composerInputResizeState = {
     pointerId: event.pointerId,
     startY: event.clientY,
@@ -6417,15 +6425,18 @@ onBeforeUnmount(() => {
 
 .composer-model-picker {
   display: grid;
-  min-height: 13.5rem;
+  max-height: min(30rem, calc(100dvh - 8rem));
   grid-template-columns: 18rem minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .composer-model-key {
   display: flex;
+  min-height: 0;
   min-width: 0;
   flex-direction: column;
   gap: 0.75rem;
+  overflow-y: auto;
   border-right: 1px solid rgb(226 232 240);
   background: rgb(248 250 252);
   padding: 0.625rem;
@@ -6452,8 +6463,10 @@ onBeforeUnmount(() => {
 
 .composer-model-results {
   display: flex;
+  min-height: 0;
   min-width: 0;
   flex-direction: column;
+  overflow: hidden;
   padding: 0.625rem;
 }
 
@@ -6486,8 +6499,11 @@ onBeforeUnmount(() => {
 
 .composer-model-list {
   display: grid;
+  flex: 1 1 auto;
   min-height: 0;
+  align-content: start;
   gap: 0.125rem;
+  overscroll-behavior: contain;
   overflow-y: auto;
   padding-top: 0.5rem;
 }
@@ -7375,6 +7391,10 @@ onBeforeUnmount(() => {
   .playground-mobile-composer {
     position: fixed;
     padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  .composer-model-picker {
+    max-height: min(26rem, calc(100svh - 10rem));
   }
 }
 
