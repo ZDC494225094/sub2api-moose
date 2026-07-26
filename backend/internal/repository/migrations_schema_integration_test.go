@@ -59,6 +59,9 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	requireIndex(t, tx, "accounts", "idx_accounts_sort_order")
 	requireIndex(t, tx, "accounts", "idx_accounts_upstream_group_normalized")
 
+	// groups: OpenAI Live 默认关闭，管理员显式开启后才可访问。
+	requireColumn(t, tx, "groups", "allow_live", "boolean", 0, false)
+
 	// api_keys: key length should be 128
 	requireColumn(t, tx, "api_keys", "key", "character varying", 128, false)
 

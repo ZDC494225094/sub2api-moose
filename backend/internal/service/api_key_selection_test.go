@@ -63,6 +63,10 @@ type apiKeySelectionUserRepo struct {
 	user *User
 }
 
+func (r *apiKeySelectionUserRepo) CreateWithEmailAliasGuard(_ context.Context, _ *User) error {
+	return nil
+}
+
 func (r *apiKeySelectionUserRepo) GetByID(_ context.Context, id int64) (*User, error) {
 	if r.user == nil || r.user.ID != id {
 		return nil, ErrUserNotFound
@@ -134,6 +138,9 @@ func (r *apiKeySelectionUserRepo) BatchUpdateLimits(context.Context, []int64, *i
 }
 func (r *apiKeySelectionUserRepo) ExistsByEmail(context.Context, string) (bool, error) {
 	panic("unexpected ExistsByEmail call")
+}
+func (r *apiKeySelectionUserRepo) ExistsByEmailAlias(context.Context, string) (bool, error) {
+	panic("unexpected ExistsByEmailAlias call")
 }
 func (r *apiKeySelectionUserRepo) RemoveGroupFromAllowedGroups(context.Context, int64) (int64, error) {
 	panic("unexpected RemoveGroupFromAllowedGroups call")

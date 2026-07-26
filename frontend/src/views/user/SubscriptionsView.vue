@@ -248,7 +248,7 @@ import subscriptionsAPI from '@/api/subscriptions'
 import type { UserSubscription } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTimeToMinute } from '@/utils/format'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
 import { platformBorderClass, platformBadgeClass, platformButtonClass, platformLabel } from '@/utils/platformColors'
 import { isOneTimeDailyQuota } from '@/utils/subscriptionQuota'
@@ -312,7 +312,7 @@ function formatExpirationDate(expiresAt: string): string {
   const diff = expires.getTime() - now.getTime()
   const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
 
-  const dateStr = formatDateTime(expires)
+  const dateStr = formatDateTimeToMinute(expires)
 
   if (days < 0) {
     return `${dateStr} (${t('userSubscriptions.status.expired')})`
@@ -342,7 +342,7 @@ function getExpirationClass(expiresAt: string): string {
 
 function formatDailyUsageWindow(subscription: UserSubscription): string {
   if (isOneTimeDailyQuota(subscription) && subscription.expires_at) {
-    return t('userSubscriptions.quotaEndsAt', { time: formatDateTime(subscription.expires_at) })
+    return t('userSubscriptions.quotaEndsAt', { time: formatDateTimeToMinute(subscription.expires_at) })
   }
 
   return formatResetTime(subscription, 'daily')
@@ -369,7 +369,7 @@ function formatResetTime(
   }
 
   return Number.isFinite(resetAt.getTime())
-    ? t('userSubscriptions.resetsAt', { time: formatDateTime(resetAt) })
+    ? t('userSubscriptions.resetsAt', { time: formatDateTimeToMinute(resetAt) })
     : t('userSubscriptions.windowNotActive')
 }
 

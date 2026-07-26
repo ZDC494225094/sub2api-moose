@@ -46,7 +46,12 @@
             <span>{{ formatDate(selectedAnnouncement?.created_at || selectedAnnouncement?.starts_at) }}</span>
             <h2>{{ selectedAnnouncement?.title }}</h2>
           </div>
-          <button type="button" aria-label="关闭公告全文" @click="closeAnnouncement">×</button>
+          <button
+            type="button"
+            aria-label="关闭公告全文"
+            data-testid="announcement-popup-dismiss"
+            @click="closeAnnouncement"
+          >×</button>
         </div>
         <div class="notice-reader-body markdown-body" v-html="selectedAnnouncementHtml"></div>
       </section>
@@ -61,13 +66,18 @@ import DOMPurify from 'dompurify'
 import Icon from '@/components/icons/Icon.vue'
 import type { UserAnnouncement } from '@/types'
 import './premium-home.css'
+import '@/styles/announcement-markdown.css'
 
 const props = withDefaults(defineProps<{
   announcements: UserAnnouncement[]
   open: boolean
   showDismissToday?: boolean
+  initialSelectedAnnouncement?: UserAnnouncement | null
+  closeOnReaderClose?: boolean
 }>(), {
   showDismissToday: true,
+  initialSelectedAnnouncement: null,
+  closeOnReaderClose: false,
 })
 
 const emit = defineEmits<{
@@ -130,6 +140,11 @@ function openAnnouncement(notice?: UserAnnouncement) {
 
 function closeAnnouncement() {
   selectedAnnouncement.value = null
+  if (props.closeOnReaderClose) requestClose()
+}
+
+function resetSelectedAnnouncement() {
+  selectedAnnouncement.value = null
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -144,8 +159,16 @@ function onKeydown(event: KeyboardEvent) {
 watch(
   () => props.open,
   (isOpen) => {
-    if (!isOpen) closeAnnouncement()
+    if (!isOpen) resetSelectedAnnouncement()
   }
+)
+
+watch(
+  () => props.initialSelectedAnnouncement,
+  (announcement) => {
+    selectedAnnouncement.value = props.open ? announcement ?? null : null
+  },
+  { immediate: true }
 )
 
 onMounted(() => {
