@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
@@ -20,6 +21,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
+)
+
+const (
+	playgroundRunRedisKeyPrefix = "playground:run:"
+	playgroundRunRedisImageKey  = ":image:"
+	playgroundRunRedisTimeout   = 3 * time.Second
 )
 
 type PlaygroundRunStatus string
@@ -112,15 +120,27 @@ type PlaygroundRunService struct {
 	mu         sync.RWMutex
 	runs       map[string]*PlaygroundRun
 	httpClient *http.Client
+	rdb        *redis.Client
 	ttl        time.Duration
 }
 
 func NewPlaygroundRunService() *PlaygroundRunService {
+	return newPlaygroundRunService(nil)
+}
+
+// ProvidePlaygroundRunService keeps completed Playground tasks available when a
+// browser refreshes or a subsequent request lands on a different API instance.
+func ProvidePlaygroundRunService(rdb *redis.Client) *PlaygroundRunService {
+	return newPlaygroundRunService(rdb)
+}
+
+func newPlaygroundRunService(rdb *redis.Client) *PlaygroundRunService {
 	return &PlaygroundRunService{
 		runs: make(map[string]*PlaygroundRun),
 		httpClient: &http.Client{
 			Timeout: 0,
 		},
+		rdb: rdb,
 		ttl: 6 * time.Hour,
 	}
 }
@@ -164,6 +184,7 @@ func (s *PlaygroundRunService) Start(userID int64, request PlaygroundRunRequest,
 		s.mu.Unlock()
 		return out, nil
 	}
+	s.mu.Unlock()
 
 	now := time.Now()
 	run := &PlaygroundRun{
@@ -174,6 +195,18 @@ func (s *PlaygroundRunService) Start(userID int64, request PlaygroundRunRequest,
 		Model:     request.Model,
 		CreatedAt: now,
 		UpdatedAt: now,
+	}
+	if existing, claimed, err := s.claimPersistentRun(run); err != nil {
+		log.Printf("playground run persistence unavailable for user %d run %s: %v", userID, request.ID, err)
+	} else if !claimed {
+		return existing, nil
+	}
+
+	s.mu.Lock()
+	if existing := s.runs[key]; existing != nil {
+		out := clonePlaygroundRunForClient(existing)
+		s.mu.Unlock()
+		return out, nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
 	run.cancel = cancel
@@ -190,7 +223,13 @@ func (s *PlaygroundRunService) Get(userID int64, id string) (*PlaygroundRun, boo
 	if s == nil || userID <= 0 {
 		return nil, false
 	}
-	key := playgroundRunKey(userID, strings.TrimSpace(id))
+	id = strings.TrimSpace(id)
+	if run, found, err := s.loadPersistentRun(userID, id); err != nil {
+		log.Printf("playground run persistence read failed for user %d run %s: %v", userID, id, err)
+	} else if found {
+		return clonePlaygroundRunForClient(run), true
+	}
+	key := playgroundRunKey(userID, id)
 	s.mu.RLock()
 	run := s.runs[key]
 	if run == nil {
@@ -206,27 +245,38 @@ func (s *PlaygroundRunService) GetImage(userID int64, id string, index int) (Pla
 	if s == nil || userID <= 0 || index < 0 {
 		return PlaygroundRunImageAsset{}, false, nil
 	}
-	key := playgroundRunKey(userID, strings.TrimSpace(id))
+	id = strings.TrimSpace(id)
+	key := playgroundRunKey(userID, id)
 	s.mu.RLock()
 	run := s.runs[key]
-	if run == nil || run.Status != PlaygroundRunSucceeded || index >= len(run.Images) {
-		s.mu.RUnlock()
-		return PlaygroundRunImageAsset{}, false, nil
+	var image PlaygroundRunImage
+	found := false
+	if run != nil && run.Status == PlaygroundRunSucceeded && index < len(run.Images) {
+		image = run.Images[index]
+		image.data = append([]byte(nil), image.data...)
+		found = true
 	}
-	image := run.Images[index]
-	if len(image.data) > 0 {
-		asset := PlaygroundRunImageAsset{Data: image.data, ContentType: image.MimeType}
-		s.mu.RUnlock()
-		if asset.ContentType == "" {
-			asset.ContentType = "application/octet-stream"
-		}
-		return asset, true, nil
-	}
-	imageURL := image.URL
 	s.mu.RUnlock()
+	if !found {
+		persistedRun, persisted, err := s.loadPersistentRun(userID, id)
+		if err != nil {
+			return PlaygroundRunImageAsset{}, false, err
+		}
+		if !persisted || persistedRun.Status != PlaygroundRunSucceeded || index >= len(persistedRun.Images) {
+			return PlaygroundRunImageAsset{}, false, nil
+		}
+		image = persistedRun.Images[index]
+	}
 
-	if strings.HasPrefix(strings.TrimSpace(imageURL), "data:") {
-		data, contentType, err := decodePlaygroundImageDataURL(imageURL)
+	if len(image.data) > 0 {
+		return playgroundRunImageAsset(image.data, image.MimeType), true, nil
+	}
+	if asset, persisted, err := s.loadPersistentImage(userID, id, index, image.MimeType); err != nil || persisted {
+		return asset, persisted, err
+	}
+
+	if strings.HasPrefix(strings.TrimSpace(image.URL), "data:") {
+		data, contentType, err := decodePlaygroundImageDataURL(image.URL)
 		if err != nil {
 			return PlaygroundRunImageAsset{}, true, err
 		}
@@ -239,28 +289,44 @@ func (s *PlaygroundRunService) Cancel(userID int64, id string) (*PlaygroundRun, 
 	if s == nil || userID <= 0 {
 		return nil, false
 	}
-	key := playgroundRunKey(userID, strings.TrimSpace(id))
+	id = strings.TrimSpace(id)
+	key := playgroundRunKey(userID, id)
 	s.mu.Lock()
 	run := s.runs[key]
-	if run == nil {
+	if run != nil {
+		if run.cancel != nil && !isTerminalPlaygroundRunStatus(run.Status) {
+			run.cancel()
+		}
+		imageCount := len(run.Images)
+		canceled := !isTerminalPlaygroundRunStatus(run.Status)
+		cancelPlaygroundRun(run, time.Now())
+		snapshot := clonePlaygroundRunForPersistence(run)
+		out := clonePlaygroundRunForClient(run)
 		s.mu.Unlock()
+		if err := s.persistRun(snapshot); err != nil {
+			log.Printf("playground run cancellation persistence failed for user %d run %s: %v", userID, id, err)
+		}
+		if canceled {
+			s.deletePersistentImages(userID, id, imageCount)
+		}
+		return out, true
+	}
+	s.mu.Unlock()
+
+	persistedRun, found, err := s.loadPersistentRun(userID, id)
+	if err != nil || !found {
 		return nil, false
 	}
-	if run.cancel != nil && !isTerminalPlaygroundRunStatus(run.Status) {
-		run.cancel()
+	imageCount := len(persistedRun.Images)
+	canceled := !isTerminalPlaygroundRunStatus(persistedRun.Status)
+	cancelPlaygroundRun(persistedRun, time.Now())
+	if err := s.persistRun(persistedRun); err != nil {
+		log.Printf("playground run cancellation persistence failed for user %d run %s: %v", userID, id, err)
 	}
-	now := time.Now()
-	if !isTerminalPlaygroundRunStatus(run.Status) {
-		run.Status = PlaygroundRunCanceled
-		run.Error = "request canceled"
-		run.Images = nil
-		run.Raw = nil
-		run.UpdatedAt = now
-		run.CompletedAt = &now
+	if canceled {
+		s.deletePersistentImages(userID, id, imageCount)
 	}
-	out := clonePlaygroundRunForClient(run)
-	s.mu.Unlock()
-	return out, true
+	return clonePlaygroundRunForClient(persistedRun), true
 }
 
 func (s *PlaygroundRunService) execute(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string) {
@@ -735,10 +801,121 @@ func (s *PlaygroundRunService) executeImageRequest(
 
 func (s *PlaygroundRunService) update(key string, fn func(*PlaygroundRun)) {
 	s.mu.Lock()
+	var snapshot *PlaygroundRun
 	if run := s.runs[key]; run != nil {
+		previousStatus := run.Status
 		fn(run)
+		if run.Mode == "image" || previousStatus != run.Status || isTerminalPlaygroundRunStatus(run.Status) {
+			snapshot = clonePlaygroundRunForPersistence(run)
+		}
 	}
 	s.mu.Unlock()
+	if snapshot != nil {
+		if err := s.persistRun(snapshot); err != nil {
+			log.Printf("playground run persistence update failed for user %d run %s: %v", snapshot.UserID, snapshot.ID, err)
+		}
+	}
+}
+
+func (s *PlaygroundRunService) claimPersistentRun(run *PlaygroundRun) (*PlaygroundRun, bool, error) {
+	if s.rdb == nil {
+		return nil, true, nil
+	}
+	payload, err := json.Marshal(clonePlaygroundRunForClient(run))
+	if err != nil {
+		return nil, false, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), playgroundRunRedisTimeout)
+	defer cancel()
+	claimed, err := s.rdb.SetNX(ctx, playgroundRunRedisKey(run.UserID, run.ID), payload, s.ttl).Result()
+	if err != nil {
+		return nil, false, err
+	}
+	if claimed {
+		return nil, true, nil
+	}
+	existing, found, err := s.loadPersistentRun(run.UserID, run.ID)
+	if err != nil {
+		return nil, false, err
+	}
+	if !found {
+		return nil, false, errors.New("playground run disappeared while being claimed")
+	}
+	return clonePlaygroundRunForClient(existing), false, nil
+}
+
+func (s *PlaygroundRunService) persistRun(run *PlaygroundRun) error {
+	if s.rdb == nil || run == nil || run.UserID <= 0 || strings.TrimSpace(run.ID) == "" {
+		return nil
+	}
+	payload, err := json.Marshal(clonePlaygroundRunForClient(run))
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), playgroundRunRedisTimeout)
+	defer cancel()
+	pipe := s.rdb.Pipeline()
+	pipe.Set(ctx, playgroundRunRedisKey(run.UserID, run.ID), payload, s.ttl)
+	for index, image := range run.Images {
+		if len(image.data) == 0 {
+			continue
+		}
+		pipe.Set(ctx, playgroundRunRedisImageKeyFor(run.UserID, run.ID, index), image.data, s.ttl)
+	}
+	_, err = pipe.Exec(ctx)
+	return err
+}
+
+func (s *PlaygroundRunService) loadPersistentRun(userID int64, id string) (*PlaygroundRun, bool, error) {
+	if s.rdb == nil || userID <= 0 || strings.TrimSpace(id) == "" {
+		return nil, false, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), playgroundRunRedisTimeout)
+	defer cancel()
+	payload, err := s.rdb.Get(ctx, playgroundRunRedisKey(userID, id)).Bytes()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	var run PlaygroundRun
+	if err := json.Unmarshal(payload, &run); err != nil {
+		return nil, false, err
+	}
+	run.UserID = userID
+	return &run, true, nil
+}
+
+func (s *PlaygroundRunService) loadPersistentImage(userID int64, id string, index int, mimeType string) (PlaygroundRunImageAsset, bool, error) {
+	if s.rdb == nil || userID <= 0 || index < 0 {
+		return PlaygroundRunImageAsset{}, false, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), playgroundRunRedisTimeout)
+	defer cancel()
+	data, err := s.rdb.Get(ctx, playgroundRunRedisImageKeyFor(userID, id, index)).Bytes()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return PlaygroundRunImageAsset{}, false, nil
+		}
+		return PlaygroundRunImageAsset{}, false, err
+	}
+	return playgroundRunImageAsset(data, mimeType), true, nil
+}
+
+func (s *PlaygroundRunService) deletePersistentImages(userID int64, id string, imageCount int) {
+	if s.rdb == nil || imageCount <= 0 {
+		return
+	}
+	keys := make([]string, 0, imageCount)
+	for index := 0; index < imageCount; index++ {
+		keys = append(keys, playgroundRunRedisImageKeyFor(userID, id, index))
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), playgroundRunRedisTimeout)
+	defer cancel()
+	if err := s.rdb.Del(ctx, keys...).Err(); err != nil {
+		log.Printf("playground run image cleanup failed for user %d run %s: %v", userID, id, err)
+	}
 }
 
 func (s *PlaygroundRunService) cleanupExpiredLocked(now time.Time) {
@@ -757,6 +934,14 @@ func (s *PlaygroundRunService) cleanupExpiredLocked(now time.Time) {
 
 func playgroundRunKey(userID int64, id string) string {
 	return fmt.Sprintf("%d:%s", userID, id)
+}
+
+func playgroundRunRedisKey(userID int64, id string) string {
+	return playgroundRunRedisKeyPrefix + playgroundRunKey(userID, id)
+}
+
+func playgroundRunRedisImageKeyFor(userID int64, id string, index int) string {
+	return fmt.Sprintf("%s%s%d", playgroundRunRedisKey(userID, id), playgroundRunRedisImageKey, index)
 }
 
 func clonePlaygroundRunForClient(run *PlaygroundRun) *PlaygroundRun {
@@ -780,6 +965,41 @@ func clonePlaygroundRunForClient(run *PlaygroundRun) *PlaygroundRun {
 		out.Raw = append(json.RawMessage(nil), run.Raw...)
 	}
 	return &out
+}
+
+func clonePlaygroundRunForPersistence(run *PlaygroundRun) *PlaygroundRun {
+	if run == nil {
+		return nil
+	}
+	out := *run
+	out.cancel = nil
+	out.Images = append([]PlaygroundRunImage(nil), run.Images...)
+	for index := range out.Images {
+		out.Images[index].data = append([]byte(nil), run.Images[index].data...)
+	}
+	if run.Raw != nil {
+		out.Raw = append(json.RawMessage(nil), run.Raw...)
+	}
+	return &out
+}
+
+func playgroundRunImageAsset(data []byte, mimeType string) PlaygroundRunImageAsset {
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+	return PlaygroundRunImageAsset{Data: append([]byte(nil), data...), ContentType: mimeType}
+}
+
+func cancelPlaygroundRun(run *PlaygroundRun, now time.Time) {
+	if run == nil || isTerminalPlaygroundRunStatus(run.Status) {
+		return
+	}
+	run.Status = PlaygroundRunCanceled
+	run.Error = "request canceled"
+	run.Images = nil
+	run.Raw = nil
+	run.UpdatedAt = now
+	run.CompletedAt = &now
 }
 
 func isTerminalPlaygroundRunStatus(status PlaygroundRunStatus) bool {

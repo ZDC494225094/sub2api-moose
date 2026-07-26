@@ -290,7 +290,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	handlerPaymentHandler := handler.NewPaymentHandler(paymentService, paymentConfigService, couponService, lotteryService)
 	paymentWebhookHandler := handler.NewPaymentWebhookHandler(paymentService, registry)
 	availableChannelHandler := handler.NewAvailableChannelHandler(channelService, apiKeyService, settingService)
-	playgroundRunService := service.NewPlaygroundRunService()
+	playgroundRunService := service.ProvidePlaygroundRunService(redisClient)
 	playgroundHandler := handler.NewPlaygroundHandler(playgroundRunService)
 	imageTaskStore := repository.NewImageTaskStore(redisClient)
 	imageStorage, err := repository.ProvideImageStorage(configConfig)

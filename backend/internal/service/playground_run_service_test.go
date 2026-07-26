@@ -15,7 +15,128 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/alicebob/miniredis/v2"
+	"github.com/redis/go-redis/v9"
 )
+
+func TestPlaygroundRunServicePersistsImageRunAcrossInstances(t *testing.T) {
+	mini := miniredis.RunT(t)
+	redisClient := redis.NewClient(&redis.Options{Addr: mini.Addr()})
+	t.Cleanup(func() { _ = redisClient.Close() })
+
+	completedAt := time.Now()
+	writer := ProvidePlaygroundRunService(redisClient)
+	run := &PlaygroundRun{
+		ID:          "persisted-image",
+		UserID:      7,
+		Mode:        "image",
+		Status:      PlaygroundRunSucceeded,
+		Model:       "gpt-image-2",
+		CreatedAt:   completedAt.Add(-time.Second),
+		UpdatedAt:   completedAt,
+		CompletedAt: &completedAt,
+		Images: []PlaygroundRunImage{{
+			MimeType: "image/png",
+			data:     []byte("image-bytes"),
+		}},
+	}
+	if err := writer.persistRun(run); err != nil {
+		t.Fatalf("persist playground run: %v", err)
+	}
+
+	reader := ProvidePlaygroundRunService(redisClient)
+	stored, found := reader.Get(7, run.ID)
+	if !found {
+		t.Fatal("persisted playground run was not found")
+	}
+	if stored.Status != PlaygroundRunSucceeded {
+		t.Fatalf("status = %q, want %q", stored.Status, PlaygroundRunSucceeded)
+	}
+	if len(stored.Images) != 1 || stored.Images[0].AssetIndex == nil {
+		t.Fatalf("stored image metadata = %#v, want one image asset", stored.Images)
+	}
+
+	asset, found, err := reader.GetImage(7, run.ID, 0)
+	if err != nil {
+		t.Fatalf("get persisted image: %v", err)
+	}
+	if !found {
+		t.Fatal("persisted playground image was not found")
+	}
+	if got := string(asset.Data); got != "image-bytes" {
+		t.Fatalf("asset data = %q, want %q", got, "image-bytes")
+	}
+	if asset.ContentType != "image/png" {
+		t.Fatalf("asset content type = %q, want image/png", asset.ContentType)
+	}
+}
+
+func TestPlaygroundRunServiceStartIsIdempotentAcrossInstances(t *testing.T) {
+	mini := miniredis.RunT(t)
+	redisClient := redis.NewClient(&redis.Options{Addr: mini.Addr()})
+	t.Cleanup(func() { _ = redisClient.Close() })
+
+	var upstreamCalls atomic.Int32
+	firstRequest := make(chan struct{})
+	releaseFirstRequest := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if upstreamCalls.Add(1) == 1 {
+			close(firstRequest)
+			<-releaseFirstRequest
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"b64_json":"aW1hZ2U="}]}`))
+	}))
+	t.Cleanup(server.Close)
+
+	request := PlaygroundRunRequest{
+		ID:           "idempotent-image",
+		Mode:         "image",
+		APIKey:       "sk-test",
+		EndpointBase: "/v1",
+		Model:        "gpt-image-2",
+		Prompt:       "draw a cat",
+		N:            1,
+	}
+	writer := ProvidePlaygroundRunService(redisClient)
+	if _, err := writer.Start(7, request, server.URL); err != nil {
+		t.Fatalf("start initial run: %v", err)
+	}
+	select {
+	case <-firstRequest:
+	case <-time.After(time.Second):
+		t.Fatal("initial run did not reach upstream")
+	}
+
+	reader := ProvidePlaygroundRunService(redisClient)
+	duplicate, err := reader.Start(7, request, server.URL)
+	if err != nil {
+		t.Fatalf("start duplicate run: %v", err)
+	}
+	if duplicate.ID != request.ID {
+		t.Fatalf("duplicate run ID = %q, want %q", duplicate.ID, request.ID)
+	}
+	if got := upstreamCalls.Load(); got != 1 {
+		t.Fatalf("upstream calls before initial completion = %d, want 1", got)
+	}
+
+	close(releaseFirstRequest)
+	deadline := time.Now().Add(time.Second)
+	for {
+		run, found := writer.Get(7, request.ID)
+		if found && run.Status == PlaygroundRunSucceeded {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("initial run did not complete: %#v", run)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if got := upstreamCalls.Load(); got != 1 {
+		t.Fatalf("upstream calls = %d, want 1", got)
+	}
+}
 
 func TestPlaygroundRunServiceExecuteImageUsesGenerationsWithoutUploads(t *testing.T) {
 	var gotPath string

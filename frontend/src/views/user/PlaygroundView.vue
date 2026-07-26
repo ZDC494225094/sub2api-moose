@@ -1658,6 +1658,7 @@ interface PlaygroundMessage {
   pending?: boolean
   progress?: string
   runId?: string
+  runStarted?: boolean
   runKeyId?: string
   runRequest?: PlaygroundRestorableRunRequest
   durationMs?: number
@@ -1981,6 +1982,7 @@ const PLAYGROUND_RUN_NOT_FOUND_MAX_ATTEMPTS = 10
 const PLAYGROUND_IMAGE_FETCH_MAX_ATTEMPTS = 6
 const PLAYGROUND_RUN_RECOVERY_BASE_MS = 5000
 const PLAYGROUND_RUN_RECOVERY_MAX_MS = 60000
+const PLAYGROUND_RUN_RECOVERY_MAX_ATTEMPTS = 3
 const PLAYGROUND_CHAT_IMAGE_MAX_BYTES = 3.5 * 1024 * 1024
 const PLAYGROUND_CHAT_IMAGE_EDGE_STEPS = [1568, 1280, 1024, 768]
 const PLAYGROUND_CHAT_IMAGE_QUALITY_STEPS = [0.82, 0.72, 0.62, 0.52]
@@ -5364,6 +5366,10 @@ function scheduleRunRecovery(thread: PlaygroundThread, message: PlaygroundMessag
   const runId = message.runId
   if (!runId || !playgroundViewMounted || runRecoveryTimers.has(runId)) return
   const attempt = (runRecoveryAttempts.get(runId) || 0) + 1
+  if (attempt > PLAYGROUND_RUN_RECOVERY_MAX_ATTEMPTS) {
+    void finalizeUnrecoverablePlaygroundRun(thread, message)
+    return
+  }
   runRecoveryAttempts.set(runId, attempt)
   const delay = playgroundRetryDelayMs(
     attempt,
@@ -5379,6 +5385,22 @@ function scheduleRunRecovery(thread: PlaygroundThread, message: PlaygroundMessag
     void resumePlaygroundRun(currentThread, currentMessage)
   }, delay)
   runRecoveryTimers.set(runId, timer)
+}
+
+async function finalizeUnrecoverablePlaygroundRun(thread: PlaygroundThread, message: PlaygroundMessage) {
+  clearScheduledRunRecovery(message.runId)
+  message.pending = false
+  message.progress = ''
+  message.error = true
+  message.content = t('playground.requestInterrupted')
+  thread.lastRunError = message.content
+  thread.updatedAt = Date.now()
+  if (message.imageConfig) {
+    await persistCompletedImageMessage(thread, message)
+  } else {
+    await writePlaygroundStateNow()
+  }
+  syncThreadRunning(thread)
 }
 
 async function preserveRecoverableRun(
@@ -5620,22 +5642,31 @@ async function applyCompletedImageRun(
     await persistCompletedImageMessage(thread, message)
     return
   }
-  const images = await hydratePlaygroundRunImages(run, signal)
   clearScheduledRunRecovery(message.runId)
   message.pending = false
   message.progress = ''
   message.error = false
   message.durationMs = run.durationMs
-  message.content = images.length > 0 ? t('playground.imageGenerated') : t('playground.noImageReturned')
-  message.images = images.map((image, index) => ({
-    ...image,
-    storageId: uid(`image-${message.id}-${index}`),
-    mimeType: image.mimeType || (image.url.startsWith('data:')
-      ? image.url.match(/^data:([^;,]+)/)?.[1]
-      : undefined)
-  }))
-  message.raw = undefined
+  message.content = t('playground.imageGenerated')
   thread.updatedAt = Date.now()
+  syncThreadRunning(thread)
+
+  try {
+    const images = await hydratePlaygroundRunImages(run, signal)
+    message.content = images.length > 0 ? t('playground.imageGenerated') : t('playground.noImageReturned')
+    message.images = images.map((image, index) => ({
+      ...image,
+      storageId: uid(`image-${message.id}-${index}`),
+      mimeType: image.mimeType || (image.url.startsWith('data:')
+        ? image.url.match(/^data:([^;,]+)/)?.[1]
+        : undefined)
+    }))
+    message.raw = undefined
+  } catch (error) {
+    message.error = true
+    message.content = (error as Error)?.message || t('playground.noImageReturned')
+    thread.lastRunError = message.content
+  }
   await persistCompletedImageMessage(thread, message)
 }
 
@@ -5648,8 +5679,15 @@ async function resumePlaygroundRun(thread: PlaygroundThread, message: Playground
   try {
     const request = message.runRequest
     const apiKey = apiKeyForRunMessage(message)
-    if (request && apiKey) {
+    if (request && apiKey && !message.runStarted) {
       await ensureBackendPlaygroundRun({ ...request, apiKey } as PlaygroundRunRequest, controller)
+      message.runStarted = true
+      thread.updatedAt = Date.now()
+      if (message.imageConfig) {
+        await persistCompletedImageMessage(thread, message)
+      } else {
+        await writePlaygroundStateNow()
+      }
     }
     const finalRun = await pollPlaygroundRun(message.runId, async (run) => {
       if (run.mode === 'chat' && typeof run.content === 'string') {
@@ -5961,6 +5999,8 @@ async function runStreamingChat(
 
   try {
     await ensureBackendPlaygroundRun(runRequest, controller)
+    assistantMessage.runStarted = true
+    await writePlaygroundStateNow()
     const finalRun = await pollPlaygroundRun(runId, async (run) => {
       const shouldFollow = activeThreadId.value === thread.id && isMessageScrollerNearBottom()
       if (typeof run.content === 'string') {
@@ -6043,6 +6083,8 @@ async function runImageGeneration(
 
   try {
     await ensureBackendPlaygroundRun(runRequest, controller)
+    assistantMessage.runStarted = true
+    await writePlaygroundStateNow()
     const response = await pollPlaygroundRun(runId, async (run) => {
       assistantMessage.progress = run.status === 'queued' ? t('playground.waiting') : t('playground.generatingImages')
       thread.updatedAt = Date.now()
@@ -6051,27 +6093,10 @@ async function runImageGeneration(
     if (response.status !== 'succeeded') {
       throw buildRunError(response)
     }
-
-    assistantMessage.durationMs = response.durationMs
-    const images = await hydratePlaygroundRunImages(response, controller.signal)
-    clearScheduledRunRecovery(assistantMessage.runId)
-    assistantMessage.pending = false
-    assistantMessage.progress = ''
-    assistantMessage.error = false
-    assistantMessage.content = images.length > 0 ? t('playground.imageGenerated') : t('playground.noImageReturned')
-    assistantMessage.images = images.map((image, index) => ({
-      ...image,
-      storageId: uid(`image-${assistantMessage.id}-${index}`),
-      mimeType: image.mimeType || (image.url.startsWith('data:')
-        ? image.url.match(/^data:([^;,]+)/)?.[1]
-        : undefined)
-    }))
-    assistantMessage.raw = undefined
-    thread.updatedAt = Date.now()
+    await applyCompletedImageRun(thread, assistantMessage, response, controller.signal)
     if (activeThreadId.value !== thread.id) {
       thread.unreadCount = (thread.unreadCount || 0) + 1
     }
-    await persistCompletedImageMessage(thread, assistantMessage)
   } catch (error) {
     if (controller.signal.aborted) throw error
     if (isRecoverablePlaygroundError(error)) {
