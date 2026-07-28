@@ -27,7 +27,10 @@ import (
 const (
 	playgroundRunRedisKeyPrefix = "playground:run:"
 	playgroundRunRedisImageKey  = ":image:"
+	playgroundRunRedisVideoKey  = ":video:"
 	playgroundRunRedisTimeout   = 3 * time.Second
+	playgroundImageMaxBytes     = 128 << 20
+	playgroundVideoMaxBytes     = 512 << 20
 )
 
 type PlaygroundRunStatus string
@@ -61,6 +64,10 @@ type PlaygroundRunRequest struct {
 	Background       string                     `json:"background"`
 	OutputFormat     string                     `json:"outputFormat"`
 	Images           []PlaygroundRunImageInput  `json:"images"`
+	Duration         int                        `json:"duration"`
+	FPS              int                        `json:"fps"`
+	AspectRatio      string                     `json:"aspectRatio"`
+	Resolution       string                     `json:"resolution"`
 }
 
 type PlaygroundRunChatMessage struct {
@@ -85,10 +92,24 @@ type PlaygroundRunImage struct {
 	data []byte
 }
 
+type PlaygroundRunVideo struct {
+	URL          string `json:"url,omitempty"`
+	ThumbnailURL string `json:"thumbnailUrl,omitempty"`
+	Duration     *int   `json:"duration,omitempty"`
+	Width        int    `json:"width,omitempty"`
+	Height       int    `json:"height,omitempty"`
+	MimeType     string `json:"mimeType,omitempty"`
+	AssetIndex   *int   `json:"assetIndex,omitempty"`
+
+	data []byte
+}
+
 type PlaygroundRunImageAsset struct {
 	Data        []byte
 	ContentType string
 }
+
+type PlaygroundRunVideoAsset = PlaygroundRunImageAsset
 
 type playgroundImageUpstreamResponse struct {
 	Data []struct {
@@ -106,6 +127,7 @@ type PlaygroundRun struct {
 	Model       string               `json:"model,omitempty"`
 	Content     string               `json:"content,omitempty"`
 	Images      []PlaygroundRunImage `json:"images,omitempty"`
+	Videos      []PlaygroundRunVideo `json:"videos,omitempty"`
 	Error       string               `json:"error,omitempty"`
 	Raw         json.RawMessage      `json:"raw,omitempty"`
 	CreatedAt   time.Time            `json:"createdAt"`
@@ -117,11 +139,12 @@ type PlaygroundRun struct {
 }
 
 type PlaygroundRunService struct {
-	mu         sync.RWMutex
-	runs       map[string]*PlaygroundRun
-	httpClient *http.Client
-	rdb        *redis.Client
-	ttl        time.Duration
+	mu                sync.RWMutex
+	runs              map[string]*PlaygroundRun
+	httpClient        *http.Client
+	rdb               *redis.Client
+	ttl               time.Duration
+	videoPollInterval time.Duration
 }
 
 func NewPlaygroundRunService() *PlaygroundRunService {
@@ -140,8 +163,9 @@ func newPlaygroundRunService(rdb *redis.Client) *PlaygroundRunService {
 		httpClient: &http.Client{
 			Timeout: 0,
 		},
-		rdb: rdb,
-		ttl: 6 * time.Hour,
+		rdb:               rdb,
+		ttl:               6 * time.Hour,
+		videoPollInterval: 2 * time.Second,
 	}
 }
 
@@ -160,7 +184,7 @@ func (s *PlaygroundRunService) Start(userID int64, request PlaygroundRunRequest,
 		return nil, errors.New("run id is too long")
 	}
 	request.Mode = strings.TrimSpace(request.Mode)
-	if request.Mode != "chat" && request.Mode != "image" {
+	if request.Mode != "chat" && request.Mode != "image" && request.Mode != "video" && request.Mode != "audio" {
 		return nil, errors.New("unsupported playground run mode")
 	}
 	request.APIKey = strings.TrimSpace(request.APIKey)
@@ -285,6 +309,42 @@ func (s *PlaygroundRunService) GetImage(userID int64, id string, index int) (Pla
 	return PlaygroundRunImageAsset{}, true, errors.New("playground image is not available as a local asset")
 }
 
+func (s *PlaygroundRunService) GetVideo(userID int64, id string, index int) (PlaygroundRunVideoAsset, bool, error) {
+	if s == nil || userID <= 0 || index < 0 {
+		return PlaygroundRunVideoAsset{}, false, nil
+	}
+	id = strings.TrimSpace(id)
+	key := playgroundRunKey(userID, id)
+	s.mu.RLock()
+	run := s.runs[key]
+	var video PlaygroundRunVideo
+	found := false
+	if run != nil && run.Status == PlaygroundRunSucceeded && index < len(run.Videos) {
+		video = run.Videos[index]
+		video.data = append([]byte(nil), video.data...)
+		found = true
+	}
+	s.mu.RUnlock()
+	if !found {
+		persistedRun, persisted, err := s.loadPersistentRun(userID, id)
+		if err != nil {
+			return PlaygroundRunVideoAsset{}, false, err
+		}
+		if !persisted || persistedRun.Status != PlaygroundRunSucceeded || index >= len(persistedRun.Videos) {
+			return PlaygroundRunVideoAsset{}, false, nil
+		}
+		video = persistedRun.Videos[index]
+	}
+	if len(video.data) > 0 {
+		asset, err := playgroundRunVideoAsset(video.data, video.MimeType)
+		return asset, true, err
+	}
+	if asset, persisted, err := s.loadPersistentVideo(userID, id, index, video.MimeType); err != nil || persisted {
+		return asset, persisted, err
+	}
+	return PlaygroundRunVideoAsset{}, true, errors.New("playground video is not available as a local asset")
+}
+
 func (s *PlaygroundRunService) Cancel(userID int64, id string) (*PlaygroundRun, bool) {
 	if s == nil || userID <= 0 {
 		return nil, false
@@ -298,6 +358,7 @@ func (s *PlaygroundRunService) Cancel(userID int64, id string) (*PlaygroundRun, 
 			run.cancel()
 		}
 		imageCount := len(run.Images)
+		videoCount := len(run.Videos)
 		canceled := !isTerminalPlaygroundRunStatus(run.Status)
 		cancelPlaygroundRun(run, time.Now())
 		snapshot := clonePlaygroundRunForPersistence(run)
@@ -308,6 +369,7 @@ func (s *PlaygroundRunService) Cancel(userID int64, id string) (*PlaygroundRun, 
 		}
 		if canceled {
 			s.deletePersistentImages(userID, id, imageCount)
+			s.deletePersistentVideos(userID, id, videoCount)
 		}
 		return out, true
 	}
@@ -318,6 +380,7 @@ func (s *PlaygroundRunService) Cancel(userID int64, id string) (*PlaygroundRun, 
 		return nil, false
 	}
 	imageCount := len(persistedRun.Images)
+	videoCount := len(persistedRun.Videos)
 	canceled := !isTerminalPlaygroundRunStatus(persistedRun.Status)
 	cancelPlaygroundRun(persistedRun, time.Now())
 	if err := s.persistRun(persistedRun); err != nil {
@@ -325,6 +388,7 @@ func (s *PlaygroundRunService) Cancel(userID int64, id string) (*PlaygroundRun, 
 	}
 	if canceled {
 		s.deletePersistentImages(userID, id, imageCount)
+		s.deletePersistentVideos(userID, id, videoCount)
 	}
 	return clonePlaygroundRunForClient(persistedRun), true
 }
@@ -341,6 +405,8 @@ func (s *PlaygroundRunService) execute(ctx context.Context, key string, request 
 	switch request.Mode {
 	case "image":
 		raw, err = s.executeImage(ctx, key, request, baseURL, started)
+	case "video":
+		raw, err = s.executeVideo(ctx, key, request, baseURL, started)
 	default:
 		raw, err = s.executeChat(ctx, key, request, baseURL)
 	}
@@ -369,7 +435,7 @@ func (s *PlaygroundRunService) execute(ctx context.Context, key string, request 
 			return
 		}
 		run.Status = PlaygroundRunSucceeded
-		if request.Mode == "image" {
+		if request.Mode == "image" || request.Mode == "video" {
 			run.Raw = nil
 		} else {
 			run.Raw = raw
@@ -510,9 +576,569 @@ func (s *PlaygroundRunService) executeImage(ctx context.Context, key string, req
 	if err != nil {
 		return nil, err
 	}
-	return s.executeParallelImageRequests(ctx, key, started, imageCount, func(requestCtx context.Context) ([]PlaygroundRunImage, error) {
+	return s.executeParallelImageRequests(ctx, key, request, baseURL, started, imageCount, func(requestCtx context.Context) ([]PlaygroundRunImage, error) {
 		return s.executeImageRequest(requestCtx, endpointURL, request.APIKey, "application/json", bytes.NewReader(responseBody), outputFormat)
 	})
+}
+
+func (s *PlaygroundRunService) executeVideo(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string, started time.Time) (json.RawMessage, error) {
+	geminiVideo := isGeminiPlaygroundVideoRequest(request)
+	payload := playgroundVideoGenerationPayload(request, geminiVideo)
+	endpointBase := request.EndpointBase
+	endpoint := "/v1/videos/generations"
+	if geminiVideo {
+		endpointBase = "/v1beta"
+		if strings.ContainsAny(request.Model, "/\\") {
+			return nil, errors.New("invalid Gemini video model")
+		}
+		endpoint = "/v1beta/models/" + url.PathEscape(request.Model) + ":predictLongRunning"
+	}
+
+	submitURL, err := buildPlaygroundRunEndpointURL(baseURL, endpointBase, endpoint)
+	if err != nil {
+		return nil, err
+	}
+	result, err := s.executePlaygroundVideoJSON(ctx, http.MethodPost, submitURL, request.APIKey, payload)
+	if err != nil {
+		return nil, err
+	}
+	if videos := extractPlaygroundVideosFromAny(result); len(videos) > 0 {
+		return nil, s.commitPlaygroundVideos(ctx, key, request, baseURL, started, videos)
+	}
+
+	taskID := playgroundVideoTaskID(result, geminiVideo)
+	if taskID == "" {
+		return nil, errors.New("video provider returned neither a video nor a task id")
+	}
+	encodedOperation := ""
+	statusEndpointBase := request.EndpointBase
+	statusEndpoint := "/v1/videos/" + url.PathEscape(taskID)
+	if geminiVideo {
+		encodedOperation = base64.RawURLEncoding.EncodeToString([]byte(taskID))
+		statusEndpointBase = "/v1beta"
+		statusEndpoint = "/v1beta/video-operations/" + encodedOperation
+	}
+	statusURL, err := buildPlaygroundRunEndpointURL(baseURL, statusEndpointBase, statusEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	pollInterval := s.videoPollInterval
+	if pollInterval <= 0 {
+		pollInterval = 2 * time.Second
+	}
+	for {
+		statusPayload, err := s.executePlaygroundVideoJSON(ctx, http.MethodGet, statusURL, request.APIKey, nil)
+		if err != nil {
+			return nil, err
+		}
+		state, taskErr := playgroundVideoTaskState(statusPayload, geminiVideo)
+		switch state {
+		case playgroundVideoTaskSucceeded:
+			videos := extractPlaygroundVideosFromAny(statusPayload)
+			if geminiVideo {
+				videos = []PlaygroundRunVideo{{
+					URL:      "/v1beta/video-operations/" + encodedOperation + "/content",
+					MimeType: "video/mp4",
+				}}
+			} else if len(videos) == 0 {
+				videos = []PlaygroundRunVideo{{
+					URL:      "/v1/videos/" + url.PathEscape(taskID) + "/content",
+					MimeType: "video/mp4",
+				}}
+			}
+			if len(videos) == 0 {
+				return nil, errors.New("video task completed without a video output")
+			}
+			return nil, s.commitPlaygroundVideos(ctx, key, request, baseURL, started, videos)
+		case playgroundVideoTaskFailed:
+			if taskErr == "" {
+				taskErr = "video generation failed"
+			}
+			return nil, errors.New(taskErr)
+		}
+
+		s.update(key, func(run *PlaygroundRun) {
+			if !isTerminalPlaygroundRunStatus(run.Status) {
+				run.UpdatedAt = time.Now()
+			}
+		})
+		timer := time.NewTimer(pollInterval)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
+type playgroundVideoTaskStatus int
+
+const (
+	playgroundVideoTaskPending playgroundVideoTaskStatus = iota
+	playgroundVideoTaskSucceeded
+	playgroundVideoTaskFailed
+)
+
+func isGeminiPlaygroundVideoRequest(request PlaygroundRunRequest) bool {
+	platform := strings.ToLower(strings.TrimSpace(request.Platform))
+	model := strings.ToLower(strings.TrimSpace(request.Model))
+	return platform == PlatformGemini || strings.HasPrefix(model, "veo-") || strings.Contains(model, "/veo-")
+}
+
+func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo bool) map[string]any {
+	if geminiVideo {
+		parameters := map[string]any{}
+		if request.Duration > 0 {
+			parameters["durationSeconds"] = request.Duration
+		}
+		if aspectRatio := strings.TrimSpace(request.AspectRatio); aspectRatio != "" {
+			parameters["aspectRatio"] = aspectRatio
+		}
+		if resolution := strings.TrimSpace(request.Resolution); resolution != "" {
+			parameters["resolution"] = resolution
+		}
+		if request.N > 0 {
+			parameters["sampleCount"] = request.N
+		}
+		return map[string]any{
+			"instances":  []map[string]any{{"prompt": request.Prompt}},
+			"parameters": parameters,
+		}
+	}
+	payload := map[string]any{"model": request.Model, "prompt": request.Prompt, "n": 1}
+	if request.Duration > 0 {
+		payload["duration"] = request.Duration
+	}
+	if request.FPS > 0 {
+		payload["fps"] = request.FPS
+	}
+	if aspectRatio := strings.TrimSpace(request.AspectRatio); aspectRatio != "" {
+		payload["aspect_ratio"] = aspectRatio
+	}
+	if resolution := strings.TrimSpace(request.Resolution); resolution != "" {
+		payload["resolution"] = resolution
+	}
+	return payload
+}
+
+func (s *PlaygroundRunService) executePlaygroundVideoJSON(ctx context.Context, method, endpointURL, apiKey string, payload any) (any, error) {
+	var body io.Reader
+	if payload != nil {
+		encoded, err := json.Marshal(payload)
+		if err != nil {
+			return nil, err
+		}
+		body = bytes.NewReader(encoded)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, endpointURL, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, parsePlaygroundUpstreamError(resp)
+	}
+	limited := &io.LimitedReader{R: resp.Body, N: 8<<20 + 1}
+	decoder := json.NewDecoder(limited)
+	decoder.UseNumber()
+	var result any
+	if err := decoder.Decode(&result); err != nil {
+		return nil, err
+	}
+	if limited.N <= 0 {
+		return nil, errors.New("video provider response exceeds 8 MiB")
+	}
+	return result, nil
+}
+
+func playgroundVideoTaskID(payload any, geminiVideo bool) string {
+	if geminiVideo {
+		return playgroundStringAtPath(payload, "name")
+	}
+	for _, path := range []string{"request_id", "id", "task_id", "data.request_id", "data.id", "data.task_id", "video.request_id", "video.id"} {
+		if value := playgroundStringAtPath(payload, path); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func playgroundVideoTaskState(payload any, geminiVideo bool) (playgroundVideoTaskStatus, string) {
+	if geminiVideo {
+		if message := playgroundVideoErrorMessage(payload); message != "" && playgroundBoolAtPath(payload, "done") {
+			return playgroundVideoTaskFailed, message
+		}
+		if playgroundBoolAtPath(payload, "done") {
+			return playgroundVideoTaskSucceeded, ""
+		}
+		return playgroundVideoTaskPending, ""
+	}
+	status := ""
+	for _, path := range []string{"status", "state", "data.status", "data.state"} {
+		if status = strings.ToLower(playgroundStringAtPath(payload, path)); status != "" {
+			break
+		}
+	}
+	switch status {
+	case "completed", "complete", "succeeded", "success", "done", "finished":
+		return playgroundVideoTaskSucceeded, ""
+	case "failed", "failure", "error", "cancelled", "canceled", "expired":
+		return playgroundVideoTaskFailed, playgroundVideoErrorMessage(payload)
+	}
+	if len(extractPlaygroundVideosFromAny(payload)) > 0 {
+		return playgroundVideoTaskSucceeded, ""
+	}
+	return playgroundVideoTaskPending, ""
+}
+
+func playgroundVideoErrorMessage(payload any) string {
+	for _, path := range []string{"error.message", "error", "message", "data.error.message", "data.error", "failure_reason"} {
+		if value := playgroundStringAtPath(payload, path); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func playgroundStringAtPath(payload any, path string) string {
+	value := playgroundValueAtPath(payload, path)
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed)
+	case json.Number:
+		return typed.String()
+	default:
+		return ""
+	}
+}
+
+func playgroundBoolAtPath(payload any, path string) bool {
+	value, _ := playgroundValueAtPath(payload, path).(bool)
+	return value
+}
+
+func playgroundValueAtPath(payload any, path string) any {
+	current := payload
+	for _, segment := range strings.Split(path, ".") {
+		switch typed := current.(type) {
+		case map[string]any:
+			current = typed[segment]
+		case []any:
+			index := -1
+			if _, err := fmt.Sscanf(segment, "%d", &index); err != nil || index < 0 || index >= len(typed) {
+				return nil
+			}
+			current = typed[index]
+		default:
+			return nil
+		}
+	}
+	return current
+}
+
+func extractPlaygroundVideosFromAny(payload any) []PlaygroundRunVideo {
+	videos := make([]PlaygroundRunVideo, 0, 1)
+	seen := make(map[string]struct{})
+	var walk func(any)
+	walk = func(value any) {
+		switch typed := value.(type) {
+		case []any:
+			for _, item := range typed {
+				walk(item)
+			}
+		case map[string]any:
+			videoURL := firstPlaygroundString(typed, "video_url", "url", "uri")
+			if videoURL == "" {
+				if encoded := firstPlaygroundString(typed, "b64", "b64_json"); encoded != "" {
+					videoURL = "data:video/mp4;base64," + encoded
+				}
+			}
+			if videoURL != "" {
+				if _, duplicate := seen[videoURL]; !duplicate {
+					seen[videoURL] = struct{}{}
+					video := PlaygroundRunVideo{
+						URL:          videoURL,
+						ThumbnailURL: firstPlaygroundString(typed, "thumbnail_url", "thumbnailUrl", "cover_url"),
+						Width:        playgroundAnyInt(typed["width"]),
+						Height:       playgroundAnyInt(typed["height"]),
+						MimeType:     firstPlaygroundString(typed, "mime_type", "mimeType"),
+					}
+					if duration := playgroundAnyInt(typed["duration"]); duration > 0 {
+						video.Duration = &duration
+					}
+					if video.MimeType == "" {
+						video.MimeType = "video/mp4"
+					}
+					videos = append(videos, video)
+				}
+			}
+			for key, child := range typed {
+				lowerKey := strings.ToLower(key)
+				if key == "url" || key == "uri" || key == "video_url" || key == "thumbnail_url" || key == "cover_url" || key == "b64" || key == "b64_json" || strings.Contains(lowerKey, "thumbnail") || strings.Contains(lowerKey, "cover") {
+					continue
+				}
+				walk(child)
+			}
+		}
+	}
+	walk(payload)
+	return videos
+}
+
+func firstPlaygroundString(values map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if value, ok := values[key].(string); ok && strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func playgroundAnyInt(value any) int {
+	switch typed := value.(type) {
+	case int:
+		return typed
+	case float64:
+		return int(typed)
+	case json.Number:
+		parsed, _ := typed.Int64()
+		return int(parsed)
+	default:
+		return 0
+	}
+}
+
+func (s *PlaygroundRunService) materializePlaygroundImages(ctx context.Context, request PlaygroundRunRequest, baseURL string, images []PlaygroundRunImage) error {
+	for index := range images {
+		if len(images[index].data) > 0 {
+			mimeType := playgroundImageContentType(images[index].data, images[index].MimeType)
+			if !isPlaygroundImageContentType(mimeType) {
+				return errors.New("image provider asset did not contain a supported image")
+			}
+			images[index].MimeType = mimeType
+			images[index].URL = ""
+			continue
+		}
+		rawURL := strings.TrimSpace(images[index].URL)
+		if rawURL == "" {
+			return errors.New("image provider returned an empty asset URL")
+		}
+		var (
+			data     []byte
+			mimeType string
+			err      error
+		)
+		switch {
+		case strings.HasPrefix(strings.ToLower(rawURL), "data:image/"):
+			data, mimeType, err = decodePlaygroundImageDataURL(rawURL)
+		case strings.HasPrefix(rawURL, "/"):
+			var assetURL string
+			assetURL, err = playgroundLocalAssetURL(baseURL, rawURL)
+			if err == nil {
+				data, mimeType, err = s.downloadPlaygroundImage(ctx, assetURL, request.APIKey)
+			}
+		default:
+			var assetURL string
+			assetURL, err = playgroundRemoteAssetURL(rawURL)
+			if err == nil {
+				// Provider-controlled CDN URLs must never receive the user's Sub2API key.
+				data, mimeType, err = s.downloadPlaygroundImage(ctx, assetURL, "")
+			}
+		}
+		if err != nil {
+			return err
+		}
+		mimeType = playgroundImageContentType(data, mimeType)
+		if !isPlaygroundImageContentType(mimeType) {
+			return errors.New("image provider asset did not contain a supported image")
+		}
+		images[index].data = data
+		images[index].MimeType = mimeType
+		images[index].URL = ""
+	}
+	return nil
+}
+
+func (s *PlaygroundRunService) commitPlaygroundVideos(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string, started time.Time, videos []PlaygroundRunVideo) error {
+	for index := range videos {
+		rawURL := strings.TrimSpace(videos[index].URL)
+		if rawURL == "" {
+			return errors.New("video provider returned an empty asset URL")
+		}
+		var (
+			data     []byte
+			mimeType string
+			err      error
+		)
+		switch {
+		case strings.HasPrefix(strings.ToLower(rawURL), "data:video/"):
+			data, mimeType, err = decodePlaygroundVideoDataURL(rawURL)
+		case strings.HasPrefix(rawURL, "/"):
+			var assetURL string
+			assetURL, err = playgroundLocalAssetURL(baseURL, rawURL)
+			if err == nil {
+				data, mimeType, err = s.downloadPlaygroundVideo(ctx, assetURL, request.APIKey)
+			}
+		default:
+			var assetURL string
+			assetURL, err = playgroundRemoteAssetURL(rawURL)
+			if err == nil {
+				// Absolute asset URLs are provider-controlled. Never forward the user's Sub2API key.
+				data, mimeType, err = s.downloadPlaygroundVideo(ctx, assetURL, "")
+			}
+		}
+		if err != nil {
+			return err
+		}
+		videos[index].data = data
+		videos[index].MimeType = mimeType
+		videos[index].URL = ""
+		videos[index].ThumbnailURL = ""
+	}
+	updated := false
+	s.update(key, func(run *PlaygroundRun) {
+		if isTerminalPlaygroundRunStatus(run.Status) {
+			return
+		}
+		run.Videos = videos
+		run.DurationMs = time.Since(started).Milliseconds()
+		run.UpdatedAt = time.Now()
+		updated = true
+	})
+	if !updated {
+		return context.Canceled
+	}
+	return nil
+}
+
+func playgroundRemoteAssetURL(rawURL string) (string, error) {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || parsed.Host == "" {
+		return "", errors.New("invalid remote playground asset URL")
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return "", errors.New("remote playground asset URL must use HTTP or HTTPS")
+	}
+	if parsed.User != nil || parsed.Fragment != "" {
+		return "", errors.New("remote playground asset URL contains unsupported components")
+	}
+	return parsed.String(), nil
+}
+
+func playgroundLocalAssetURL(baseURL, assetPath string) (string, error) {
+	root, err := url.Parse(strings.TrimRight(strings.TrimSpace(baseURL), "/"))
+	if err != nil || root.Scheme == "" || root.Host == "" {
+		return "", errors.New("invalid playground request base url")
+	}
+	asset, err := url.Parse(strings.TrimSpace(assetPath))
+	if err != nil || asset.IsAbs() || !strings.HasPrefix(asset.Path, "/") {
+		return "", errors.New("invalid local playground video URL")
+	}
+	root.Path = asset.Path
+	root.RawPath = asset.RawPath
+	root.RawQuery = asset.RawQuery
+	return root.String(), nil
+}
+
+func (s *PlaygroundRunService) downloadPlaygroundVideo(ctx context.Context, assetURL, apiKey string) ([]byte, string, error) {
+	data, mimeType, err := s.downloadPlaygroundAsset(ctx, assetURL, apiKey, playgroundVideoMaxBytes, "video")
+	if err != nil {
+		return nil, "", err
+	}
+	mimeType = playgroundVideoContentType(data, mimeType)
+	if !isPlaygroundVideoContentType(mimeType) {
+		return nil, "", errors.New("video provider asset did not contain a supported video")
+	}
+	return data, mimeType, nil
+}
+
+func (s *PlaygroundRunService) downloadPlaygroundImage(ctx context.Context, assetURL, apiKey string) ([]byte, string, error) {
+	return s.downloadPlaygroundAsset(ctx, assetURL, apiKey, playgroundImageMaxBytes, "image")
+}
+
+func (s *PlaygroundRunService) downloadPlaygroundAsset(ctx context.Context, assetURL, apiKey string, maxBytes int64, assetKind string) ([]byte, string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, assetURL, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	if apiKey = strings.TrimSpace(apiKey); apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, "", parsePlaygroundUpstreamError(resp)
+	}
+	limited := &io.LimitedReader{R: resp.Body, N: maxBytes + 1}
+	data, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, "", err
+	}
+	if limited.N <= 0 {
+		return nil, "", fmt.Errorf("playground %s exceeds %d MiB", assetKind, maxBytes>>20)
+	}
+	if len(data) == 0 {
+		return nil, "", fmt.Errorf("playground %s is empty", assetKind)
+	}
+	mimeType := strings.TrimSpace(strings.Split(resp.Header.Get("Content-Type"), ";")[0])
+	return data, mimeType, nil
+}
+
+func playgroundVideoContentType(data []byte, fallback string) string {
+	detected := strings.ToLower(strings.TrimSpace(strings.Split(http.DetectContentType(data), ";")[0]))
+	if isPlaygroundVideoContentType(detected) {
+		return detected
+	}
+	if strings.HasPrefix(detected, "application/json") || detected == "text/html" {
+		return "application/octet-stream"
+	}
+	fallback = strings.ToLower(strings.TrimSpace(strings.Split(fallback, ";")[0]))
+	if isPlaygroundVideoContentType(fallback) {
+		return fallback
+	}
+	return "application/octet-stream"
+}
+
+func isPlaygroundVideoContentType(value string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(value)), "video/")
+}
+
+func decodePlaygroundVideoDataURL(dataURL string) ([]byte, string, error) {
+	value := strings.TrimSpace(dataURL)
+	lower := strings.ToLower(value)
+	const marker = ";base64,"
+	comma := strings.Index(lower, marker)
+	if !strings.HasPrefix(lower, "data:video/") || comma < 0 {
+		return nil, "", errors.New("video result must be a base64 video data URL")
+	}
+	mimeType := strings.TrimSpace(value[len("data:"):comma])
+	data, err := base64.StdEncoding.DecodeString(value[comma+len(marker):])
+	if err != nil {
+		return nil, "", errors.New("invalid base64 video data")
+	}
+	if len(data) == 0 {
+		return nil, "", errors.New("playground video is empty")
+	}
+	if len(data) > playgroundVideoMaxBytes {
+		return nil, "", errors.New("playground video exceeds 512 MiB")
+	}
+	return data, mimeType, nil
 }
 
 func (s *PlaygroundRunService) executeGiteeZImage(
@@ -553,7 +1179,7 @@ func (s *PlaygroundRunService) executeGiteeZImage(
 	if err != nil {
 		return nil, err
 	}
-	return s.executeParallelImageRequests(ctx, key, started, imageCount, func(requestCtx context.Context) ([]PlaygroundRunImage, error) {
+	return s.executeParallelImageRequests(ctx, key, request, baseURL, started, imageCount, func(requestCtx context.Context) ([]PlaygroundRunImage, error) {
 		return s.executeImageRequest(requestCtx, endpointURL, request.APIKey, "application/json", bytes.NewReader(responseBody), outputFormat)
 	})
 }
@@ -602,7 +1228,7 @@ func (s *PlaygroundRunService) executeGeminiNativeImage(ctx context.Context, key
 	if err != nil {
 		return nil, err
 	}
-	return s.executeParallelImageRequests(ctx, key, started, imageCount, func(requestCtx context.Context) ([]PlaygroundRunImage, error) {
+	return s.executeParallelImageRequests(ctx, key, request, baseURL, started, imageCount, func(requestCtx context.Context) ([]PlaygroundRunImage, error) {
 		return s.executeGeminiImageRequest(requestCtx, endpointURL, request.APIKey, responseBody, outputFormat)
 	})
 }
@@ -699,7 +1325,7 @@ func (s *PlaygroundRunService) executeImageEdit(ctx context.Context, key string,
 		return nil, err
 	}
 	bodyBytes := append([]byte(nil), body.Bytes()...)
-	return s.executeParallelImageRequests(ctx, key, started, imageCount, func(requestCtx context.Context) ([]PlaygroundRunImage, error) {
+	return s.executeParallelImageRequests(ctx, key, request, baseURL, started, imageCount, func(requestCtx context.Context) ([]PlaygroundRunImage, error) {
 		return s.executeImageRequest(requestCtx, endpointURL, request.APIKey, contentType, bytes.NewReader(bodyBytes), outputFormat)
 	})
 }
@@ -711,6 +1337,8 @@ type playgroundImageRequestResult struct {
 func (s *PlaygroundRunService) executeParallelImageRequests(
 	ctx context.Context,
 	key string,
+	request PlaygroundRunRequest,
+	baseURL string,
 	started time.Time,
 	imageCount int,
 	execute func(context.Context) ([]PlaygroundRunImage, error),
@@ -746,6 +1374,9 @@ func (s *PlaygroundRunService) executeParallelImageRequests(
 	allImages := make([]PlaygroundRunImage, 0, imageCount)
 	for _, result := range results {
 		allImages = append(allImages, result.images...)
+	}
+	if err := s.materializePlaygroundImages(requestCtx, request, baseURL, allImages); err != nil {
+		return nil, err
 	}
 
 	updated := false
@@ -862,6 +1493,12 @@ func (s *PlaygroundRunService) persistRun(run *PlaygroundRun) error {
 		}
 		pipe.Set(ctx, playgroundRunRedisImageKeyFor(run.UserID, run.ID, index), image.data, s.ttl)
 	}
+	for index, video := range run.Videos {
+		if len(video.data) == 0 {
+			continue
+		}
+		pipe.Set(ctx, playgroundRunRedisVideoKeyFor(run.UserID, run.ID, index), video.data, s.ttl)
+	}
 	_, err = pipe.Exec(ctx)
 	return err
 }
@@ -903,6 +1540,23 @@ func (s *PlaygroundRunService) loadPersistentImage(userID int64, id string, inde
 	return playgroundRunImageAsset(data, mimeType), true, nil
 }
 
+func (s *PlaygroundRunService) loadPersistentVideo(userID int64, id string, index int, mimeType string) (PlaygroundRunVideoAsset, bool, error) {
+	if s.rdb == nil || userID <= 0 || index < 0 {
+		return PlaygroundRunVideoAsset{}, false, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), playgroundRunRedisTimeout)
+	defer cancel()
+	data, err := s.rdb.Get(ctx, playgroundRunRedisVideoKeyFor(userID, id, index)).Bytes()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return PlaygroundRunVideoAsset{}, false, nil
+		}
+		return PlaygroundRunVideoAsset{}, false, err
+	}
+	asset, err := playgroundRunVideoAsset(data, mimeType)
+	return asset, true, err
+}
+
 func (s *PlaygroundRunService) deletePersistentImages(userID int64, id string, imageCount int) {
 	if s.rdb == nil || imageCount <= 0 {
 		return
@@ -915,6 +1569,21 @@ func (s *PlaygroundRunService) deletePersistentImages(userID int64, id string, i
 	defer cancel()
 	if err := s.rdb.Del(ctx, keys...).Err(); err != nil {
 		log.Printf("playground run image cleanup failed for user %d run %s: %v", userID, id, err)
+	}
+}
+
+func (s *PlaygroundRunService) deletePersistentVideos(userID int64, id string, videoCount int) {
+	if s.rdb == nil || videoCount <= 0 {
+		return
+	}
+	keys := make([]string, 0, videoCount)
+	for index := 0; index < videoCount; index++ {
+		keys = append(keys, playgroundRunRedisVideoKeyFor(userID, id, index))
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), playgroundRunRedisTimeout)
+	defer cancel()
+	if err := s.rdb.Del(ctx, keys...).Err(); err != nil {
+		log.Printf("playground run video cleanup failed for user %d run %s: %v", userID, id, err)
 	}
 }
 
@@ -944,6 +1613,10 @@ func playgroundRunRedisImageKeyFor(userID int64, id string, index int) string {
 	return fmt.Sprintf("%s%s%d", playgroundRunRedisKey(userID, id), playgroundRunRedisImageKey, index)
 }
 
+func playgroundRunRedisVideoKeyFor(userID int64, id string, index int) string {
+	return fmt.Sprintf("%s%s%d", playgroundRunRedisKey(userID, id), playgroundRunRedisVideoKey, index)
+}
+
 func clonePlaygroundRunForClient(run *PlaygroundRun) *PlaygroundRun {
 	if run == nil {
 		return nil
@@ -959,7 +1632,16 @@ func clonePlaygroundRunForClient(run *PlaygroundRun) *PlaygroundRun {
 		}
 		out.Images[index].data = nil
 	}
-	if run.Mode == "image" {
+	out.Videos = append([]PlaygroundRunVideo(nil), run.Videos...)
+	for index := range out.Videos {
+		if len(run.Videos[index].data) > 0 {
+			assetIndex := index
+			out.Videos[index].AssetIndex = &assetIndex
+			out.Videos[index].URL = ""
+		}
+		out.Videos[index].data = nil
+	}
+	if run.Mode == "image" || run.Mode == "video" {
 		out.Raw = nil
 	} else if run.Raw != nil {
 		out.Raw = append(json.RawMessage(nil), run.Raw...)
@@ -977,6 +1659,10 @@ func clonePlaygroundRunForPersistence(run *PlaygroundRun) *PlaygroundRun {
 	for index := range out.Images {
 		out.Images[index].data = append([]byte(nil), run.Images[index].data...)
 	}
+	out.Videos = append([]PlaygroundRunVideo(nil), run.Videos...)
+	for index := range out.Videos {
+		out.Videos[index].data = append([]byte(nil), run.Videos[index].data...)
+	}
 	if run.Raw != nil {
 		out.Raw = append(json.RawMessage(nil), run.Raw...)
 	}
@@ -990,6 +1676,14 @@ func playgroundRunImageAsset(data []byte, mimeType string) PlaygroundRunImageAss
 	return PlaygroundRunImageAsset{Data: append([]byte(nil), data...), ContentType: mimeType}
 }
 
+func playgroundRunVideoAsset(data []byte, mimeType string) (PlaygroundRunVideoAsset, error) {
+	mimeType = playgroundVideoContentType(data, mimeType)
+	if !isPlaygroundVideoContentType(mimeType) {
+		return PlaygroundRunVideoAsset{}, errors.New("stored playground video does not contain a supported video")
+	}
+	return PlaygroundRunVideoAsset{Data: append([]byte(nil), data...), ContentType: mimeType}, nil
+}
+
 func cancelPlaygroundRun(run *PlaygroundRun, now time.Time) {
 	if run == nil || isTerminalPlaygroundRunStatus(run.Status) {
 		return
@@ -997,6 +1691,7 @@ func cancelPlaygroundRun(run *PlaygroundRun, now time.Time) {
 	run.Status = PlaygroundRunCanceled
 	run.Error = "request canceled"
 	run.Images = nil
+	run.Videos = nil
 	run.Raw = nil
 	run.UpdatedAt = now
 	run.CompletedAt = &now

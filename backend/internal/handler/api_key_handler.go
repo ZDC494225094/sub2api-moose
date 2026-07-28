@@ -33,7 +33,7 @@ func NewAPIKeyHandler(apiKeyService *service.APIKeyService) *APIKeyHandler {
 // CreateAPIKeyRequest represents the create API key request payload
 type CreateAPIKeyRequest struct {
 	Name            string   `json:"name" binding:"required"`
-	Platform        string   `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity"`
+	Platform        string   `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok"`
 	GroupID         *int64   `json:"group_id"` // nullable
 	GroupIDs        []int64  `json:"group_ids"`
 	BillingPriority string   `json:"billing_priority" binding:"omitempty,oneof=balance_first subscription_first"`
@@ -52,7 +52,7 @@ type CreateAPIKeyRequest struct {
 // UpdateAPIKeyRequest represents the update API key request payload
 type UpdateAPIKeyRequest struct {
 	Name            string    `json:"name"`
-	Platform        string    `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity"`
+	Platform        string    `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok"`
 	GroupID         *int64    `json:"group_id"`
 	GroupIDs        []int64   `json:"group_ids"`
 	BillingPriority string    `json:"billing_priority" binding:"omitempty,oneof=balance_first subscription_first"`

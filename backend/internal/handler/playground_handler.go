@@ -92,6 +92,37 @@ func (h *PlaygroundHandler) GetRunImage(c *gin.Context) {
 	}
 	c.Header("Cache-Control", "private, no-store")
 	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Content-Length", strconv.Itoa(len(asset.Data)))
+	c.Data(http.StatusOK, asset.ContentType, asset.Data)
+}
+
+func (h *PlaygroundHandler) GetRunVideo(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	if h.runService == nil {
+		response.InternalError(c, "Playground run service is not available")
+		return
+	}
+	index, err := strconv.Atoi(c.Param("index"))
+	if err != nil || index < 0 {
+		response.BadRequest(c, "Invalid video index")
+		return
+	}
+	asset, found, err := h.runService.GetVideo(subject.UserID, c.Param("id"), index)
+	if !found {
+		response.NotFound(c, "Playground video not found")
+		return
+	}
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	c.Header("Cache-Control", "private, no-store")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Content-Length", strconv.Itoa(len(asset.Data)))
 	c.Data(http.StatusOK, asset.ContentType, asset.Data)
 }
 

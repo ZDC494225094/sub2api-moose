@@ -15,6 +15,7 @@ import (
 	"math"
 	mathrand "math/rand"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -1132,7 +1133,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 	}
 
 	switch action {
-	case "generateContent", "streamGenerateContent", "countTokens":
+	case "generateContent", "streamGenerateContent", "countTokens", "predictLongRunning":
 		// ok
 	default:
 		return nil, s.writeGoogleError(c, http.StatusNotFound, "Unsupported action: "+action)
@@ -1159,7 +1160,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		useUpstreamStream = true
 		upstreamAction = "streamGenerateContent"
 	}
-	forceAIStudio := action == "countTokens"
+	forceAIStudio := action == "countTokens" || action == "predictLongRunning"
 
 	var requestIDHeader string
 	var buildReq func(ctx context.Context) (*http.Request, string, error)
@@ -1582,6 +1583,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 
 	var usage *ClaudeUsage
 	var firstTokenMs *int
+	var responseBody []byte
 
 	if stream {
 		streamRes, err := s.handleNativeStreamingResponse(c, resp, startTime, isOAuth)
@@ -1599,6 +1601,19 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 			b, _ := json.Marshal(collected)
 			c.Data(http.StatusOK, "application/json", b)
 			usage = usageObj
+		} else if action == "predictLongRunning" {
+			var readErr error
+			responseBody, readErr = ReadUpstreamResponseBody(resp.Body, s.cfg, c, openAITooLargeError)
+			if readErr != nil {
+				return nil, readErr
+			}
+			responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
+			contentType := resp.Header.Get("Content-Type")
+			if contentType == "" {
+				contentType = "application/json"
+			}
+			c.Data(resp.StatusCode, contentType, responseBody)
+			usage = &ClaudeUsage{}
 		} else {
 			usageResp, err := s.handleNativeNonStreamingResponse(c, resp, isOAuth)
 			if err != nil {
@@ -1624,6 +1639,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		RequestID:      requestID,
 		Usage:          *usage,
 		Model:          originalModel,
+		ResponseBody:   append([]byte(nil), responseBody...),
 		UpstreamModel:  mappedModel,
 		Stream:         stream,
 		Duration:       time.Since(startTime),
@@ -2652,12 +2668,24 @@ func (s *GeminiMessagesCompatService) ForwardAIStudioGET(ctx context.Context, ac
 		return nil, errors.New("invalid path")
 	}
 
-	baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
-	normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
+	fullURL := ""
+	operationName, isOperation, err := geminiOperationNameFromGETPath(path)
 	if err != nil {
 		return nil, err
 	}
-	fullURL := strings.TrimRight(normalizedBaseURL, "/") + path
+	if account.Type == AccountTypeServiceAccount && isOperation {
+		fullURL, err = buildVertexGeminiOperationURL(account.VertexProjectID(), operationName)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
+		normalizedBaseURL, validateErr := s.validateUpstreamBaseURL(baseURL)
+		if validateErr != nil {
+			return nil, validateErr
+		}
+		fullURL = strings.TrimRight(normalizedBaseURL, "/") + path
+	}
 
 	var proxyURL string
 	if account.ProxyID != nil && account.Proxy != nil {
@@ -2676,7 +2704,7 @@ func (s *GeminiMessagesCompatService) ForwardAIStudioGET(ctx context.Context, ac
 			return nil, errors.New("gemini api_key not configured")
 		}
 		req.Header.Set("x-goog-api-key", apiKey)
-	case AccountTypeOAuth:
+	case AccountTypeOAuth, AccountTypeServiceAccount:
 		if s.tokenProvider == nil {
 			return nil, errors.New("gemini token provider not configured")
 		}
@@ -2706,6 +2734,133 @@ func (s *GeminiMessagesCompatService) ForwardAIStudioGET(ctx context.Context, ac
 		Headers:    filteredHeaders,
 		Body:       body,
 	}, nil
+}
+
+func geminiOperationNameFromGETPath(path string) (string, bool, error) {
+	const prefix = "/v1beta/"
+	if !strings.HasPrefix(path, prefix) {
+		return "", false, nil
+	}
+	escapedSegments := strings.Split(strings.TrimPrefix(path, prefix), "/")
+	segments := make([]string, len(escapedSegments))
+	isOperation := false
+	for index, escapedSegment := range escapedSegments {
+		segment, err := url.PathUnescape(escapedSegment)
+		if err != nil || segment == "" || segment == "." || segment == ".." || strings.ContainsAny(segment, "/\\?#") {
+			return "", false, errors.New("invalid Gemini operation path")
+		}
+		segments[index] = segment
+		isOperation = isOperation || segment == "operations"
+	}
+	if !isOperation {
+		return "", false, nil
+	}
+	return strings.Join(segments, "/"), true, nil
+}
+
+// ForwardAIStudioVideoContent streams the media URI returned by a completed
+// Veo operation while keeping the upstream credential on the server.
+func (s *GeminiMessagesCompatService) ForwardAIStudioVideoContent(ctx context.Context, c *gin.Context, account *Account, rawURL string) error {
+	if account == nil {
+		return errors.New("account is nil")
+	}
+	contentURL, err := s.validateGeminiVideoContentURL(account, rawURL)
+	if err != nil {
+		return err
+	}
+
+	requestCtx := WithHTTPUpstreamRedirectsDisabled(ctx)
+	req, err := http.NewRequestWithContext(requestCtx, http.MethodGet, contentURL, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Accept", "*/*")
+	if c != nil {
+		if rangeHeader := strings.TrimSpace(c.GetHeader("Range")); rangeHeader != "" {
+			req.Header.Set("Range", rangeHeader)
+		}
+	}
+	switch account.Type {
+	case AccountTypeAPIKey:
+		apiKey := strings.TrimSpace(account.GetCredential("api_key"))
+		if apiKey == "" {
+			return errors.New("gemini api_key not configured")
+		}
+		req.Header.Set("x-goog-api-key", apiKey)
+	case AccountTypeOAuth, AccountTypeServiceAccount:
+		if s.tokenProvider == nil {
+			return errors.New("gemini token provider not configured")
+		}
+		accessToken, err := s.tokenProvider.GetAccessToken(ctx, account)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+	default:
+		return fmt.Errorf("unsupported account type: %s", account.Type)
+	}
+	account.ApplyHeaderOverrides(req.Header)
+
+	proxyURL := ""
+	if account.ProxyID != nil && account.Proxy != nil {
+		proxyURL = account.Proxy.URL()
+	}
+	resp, err := s.httpUpstream.Do(req, proxyURL, account.ID, account.Concurrency)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		return errors.New("gemini video content redirect is not allowed")
+	}
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		message := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(body)))
+		if message == "" {
+			message = fmt.Sprintf("Gemini video content returned status %d", resp.StatusCode)
+		}
+		return errors.New(message)
+	}
+	return writeGrokMediaContentResponse(c, resp)
+}
+
+func (s *GeminiMessagesCompatService) validateGeminiVideoContentURL(account *Account, rawURL string) (string, error) {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || parsed.Hostname() == "" || parsed.User != nil || parsed.Fragment != "" {
+		return "", errors.New("Gemini operation returned an invalid video URL")
+	}
+	if strings.EqualFold(parsed.Scheme, "gs") {
+		if parsed.Port() != "" || parsed.RawQuery != "" || strings.TrimSpace(parsed.EscapedPath()) == "" {
+			return "", errors.New("Gemini operation returned an invalid video URL")
+		}
+		parsed = &url.URL{
+			Scheme:  "https",
+			Host:    "storage.googleapis.com",
+			Path:    "/" + parsed.Hostname() + parsed.Path,
+			RawPath: "/" + url.PathEscape(parsed.Hostname()) + parsed.EscapedPath(),
+		}
+	}
+	if !strings.EqualFold(parsed.Scheme, "https") {
+		return "", errors.New("Gemini operation returned an invalid video URL")
+	}
+	baseURL, err := s.validateUpstreamBaseURL(account.GetGeminiBaseURL(geminicli.AIStudioBaseURL))
+	if err != nil {
+		return "", err
+	}
+	base, err := url.Parse(baseURL)
+	if err != nil {
+		return "", err
+	}
+	host := strings.ToLower(parsed.Hostname())
+	baseHost := strings.ToLower(base.Hostname())
+	trustedGoogleHost := host == "generativelanguage.googleapis.com" || host == "storage.googleapis.com" || strings.HasSuffix(host, ".googleapis.com")
+	if host != baseHost && !trustedGoogleHost {
+		return "", errors.New("Gemini operation returned an unsupported video host")
+	}
+	if parsed.Port() != "" && parsed.Port() != "443" {
+		return "", errors.New("Gemini operation returned an unsupported video port")
+	}
+	return parsed.String(), nil
 }
 
 // unwrapGeminiResponse 解包 Gemini OAuth 响应中的 response 字段

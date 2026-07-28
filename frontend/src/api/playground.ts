@@ -82,7 +82,7 @@ export type PlaygroundRunStatus = 'queued' | 'running' | 'succeeded' | 'failed' 
 
 export interface PlaygroundRunRequest {
   id?: string
-  mode: 'chat' | 'image'
+  mode: 'chat' | 'image' | 'video' | 'audio'
   apiKey: string
   platform?: GroupPlatform
   endpointBase?: string
@@ -101,15 +101,31 @@ export interface PlaygroundRunRequest {
   background?: string
   outputFormat?: string
   images?: PlaygroundImageInput[]
+  // Video generation specific
+  duration?: number
+  fps?: number
+  aspectRatio?: string
+  resolution?: string
+}
+
+export interface PlaygroundVideoResult {
+  url: string
+  thumbnailUrl?: string
+  duration?: number
+  width?: number
+  height?: number
+  mimeType?: string
+  assetIndex?: number
 }
 
 export interface PlaygroundRun {
   id: string
-  mode: 'chat' | 'image'
+  mode: 'chat' | 'image' | 'video' | 'audio'
   status: PlaygroundRunStatus
   model?: string
   content?: string
   images?: PlaygroundImageResult[]
+  videos?: PlaygroundVideoResult[]
   error?: string
   raw?: unknown
   createdAt?: string
@@ -544,6 +560,73 @@ export async function generateImage(request: PlaygroundImageRequest): Promise<Pl
   return { images, raw }
 }
 
+export interface PlaygroundVideoRequest {
+  apiKey: string
+  endpointBase?: string
+  displayEndpoint?: string
+  model: string
+  prompt: string
+  duration?: number
+  fps?: number
+  aspectRatio?: string
+  n?: number
+  signal?: AbortSignal
+}
+
+export interface PlaygroundVideoResponse {
+  videos: PlaygroundVideoResult[]
+  raw: unknown
+}
+
+export async function generateVideo(request: PlaygroundVideoRequest): Promise<PlaygroundVideoResponse> {
+  const payload: Record<string, unknown> = {
+    model: request.model,
+    prompt: request.prompt,
+    n: request.n || 1
+  }
+
+  if (request.duration) {
+    payload.duration = request.duration
+  }
+  if (request.fps) {
+    payload.fps = request.fps
+  }
+  if (request.aspectRatio) {
+    payload.aspect_ratio = request.aspectRatio
+  }
+
+  const response = await fetch(buildPlaygroundEndpointURL(request.endpointBase, '/v1/videos/generations'), {
+    method: 'POST',
+    headers: authHeaders(request.apiKey),
+    body: JSON.stringify(payload),
+    signal: request.signal
+  })
+  if (!response.ok) {
+    throw await parseError(response)
+  }
+
+  const raw = await parseJSONResponse(response)
+  const rawRecord = raw as Record<string, unknown>
+  const data = Array.isArray(rawRecord.data) ? rawRecord.data : []
+  const videos = data
+    .map((item: Record<string, unknown>) => {
+      const url = typeof item.url === 'string' ? item.url : ''
+      const b64 = typeof item.b64 === 'string' ? item.b64 : ''
+      const finalUrl = url || (b64 ? `data:video/mp4;base64,${b64}` : '')
+      return {
+        url: finalUrl,
+        thumbnailUrl: typeof item.thumbnail_url === 'string' ? item.thumbnail_url : undefined,
+        duration: typeof item.duration === 'number' ? item.duration : undefined,
+        width: typeof item.width === 'number' ? item.width : undefined,
+        height: typeof item.height === 'number' ? item.height : undefined,
+        mimeType: typeof item.mime_type === 'string' ? item.mime_type : 'video/mp4'
+      }
+    })
+    .filter((item: PlaygroundVideoResult) => item.url)
+
+  return { videos, raw }
+}
+
 export async function startPlaygroundRun(request: PlaygroundRunRequest, signal?: AbortSignal): Promise<PlaygroundRun> {
   const { data } = await apiClient.post<PlaygroundRun>('/playground/runs', request, {
     timeout: 120000,
@@ -565,6 +648,36 @@ export async function getPlaygroundRunImage(id: string, index: number, signal?: 
     responseType: 'blob',
     timeout: 300000,
     signal
+  })
+  return data
+}
+
+export interface PlaygroundDownloadProgress {
+  loaded: number
+  total?: number
+  percent?: number
+}
+
+export async function getPlaygroundRunVideo(
+  id: string,
+  index: number,
+  signal?: AbortSignal,
+  onProgress?: (progress: PlaygroundDownloadProgress) => void,
+): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/playground/runs/${encodeURIComponent(id)}/videos/${index}`, {
+    responseType: 'blob',
+    timeout: 600000,
+    signal,
+    onDownloadProgress: onProgress
+      ? (event) => {
+          const total = typeof event.total === 'number' && event.total > 0 ? event.total : undefined
+          onProgress({
+            loaded: event.loaded,
+            total,
+            percent: total ? Math.min(100, Math.max(0, (event.loaded / total) * 100)) : undefined,
+          })
+        }
+      : undefined,
   })
   return data
 }

@@ -1494,10 +1494,9 @@ const billingPriorityOptions = computed(() => [
 ])
 
 const platformOptions = computed(() => {
-  const preferred: GroupPlatform[] = ['anthropic', 'openai', 'gemini', 'antigravity']
-  const available = new Set<GroupPlatform>(groups.value.map((group) => group.platform))
-  const values = preferred.filter((platform) => available.size === 0 || available.has(platform))
-  return values.map((value) => ({
+  const preferred: GroupPlatform[] = ['anthropic', 'openai', 'gemini', 'antigravity', 'grok']
+  // Always show all preferred platforms regardless of available groups
+  return preferred.map((value) => ({
     value,
     label: platformLabel(value)
   }))
@@ -1574,7 +1573,9 @@ const formPlatformGroupOptions = computed(() =>
 )
 
 const normalizeGroupPlatform = (platform?: string | null): GroupPlatform =>
-  platform === 'openai' || platform === 'gemini' || platform === 'antigravity' ? platform : defaultPlatform
+  platform === 'openai' || platform === 'gemini' || platform === 'antigravity' || platform === 'grok'
+    ? platform
+    : defaultPlatform
 
 const normalizeBillingPriority = (priority?: string | null): BillingPriority =>
   priority === 'subscription_first' ? 'subscription_first' : defaultBillingPriority

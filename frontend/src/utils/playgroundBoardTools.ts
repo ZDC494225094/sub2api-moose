@@ -25,6 +25,29 @@ export interface ImageBoardThreadTask<TMessage, TThread> extends ImageBoardTask<
   thread: TThread
 }
 
+export interface VideoBoardMessage<TVideo> {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  createdAt: number
+  videos?: TVideo[]
+  pending?: boolean
+  progress?: string
+  durationMs?: number
+  error?: boolean
+}
+
+export interface VideoBoardThread<TMessage> {
+  mode: string
+  messages: TMessage[]
+}
+
+export interface VideoBoardThreadTask<TMessage, TThread> {
+  message: TMessage
+  prompt: string
+  thread: TThread
+}
+
 export interface ImageBoardRect {
   left: number
   top: number
@@ -61,6 +84,28 @@ export function buildImageBoardTasksFromThreads<
   return threads
     .filter((thread) => thread.mode === 'image')
     .flatMap((thread) => buildImageBoardTasks(thread.messages).map((task) => ({ ...task, thread })))
+    .sort((left, right) => right.message.createdAt - left.message.createdAt)
+}
+
+export function buildVideoBoardTasksFromThreads<
+  TVideo,
+  TMessage extends VideoBoardMessage<TVideo>,
+  TThread extends VideoBoardThread<TMessage>
+>(threads: TThread[]): VideoBoardThreadTask<TMessage, TThread>[] {
+  return threads
+    .filter((thread) => thread.mode === 'video')
+    .flatMap((thread) => {
+      let latestPrompt = ''
+      const tasks: VideoBoardThreadTask<TMessage, TThread>[] = []
+      for (const message of thread.messages) {
+        if (message.role === 'user') {
+          latestPrompt = message.content.trim()
+          continue
+        }
+        tasks.push({ message, prompt: latestPrompt, thread })
+      }
+      return tasks
+    })
     .sort((left, right) => right.message.createdAt - left.message.createdAt)
 }
 

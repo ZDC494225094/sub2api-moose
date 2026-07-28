@@ -30,6 +30,34 @@ func TestBuildVertexGeminiURLUsesGlobalEndpointHost(t *testing.T) {
 	require.Equal(t, "https://aiplatform.googleapis.com/v1/projects/my-project/locations/global/publishers/google/models/gemini-3-flash-preview:streamGenerateContent?alt=sse", got)
 }
 
+func TestBuildVertexGeminiURLSupportsPredictLongRunning(t *testing.T) {
+	got, err := buildVertexGeminiURL("my-project", "us-central1", "veo-3.1-generate-preview", "predictLongRunning", false)
+	require.NoError(t, err)
+	require.Equal(t, "https://us-central1-aiplatform.googleapis.com/v1/projects/my-project/locations/us-central1/publishers/google/models/veo-3.1-generate-preview:predictLongRunning", got)
+}
+
+func TestBuildVertexGeminiOperationURL(t *testing.T) {
+	operationName := "projects/my-project/locations/us-central1/publishers/google/models/veo-3.1-generate-preview/operations/op-123"
+	got, err := buildVertexGeminiOperationURL("my-project", operationName)
+	require.NoError(t, err)
+	require.Equal(t, "https://us-central1-aiplatform.googleapis.com/v1/"+operationName, got)
+}
+
+func TestBuildVertexGeminiOperationURLUsesGlobalEndpointHost(t *testing.T) {
+	operationName := "projects/my-project/locations/global/publishers/google/models/veo-3.1-generate-preview/operations/op-123"
+	got, err := buildVertexGeminiOperationURL("my-project", operationName)
+	require.NoError(t, err)
+	require.Equal(t, "https://aiplatform.googleapis.com/v1/"+operationName, got)
+}
+
+func TestBuildVertexGeminiOperationURLRejectsProjectMismatch(t *testing.T) {
+	_, err := buildVertexGeminiOperationURL(
+		"my-project",
+		"projects/other-project/locations/us-central1/publishers/google/models/veo-3.1-generate-preview/operations/op-123",
+	)
+	require.ErrorContains(t, err, "project mismatch")
+}
+
 func TestBuildVertexAnthropicURL(t *testing.T) {
 	got, err := buildVertexAnthropicURL("my-project", "us-east5", "claude-sonnet-4-5@20250929", false)
 	require.NoError(t, err)

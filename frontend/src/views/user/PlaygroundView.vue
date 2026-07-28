@@ -224,7 +224,7 @@
         <main
           ref="messageScroller"
           class="playground-mobile-scroller min-h-0 flex-1 overflow-y-auto px-4 pt-8"
-          :class="isImageBoardMode ? '' : 'md:px-10 xl:px-16'"
+          :class="isBoardMode ? '' : 'md:px-10 xl:px-16'"
           :style="{ paddingBottom: `${composerSpacerHeight}px` }"
         >
           <div v-if="!selectedKey && !loadingKeys" class="flex h-full items-center justify-center text-center">
@@ -245,111 +245,120 @@
             @pointerdown="handleImageBoardPointerDown"
           >
             <div v-if="imageBoardTasks.length">
+              <div v-if="selectedImageBoardTaskIds.size" class="image-board-selection-toolbar">
+                <span>{{ t('playground.imageBoardSelected', { count: selectedImageBoardTaskIds.size }) }}</span>
+                <div class="flex items-center gap-2">
+                  <button type="button" :disabled="imageBoardBatchDownloading" @pointerdown.stop @click="clearImageBoardSelection">
+                    {{ t('playground.imageBoardClearSelection') }}
+                  </button>
+                  <button type="button" :disabled="imageBoardBatchDownloading" @pointerdown.stop @click="downloadSelectedImageBoardTasks(false)">
+                    <Icon name="download" size="xs" />
+                    {{ t('playground.imageBoardDownloadSelected') }}
+                  </button>
+                  <button type="button" :disabled="imageBoardBatchDownloading" @pointerdown.stop @click="downloadSelectedImageBoardTasks(true)">
+                    <span v-if="imageBoardBatchDownloading" class="spinner h-3.5 w-3.5"></span>
+                    <Icon v-else name="download" size="xs" />
+                    {{ t('playground.imageBoardDownloadZip') }}
+                  </button>
+                  <button type="button" class="is-danger" :disabled="imageBoardBatchDownloading" @pointerdown.stop @click="requestDeleteSelectedImageBoardTasks">
+                    <Icon name="trash" size="xs" />
+                    {{ t('playground.imageBoardDeleteSelected') }}
+                  </button>
+                </div>
+              </div>
               <div class="image-board-grid">
                 <article
-                v-for="task in paginatedImageBoardTasks"
-                :key="task.message.id"
-                class="image-board-card"
-                :class="[
-                  task.message.error ? 'is-error' : '',
-                  isImageBoardTaskSelected(task.message.id) ? 'is-selected' : ''
-                ]"
-                :data-image-board-task-id="task.message.id"
-                @click="handleImageBoardCardClick(task)"
-              >
-                <span v-if="isImageBoardTaskSelected(task.message.id)" class="image-board-card-selected" aria-hidden="true">
-                  <Icon name="check" size="xs" />
-                </span>
-                <div class="image-board-card-media">
-                  <template v-if="task.message.images?.length">
-                    <img
-                      :src="task.message.images[0].url"
-                      :alt="t('playground.generatedImageAlt', { n: 1 })"
-                      class="h-full w-full object-cover"
-                      loading="lazy"
-                      decoding="async"
-                    >
-                    <span class="pointer-events-none absolute left-2 top-2 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
-                      {{ imageMessageSizeLabel(task.message, task.message.images?.[0]) }}
-                    </span>
-                    <span
-                      v-if="task.message.images.length > 1"
-                      class="pointer-events-none absolute bottom-2 right-2 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur"
-                    >
-                      {{ t('playground.imageResultCount', { count: task.message.images.length }) }}
-                    </span>
-                  </template>
-                  <div v-else class="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-                    <span v-if="task.message.pending" class="spinner h-6 w-6"></span>
-                    <Icon v-else-if="task.message.error" name="exclamationCircle" size="lg" class="text-red-400" />
-                    <Icon v-else name="sparkles" size="lg" class="text-slate-300 dark:text-dark-600" />
-                    <p
-                      class="text-xs leading-5"
-                      :class="task.message.error ? 'text-red-600 dark:text-red-300' : 'text-slate-500 dark:text-dark-300'"
-                    >
-                      {{ task.message.progress || task.message.content || t('playground.generatingImages') }}
-                    </p>
-                  </div>
-                </div>
+                  v-for="task in paginatedImageBoardTasks"
+                  :key="task.message.id"
+                  class="image-board-card"
+                  :class="[
+                    task.message.error ? 'is-error' : '',
+                    isImageBoardTaskSelected(task.message.id) ? 'is-selected' : ''
+                  ]"
+                  :data-image-board-task-id="task.message.id"
+                  tabindex="0"
+                  @click="handleImageBoardCardClick(task)"
+                  @keydown.enter.prevent="handleImageBoardCardClick(task)"
+                >
+                  <span v-if="isImageBoardTaskSelected(task.message.id)" class="image-board-card-selected" aria-hidden="true">
+                    <Icon name="check" size="xs" />
+                  </span>
+                  <div class="image-board-card-media">
+                    <template v-if="task.message.images?.length">
+                      <img
+                        :src="task.message.images[0].url"
+                        :alt="t('playground.generatedImageAlt', { n: 1 })"
+                        class="h-full w-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                        draggable="false"
+                      >
+                      <span
+                        v-if="task.message.images.length > 1"
+                        class="image-board-result-count"
+                      >
+                        {{ t('playground.imageResultCount', { count: task.message.images.length }) }}
+                      </span>
+                    </template>
+                    <div v-else class="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+                      <span v-if="task.message.pending" class="spinner h-6 w-6"></span>
+                      <Icon v-else-if="task.message.error" name="exclamationCircle" size="lg" class="text-red-400" />
+                      <Icon v-else name="sparkles" size="lg" class="text-slate-300 dark:text-dark-600" />
+                      <p class="text-xs leading-5" :class="task.message.error ? 'text-red-600 dark:text-red-300' : 'text-slate-500 dark:text-dark-300'">
+                        {{ task.message.progress || task.message.content || t('playground.generatingImages') }}
+                      </p>
+                    </div>
 
-                <div class="flex min-h-0 flex-1 flex-col p-3">
-                  <div class="mb-2 min-h-0 flex-1 overflow-hidden">
-                    <p class="line-clamp-3 text-sm leading-relaxed text-slate-700 dark:text-dark-100" :title="task.prompt">
-                      {{ task.prompt || t('playground.attachmentOnlyPrompt') }}
-                    </p>
-                  </div>
-                  <div class="mt-auto flex flex-col gap-1.5">
-                    <div class="image-board-card-tags pt-0.5 pr-2">
-                      <span v-if="task.message.model" :title="task.message.model">{{ task.message.model }}</span>
-                      <span>{{ imageMessageSizeLabel(task.message) }}</span>
-                      <span>{{ formatImageGenerationDuration(task.message.durationMs) }}</span>
-                    </div>
-                    <div class="mt-0.5 flex max-w-full items-center justify-end gap-1 overflow-x-auto pr-2">
-                      <button
-                        v-if="task.message.images?.length && task.message.images[0]"
-                        type="button"
-                        class="image-board-card-action"
-                        :title="t('playground.redrawImage')"
-                        :aria-label="t('playground.redrawImage')"
-                        @pointerdown.stop
-                        @click.stop="redrawImageBoardTask(task, 0)"
-                      >
-                        <Icon name="edit" size="xs" />
-                      </button>
-                      <button
-                        v-if="task.message.images?.length"
-                        type="button"
-                        class="image-board-card-action"
-                        :title="t('playground.viewOriginalImage')"
-                        :aria-label="t('playground.viewOriginalImage')"
-                        @pointerdown.stop
-                        @click.stop="openImagePreview(task.message, 0)"
-                      >
-                        <Icon name="eye" size="xs" />
-                      </button>
-                      <button
-                        type="button"
-                        class="image-board-card-action"
-                        :title="t('playground.reuseImageConfig')"
-                        :aria-label="t('playground.reuseImageConfig')"
-                        @pointerdown.stop
-                        @click.stop="reuseImageBoardTask(task)"
-                      >
-                        <Icon name="refresh" size="xs" />
-                      </button>
-                      <button
-                        type="button"
-                        class="image-board-card-action hover:!text-red-500"
-                        :title="t('common.delete')"
-                        :aria-label="t('common.delete')"
-                        @pointerdown.stop
-                        @click.stop="deleteImageBoardTask(task)"
-                      >
-                        <Icon name="trash" size="xs" />
-                      </button>
+                    <div class="image-board-card-overlay">
+                      <div class="image-board-card-meta">
+                        <span>{{ imageMessageSizeLabel(task.message, task.message.images?.[0]) }}</span>
+                        <span v-if="task.message.model" :title="task.message.model">{{ task.message.model }}</span>
+                      </div>
+                      <div class="image-board-card-actions">
+                        <button
+                          v-if="task.message.images?.[0]"
+                          type="button"
+                          class="image-board-card-action"
+                          :title="t('playground.redrawImage')"
+                          :aria-label="t('playground.redrawImage')"
+                          @pointerdown.stop
+                          @click.stop="redrawImageBoardTask(task, 0)"
+                        >
+                          <Icon name="edit" size="xs" />
+                        </button>
+                        <button
+                          type="button"
+                          class="image-board-card-action"
+                          :title="t('playground.reuseImageConfig')"
+                          :aria-label="t('playground.reuseImageConfig')"
+                          @pointerdown.stop
+                          @click.stop="reuseImageBoardTask(task)"
+                        >
+                          <Icon name="refresh" size="xs" />
+                        </button>
+                        <button
+                          type="button"
+                          class="image-board-card-action"
+                          :title="t('playground.imageBoardCopyPrompt')"
+                          :aria-label="t('playground.imageBoardCopyPrompt')"
+                          @pointerdown.stop
+                          @click.stop="copyText(task.prompt)"
+                        >
+                          <Icon name="copy" size="xs" />
+                        </button>
+                        <button
+                          type="button"
+                          class="image-board-card-action is-danger"
+                          :title="t('common.delete')"
+                          :aria-label="t('common.delete')"
+                          @pointerdown.stop
+                          @click.stop="deleteImageBoardTask(task)"
+                        >
+                          <Icon name="trash" size="xs" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
                 </article>
               </div>
               <div v-if="imageBoardSelection" class="image-board-selection-box" :style="imageBoardSelectionBoxStyle"></div>
@@ -374,6 +383,117 @@
                   <Icon name="grid" size="lg" />
                 </div>
                 <p class="mt-4 text-base font-semibold text-slate-800 dark:text-white">{{ t('playground.imageBoardEmpty') }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div v-else-if="isVideoBoardMode" class="video-board-root mx-auto max-w-[1280px]">
+            <div v-if="videoBoardTasks.length">
+              <div class="video-board-grid">
+                <article
+                  v-for="task in paginatedVideoBoardTasks"
+                  :key="task.message.id"
+                  class="video-board-card"
+                  :class="task.message.error ? 'is-error' : ''"
+                  tabindex="0"
+                  role="button"
+                  :aria-label="t('playground.videoBoardOpenDetails')"
+                  @mouseenter="playVideoBoardPreview"
+                  @mouseleave="stopVideoBoardPreview"
+                  @focusin="playVideoBoardPreview"
+                  @focusout="stopVideoBoardPreview"
+                  @click="openVideoBoardDetail(task, $event)"
+                  @keydown.enter.prevent="openVideoBoardDetail(task, $event)"
+                  @keydown.space.prevent="openVideoBoardDetail(task, $event)"
+                >
+                  <video
+                    v-if="task.message.videos?.[0]?.url"
+                    :src="task.message.videos[0].url"
+                    class="video-board-card-media"
+                    muted
+                    loop
+                    playsinline
+                    preload="auto"
+                    @loadedmetadata="primeVideoBoardPreview"
+                  >
+                    {{ t('playground.videoNotSupported') }}
+                  </video>
+                  <div v-else class="video-board-card-placeholder">
+                      <span v-if="task.message.pending || task.message.videoDownloadProgress !== undefined" class="spinner h-7 w-7"></span>
+                    <Icon v-else-if="task.message.error" name="exclamationCircle" size="lg" class="text-red-400" />
+                    <Icon v-else name="play" size="lg" class="text-slate-300 dark:text-dark-600" />
+                    <p :class="task.message.error ? 'text-red-500 dark:text-red-300' : ''">
+                      {{ task.message.progress || task.message.content || t('playground.generatingVideo') }}
+                    </p>
+                    <div
+                      v-if="task.message.videoDownloadProgress !== undefined"
+                      class="video-download-progress"
+                      role="progressbar"
+                      :aria-label="t('playground.videoDownloading')"
+                      aria-valuemin="0"
+                      aria-valuemax="100"
+                      :aria-valuenow="videoDownloadProgressPercent(task.message) ?? undefined"
+                    >
+                      <div class="video-download-progress-track">
+                        <span
+                          v-if="videoDownloadProgressPercent(task.message) !== null"
+                          class="video-download-progress-fill"
+                          :style="{ width: `${videoDownloadProgressPercent(task.message)}%` }"
+                        ></span>
+                        <span v-else class="video-download-progress-fill is-indeterminate"></span>
+                      </div>
+                      <span v-if="videoDownloadProgressPercent(task.message) !== null" class="video-download-progress-label">{{ Math.round(videoDownloadProgressPercent(task.message) || 0) }}%</span>
+                    </div>
+                  </div>
+                  <div class="video-board-card-overlay">
+                    <div class="video-board-card-meta">
+                      <span>{{ videoBoardSizeLabel(task.message) }}</span>
+                      <span v-if="task.message.model" :title="task.message.model">{{ task.message.model }}</span>
+                    </div>
+                    <div class="image-board-card-actions">
+                      <button
+                        type="button"
+                        class="image-board-card-action"
+                        :title="t('playground.imageBoardCopyPrompt')"
+                        :aria-label="t('playground.imageBoardCopyPrompt')"
+                        @click.stop="copyText(task.prompt)"
+                      >
+                        <Icon name="copy" size="xs" />
+                      </button>
+                      <button
+                        type="button"
+                        class="image-board-card-action is-danger"
+                        :title="t('common.delete')"
+                        :aria-label="t('common.delete')"
+                        @click.stop="deleteVideoBoardTask(task)"
+                      >
+                        <Icon name="trash" size="xs" />
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              </div>
+              <nav v-if="videoBoardPageCount > 1" class="image-board-pagination" :aria-label="t('playground.videoBoardPagination')">
+                <button type="button" :disabled="videoBoardPage === 1" :title="t('playground.imageBoardPreviousPage')" :aria-label="t('playground.imageBoardPreviousPage')" @click="selectVideoBoardPage(videoBoardPage - 1)">
+                  <Icon name="chevronLeft" size="sm" />
+                </button>
+                <template v-for="(item, index) in videoBoardPaginationItems" :key="`${item}-${index}`">
+                  <span v-if="item === 'ellipsis'" aria-hidden="true">...</span>
+                  <button v-else type="button" :class="item === videoBoardPage ? 'is-active' : ''" :aria-current="item === videoBoardPage ? 'page' : undefined" @click="selectVideoBoardPage(item)">
+                    {{ item }}
+                  </button>
+                </template>
+                <button type="button" :disabled="videoBoardPage === videoBoardPageCount" :title="t('playground.imageBoardNextPage')" :aria-label="t('playground.imageBoardNextPage')" @click="selectVideoBoardPage(videoBoardPage + 1)">
+                  <Icon name="chevronRight" size="sm" />
+                </button>
+              </nav>
+            </div>
+            <div v-else class="flex h-full min-h-[360px] items-center justify-center text-center">
+              <div class="max-w-md">
+                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-sky-50 text-sky-500 dark:bg-sky-950/40 dark:text-sky-300">
+                  <Icon name="play" size="lg" />
+                </div>
+                <p class="mt-4 text-base font-semibold text-slate-800 dark:text-white">{{ t('playground.videoBoardEmpty') }}</p>
               </div>
             </div>
           </div>
@@ -517,6 +637,32 @@
                         <span class="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/75 to-transparent px-2 pb-1.5 pt-5 text-[10px] font-semibold text-white">
                           <span class="truncate">{{ imageMessageSizeLabel(message, image) }}</span>
                           <span class="shrink-0">{{ formatImageGenerationDuration(message.durationMs) }}</span>
+                        </span>
+                      </div>
+                    </figure>
+                  </div>
+
+                  <div
+                    v-if="message.videos?.length"
+                    class="playground-image-strip mt-3"
+                  >
+                    <figure
+                      v-for="(video, index) in message.videos"
+                      :key="`${video.url}-${index}`"
+                      class="playground-image-thumbnail group/thumbnail"
+                    >
+                      <div class="relative h-full w-full overflow-hidden rounded-lg">
+                        <video
+                          :src="video.url"
+                          :poster="video.thumbnailUrl"
+                          class="h-full w-full object-contain"
+                          controls
+                          preload="metadata"
+                        >
+                          {{ t('playground.videoNotSupported') }}
+                        </video>
+                        <span class="pointer-events-none absolute left-1.5 top-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
+                          {{ index + 1 }}
                         </span>
                       </div>
                     </figure>
@@ -673,7 +819,7 @@
                 </div>
               </section>
 
-              <section v-else-if="activeComposerPanel === 'image'" class="composer-image-panel" :aria-label="t('playground.composerImageGeneration')">
+              <section v-else-if="activeComposerPanel === 'image' && mode === 'image'" class="composer-image-panel" :aria-label="t('playground.composerImageGeneration')">
                 <button
                   type="button"
                   class="image-option-button"
@@ -735,6 +881,39 @@
                   <span>{{ optimizingPrompt ? t('playground.optimizingPrompt') : t('playground.promptOptimizerSettings') }}</span>
                   <strong>{{ imagePromptStyleLabel() }}</strong>
                 </button>
+              </section>
+
+              <section v-else-if="activeComposerPanel === 'video' && mode === 'video'" class="composer-image-panel composer-video-panel" :aria-label="t('playground.composerVideoGeneration')">
+                <div class="video-option-field">
+                  <span>{{ t('playground.videoDuration') }}</span>
+                  <Select
+                    v-model="videoDuration"
+                    class="image-option-select"
+                    :options="videoDurationSelectOptions"
+                    :searchable="false"
+                    :aria-label="t('playground.videoDuration')"
+                  />
+                </div>
+                <div class="video-option-field">
+                  <span>{{ t('playground.videoResolution') }}</span>
+                  <Select
+                    v-model="videoResolution"
+                    class="image-option-select"
+                    :options="videoResolutionSelectOptions"
+                    :searchable="false"
+                    :aria-label="t('playground.videoResolution')"
+                  />
+                </div>
+                <div class="video-option-field">
+                  <span>{{ t('playground.videoAspectRatio') }}</span>
+                  <Select
+                    v-model="videoAspectRatio"
+                    class="image-option-select"
+                    :options="videoAspectRatioSelectOptions"
+                    :searchable="false"
+                    :aria-label="t('playground.videoAspectRatio')"
+                  />
+                </div>
               </section>
 
             </div>
@@ -877,6 +1056,7 @@
                 <Icon name="chevronDown" size="xs" />
               </button>
               <button
+                v-if="mode === 'image'"
                 type="button"
                 class="composer-toolbar-button"
                 :class="activeComposerPanel === 'image' ? 'is-active' : ''"
@@ -886,6 +1066,18 @@
               >
                 <Icon name="sparkles" size="sm" />
                 <span>{{ t('playground.composerImageGeneration') }}</span>
+              </button>
+              <button
+                v-else-if="mode === 'video'"
+                type="button"
+                class="composer-toolbar-button"
+                :class="activeComposerPanel === 'video' ? 'is-active' : ''"
+                :aria-expanded="activeComposerPanel === 'video'"
+                aria-haspopup="dialog"
+                @click="openVideoComposerOptions"
+              >
+                <Icon name="play" size="sm" />
+                <span>{{ t('playground.composerVideoGeneration') }}</span>
               </button>
             </div>
 
@@ -932,7 +1124,7 @@
             </div>
           </div>
 
-          <div class="border-t border-slate-100 pt-5 dark:border-dark-800">
+          <div v-if="mode === 'image'" class="border-t border-slate-100 pt-5 dark:border-dark-800">
             <button
               type="button"
               class="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-left transition hover:bg-white dark:border-dark-700 dark:bg-dark-800 dark:hover:bg-dark-700"
@@ -953,6 +1145,24 @@
               <div>
                 <label class="input-label">{{ t('playground.quality') }}</label>
                 <Select v-model="imageQuality" :options="imageQualitySettingOptions" :searchable="false" />
+              </div>
+            </div>
+          </div>
+
+          <div v-else-if="mode === 'video'" class="border-t border-slate-100 pt-5 dark:border-dark-800">
+            <p class="mb-3 text-sm font-semibold text-slate-800 dark:text-white">{{ t('playground.composerVideoGeneration') }}</p>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div>
+                <label class="input-label">{{ t('playground.videoDuration') }}</label>
+                <Select v-model="videoDuration" :options="videoDurationSelectOptions" :searchable="false" />
+              </div>
+              <div>
+                <label class="input-label">{{ t('playground.videoResolution') }}</label>
+                <Select v-model="videoResolution" :options="videoResolutionSelectOptions" :searchable="false" />
+              </div>
+              <div>
+                <label class="input-label">{{ t('playground.videoAspectRatio') }}</label>
+                <Select v-model="videoAspectRatio" :options="videoAspectRatioSelectOptions" :searchable="false" />
               </div>
             </div>
           </div>
@@ -1187,6 +1397,16 @@
       </section>
     </div>
 
+    <ConfirmDialog
+      :show="showImageBoardDeleteConfirm"
+      :title="t('playground.imageBoardDeleteConfirmTitle')"
+      :message="t('playground.imageBoardDeleteConfirmMessage', { count: selectedImageBoardTaskIds.size })"
+      :confirm-text="t('common.delete')"
+      danger
+      @confirm="confirmDeleteSelectedImageBoardTasks"
+      @cancel="showImageBoardDeleteConfirm = false"
+    />
+
     <div v-if="imageBoardDetailTask" class="fixed inset-0 z-[75] flex items-center justify-center p-4" @click.self="closeImageBoardDetail()">
       <div class="absolute inset-0 bg-black/20 backdrop-blur-md dark:bg-black/40" @click="closeImageBoardDetail()"></div>
       <section class="relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-white/50 bg-white/90 shadow-[0_8px_40px_rgb(0,0,0,0.12)] ring-1 ring-black/5 backdrop-blur-xl dark:border-white/[0.08] dark:bg-dark-900/90 dark:shadow-[0_8px_40px_rgb(0,0,0,0.4)] dark:ring-white/10 md:flex-row" role="dialog" aria-modal="true" :aria-label="t('playground.imageBoardTaskDetails')">
@@ -1310,6 +1530,120 @@
             </button>
             <button type="button" class="col-span-1 flex w-full items-center justify-center rounded-xl transition sm:w-11" :class="imageBoardDetailTask.message.favorite ? 'bg-yellow-50 text-yellow-500 hover:bg-yellow-100 dark:bg-yellow-500/10 dark:hover:bg-yellow-500/20' : 'bg-slate-50 text-slate-400 hover:bg-yellow-50 hover:text-yellow-500 dark:bg-white/[0.04] dark:hover:bg-yellow-500/10'" :title="imageBoardDetailTask.message.favorite ? t('playground.imageBoardUnfavorite') : t('playground.imageBoardFavorite')" :aria-label="imageBoardDetailTask.message.favorite ? t('playground.imageBoardUnfavorite') : t('playground.imageBoardFavorite')" @click="toggleImageBoardTaskFavorite(imageBoardDetailTask)">
               <Icon name="star" size="md" :stroke-width="2" :class="imageBoardDetailTask.message.favorite ? 'fill-current' : ''" />
+            </button>
+          </div>
+        </aside>
+      </section>
+    </div>
+
+    <div v-if="videoBoardDetailTask" class="fixed inset-0 z-[75] flex items-center justify-center p-3 sm:p-4" @click.self="closeVideoBoardDetail()">
+      <div class="absolute inset-0 bg-black/30 backdrop-blur-md dark:bg-black/55" @click="closeVideoBoardDetail()"></div>
+      <section class="relative z-10 flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/50 bg-white/95 shadow-[0_8px_40px_rgb(0,0,0,0.16)] ring-1 ring-black/5 backdrop-blur-xl dark:border-white/[0.08] dark:bg-dark-900/95 dark:shadow-[0_8px_40px_rgb(0,0,0,0.45)] dark:ring-white/10 md:flex-row" role="dialog" aria-modal="true" :aria-label="t('playground.videoBoardTaskDetails')">
+        <div class="flex h-12 shrink-0 items-center justify-between border-b border-slate-100 px-4 dark:border-white/[0.08] md:hidden">
+          <h2 class="text-sm font-semibold text-slate-800 dark:text-white">{{ t('playground.videoBoardTaskDetails') }}</h2>
+          <button type="button" class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 dark:text-dark-400 dark:hover:bg-white/[0.06]" :title="t('common.close')" :aria-label="t('common.close')" @click="closeVideoBoardDetail()">
+            <Icon name="x" size="md" />
+          </button>
+        </div>
+
+        <div class="relative flex min-h-[16rem] w-full shrink-0 items-center justify-center bg-black md:min-h-[34rem] md:w-[62%]">
+          <video
+            v-if="videoBoardDetailVideo?.url"
+            :src="videoBoardDetailVideo.url"
+            :poster="videoBoardDetailVideo.thumbnailUrl"
+            class="max-h-[78vh] w-full bg-black object-contain"
+            controls
+            playsinline
+            preload="metadata"
+          >
+            {{ t('playground.videoNotSupported') }}
+          </video>
+          <div v-else class="flex w-full max-w-md flex-col items-center justify-center px-6 text-center">
+            <span v-if="videoBoardDetailTask.message.pending || videoBoardDetailTask.message.videoDownloadProgress !== undefined" class="spinner h-10 w-10"></span>
+            <Icon v-else-if="videoBoardDetailTask.message.error" name="exclamationCircle" size="xl" class="text-red-400" />
+            <Icon v-else name="play" size="xl" class="text-slate-600" />
+            <p class="mt-4 text-sm leading-6" :class="videoBoardDetailTask.message.error ? 'text-red-300' : 'text-slate-300'">
+              {{ videoBoardDetailTask.message.progress || videoBoardDetailTask.message.content || t('playground.generatingVideo') }}
+            </p>
+            <div
+              v-if="videoBoardDetailTask.message.videoDownloadProgress !== undefined"
+              class="video-download-progress mt-4"
+              role="progressbar"
+              :aria-label="t('playground.videoDownloading')"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              :aria-valuenow="videoDownloadProgressPercent(videoBoardDetailTask.message) ?? undefined"
+            >
+              <div class="video-download-progress-track">
+                <span
+                  v-if="videoDownloadProgressPercent(videoBoardDetailTask.message) !== null"
+                  class="video-download-progress-fill"
+                  :style="{ width: `${videoDownloadProgressPercent(videoBoardDetailTask.message)}%` }"
+                ></span>
+                <span v-else class="video-download-progress-fill is-indeterminate"></span>
+              </div>
+              <span v-if="videoDownloadProgressPercent(videoBoardDetailTask.message) !== null" class="video-download-progress-label">{{ Math.round(videoDownloadProgressPercent(videoBoardDetailTask.message) || 0) }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <aside class="relative flex min-h-0 w-full flex-col overflow-hidden p-5 md:w-[38%]">
+          <button type="button" class="absolute right-3 top-3 hidden h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 dark:text-dark-400 dark:hover:bg-white/[0.06] md:flex" :title="t('common.close')" :aria-label="t('common.close')" @click="closeVideoBoardDetail()">
+            <Icon name="x" size="md" />
+          </button>
+
+          <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+            <div class="mb-2 flex items-center gap-1.5 pr-10">
+              <h3 class="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-dark-400">{{ t('playground.imageBoardInput') }}</h3>
+              <button type="button" class="rounded p-1 text-slate-400 transition hover:bg-slate-100 dark:text-dark-400 dark:hover:bg-white/[0.06]" :title="t('common.copy')" :aria-label="t('common.copy')" @click="copyText(videoBoardDetailTask.prompt)">
+                <Icon name="copy" size="sm" />
+              </button>
+            </div>
+            <p class="mb-5 max-h-48 overflow-y-auto whitespace-pre-wrap break-words pr-2 text-sm leading-relaxed text-slate-700 dark:text-dark-100">{{ videoBoardDetailTask.prompt || t('playground.attachmentOnlyPrompt') }}</p>
+
+            <h3 class="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-dark-400">{{ t('playground.imageBoardParameterConfig') }}</h3>
+            <div class="mb-2 min-w-0 overflow-hidden rounded-lg bg-slate-50 px-3 py-2 text-xs dark:bg-white/[0.03]">
+              <span class="text-slate-400 dark:text-dark-400">{{ t('playground.imageBoardSource') }}</span>
+              <div class="mt-0.5 truncate pr-2">
+                <span class="font-medium text-slate-700 dark:text-dark-100">{{ videoBoardTaskSource(videoBoardDetailTask) }}</span>
+                <span v-if="videoBoardDetailTask.message.model" class="text-slate-400 dark:text-dark-400"> · {{ videoBoardDetailTask.message.model }}</span>
+              </div>
+            </div>
+            <div class="mb-4 grid min-w-0 grid-cols-2 gap-2 text-xs">
+              <div class="min-w-0 overflow-hidden rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
+                <span class="text-slate-400 dark:text-dark-400">{{ t('playground.videoResolution') }}</span>
+                <div class="mt-0.5 truncate font-medium text-slate-700 dark:text-dark-100">{{ videoBoardSizeLabel(videoBoardDetailTask.message) }}</div>
+              </div>
+              <div class="min-w-0 overflow-hidden rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
+                <span class="text-slate-400 dark:text-dark-400">{{ t('playground.videoAspectRatio') }}</span>
+                <div class="mt-0.5 truncate font-medium text-slate-700 dark:text-dark-100">{{ videoBoardDetailTask.message.runRequest?.aspectRatio || '-' }}</div>
+              </div>
+              <div class="min-w-0 overflow-hidden rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
+                <span class="text-slate-400 dark:text-dark-400">{{ t('playground.videoDuration') }}</span>
+                <div class="mt-0.5 truncate font-medium text-slate-700 dark:text-dark-100">{{ videoBoardDurationLabel(videoBoardDetailTask.message) }}</div>
+              </div>
+              <div class="min-w-0 overflow-hidden rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
+                <span class="text-slate-400 dark:text-dark-400">{{ t('playground.imageBoardDuration') }}</span>
+                <div class="mt-0.5 truncate font-medium text-slate-700 dark:text-dark-100">{{ formatImageGenerationDuration(videoBoardDetailTask.message.durationMs) }}</div>
+              </div>
+            </div>
+            <div class="mb-4 text-xs text-slate-400 dark:text-dark-400">
+              {{ t('playground.imageBoardCreatedAt', { time: imageBoardTaskDate(videoBoardDetailTask.message.createdAt) }) }}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 border-t border-slate-100 pt-4 dark:border-white/[0.08]">
+            <button type="button" class="flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-sky-50 px-3 py-2 text-sm font-medium text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-sky-500/10 dark:text-sky-300 dark:hover:bg-sky-500/20" :disabled="!videoBoardDetailVideo?.url" @click="downloadVideoBoardDetail()">
+              <Icon name="download" size="sm" />
+              {{ t('playground.downloadVideo') }}
+            </button>
+            <button type="button" class="flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:bg-white/[0.04] dark:text-dark-100 dark:hover:bg-white/[0.08]" @click="copyText(videoBoardDetailTask.prompt)">
+              <Icon name="copy" size="sm" />
+              {{ t('playground.imageBoardCopyPrompt') }}
+            </button>
+            <button type="button" class="col-span-2 flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20" @click="deleteVideoBoardDetailTask()">
+              <Icon name="trash" size="sm" />
+              {{ t('playground.imageBoardDeleteTask') }}
             </button>
           </div>
         </aside>
@@ -1555,6 +1889,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import { keysAPI } from '@/api/keys'
@@ -1563,11 +1898,13 @@ import {
   fetchModels,
   getPlaygroundRun,
   getPlaygroundRunImage,
+  getPlaygroundRunVideo,
   startPlaygroundRun,
   streamChatCompletion,
   type PlaygroundChatMessage,
   type PlaygroundImageInput,
   type PlaygroundImageResult,
+  type PlaygroundVideoResult,
   type PlaygroundModel,
   type PlaygroundRun,
   type PlaygroundRunRequest
@@ -1576,7 +1913,13 @@ import { useAppStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateOnly, formatRelativeTime, formatTime } from '@/utils/format'
 import { platformIconClass, platformLabel } from '@/utils/platformColors'
-import { buildImageBoardTasksFromThreads, imageBoardRectsIntersect, type ImageBoardThreadTask } from '@/utils/playgroundBoardTools'
+import {
+  buildImageBoardTasksFromThreads,
+  buildVideoBoardTasksFromThreads,
+  imageBoardRectsIntersect,
+  type ImageBoardThreadTask,
+  type VideoBoardThreadTask
+} from '@/utils/playgroundBoardTools'
 import { firstActualImageSize, firstImageDescription, gptImage2SizeFor, isGptImage2Model, mapClientPointToCanvas, wrapGalleryIndex } from '@/utils/playgroundImageTools'
 import { toCloneablePlaygroundState } from '@/utils/playgroundPersistence'
 import {
@@ -1593,11 +1936,12 @@ type AttachmentKind = 'image' | 'text' | 'file'
 type IconName = InstanceType<typeof Icon>['$props']['name']
 type ImageSizeMode = 'auto' | 'ratio' | 'custom'
 type ImageResolution = '1K' | '2K' | '4K'
+type VideoResolution = '480p' | '720p' | '1080p'
 type ImagePromptStyle = 'auto' | 'photo' | 'illustration' | 'anime' | 'cinematic' | 'product' | 'poster' | 'watercolor' | 'pixel'
 type DoodleDrawingTool = 'brush' | 'eraser'
 type DoodleTool = DoodleDrawingTool | 'sticker' | 'pan'
 type ImageWorkspaceMode = 'chat' | 'board'
-type ComposerPanel = 'model' | 'image'
+type ComposerPanel = 'model' | 'image' | 'video'
 type PlaygroundRestorableRunRequest = Omit<PlaygroundRunRequest, 'apiKey'>
 
 interface DoodlePoint {
@@ -1653,6 +1997,7 @@ interface PlaygroundMessage {
   platform?: GroupPlatform
   attachments?: PlaygroundAttachment[]
   images?: PlaygroundStoredImageResult[]
+  videos?: PlaygroundVideoResult[]
   imageConfig?: PlaygroundImageConfig
   raw?: unknown
   pending?: boolean
@@ -1664,6 +2009,7 @@ interface PlaygroundMessage {
   durationMs?: number
   error?: boolean
   favorite?: boolean
+  videoDownloadProgress?: number | null
 }
 
 interface PlaygroundPersistedPayload {
@@ -1690,6 +2036,9 @@ interface PlaygroundPersistedPayload {
   outputFormat: string
   imagePromptStyle: ImagePromptStyle
   imageWorkspaceMode?: ImageWorkspaceMode
+  videoDuration?: number
+  videoResolution?: VideoResolution
+  videoAspectRatio?: string
   promptOptimizerKeyId?: string
   promptOptimizerModel: string
   showComposerConfig: boolean
@@ -1714,6 +2063,7 @@ interface PlaygroundThread {
 }
 
 type PlaygroundImageBoardTask = ImageBoardThreadTask<PlaygroundMessage, PlaygroundThread>
+type PlaygroundVideoBoardTask = VideoBoardThreadTask<PlaygroundMessage, PlaygroundThread>
 
 interface ImageBoardSelection {
   startX: number
@@ -1747,6 +2097,9 @@ interface PlaygroundRunContext {
   imageCount: number
   imageQuality: string
   outputFormat: string
+  videoDuration: number
+  videoResolution: VideoResolution
+  videoAspectRatio: string
 }
 
 interface PlaygroundImageConfig {
@@ -1874,6 +2227,9 @@ const imageQuality = ref('auto')
 const imageCount = ref(1)
 const outputFormat = ref('png')
 const imagePromptStyle = ref<ImagePromptStyle>('auto')
+const videoDuration = ref(8)
+const videoResolution = ref<VideoResolution>('720p')
+const videoAspectRatio = ref('16:9')
 const promptOptimizerKeyId = ref('')
 const promptOptimizerModel = ref('')
 const promptOptimizerModels = ref<PlaygroundModel[]>([])
@@ -1900,8 +2256,12 @@ const imagePreview = ref<PlaygroundImagePreview | null>(null)
 const imageBoardRoot = ref<HTMLElement | null>(null)
 const imageBoardDetailTask = ref<PlaygroundImageBoardTask | null>(null)
 const imageBoardDetailImageIndex = ref(0)
+const videoBoardDetailTask = ref<PlaygroundVideoBoardTask | null>(null)
 const imageBoardPage = ref(1)
+const videoBoardPage = ref(1)
 const selectedImageBoardTaskIds = ref<Set<string>>(new Set())
+const showImageBoardDeleteConfirm = ref(false)
+const imageBoardBatchDownloading = ref(false)
 const imageBoardSelection = ref<ImageBoardSelection | null>(null)
 const expandedImageDescriptions = ref<Set<string>>(new Set())
 const imagePreviewZoom = ref(1)
@@ -2021,8 +2381,11 @@ const imageSizeModeOptions = computed<Array<{ value: ImageSizeMode; label: strin
 ])
 
 const imageResolutionOptions: ImageResolution[] = ['1K', '2K', '4K']
+const videoDurationValues = [4, 5, 6, 8, 10] as const
+const videoResolutionValues: VideoResolution[] = ['480p', '720p', '1080p']
+const videoAspectRatioValues = ['16:9', '9:16', '1:1'] as const
 
-const activeKeys = computed(() => apiKeys.value.filter((key) => key.status === 'active'))
+const activeKeys = computed(() => apiKeys.value.filter((key) => String(key.status).toLowerCase() === 'active'))
 const keySelectOptions = computed<SelectOption[]>(() => activeKeys.value.map((key) => ({
   value: String(key.id),
   label: key.name,
@@ -2043,15 +2406,35 @@ const promptOptimizerDraftPlatform = computed<GroupPlatform | ''>(() => {
 const activeThread = computed(() => threads.value.find((thread) => thread.id === activeThreadId.value) || null)
 const currentMessages = computed(() => activeThread.value?.messages || [])
 const imageBoardTasks = computed<PlaygroundImageBoardTask[]>(() => buildImageBoardTasksFromThreads(threads.value))
+const videoBoardTasks = computed<PlaygroundVideoBoardTask[]>(() => buildVideoBoardTasksFromThreads(threads.value))
 const imageBoardPageSize = 18
 const imageBoardPageCount = computed(() => Math.max(1, Math.ceil(imageBoardTasks.value.length / imageBoardPageSize)))
 const paginatedImageBoardTasks = computed(() => {
   const start = (imageBoardPage.value - 1) * imageBoardPageSize
   return imageBoardTasks.value.slice(start, start + imageBoardPageSize)
 })
+const videoBoardPageCount = computed(() => Math.max(1, Math.ceil(videoBoardTasks.value.length / imageBoardPageSize)))
+const paginatedVideoBoardTasks = computed(() => {
+  const start = (videoBoardPage.value - 1) * imageBoardPageSize
+  return videoBoardTasks.value.slice(start, start + imageBoardPageSize)
+})
 const imageBoardPaginationItems = computed<Array<number | 'ellipsis'>>(() => {
   const total = imageBoardPageCount.value
   const current = imageBoardPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1)
+  const pages = new Set([1, total, current - 1, current, current + 1])
+  const sortedPages = [...pages].filter((page) => page >= 1 && page <= total).sort((left, right) => left - right)
+  const items: Array<number | 'ellipsis'> = []
+  for (const page of sortedPages) {
+    const previous = items[items.length - 1]
+    if (typeof previous === 'number' && page - previous > 1) items.push('ellipsis')
+    items.push(page)
+  }
+  return items
+})
+const videoBoardPaginationItems = computed<Array<number | 'ellipsis'>>(() => {
+  const total = videoBoardPageCount.value
+  const current = videoBoardPage.value
   if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1)
   const pages = new Set([1, total, current - 1, current, current + 1])
   const sortedPages = [...pages].filter((page) => page >= 1 && page <= total).sort((left, right) => left - right)
@@ -2069,10 +2452,16 @@ watch(imageBoardPageCount, (pageCount) => {
     clearImageBoardSelection()
   }
 })
+watch(videoBoardPageCount, (pageCount) => {
+  if (videoBoardPage.value > pageCount) videoBoardPage.value = pageCount
+})
 const isImageBoardMode = computed(() => mode.value === 'image' && imageWorkspaceMode.value === 'board')
+const isVideoBoardMode = computed(() => mode.value === 'video')
+const isBoardMode = computed(() => isImageBoardMode.value || isVideoBoardMode.value)
 const imageBoardDetailImages = computed(() => imageBoardDetailTask.value?.message.images || [])
 const imageBoardDetailCurrentImage = computed(() => imageBoardDetailImages.value[imageBoardDetailImageIndex.value] || null)
 const imageBoardDetailRatioLabel = computed(() => imageBoardDetailTask.value?.message.imageConfig?.ratio || '')
+const videoBoardDetailVideo = computed(() => videoBoardDetailTask.value?.message.videos?.[0] || null)
 const imageBoardDetailReferenceAttachments = computed(() => {
   const task = imageBoardDetailTask.value
   if (!task) return []
@@ -2213,9 +2602,16 @@ const playgroundNotice = computed(() => {
   return null
 })
 
-const chatModels = computed(() => models.value.filter((model) => model.id && !isImageModel(model.id)))
+const chatModels = computed(() => models.value.filter((model) => model.id && !isImageModel(model.id) && !isVideoModel(model.id) && !isAudioModel(model.id)))
 const imageModels = computed(() => models.value.filter((model) => model.id && isImageModel(model.id)))
-const visibleModels = computed(() => mode.value === 'image' ? imageModels.value : chatModels.value)
+const videoModels = computed(() => models.value.filter((model) => model.id && isVideoModel(model.id)))
+const audioModels = computed(() => models.value.filter((model) => model.id && isAudioModel(model.id)))
+const visibleModels = computed(() => {
+  if (mode.value === 'image') return imageModels.value
+  if (mode.value === 'video') return videoModels.value
+  if (mode.value === 'audio') return audioModels.value
+  return chatModels.value
+})
 const filteredComposerModels = computed(() => {
   const search = composerModelSearch.value.trim().toLowerCase()
   return visibleModels.value.filter((model) => {
@@ -2237,6 +2633,21 @@ const imageQualitySettingOptions = computed<SelectOption[]>(() => [
   { value: 'medium', label: t('playground.qualityMedium') },
   { value: 'high', label: t('playground.qualityHigh') }
 ])
+
+const videoDurationSelectOptions = computed<SelectOption[]>(() => videoDurationValues.map((seconds) => ({
+  value: seconds,
+  label: t('playground.videoSeconds', { count: seconds })
+})))
+
+const videoResolutionSelectOptions = computed<SelectOption[]>(() => videoResolutionValues.map((resolution) => ({
+  value: resolution,
+  label: resolution
+})))
+
+const videoAspectRatioSelectOptions = computed<SelectOption[]>(() => videoAspectRatioValues.map((ratio) => ({
+  value: ratio,
+  label: ratio
+})))
 
 const outputFormatSegmentOptions = [
   { value: 'png', label: 'PNG' },
@@ -2431,6 +2842,10 @@ function revokeImageObjectURLs(images?: PlaygroundStoredImageResult[]) {
   }
 }
 
+function revokeVideoObjectURLs(videos?: PlaygroundVideoResult[]) {
+  for (const video of videos || []) revokeTrackedObjectURL(video.url)
+}
+
 function revokeAttachmentObjectURLs(attachments?: PlaygroundAttachment[]) {
   for (const attachment of attachments || []) {
     revokeTrackedObjectURL(attachment.thumbnailUrl)
@@ -2584,7 +2999,7 @@ function isPlaygroundMode(value: unknown): value is PlaygroundMode {
 }
 
 function isGroupPlatform(value: unknown): value is GroupPlatform {
-  return value === 'anthropic' || value === 'openai' || value === 'gemini' || value === 'antigravity'
+  return value === 'anthropic' || value === 'openai' || value === 'gemini' || value === 'antigravity' || value === 'grok'
 }
 
 function optionPlatform(option: SelectOption | Record<string, unknown> | null): GroupPlatform | undefined {
@@ -2596,9 +3011,10 @@ function optionPlatform(option: SelectOption | Record<string, unknown> | null): 
 function platformForModel(modelID: string, owner?: string, fallbackPlatform: GroupPlatform | '' = selectedKeyPlatform.value): GroupPlatform | undefined {
   const source = `${modelID} ${owner || ''}`.toLowerCase()
   if (source.includes('claude') || source.includes('anthropic')) return 'anthropic'
-  if (source.includes('gemini') || source.includes('google')) return 'gemini'
+  if (source.includes('grok') || source.includes('xai') || source.includes('x.ai')) return 'grok'
+  if (source.includes('gemini') || source.includes('google') || /(^|[-_/])veo([\d-]|$)/i.test(source)) return 'gemini'
   if (source.includes('antigravity')) return 'antigravity'
-  if (/(\bgpt\b|gpt-|^o\d|dall-e|openai|image)/i.test(source)) return 'openai'
+  if (/(\bgpt\b|gpt-|^o\d|dall-e|openai|image|seedance|doubao)/i.test(source)) return 'openai'
   return isGroupPlatform(fallbackPlatform) ? fallbackPlatform : undefined
 }
 
@@ -2609,6 +3025,14 @@ function messagePlatform(message: PlaygroundMessage): GroupPlatform | undefined 
 
 function isImageModel(model: string): boolean {
   return /(^|[-_])(image|dall-e|flux|sd|midjourney)/i.test(model) || /^gpt-image-/i.test(model)
+}
+
+function isVideoModel(model: string): boolean {
+  return /(^|[-_])(video|sora|gen-|veo-|seedance|doubao)/i.test(model) || /grok-imagine-video/i.test(model)
+}
+
+function isAudioModel(model: string): boolean {
+  return /(^|[-_])(audio|tts|whisper|speech)/i.test(model)
 }
 
 function modelAvailable(modelID: string): boolean {
@@ -2971,6 +3395,12 @@ function serializeMessageForPersistence(message: PlaygroundMessage): PlaygroundM
       url: image.storageId ? storedImagePlaceholder(image.storageId) : image.url,
       thumbnailUrl: undefined
     })) || [],
+    videos: message.videos?.map((video, index) => ({
+      ...video,
+      url: '',
+      thumbnailUrl: undefined,
+      assetIndex: Number.isInteger(video.assetIndex) ? video.assetIndex : index
+    })) || [],
     pending: recoverablePendingRun || recoverablePendingImage,
     raw: undefined,
     progress: recoverablePendingRun || recoverablePendingImage
@@ -3032,6 +3462,58 @@ async function hydratePersistedImages() {
       }
     }
   }
+}
+
+async function hydratePersistedVideos() {
+  const restoreJobs: Array<Promise<void>> = []
+  for (const thread of threads.value) {
+    for (const message of thread.messages) {
+      if (!message.runId || !message.videos?.length) continue
+      const needsHydration = message.videos.some((video) => !video.url || !video.url.startsWith('blob:'))
+      if (!needsHydration) continue
+      const videos = message.videos.map((video, index) => ({
+        ...video,
+        url: '',
+        thumbnailUrl: undefined,
+        assetIndex: Number.isInteger(video.assetIndex) ? video.assetIndex : index
+      }))
+      message.videoDownloadProgress = null
+      message.progress = t('playground.videoDownloading')
+      message.content = t('playground.videoDownloading')
+      message.error = false
+      const controller = new AbortController()
+      restoreJobs.push(hydratePlaygroundRunVideos({
+        id: message.runId,
+        mode: 'video',
+        status: 'succeeded',
+        videos
+      }, controller.signal, (progress) => {
+        message.videoDownloadProgress = progress
+        message.progress = progress === null
+          ? t('playground.videoDownloading')
+          : t('playground.videoDownloadingProgress', { progress: Math.round(progress) })
+      })
+        .then((restoredVideos) => {
+          message.videos = restoredVideos
+          message.videoDownloadProgress = undefined
+          message.progress = ''
+          message.content = restoredVideos.length > 0
+            ? t('playground.videoGenerated')
+            : t('playground.videoCacheMissing')
+          message.error = restoredVideos.length === 0
+        })
+        .catch((error) => {
+          console.warn('Failed to restore playground video:', error)
+          revokeVideoObjectURLs(message.videos)
+          message.videos = []
+          message.videoDownloadProgress = undefined
+          message.progress = ''
+          message.content = t('playground.videoCacheMissing')
+          message.error = true
+        }))
+    }
+  }
+  await Promise.all(restoreJobs)
 }
 
 async function hydratePersistedAttachments() {
@@ -3133,6 +3615,9 @@ function buildPlaygroundPayload(): PlaygroundPersistedPayload {
     outputFormat: outputFormat.value,
     imagePromptStyle: imagePromptStyle.value,
     imageWorkspaceMode: imageWorkspaceMode.value,
+    videoDuration: videoDuration.value,
+    videoResolution: videoResolution.value,
+    videoAspectRatio: videoAspectRatio.value,
     promptOptimizerKeyId: promptOptimizerKeyId.value,
     promptOptimizerModel: promptOptimizerModel.value,
     showComposerConfig: showComposerConfig.value,
@@ -3244,6 +3729,16 @@ function applyPlaygroundPayload(payload: Record<string, unknown>) {
   outputFormat.value = typeof payload.outputFormat === 'string' ? payload.outputFormat : outputFormat.value
   imagePromptStyle.value = isImagePromptStyle(payload.imagePromptStyle) ? payload.imagePromptStyle : imagePromptStyle.value
   imageWorkspaceMode.value = payload.imageWorkspaceMode === 'board' ? 'board' : 'chat'
+  const savedVideoDuration = Number(payload.videoDuration)
+  videoDuration.value = videoDurationValues.includes(savedVideoDuration as typeof videoDurationValues[number])
+    ? savedVideoDuration
+    : videoDuration.value
+  videoResolution.value = videoResolutionValues.includes(payload.videoResolution as VideoResolution)
+    ? payload.videoResolution as VideoResolution
+    : videoResolution.value
+  videoAspectRatio.value = videoAspectRatioValues.includes(payload.videoAspectRatio as typeof videoAspectRatioValues[number])
+    ? payload.videoAspectRatio as string
+    : videoAspectRatio.value
   promptOptimizerKeyId.value = typeof payload.promptOptimizerKeyId === 'string' ? payload.promptOptimizerKeyId : promptOptimizerKeyId.value
   promptOptimizerModel.value = typeof payload.promptOptimizerModel === 'string' ? payload.promptOptimizerModel : promptOptimizerModel.value
   showComposerConfig.value = typeof payload.showComposerConfig === 'boolean' ? payload.showComposerConfig : showComposerConfig.value
@@ -3348,6 +3843,7 @@ async function restorePlaygroundState() {
     if (dbPayload) {
       applyPlaygroundPayload(dbPayload as unknown as Record<string, unknown>)
       await hydratePersistedImages()
+      await hydratePersistedVideos()
       await hydratePersistedAttachments()
       return
     }
@@ -3355,6 +3851,7 @@ async function restorePlaygroundState() {
     if (!raw) return
     applyPlaygroundPayload(JSON.parse(raw) as Record<string, unknown>)
     await hydratePersistedImages()
+    await hydratePersistedVideos()
     await hydratePersistedAttachments()
   } catch (error) {
     console.warn('Failed to restore playground state:', error)
@@ -3376,6 +3873,7 @@ async function refreshPlaygroundStateFromStorage() {
     revokeAllImageObjectURLs()
     applyPlaygroundPayload(payload as unknown as Record<string, unknown>)
     await hydratePersistedImages()
+    await hydratePersistedVideos()
     await hydratePersistedAttachments()
     if (threads.value.some((thread) => thread.id === activeIdBeforeRefresh)) {
       activeThreadId.value = activeIdBeforeRefresh
@@ -3533,14 +4031,13 @@ function selectThread(id: string) {
   scrollMessagesToBottom()
 }
 
-function openImageBoardDetail(task: PlaygroundImageBoardTask) {
-  imageBoardDetailImageIndex.value = 0
-  imageBoardDetailTask.value = task
-}
-
 function closeImageBoardDetail() {
   imageBoardDetailTask.value = null
   imageBoardDetailImageIndex.value = 0
+}
+
+function closeVideoBoardDetail() {
+  videoBoardDetailTask.value = null
 }
 
 function openImageBoardDetailImage(index: number) {
@@ -3629,13 +4126,207 @@ function selectImageBoardPage(nextPage: number) {
   void nextTick(() => messageScroller.value?.scrollTo({ top: 0, behavior: 'smooth' }))
 }
 
+function selectVideoBoardPage(nextPage: number) {
+  const page = Math.min(Math.max(1, nextPage), videoBoardPageCount.value)
+  if (page === videoBoardPage.value) return
+  videoBoardPage.value = page
+  void nextTick(() => messageScroller.value?.scrollTo({ top: 0, behavior: 'smooth' }))
+}
+
 function deleteImageBoardTask(task: PlaygroundImageBoardTask) {
   deleteMessageFromThread(task.thread, task.message.id)
 }
 
+function requestDeleteSelectedImageBoardTasks() {
+  if (selectedImageBoardTaskIds.value.size === 0) return
+  showImageBoardDeleteConfirm.value = true
+}
+
+async function confirmDeleteSelectedImageBoardTasks() {
+  const selectedIds = new Set(selectedImageBoardTaskIds.value)
+  showImageBoardDeleteConfirm.value = false
+  for (const task of imageBoardTasks.value) {
+    if (selectedIds.has(task.message.id)) deleteMessageFromThread(task.thread, task.message.id)
+  }
+  clearImageBoardSelection()
+  await writePlaygroundStateNow()
+}
+
+function triggerPlaygroundBlobDownload(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+function imageBoardBatchFileName(
+  task: PlaygroundImageBoardTask,
+  imageIndex: number,
+  mimeType: string,
+  sequence: number
+): string {
+  const date = new Date(Number.isFinite(task.message.createdAt) ? task.message.createdAt : Date.now())
+  const stamp = date.toISOString().replace(/\D/g, '').slice(0, 14)
+  const taskID = task.message.id.replace(/[^a-zA-Z0-9_-]/g, '').slice(-12) || 'image'
+  const extension = imageFileExtension(normalizeImageMimeType(mimeType))
+  return `${String(sequence).padStart(3, '0')}-${stamp}-${taskID}-${imageIndex + 1}.${extension}`
+}
+
+async function collectSelectedImageBoardDownloads(): Promise<Array<{ blob: Blob; fileName: string }>> {
+  const selectedIDs = selectedImageBoardTaskIds.value
+  const selectedTasks = imageBoardTasks.value.filter((task) => selectedIDs.has(task.message.id))
+  const files: Array<{ blob: Blob; fileName: string }> = []
+  for (const task of selectedTasks) {
+    for (const [imageIndex, image] of (task.message.images || []).entries()) {
+      const blob = await resolveGeneratedImageBlob(image)
+      if (!blob) continue
+      files.push({
+        blob,
+        fileName: imageBoardBatchFileName(task, imageIndex, image.mimeType || blob.type, files.length + 1)
+      })
+    }
+  }
+  return files
+}
+
+async function downloadSelectedImageBoardTasks(asZip: boolean) {
+  if (imageBoardBatchDownloading.value || selectedImageBoardTaskIds.value.size === 0) return
+  imageBoardBatchDownloading.value = true
+  try {
+    const files = await collectSelectedImageBoardDownloads()
+    if (files.length === 0) throw new Error(t('playground.imageBoardNoDownloadableImages'))
+    if (asZip) {
+      const { default: JSZip } = await import('jszip')
+      const zip = new JSZip()
+      for (const file of files) zip.file(file.fileName, file.blob)
+      const archive = await zip.generateAsync({ type: 'blob', compression: 'STORE' })
+      const stamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14)
+      triggerPlaygroundBlobDownload(archive, `moosecloud-images-${stamp}.zip`)
+    } else {
+      for (const file of files) {
+        triggerPlaygroundBlobDownload(file.blob, file.fileName)
+        await sleep(80)
+      }
+    }
+    appStore.showSuccess(t('playground.imageBoardDownloadComplete', { count: files.length }))
+  } catch (error) {
+    appStore.showError((error as Error)?.message || t('playground.imageBoardDownloadFailed'))
+  } finally {
+    imageBoardBatchDownloading.value = false
+  }
+}
+
 function handleImageBoardCardClick(task: PlaygroundImageBoardTask) {
   if (Date.now() < suppressImageBoardCardClickUntil) return
-  openImageBoardDetail(task)
+  imageBoardDetailTask.value = task
+  imageBoardDetailImageIndex.value = 0
+}
+
+function videoBoardSizeLabel(message: PlaygroundMessage): string {
+  const video = message.videos?.[0]
+  if (video?.width && video.height) return `${video.width}x${video.height}`
+  const resolution = message.runRequest?.resolution || ''
+  const aspectRatio = message.runRequest?.aspectRatio || ''
+  return [resolution, aspectRatio].filter(Boolean).join(' / ') || '-'
+}
+
+function videoBoardDurationLabel(message: PlaygroundMessage): string {
+  const duration = message.videos?.[0]?.duration ?? message.runRequest?.duration
+  return typeof duration === 'number' && duration > 0
+    ? t('playground.videoSeconds', { count: duration })
+    : '-'
+}
+
+function videoBoardTaskSource(task: PlaygroundVideoBoardTask): string {
+  const platform = messagePlatform(task.message)
+  return platform ? platformLabel(platform) : task.thread.title
+}
+
+function videoDownloadProgressPercent(message: PlaygroundMessage): number | null {
+  const progress = message.videoDownloadProgress
+  return typeof progress === 'number' && Number.isFinite(progress)
+    ? Math.min(100, Math.max(0, progress))
+    : null
+}
+
+function openVideoBoardDetail(task: PlaygroundVideoBoardTask, event: Event) {
+  stopVideoBoardPreview(event)
+  videoBoardDetailTask.value = task
+}
+
+function videoDownloadName(message: PlaygroundMessage, mimeType: string): string {
+  const date = new Date(Number.isFinite(message.createdAt) ? message.createdAt : Date.now())
+  const stamp = date.toISOString().replace(/\D/g, '').slice(0, 14)
+  const normalizedMimeType = mimeType.toLowerCase()
+  const extension = normalizedMimeType.includes('webm')
+    ? 'webm'
+    : normalizedMimeType.includes('quicktime')
+      ? 'mov'
+      : 'mp4'
+  return `sub2api-video-${stamp}.${extension}`
+}
+
+function downloadVideoBoardDetail() {
+  const task = videoBoardDetailTask.value
+  const video = videoBoardDetailVideo.value
+  if (!task || !video?.url) return
+  const link = document.createElement('a')
+  link.href = video.url
+  link.download = videoDownloadName(task.message, video.mimeType || 'video/mp4')
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
+function deleteVideoBoardDetailTask() {
+  const task = videoBoardDetailTask.value
+  if (!task) return
+  closeVideoBoardDetail()
+  deleteVideoBoardTask(task)
+}
+
+function videoElementFromBoardEvent(event: Event): HTMLVideoElement | null {
+  return (event.currentTarget as HTMLElement | null)?.querySelector('video') || null
+}
+
+function playVideoBoardPreview(event: Event) {
+  const video = videoElementFromBoardEvent(event)
+  if (!video) return
+  video.muted = true
+  if (video.ended) video.currentTime = videoBoardPreviewTime(video)
+  void video.play().catch(() => undefined)
+}
+
+function stopVideoBoardPreview(event: Event) {
+  const video = videoElementFromBoardEvent(event)
+  if (!video) return
+  video.pause()
+  if (video.readyState > 0) video.currentTime = videoBoardPreviewTime(video)
+}
+
+function videoBoardPreviewTime(video: HTMLVideoElement): number {
+  const stored = Number(video.dataset.previewTime)
+  return Number.isFinite(stored) && stored >= 0 ? stored : 0
+}
+
+function primeVideoBoardPreview(event: Event) {
+  const video = event.currentTarget as HTMLVideoElement | null
+  if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return
+  const previewTime = Math.min(0.5, Math.max(0.08, video.duration * 0.02))
+  video.dataset.previewTime = String(previewTime)
+  try {
+    video.currentTime = previewTime
+  } catch {
+    video.dataset.previewTime = '0'
+  }
+}
+
+function deleteVideoBoardTask(task: PlaygroundVideoBoardTask) {
+  deleteMessageFromThread(task.thread, task.message.id)
 }
 
 function deleteThread(id: string) {
@@ -3864,6 +4555,13 @@ function openImageComposerOptions() {
     selectMode('image')
   }
   toggleComposerPanel('image')
+}
+
+function openVideoComposerOptions() {
+  if (mode.value !== 'video') {
+    selectMode('video')
+  }
+  toggleComposerPanel('video')
 }
 
 function openApiKeyManagement() {
@@ -4961,6 +5659,13 @@ function handlePlaygroundGlobalKeydown(event: KeyboardEvent) {
     }
     return
   }
+  if (videoBoardDetailTask.value) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeVideoBoardDetail()
+    }
+    return
+  }
   if (event.key === 'Escape' && selectedImageBoardTaskIds.value.size > 0) {
     event.preventDefault()
     clearImageBoardSelection()
@@ -4995,6 +5700,7 @@ function deleteMessageFromThread(thread: PlaygroundThread, messageId: string) {
   const deleted = thread.messages.find((message) => message.id === messageId)
   clearScheduledRunRecovery(deleted?.runId)
   revokeImageObjectURLs(deleted?.images)
+  revokeVideoObjectURLs(deleted?.videos)
   revokeAttachmentObjectURLs(deleted?.attachments)
   thread.messages = thread.messages.filter((message) => message.id !== messageId)
   if (expandedImageDescriptions.value.has(messageId)) {
@@ -5004,6 +5710,9 @@ function deleteMessageFromThread(thread: PlaygroundThread, messageId: string) {
   }
   if (imageBoardDetailTask.value?.message.id === messageId) {
     closeImageBoardDetail()
+  }
+  if (videoBoardDetailTask.value?.message.id === messageId) {
+    closeVideoBoardDetail()
   }
   if (selectedImageBoardTaskIds.value.has(messageId)) {
     const next = new Set(selectedImageBoardTaskIds.value)
@@ -5110,7 +5819,7 @@ function handleImageBoardPointerUp(event: PointerEvent) {
 async function scrollMessagesToBottom() {
   await nextTick()
   if (messageScroller.value) {
-    if (isImageBoardMode.value) {
+    if (isBoardMode.value) {
       messageScroller.value.scrollTop = 0
       return
     }
@@ -5196,7 +5905,9 @@ function handleComposerInputResizePointerUp(event: PointerEvent) {
 async function loadKeys() {
   loadingKeys.value = true
   try {
-    const response = await keysAPI.list(1, 200, { status: 'active' })
+    // Load all user keys and filter locally. Status filters are not applied
+    // consistently to every platform by older upgraded backend instances.
+    const response = await keysAPI.list(1, 1000)
     apiKeys.value = response.items
     const selectedKeyIsActive = activeKeys.value.some((key) => String(key.id) === selectedKeyId.value)
     if (!selectedKeyIsActive) {
@@ -5583,7 +6294,6 @@ async function applyCompletedChatRun(
 
 async function hydratePlaygroundRunImages(run: PlaygroundRun, signal: AbortSignal): Promise<PlaygroundImageResult[]> {
   return Promise.all((run.images || []).map(async (image, index) => {
-    if (image.url) return image
     const assetIndex = Number.isInteger(image.assetIndex) ? Number(image.assetIndex) : index
     let blob: Blob | null = null
     let lastError: unknown
@@ -5702,6 +6412,8 @@ async function resumePlaygroundRun(thread: PlaygroundThread, message: Playground
 
     if (finalRun.mode === 'image' || message.imageConfig) {
       await applyCompletedImageRun(thread, message, finalRun, controller.signal)
+    } else if (finalRun.mode === 'video') {
+      await applyCompletedVideoRun(thread, message, finalRun, controller.signal)
     } else {
       await applyCompletedChatRun(thread, message, finalRun)
     }
@@ -5887,7 +6599,7 @@ function buildChatMessages(
 
 async function submitPrompt() {
   const thread = ensureActiveThread()
-  if ((thread.mode !== 'image' && thread.running) || !validateRun() || !selectedKey.value) return
+  if ((thread.mode !== 'image' && thread.mode !== 'video' && thread.running) || !validateRun() || !selectedKey.value) return
   lastRunError.value = ''
   const context: PlaygroundRunContext = {
     mode: thread.mode,
@@ -5903,7 +6615,10 @@ async function submitPrompt() {
     imageSize: effectiveImageSize.value,
     imageCount: Math.min(Math.max(Number(imageCount.value) || 1, 1), 4),
     imageQuality: imageQuality.value,
-    outputFormat: outputFormat.value
+    outputFormat: outputFormat.value,
+    videoDuration: videoDuration.value,
+    videoResolution: videoResolution.value,
+    videoAspectRatio: videoAspectRatio.value
   }
   const imageConfig = currentImageConfig()
 
@@ -5932,6 +6647,8 @@ async function submitPrompt() {
   try {
     if (context.mode === 'image') {
       await runImageGeneration(thread, prompt, attachments, context, imageConfig, controller, runId)
+    } else if (context.mode === 'video') {
+      await runVideoGeneration(thread, prompt, attachments, context, controller, runId)
     } else {
       await runStreamingChat(thread, prompt, attachments, context, controller, runId)
     }
@@ -6118,6 +6835,188 @@ async function runImageGeneration(
   }
 }
 
+async function runVideoGeneration(
+  thread: PlaygroundThread,
+  prompt: string,
+  _attachments: PlaygroundAttachment[],
+  context: PlaygroundRunContext,
+  controller: AbortController,
+  runId: string
+) {
+  const runRequest: PlaygroundRunRequest = {
+    id: runId,
+    mode: 'video',
+    apiKey: context.apiKey,
+    platform: context.platform,
+    model: context.model,
+    prompt,
+    n: 1,
+    duration: context.videoDuration,
+    resolution: context.videoResolution,
+    aspectRatio: context.videoAspectRatio
+  }
+  const assistantMessage: PlaygroundMessage = {
+    id: uid('msg'),
+    role: 'assistant',
+    content: '',
+    createdAt: Date.now(),
+    model: context.model,
+    platform: context.platform,
+    progress: t('playground.generatingVideo'),
+    pending: true,
+    runId,
+    runKeyId: context.keyId,
+    runRequest: stripRunAPIKey(runRequest)
+  }
+  thread.messages.push(assistantMessage)
+  await scrollMessagesToBottom()
+  await writePlaygroundStateNow()
+
+  try {
+    await ensureBackendPlaygroundRun(runRequest, controller)
+    assistantMessage.runStarted = true
+    await writePlaygroundStateNow()
+    const response = await pollPlaygroundRun(runId, async (run) => {
+      assistantMessage.progress = run.status === 'queued' ? t('playground.waiting') : t('playground.generatingVideo')
+      thread.updatedAt = Date.now()
+      await writePlaygroundStateNow()
+    }, controller)
+    if (response.status !== 'succeeded') {
+      throw buildRunError(response)
+    }
+    await applyCompletedVideoRun(thread, assistantMessage, response, controller.signal)
+    if (activeThreadId.value !== thread.id) {
+      thread.unreadCount = (thread.unreadCount || 0) + 1
+    }
+  } catch (error) {
+    if (controller.signal.aborted) throw error
+    if (isRecoverablePlaygroundError(error)) {
+      await preserveRecoverableRun(thread, assistantMessage)
+      throw markRunErrorHandled(error, (error as Error).message)
+    }
+    clearScheduledRunRecovery(assistantMessage.runId)
+    assistantMessage.pending = false
+    assistantMessage.progress = ''
+    assistantMessage.error = true
+    assistantMessage.content = (error as Error)?.message || t('playground.runFailed')
+    thread.lastRunError = assistantMessage.content
+    thread.updatedAt = Date.now()
+    if (activeThreadId.value !== thread.id) {
+      thread.unreadCount = (thread.unreadCount || 0) + 1
+    }
+    await writePlaygroundStateNow()
+    throw markRunErrorHandled(error, assistantMessage.content)
+  }
+}
+
+async function applyCompletedVideoRun(
+  thread: PlaygroundThread,
+  message: PlaygroundMessage,
+  run: PlaygroundRun,
+  signal: AbortSignal
+) {
+  if (run.status !== 'succeeded') {
+    clearScheduledRunRecovery(message.runId)
+    message.pending = false
+    message.progress = ''
+    message.videoDownloadProgress = undefined
+    message.error = true
+    message.content = run.error || t('playground.runFailed')
+    thread.lastRunError = message.content
+    thread.updatedAt = Date.now()
+    await writePlaygroundStateNow()
+    return
+  }
+  clearScheduledRunRecovery(message.runId)
+  message.pending = false
+  message.progress = t('playground.videoDownloading')
+  message.videoDownloadProgress = null
+  message.error = false
+  message.content = t('playground.videoDownloading')
+  thread.lastRunError = ''
+  message.videos = (run.videos || []).map((video, index) => ({
+    ...video,
+    url: '',
+    thumbnailUrl: undefined,
+    assetIndex: Number.isInteger(video.assetIndex) ? video.assetIndex : index
+  }))
+  message.raw = undefined
+  message.durationMs = run.durationMs
+  thread.updatedAt = Date.now()
+  await writePlaygroundStateNow()
+  try {
+    const videos = await hydratePlaygroundRunVideos(run, signal, (progress) => {
+      message.videoDownloadProgress = progress
+      message.progress = progress === null
+        ? t('playground.videoDownloading')
+        : t('playground.videoDownloadingProgress', { progress: Math.round(progress) })
+    })
+    if (videos.length === 0) throw new Error(t('playground.videoCacheMissing'))
+    message.videos = videos
+    message.pending = false
+    message.progress = ''
+    message.videoDownloadProgress = undefined
+    message.content = t('playground.videoGenerated')
+  } catch (error) {
+    message.pending = false
+    message.progress = ''
+    message.videoDownloadProgress = undefined
+    if (signal.aborted) {
+      message.content = t('playground.requestStopped')
+    } else {
+      console.warn('Failed to hydrate completed playground video:', error)
+      message.videos = []
+      message.error = true
+      message.content = t('playground.videoCacheMissing')
+      thread.lastRunError = message.content
+    }
+  }
+  thread.updatedAt = Date.now()
+  syncThreadRunning(thread)
+  await writePlaygroundStateNow()
+}
+
+async function hydratePlaygroundRunVideos(
+  run: PlaygroundRun,
+  signal: AbortSignal,
+  onProgress?: (progress: number | null) => void,
+): Promise<PlaygroundVideoResult[]> {
+  return Promise.all((run.videos || []).map(async (video, index) => {
+    const assetIndex = Number.isInteger(video.assetIndex) ? Number(video.assetIndex) : index
+    let blob: Blob | null = null
+    let lastError: unknown
+    for (let attempt = 1; attempt <= PLAYGROUND_IMAGE_FETCH_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        blob = await getPlaygroundRunVideo(run.id, assetIndex, signal, (progress) => {
+          onProgress?.(typeof progress.percent === 'number' ? progress.percent : null)
+        })
+        break
+      } catch (error) {
+        if (signal.aborted) throw error
+        const retryable = isRetryablePlaygroundRequestError(error) || playgroundRequestStatus(error) === 404
+        if (!retryable) throw error
+        lastError = error
+        if (attempt >= PLAYGROUND_IMAGE_FETCH_MAX_ATTEMPTS) {
+          throw markRecoverablePlaygroundError(error, t('playground.runTimeout'))
+        }
+        await sleep(playgroundRetryDelayMs(attempt), signal)
+      }
+    }
+    if (!blob) {
+      throw markRecoverablePlaygroundError(lastError, t('playground.runTimeout'))
+    }
+    const mimeType = video.mimeType || blob.type || 'video/mp4'
+    const normalizedBlob = blob.type ? blob : new Blob([blob], { type: mimeType })
+    return {
+      ...video,
+      url: createTrackedObjectURL(normalizedBlob),
+      thumbnailUrl: undefined,
+      mimeType,
+      assetIndex
+    }
+  }))
+}
+
 function stopRun() {
   const thread = activeThread.value
   if (!thread) return
@@ -6290,7 +7189,11 @@ watch(selectedKeyId, () => {
   loadModels()
 })
 
-watch(mode, () => {
+watch(mode, (nextMode) => {
+  if (activeComposerPanel.value === 'image' || activeComposerPanel.value === 'video') {
+    closeComposerPanel()
+  }
+  if (nextMode !== 'image') showImageSizeModal.value = false
   selectDefaultModel()
 })
 
@@ -6341,6 +7244,9 @@ watch(() => ({
   outputFormat: outputFormat.value,
   imagePromptStyle: imagePromptStyle.value,
   imageWorkspaceMode: imageWorkspaceMode.value,
+  videoDuration: videoDuration.value,
+  videoResolution: videoResolution.value,
+  videoAspectRatio: videoAspectRatio.value,
   promptOptimizerKeyId: promptOptimizerKeyId.value,
   promptOptimizerModel: promptOptimizerModel.value,
   showComposerConfig: showComposerConfig.value,
@@ -6565,6 +7471,30 @@ onBeforeUnmount(() => {
 .composer-image-panel > * {
   min-width: 0;
   width: 100%;
+}
+
+.composer-video-panel {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.video-option-field {
+  display: grid;
+  min-width: 0;
+  gap: 0.375rem;
+}
+
+.video-option-field > span {
+  overflow: hidden;
+  color: rgb(100 116 139);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dark .video-option-field > span {
+  color: rgb(148 163 184);
 }
 
 .composer-more-action {
@@ -6982,53 +7912,218 @@ onBeforeUnmount(() => {
   color: rgb(125 211 252);
 }
 
-.image-board-root {
+.image-board-root,
+.video-board-root {
   position: relative;
   min-height: 50vh;
 }
 
-.image-board-grid {
+.image-board-root {
+  user-select: none;
+}
+
+.image-board-grid,
+.video-board-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   padding-bottom: 1.25rem;
 }
 
-.image-board-card {
-  position: relative;
+.image-board-selection-toolbar {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 20;
   display: flex;
-  height: 10rem;
-  min-height: 10rem;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.875rem;
+  border: 1px solid rgb(203 213 225 / 0.9);
+  border-radius: 0.5rem;
+  background: rgb(255 255 255 / 0.96);
+  padding: 0.5rem 0.75rem;
+  color: rgb(51 65 85);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  box-shadow: 0 8px 24px -16px rgb(15 23 42 / 0.5);
+  backdrop-filter: blur(10px);
+}
+
+.image-board-selection-toolbar > div {
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.image-board-selection-toolbar button {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  color: rgb(71 85 105);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.image-board-selection-toolbar button:hover {
+  background: rgb(241 245 249);
+  color: rgb(15 23 42);
+}
+
+.image-board-selection-toolbar button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.image-board-selection-toolbar button.is-danger {
+  background: rgb(254 242 242);
+  color: rgb(220 38 38);
+}
+
+.image-board-selection-toolbar button.is-danger:hover {
+  background: rgb(254 226 226);
+}
+
+.image-board-card,
+.video-board-card {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  min-width: 0;
   overflow: hidden;
   border: 1px solid rgb(226 232 240);
-  border-radius: 0.75rem;
-  background: rgb(255 255 255);
+  border-radius: 0.5rem;
+  background: rgb(15 23 42);
   cursor: pointer;
-  will-change: transform;
-  transition: box-shadow 200ms ease, border-color 200ms ease, background-color 200ms ease, transform 200ms ease;
+  outline: none;
+  transition: box-shadow 180ms ease, border-color 180ms ease, transform 180ms ease;
 }
 
-.image-board-card:hover {
-  border-color: rgb(209 213 219);
-  box-shadow: 0 10px 15px -3px rgb(15 23 42 / 0.1), 0 4px 6px -4px rgb(15 23 42 / 0.1);
+.image-board-card:hover,
+.image-board-card:focus-visible,
+.video-board-card:hover,
+.video-board-card:focus-visible {
+  border-color: rgb(148 163 184);
+  box-shadow: 0 12px 24px -16px rgb(15 23 42 / 0.55);
+  transform: translateY(-1px);
 }
 
-.image-board-card.is-error {
+.image-board-card.is-error,
+.video-board-card.is-error {
   border-color: rgb(254 202 202);
 }
 
 .image-board-card.is-selected {
-  border-color: rgb(59 130 246);
-  box-shadow: 0 4px 6px -1px rgb(15 23 42 / 0.1), 0 2px 4px -2px rgb(15 23 42 / 0.1), 0 0 0 2px rgb(59 130 246 / 0.5);
+  border-color: rgb(14 165 233);
+  box-shadow: 0 0 0 2px rgb(14 165 233 / 0.55);
 }
 
 .image-board-card-media {
   position: relative;
   height: 100%;
-  width: 10rem;
-  flex: 0 0 10rem;
+  width: 100%;
   overflow: hidden;
   background: rgb(248 250 252);
+}
+
+.video-board-card-media {
+  display: block;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.video-board-card-placeholder {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: rgb(248 250 252);
+  padding: 1.5rem;
+  color: rgb(100 116 139);
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+}
+
+.video-download-progress {
+  display: flex;
+  width: min(18rem, 100%);
+  min-height: 1rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.video-download-progress-track {
+  position: relative;
+  height: 0.375rem;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgb(148 163 184 / 0.3);
+}
+
+.video-download-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: rgb(14 165 233);
+  transition: width 180ms ease-out;
+}
+
+.video-download-progress-fill.is-indeterminate {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 42%;
+  animation: video-download-indeterminate 1.15s ease-in-out infinite;
+}
+
+.video-download-progress-label {
+  width: 2.5rem;
+  flex: none;
+  color: currentColor;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+}
+
+@keyframes video-download-indeterminate {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(245%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-download-progress-fill.is-indeterminate {
+    left: 29%;
+    animation: none;
+  }
+}
+
+.image-board-result-count {
+  position: absolute;
+  left: 0.5rem;
+  top: 0.5rem;
+  z-index: 5;
+  border-radius: 0.25rem;
+  background: rgb(15 23 42 / 0.68);
+  padding: 0.125rem 0.375rem;
+  color: white;
+  font-size: 0.625rem;
+  font-weight: 700;
+  backdrop-filter: blur(6px);
 }
 
 .image-board-card-selected {
@@ -7101,65 +8196,103 @@ onBeforeUnmount(() => {
   font-size: 0.75rem;
 }
 
-.image-board-card-tags {
+.image-board-card-overlay,
+.video-board-card-overlay {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 6;
   display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: linear-gradient(to top, rgb(2 6 23 / 0.94), rgb(2 6 23 / 0.58) 58%, transparent);
+  padding: 4.5rem 0.625rem 0.625rem;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(0.375rem);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.image-board-card:hover .image-board-card-overlay,
+.image-board-card:focus-within .image-board-card-overlay,
+.image-board-card.is-selected .image-board-card-overlay,
+.video-board-card:hover .video-board-card-overlay,
+.video-board-card:focus-within .video-board-card-overlay {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.image-board-card-meta,
+.video-board-card-meta {
+  display: grid;
   min-width: 0;
-  gap: 0.375rem;
-  overflow-x: auto;
-  color: rgb(100 116 139);
-  font-size: 0.75rem;
+  gap: 0.125rem;
+  color: rgb(255 255 255 / 0.78);
+  font-size: 0.6875rem;
   line-height: 1rem;
-  scrollbar-width: none;
 }
 
-.image-board-card-tags::-webkit-scrollbar {
-  display: none;
-}
-
-.image-board-card-tags span {
-  max-width: 9rem;
+.image-board-card-meta span,
+.video-board-card-meta span {
+  max-width: 10rem;
   overflow: hidden;
-  border-radius: 0.25rem;
-  background: rgb(241 245 249);
-  padding: 0.125rem 0.375rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.image-board-card-meta span:first-child,
+.video-board-card-meta span:first-child {
+  color: white;
+  font-weight: 700;
+}
+
+.image-board-card-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.25rem;
+  pointer-events: auto;
+}
+
 .image-board-card-action {
   display: inline-flex;
-  height: 1.875rem;
-  width: 1.875rem;
+  height: 2.25rem;
+  width: 2.25rem;
   align-items: center;
   justify-content: center;
+  border: 1px solid rgb(255 255 255 / 0.16);
   border-radius: 0.375rem;
-  color: rgb(100 116 139);
+  background: rgb(15 23 42 / 0.68);
+  color: white;
+  backdrop-filter: blur(8px);
   transition: background-color 150ms ease, color 150ms ease;
 }
 
 .image-board-card-action:hover {
-  background: rgb(240 249 255);
-  color: rgb(2 132 199);
+  background: rgb(255 255 255 / 0.2);
 }
 
-.dark .image-board-card {
-  border-color: rgb(255 255 255 / 0.08);
-  background: rgb(17 24 39);
+.image-board-card-action.is-danger:hover {
+  background: rgb(220 38 38 / 0.85);
 }
 
-.dark .image-board-card:hover {
-  border-color: rgb(255 255 255 / 0.18);
-  background: rgb(31 41 55 / 0.8);
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.22), 0 4px 6px -4px rgb(0 0 0 / 0.22);
+.dark .image-board-selection-toolbar {
+  border-color: rgb(255 255 255 / 0.1);
+  background: rgb(17 24 39 / 0.94);
+  color: rgb(226 232 240);
 }
 
-.dark .image-board-card.is-error {
-  border-color: rgb(127 29 29 / 0.8);
+.dark .image-board-selection-toolbar button {
+  color: rgb(203 213 225);
 }
 
-.dark .image-board-card.is-selected {
-  border-color: rgb(59 130 246);
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.2), 0 2px 4px -2px rgb(0 0 0 / 0.2), 0 0 0 2px rgb(59 130 246 / 0.5);
+.dark .image-board-selection-toolbar button:hover {
+  background: rgb(255 255 255 / 0.08);
+  color: white;
+}
+
+.dark .image-board-card,
+.dark .video-board-card {
+  border-color: rgb(255 255 255 / 0.1);
 }
 
 .dark .image-board-pagination button {
@@ -7179,21 +8312,9 @@ onBeforeUnmount(() => {
   background: rgb(0 0 0 / 0.2);
 }
 
-.dark .image-board-card-tags {
-  color: rgb(203 213 225);
-}
-
-.dark .image-board-card-tags span {
-  background: rgb(30 41 59);
-}
-
-.dark .image-board-card-action {
-  color: rgb(203 213 225);
-}
-
-.dark .image-board-card-action:hover {
-  background: rgb(12 74 110 / 0.32);
-  color: rgb(125 211 252);
+.dark .video-board-card-placeholder {
+  background: rgb(3 7 18);
+  color: rgb(148 163 184);
 }
 
 .image-board-detail-images {
@@ -7439,18 +8560,26 @@ onBeforeUnmount(() => {
 }
 
 @media (min-width: 640px) {
-  .image-board-grid {
+  .image-board-grid,
+  .video-board-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 1024px) {
-  .image-board-grid {
+  .image-board-grid,
+  .video-board-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media (hover: none) {
+  .image-board-card-overlay,
+  .video-board-card-overlay {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
   .playground-thumbnail-actions {
     align-items: flex-start;
     justify-content: flex-end;
@@ -7872,7 +9001,8 @@ onBeforeUnmount(() => {
   }
 
   .composer-runtime-grid,
-  .composer-image-grid {
+  .composer-image-grid,
+  .composer-video-panel {
     grid-template-columns: minmax(0, 1fr);
   }
 

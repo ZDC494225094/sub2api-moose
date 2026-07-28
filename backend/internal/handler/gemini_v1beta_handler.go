@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,6 +26,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 )
 
@@ -382,6 +385,10 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 			}
 		}
 		account := selection.Account
+		if action == "predictLongRunning" && account.Platform != service.PlatformGemini {
+			fs.FailedAccountIDs[account.ID] = struct{}{}
+			continue
+		}
 		setOpsSelectedAccount(c, account.ID, account.Platform)
 
 		// 检测账号切换：如果粘性会话绑定的账号与当前选择的账号不同，清除 thoughtSignature
@@ -505,6 +512,18 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 			reqLog.Error("gemini.forward_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 			return
 		}
+		if action == "predictLongRunning" {
+			operationName := strings.TrimSpace(gjson.GetBytes(result.ResponseBody, "name").String())
+			if operationName == "" {
+				reqLog.Error("gemini.video_operation_missing_name", zap.Int64("account_id", account.ID))
+				return
+			}
+			if err := h.gatewayService.BindStickySession(
+				c.Request.Context(), apiKey.GroupID, "gemini:"+geminiVideoOperationSessionHash(operationName), account.ID,
+			); err != nil {
+				reqLog.Warn("gemini.video_operation_bind_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+			}
+		}
 
 		// 捕获请求信息（用于异步记录，避免在 goroutine 中访问 gin.Context）
 		userAgent := c.GetHeader("User-Agent")
@@ -569,6 +588,135 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		)
 		return
 	}
+}
+
+// GeminiV1BetaVideoOperation polls a Veo long-running operation through the
+// same account that accepted it. operation_id is raw URL-safe base64 of the
+// upstream operation name.
+func (h *GatewayHandler) GeminiV1BetaVideoOperation(c *gin.Context) {
+	apiKey, account, operationName, ok := h.resolveGeminiVideoOperation(c)
+	if !ok {
+		return
+	}
+	res, err := h.geminiCompatService.ForwardAIStudioGET(
+		c.Request.Context(), account, geminiVideoOperationPath(operationName),
+	)
+	if err != nil {
+		googleError(c, http.StatusBadGateway, err.Error())
+		return
+	}
+	_ = apiKey
+	writeUpstreamResponse(c, res)
+}
+
+// GeminiV1BetaVideoOperationContent resolves the media URI from a completed
+// operation server-side and streams it without exposing the provider secret.
+func (h *GatewayHandler) GeminiV1BetaVideoOperationContent(c *gin.Context) {
+	_, account, operationName, ok := h.resolveGeminiVideoOperation(c)
+	if !ok {
+		return
+	}
+	res, err := h.geminiCompatService.ForwardAIStudioGET(
+		c.Request.Context(), account, geminiVideoOperationPath(operationName),
+	)
+	if err != nil {
+		googleError(c, http.StatusBadGateway, err.Error())
+		return
+	}
+	if res == nil || res.StatusCode < 200 || res.StatusCode >= 300 {
+		writeUpstreamResponse(c, res)
+		return
+	}
+	if !gjson.GetBytes(res.Body, "done").Bool() {
+		googleError(c, http.StatusConflict, "Video operation is not complete")
+		return
+	}
+	videoURL := geminiVideoOperationContentURL(res.Body)
+	if videoURL == "" {
+		googleError(c, http.StatusBadGateway, "Gemini operation returned no video content")
+		return
+	}
+	if err := h.geminiCompatService.ForwardAIStudioVideoContent(c.Request.Context(), c, account, videoURL); err != nil {
+		if !service.IsResponseCommitted(c) {
+			googleError(c, http.StatusBadGateway, err.Error())
+		}
+	}
+}
+
+func (h *GatewayHandler) resolveGeminiVideoOperation(c *gin.Context) (*service.APIKey, *service.Account, string, bool) {
+	apiKey, ok := middleware.GetAPIKeyFromContext(c)
+	if !ok || apiKey == nil {
+		googleError(c, http.StatusUnauthorized, "Invalid API key")
+		return nil, nil, "", false
+	}
+	if effectiveAPIKeyPlatform(c, apiKey) != service.PlatformGemini {
+		googleError(c, http.StatusBadRequest, "API key group platform is not gemini")
+		return nil, nil, "", false
+	}
+	operationName, err := decodeGeminiVideoOperationID(c.Param("operation_id"))
+	if err != nil {
+		googleError(c, http.StatusBadRequest, err.Error())
+		return nil, nil, "", false
+	}
+	sessionHash := geminiVideoOperationSessionHash(operationName)
+	boundID, err := h.gatewayService.GetCachedSessionAccountID(c.Request.Context(), apiKey.GroupID, "gemini:"+sessionHash)
+	if err != nil || boundID <= 0 {
+		googleError(c, http.StatusNotFound, "Video operation not found")
+		return nil, nil, "", false
+	}
+	account, err := h.geminiCompatService.SelectAccountForModel(c.Request.Context(), apiKey.GroupID, sessionHash, "")
+	if err != nil || account == nil || account.ID != boundID || account.Platform != service.PlatformGemini {
+		googleError(c, http.StatusNotFound, "Video operation not found")
+		return nil, nil, "", false
+	}
+	return apiKey, account, operationName, true
+}
+
+func geminiVideoOperationSessionHash(operationName string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(operationName)))
+	return "video-operation:" + hex.EncodeToString(sum[:])
+}
+
+func decodeGeminiVideoOperationID(encoded string) (string, error) {
+	decoded, err := base64.RawURLEncoding.DecodeString(strings.TrimSpace(encoded))
+	if err != nil {
+		return "", errors.New("Invalid video operation id")
+	}
+	operationName := strings.Trim(strings.TrimSpace(string(decoded)), "/")
+	if operationName == "" || len(operationName) > 2048 || strings.Contains(operationName, "\\") || strings.Contains(operationName, "?") || strings.Contains(operationName, "#") || strings.Contains(operationName, "..") ||
+		!(strings.HasPrefix(operationName, "operations/") || strings.Contains(operationName, "/operations/")) {
+		return "", errors.New("Invalid video operation id")
+	}
+	return operationName, nil
+}
+
+func geminiVideoOperationPath(operationName string) string {
+	segments := strings.Split(strings.Trim(operationName, "/"), "/")
+	for index := range segments {
+		segments[index] = url.PathEscape(segments[index])
+	}
+	return "/v1beta/" + strings.Join(segments, "/")
+}
+
+func geminiVideoOperationContentURL(body []byte) string {
+	for _, path := range []string{
+		"response.generateVideoResponse.generatedSamples.0.video.uri",
+		"response.generateVideoResponse.generatedSamples.0.video.url",
+		"response.generateVideoResponse.generatedSamples.0.video.gcsUri",
+		"response.generatedVideos.0.video.uri",
+		"response.generatedVideos.0.video.url",
+		"response.videos.0.uri",
+		"response.videos.0.url",
+		"response.videos.0.gcsUri",
+		"response.video.uri",
+		"response.video.url",
+		"response.video.gcsUri",
+	} {
+		if value := strings.TrimSpace(gjson.GetBytes(body, path).String()); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func parseGeminiModelAction(rest string) (model string, action string, err error) {

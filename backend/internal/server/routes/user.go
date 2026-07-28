@@ -140,6 +140,7 @@ func RegisterUserRoutes(
 			playground.POST("/runs", h.Playground.StartRun)
 			playground.GET("/runs/:id", h.Playground.GetRun)
 			playground.GET("/runs/:id/images/:index", h.Playground.GetRunImage)
+			playground.GET("/runs/:id/videos/:index", h.Playground.GetRunVideo)
 			playground.DELETE("/runs/:id", h.Playground.CancelRun)
 		}
 	}

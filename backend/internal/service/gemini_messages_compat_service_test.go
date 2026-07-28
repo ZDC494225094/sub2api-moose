@@ -42,6 +42,30 @@ func (s *geminiCompatHTTPUpstreamStub) DoWithTLS(req *http.Request, proxyURL str
 	return s.Do(req, proxyURL, accountID, accountConcurrency)
 }
 
+func TestGeminiOperationNameFromGETPath(t *testing.T) {
+	operationName := "projects/my-project/locations/us-central1/publishers/google/models/veo-3.1-generate-preview/operations/op-123"
+	got, ok, err := geminiOperationNameFromGETPath("/v1beta/" + operationName)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, operationName, got)
+
+	_, ok, err = geminiOperationNameFromGETPath("/v1beta/models")
+	require.NoError(t, err)
+	require.False(t, ok)
+
+	_, _, err = geminiOperationNameFromGETPath("/v1beta/projects/my-project/locations/us-central1/operations/%2E%2E")
+	require.Error(t, err)
+}
+
+func TestValidateGeminiVideoContentURLNormalizesGCSURI(t *testing.T) {
+	svc := &GeminiMessagesCompatService{cfg: &config.Config{}}
+	account := &Account{Type: AccountTypeServiceAccount}
+
+	got, err := svc.validateGeminiVideoContentURL(account, "gs://video-bucket/output/video%201.mp4")
+	require.NoError(t, err)
+	require.Equal(t, "https://storage.googleapis.com/video-bucket/output/video%201.mp4", got)
+}
+
 func TestGeminiForwardAsChatCompletions_OAuthRoutesToGeminiAndReturnsChatFormat(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

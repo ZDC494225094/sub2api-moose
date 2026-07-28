@@ -301,7 +301,7 @@ func buildVertexGeminiURL(projectID, location, model, action string, stream bool
 		return "", errors.New("vertex model is required")
 	}
 	switch action {
-	case "generateContent", "streamGenerateContent", "countTokens":
+	case "generateContent", "streamGenerateContent", "countTokens", "predictLongRunning":
 	default:
 		return "", fmt.Errorf("unsupported vertex gemini action: %s", action)
 	}
@@ -321,6 +321,50 @@ func buildVertexGeminiURL(projectID, location, model, action string, stream bool
 		u += "?alt=sse"
 	}
 	return u, nil
+}
+
+func buildVertexGeminiOperationURL(expectedProjectID, operationName string) (string, error) {
+	expectedProjectID = strings.TrimSpace(expectedProjectID)
+	operationName = strings.Trim(strings.TrimSpace(operationName), "/")
+	segments := strings.Split(operationName, "/")
+	if len(segments) < 6 || segments[0] != "projects" || segments[2] != "locations" {
+		return "", errors.New("invalid vertex gemini operation name")
+	}
+	for _, segment := range segments {
+		if segment == "" || segment == "." || segment == ".." || strings.ContainsAny(segment, "\\?#") {
+			return "", errors.New("invalid vertex gemini operation name")
+		}
+	}
+	projectID := segments[1]
+	if expectedProjectID == "" {
+		return "", errors.New("vertex project_id is required")
+	}
+	if projectID != expectedProjectID {
+		return "", errors.New("vertex gemini operation project mismatch")
+	}
+	location := segments[3]
+	if !vertexLocationPattern.MatchString(location) {
+		return "", fmt.Errorf("invalid vertex location: %s", location)
+	}
+	operationIndex := -1
+	for index := 4; index < len(segments)-1; index++ {
+		if segments[index] == "operations" {
+			operationIndex = index
+			break
+		}
+	}
+	if operationIndex < 0 {
+		return "", errors.New("invalid vertex gemini operation name")
+	}
+	host := fmt.Sprintf("%s-aiplatform.googleapis.com", location)
+	if location == "global" {
+		host = "aiplatform.googleapis.com"
+	}
+	escapedSegments := make([]string, len(segments))
+	for index, segment := range segments {
+		escapedSegments[index] = url.PathEscape(segment)
+	}
+	return "https://" + host + "/v1/" + strings.Join(escapedSegments, "/"), nil
 }
 
 func buildVertexAnthropicURL(projectID, location, model string, stream bool) (string, error) {

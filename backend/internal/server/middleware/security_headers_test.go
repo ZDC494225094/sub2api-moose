@@ -349,6 +349,16 @@ func TestEnhanceCSPPolicy(t *testing.T) {
 		enhanced := enhanceCSPPolicy(policy)
 
 		assert.Equal(t, 1, countDirectiveValue(enhanced, "img-src", CSPBlobScheme))
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "media-src", "'self'"))
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "media-src", CSPBlobScheme))
+	})
+
+	t.Run("does_not_duplicate_media_sources", func(t *testing.T) {
+		policy := "default-src 'self'; script-src 'self'; media-src 'self' blob:"
+		enhanced := enhanceCSPPolicy(policy)
+
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "media-src", "'self'"))
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "media-src", CSPBlobScheme))
 	})
 
 	t.Run("does_not_duplicate_airwallex_domains", func(t *testing.T) {

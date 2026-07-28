@@ -555,6 +555,9 @@ type ForwardResult struct {
 	RequestID string
 	Usage     ClaudeUsage
 	Model     string
+	// ResponseBody is populated for small asynchronous operation responses that
+	// handlers must bind to the selected upstream account.
+	ResponseBody []byte
 	// UpstreamModel is the actual upstream model after mapping.
 	// Prefer empty when it is identical to Model; persistence normalizes equal values away as no-op mappings.
 	UpstreamModel    string

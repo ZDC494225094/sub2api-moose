@@ -92,6 +92,8 @@ func NormalizeAPIKeyPlatform(platform string) string {
 		return PlatformGemini
 	case PlatformAntigravity:
 		return PlatformAntigravity
+	case PlatformGrok:
+		return PlatformGrok
 	default:
 		return ""
 	}

@@ -28,7 +28,7 @@ const (
 	AirwallexDemoStaticDomain = "https://static-demo.airwallex.com"
 	// AirwallexDemoCheckoutDomain 是 Airwallex 沙箱环境收银台元素和 iframe 域名。
 	AirwallexDemoCheckoutDomain = "https://checkout-demo.airwallex.com"
-	// CSPBlobScheme 允许页面展示前端生成的 blob: 图片缩略图。
+	// CSPBlobScheme 允许页面展示前端生成的 blob: 图片和媒体。
 	CSPBlobScheme = "blob:"
 )
 
@@ -50,6 +50,8 @@ var requiredCSPDirectiveValues = []struct {
 	{"style-src", AirwallexDemoCheckoutDomain},
 	{"frame-src", AirwallexDemoCheckoutDomain},
 	{"img-src", CSPBlobScheme},
+	{"media-src", "'self'"},
+	{"media-src", CSPBlobScheme},
 }
 
 // GenerateNonce generates a cryptographically secure random nonce.
@@ -131,8 +133,8 @@ func isAPIRoutePath(c *gin.Context) bool {
 		strings.HasPrefix(path, "/images")
 }
 
-// enhanceCSPPolicy 确保 CSP 策略包含 nonce 支持和支付 SDK 必需域名。
-// 这样旧配置文件没有及时补域名时，前端支付组件仍能正常加载。
+// enhanceCSPPolicy 确保 CSP 策略包含 nonce、媒体 Blob 和支付 SDK 必需域名。
+// 这样旧配置文件没有及时补齐时，前端组件仍能正常加载。
 func enhanceCSPPolicy(policy string) string {
 	// Add nonce placeholder to script-src if not present
 	if !strings.Contains(policy, NonceTemplate) && !strings.Contains(policy, "'nonce-") {

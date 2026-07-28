@@ -232,8 +232,8 @@ func TestGatewayRoutesCompositeChatCompletionsWithGrokModelUsesOpenAIGateway(t *
 	}
 }
 
-func TestGatewayRoutesNonGrokVideosAreRejectedAtPlatformGate(t *testing.T) {
-	router := newGatewayRoutesTestRouter(service.PlatformOpenAI)
+func TestGatewayRoutesGeminiVideosUseNativeV1BetaInsteadOfOpenAIPath(t *testing.T) {
+	router := newGatewayRoutesTestRouter(service.PlatformGemini)
 
 	for _, tc := range []struct {
 		method string

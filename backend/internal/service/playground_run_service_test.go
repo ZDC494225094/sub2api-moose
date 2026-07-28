@@ -262,12 +262,17 @@ func TestPlaygroundRunServiceExecuteGiteeZImageUsesControlImage(t *testing.T) {
 	var gotPath string
 	var gotPayload map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/asset.png" {
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write([]byte("generated-image"))
+			return
+		}
 		gotPath = r.URL.Path
 		if err := json.NewDecoder(r.Body).Decode(&gotPayload); err != nil {
 			t.Fatalf("decode payload: %v", err)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":[{"url":"https://example.com/generated.png"}]}`))
+		_, _ = w.Write([]byte(`{"data":[{"url":"/asset.png"}]}`))
 	}))
 	defer server.Close()
 
@@ -535,6 +540,75 @@ func TestPlaygroundRunServiceStartCompletesImageAndServesAsset(t *testing.T) {
 	}
 }
 
+func TestPlaygroundRunServiceStoresAbsoluteImageURLAsProtectedAsset(t *testing.T) {
+	const imageBytes = "remote-image-bytes"
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/images/generations":
+			if got := r.Header.Get("Authorization"); got != "Bearer sk-image" {
+				t.Errorf("generation authorization = %q", got)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprintf(w, `{"data":[{"url":%q}]}`, server.URL+"/cdn/generated.png?token=signed")
+		case "/cdn/generated.png":
+			if got := r.Header.Get("Authorization"); got != "" {
+				t.Errorf("remote image download leaked authorization header %q", got)
+			}
+			if r.URL.RawQuery != "token=signed" {
+				t.Errorf("image query = %q, want signed token", r.URL.RawQuery)
+			}
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write([]byte(imageBytes))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	svc := NewPlaygroundRunService()
+	_, err := svc.Start(1, PlaygroundRunRequest{
+		ID:           "absolute-image",
+		Mode:         "image",
+		APIKey:       "sk-image",
+		EndpointBase: "/v1",
+		Model:        "gpt-image-2",
+		Prompt:       "draw a protected image",
+		N:            1,
+		OutputFormat: "png",
+	}, server.URL)
+	if err != nil {
+		t.Fatalf("start image run: %v", err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	var completed *PlaygroundRun
+	for time.Now().Before(deadline) {
+		completed, _ = svc.Get(1, "absolute-image")
+		if completed != nil && isTerminalPlaygroundRunStatus(completed.Status) {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if completed == nil || completed.Status != PlaygroundRunSucceeded {
+		t.Fatalf("completed run = %+v, want succeeded", completed)
+	}
+	if len(completed.Images) != 1 || completed.Images[0].URL != "" || completed.Images[0].AssetIndex == nil {
+		t.Fatalf("image metadata leaked remote URL: %+v", completed.Images)
+	}
+	encoded, err := json.Marshal(completed)
+	if err != nil {
+		t.Fatalf("marshal completed run: %v", err)
+	}
+	if strings.Contains(string(encoded), server.URL) {
+		t.Fatalf("completed run leaked upstream image URL: %s", encoded)
+	}
+	asset, found, err := svc.GetImage(1, "absolute-image", 0)
+	if err != nil || !found || string(asset.Data) != imageBytes || asset.ContentType != "image/png" {
+		t.Fatalf("image asset = found:%v err:%v type:%q data:%q", found, err, asset.ContentType, asset.Data)
+	}
+}
+
 func TestPlaygroundRunServiceImageStatusOmitsInlineDataAndRaw(t *testing.T) {
 	svc := NewPlaygroundRunService()
 	svc.runs["1:run"] = &PlaygroundRun{
@@ -779,7 +853,7 @@ func TestPlaygroundRunServiceParallelImageRequestsCancelSiblingsOnFailure(t *tes
 
 	svc := NewPlaygroundRunService()
 	go func() {
-		_, err := svc.executeParallelImageRequests(context.Background(), "1:run", time.Now(), imageCount, func(ctx context.Context) ([]PlaygroundRunImage, error) {
+		_, err := svc.executeParallelImageRequests(context.Background(), "1:run", PlaygroundRunRequest{}, "", time.Now(), imageCount, func(ctx context.Context) ([]PlaygroundRunImage, error) {
 			index := callCount.Add(1)
 			started <- struct{}{}
 			<-release
@@ -808,5 +882,279 @@ func TestPlaygroundRunServiceParallelImageRequestsCancelSiblingsOnFailure(t *tes
 	}
 	if canceledCount.Load() != imageCount-1 {
 		t.Fatalf("canceled sibling count = %d, want %d", canceledCount.Load(), imageCount-1)
+	}
+}
+
+func TestPlaygroundVideoGenerationPayloadMapsConfigByProvider(t *testing.T) {
+	request := PlaygroundRunRequest{
+		Model:       "video-model",
+		Prompt:      "city at night",
+		N:           1,
+		Duration:    8,
+		Resolution:  "1080p",
+		AspectRatio: "9:16",
+	}
+
+	t.Run("Gemini", func(t *testing.T) {
+		payload := playgroundVideoGenerationPayload(request, true)
+		parameters, ok := payload["parameters"].(map[string]any)
+		if !ok {
+			t.Fatalf("parameters = %#v, want map", payload["parameters"])
+		}
+		if got := parameters["durationSeconds"]; got != 8 {
+			t.Fatalf("durationSeconds = %#v, want 8", got)
+		}
+		if got := parameters["resolution"]; got != "1080p" {
+			t.Fatalf("resolution = %#v, want 1080p", got)
+		}
+		if got := parameters["aspectRatio"]; got != "9:16" {
+			t.Fatalf("aspectRatio = %#v, want 9:16", got)
+		}
+	})
+
+	t.Run("OpenAI compatible", func(t *testing.T) {
+		payload := playgroundVideoGenerationPayload(request, false)
+		if got := payload["duration"]; got != 8 {
+			t.Fatalf("duration = %#v, want 8", got)
+		}
+		if got := payload["resolution"]; got != "1080p" {
+			t.Fatalf("resolution = %#v, want 1080p", got)
+		}
+		if got := payload["aspect_ratio"]; got != "9:16" {
+			t.Fatalf("aspect_ratio = %#v, want 9:16", got)
+		}
+	})
+}
+
+func TestPlaygroundRunServiceExecuteVideoPollsGrokTaskAndStoresProtectedContent(t *testing.T) {
+	var statusCalls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer sk-grok" {
+			t.Errorf("authorization = %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/videos/generations":
+			_, _ = w.Write([]byte(`{"request_id":"req-grok-1"}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/videos/req-grok-1":
+			if statusCalls.Add(1) == 1 {
+				_, _ = w.Write([]byte(`{"status":"pending"}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"status":"done","video":{"url":"/v1/videos/req-grok-1/content"}}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/videos/req-grok-1/content":
+			w.Header().Set("Content-Type", "video/mp4")
+			_, _ = w.Write([]byte("grok-video-bytes"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	svc := NewPlaygroundRunService()
+	svc.videoPollInterval = time.Millisecond
+	key := "7:grok-video"
+	svc.runs[key] = &PlaygroundRun{ID: "grok-video", UserID: 7, Mode: "video", Status: PlaygroundRunRunning}
+	_, err := svc.executeVideo(context.Background(), key, PlaygroundRunRequest{
+		APIKey:   "sk-grok",
+		Platform: PlatformGrok,
+		Model:    "grok-imagine-video",
+		Prompt:   "waves",
+	}, server.URL, time.Now())
+	if err != nil {
+		t.Fatalf("execute video: %v", err)
+	}
+	if statusCalls.Load() != 2 {
+		t.Fatalf("status calls = %d, want 2", statusCalls.Load())
+	}
+	video := svc.runs[key].Videos[0]
+	if got := string(video.data); got != "grok-video-bytes" {
+		t.Fatalf("video data = %q", got)
+	}
+	if video.MimeType != "video/mp4" {
+		t.Fatalf("mime type = %q", video.MimeType)
+	}
+}
+
+func TestPlaygroundRunServiceExecuteVideoUsesGeminiLongRunningOperation(t *testing.T) {
+	operationName := "models/veo-3.1-generate-preview/operations/op-123"
+	encodedOperation := "bW9kZWxzL3Zlby0zLjEtZ2VuZXJhdGUtcHJldmlldy9vcGVyYXRpb25zL29wLTEyMw"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer sk-gemini" {
+			t.Errorf("authorization = %q", got)
+		}
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/v1beta/models/veo-3.1-generate-preview:predictLongRunning":
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Errorf("decode submit body: %v", err)
+			}
+			if _, ok := body["instances"]; !ok {
+				t.Errorf("submit body missing instances: %#v", body)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprintf(w, `{"name":%q}`, operationName)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1beta/video-operations/"+encodedOperation:
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"done":true,"response":{"generateVideoResponse":{"generatedSamples":[{"video":{"uri":"https://generativelanguage.googleapis.com/v1beta/files/video-1:download"}}]}}}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/v1beta/video-operations/"+encodedOperation+"/content":
+			w.Header().Set("Content-Type", "video/mp4")
+			_, _ = w.Write([]byte("veo-video-bytes"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	svc := NewPlaygroundRunService()
+	svc.videoPollInterval = time.Millisecond
+	key := "8:veo-video"
+	svc.runs[key] = &PlaygroundRun{ID: "veo-video", UserID: 8, Mode: "video", Status: PlaygroundRunRunning}
+	_, err := svc.executeVideo(context.Background(), key, PlaygroundRunRequest{
+		APIKey:   "sk-gemini",
+		Platform: PlatformGemini,
+		Model:    "veo-3.1-generate-preview",
+		Prompt:   "sunrise",
+	}, server.URL, time.Now())
+	if err != nil {
+		t.Fatalf("execute Gemini video: %v", err)
+	}
+	if got := string(svc.runs[key].Videos[0].data); got != "veo-video-bytes" {
+		t.Fatalf("video data = %q", got)
+	}
+}
+
+func TestPlaygroundRunServiceExecuteVideoFallsBackToOpenAIContentEndpoint(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer sk-openai" {
+			t.Errorf("authorization = %q", got)
+		}
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/videos/generations":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"id":"video-openai-1","status":"queued"}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/videos/video-openai-1":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"id":"video-openai-1","status":"completed"}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/videos/video-openai-1/content":
+			w.Header().Set("Content-Type", "video/mp4")
+			_, _ = w.Write([]byte("openai-video-bytes"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	svc := NewPlaygroundRunService()
+	svc.videoPollInterval = time.Millisecond
+	key := "10:openai-video"
+	svc.runs[key] = &PlaygroundRun{ID: "openai-video", UserID: 10, Mode: "video", Status: PlaygroundRunRunning}
+	_, err := svc.executeVideo(context.Background(), key, PlaygroundRunRequest{
+		APIKey:   "sk-openai",
+		Platform: PlatformOpenAI,
+		Model:    "sora-2",
+		Prompt:   "ocean waves",
+	}, server.URL, time.Now())
+	if err != nil {
+		t.Fatalf("execute OpenAI video: %v", err)
+	}
+	if got := string(svc.runs[key].Videos[0].data); got != "openai-video-bytes" {
+		t.Fatalf("video data = %q", got)
+	}
+}
+
+func TestPlaygroundVideoTaskStateSupportsSeedanceArkResponse(t *testing.T) {
+	var payload any
+	decoder := json.NewDecoder(strings.NewReader(`{"id":"task-1","status":"completed","video":{"url":"https://example.test/video.mp4"}}`))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	state, message := playgroundVideoTaskState(payload, false)
+	if state != playgroundVideoTaskSucceeded || message != "" {
+		t.Fatalf("state = %v, message = %q", state, message)
+	}
+	videos := extractPlaygroundVideosFromAny(payload)
+	if len(videos) != 1 || videos[0].URL != "https://example.test/video.mp4" {
+		t.Fatalf("videos = %#v", videos)
+	}
+}
+
+func TestPlaygroundRunServiceStoresAbsoluteVideoURLAsProtectedAsset(t *testing.T) {
+	assetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "" {
+			t.Errorf("absolute video download leaked authorization header %q", got)
+		}
+		if r.URL.RawQuery != "token=signed" {
+			t.Errorf("video query = %q, want signed token", r.URL.RawQuery)
+		}
+		w.Header().Set("Content-Type", "video/mp4")
+		_, _ = w.Write([]byte("seedance-video-bytes"))
+	}))
+	defer assetServer.Close()
+
+	svc := NewPlaygroundRunService()
+	key := "12:seedance-video"
+	svc.runs[key] = &PlaygroundRun{ID: "seedance-video", UserID: 12, Mode: "video", Status: PlaygroundRunRunning}
+	err := svc.commitPlaygroundVideos(context.Background(), key, PlaygroundRunRequest{APIKey: "sk-user-key"}, assetServer.URL, time.Now(), []PlaygroundRunVideo{{
+		URL:          assetServer.URL + "/video.mp4?token=signed",
+		ThumbnailURL: "https://provider.example/cover.jpg",
+	}})
+	if err != nil {
+		t.Fatalf("commit absolute video: %v", err)
+	}
+	svc.update(key, func(run *PlaygroundRun) { run.Status = PlaygroundRunSucceeded })
+
+	run, found := svc.Get(12, "seedance-video")
+	if !found || len(run.Videos) != 1 {
+		t.Fatalf("stored run = %#v, found=%v", run, found)
+	}
+	video := run.Videos[0]
+	if video.URL != "" || video.ThumbnailURL != "" || video.AssetIndex == nil || *video.AssetIndex != 0 {
+		t.Fatalf("client video metadata leaked provider URL: %#v", video)
+	}
+	asset, found, err := svc.GetVideo(12, "seedance-video", 0)
+	if err != nil || !found || string(asset.Data) != "seedance-video-bytes" || asset.ContentType != "video/mp4" {
+		t.Fatalf("stored video asset = %#v, found=%v, err=%v", asset, found, err)
+	}
+}
+
+func TestPlaygroundRunServiceRejectsJSONVideoAsset(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"error":"expired signed URL"}`))
+	}))
+	defer server.Close()
+
+	svc := NewPlaygroundRunService()
+	_, _, err := svc.downloadPlaygroundVideo(context.Background(), server.URL, "")
+	if err == nil || !strings.Contains(err.Error(), "supported video") {
+		t.Fatalf("download video error = %v, want unsupported video error", err)
+	}
+}
+
+func TestPlaygroundRunServicePersistsVideoAssetsAcrossInstances(t *testing.T) {
+	mini := miniredis.RunT(t)
+	redisClient := redis.NewClient(&redis.Options{Addr: mini.Addr()})
+	t.Cleanup(func() { _ = redisClient.Close() })
+
+	now := time.Now()
+	writer := ProvidePlaygroundRunService(redisClient)
+	run := &PlaygroundRun{
+		ID: "persisted-video", UserID: 9, Mode: "video", Status: PlaygroundRunSucceeded,
+		CreatedAt: now, UpdatedAt: now, CompletedAt: &now,
+		Videos: []PlaygroundRunVideo{{MimeType: "video/mp4", data: []byte("video-bytes")}},
+	}
+	if err := writer.persistRun(run); err != nil {
+		t.Fatalf("persist video run: %v", err)
+	}
+	reader := ProvidePlaygroundRunService(redisClient)
+	stored, found := reader.Get(9, run.ID)
+	if !found || len(stored.Videos) != 1 || stored.Videos[0].AssetIndex == nil {
+		t.Fatalf("stored video metadata = %#v", stored)
+	}
+	asset, found, err := reader.GetVideo(9, run.ID, 0)
+	if err != nil || !found || string(asset.Data) != "video-bytes" || asset.ContentType != "video/mp4" {
+		t.Fatalf("video asset = %#v, found=%v, err=%v", asset, found, err)
 	}
 }

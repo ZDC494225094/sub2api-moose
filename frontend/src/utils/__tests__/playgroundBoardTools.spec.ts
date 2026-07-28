@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildImageBoardTasks, buildImageBoardTasksFromThreads, imageBoardRectsIntersect } from '../playgroundBoardTools'
+import { buildImageBoardTasks, buildImageBoardTasksFromThreads, buildVideoBoardTasksFromThreads, imageBoardRectsIntersect } from '../playgroundBoardTools'
 
 describe('playground board tools', () => {
   it('groups image runs with the preceding user prompt and shows newest first', () => {
@@ -63,6 +63,31 @@ describe('playground board tools', () => {
       ['image-thread-2', 'image-2', 'Latest image'],
       ['image-thread-1', 'image-1', 'First image']
     ])
+  })
+
+  it('collects video runs with their preceding prompts', () => {
+    const tasks = buildVideoBoardTasksFromThreads([
+      {
+        id: 'video-thread',
+        mode: 'video',
+        messages: [
+          { id: 'user-1', role: 'user' as const, content: 'First clip', createdAt: 1 },
+          { id: 'video-1', role: 'assistant' as const, content: '', createdAt: 2, videos: ['first'] },
+          { id: 'user-2', role: 'user' as const, content: 'Second clip', createdAt: 3 },
+          { id: 'video-2', role: 'assistant' as const, content: '', createdAt: 4, pending: true }
+        ]
+      },
+      {
+        id: 'image-thread',
+        mode: 'image',
+        messages: [
+          { id: 'user-3', role: 'user' as const, content: 'Ignore image', createdAt: 5 }
+        ]
+      }
+    ])
+
+    expect(tasks.map((task) => task.message.id)).toEqual(['video-2', 'video-1'])
+    expect(tasks.map((task) => task.prompt)).toEqual(['Second clip', 'First clip'])
   })
 
   it('identifies cards touched by the box selection rectangle', () => {
