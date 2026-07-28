@@ -822,6 +822,33 @@ func TestNormalizeGrokMediaForwardBodyPreservesImageToVideoModelForOfficialURL(t
 	require.Equal(t, "https://example.com/source.png", gjson.GetBytes(out, "image.url").String())
 }
 
+func TestNormalizeGrokMediaForwardBodyPreservesStringImageForCompatibleRelay(t *testing.T) {
+	body := []byte(`{
+		"model":"grok-video-r",
+		"prompt":"animate",
+		"image":"data:image/png;base64,QUJD"
+	}`)
+
+	out, _, err := normalizeGrokMediaForwardBody(GrokMediaEndpointVideosGenerations, body, "application/json")
+
+	require.NoError(t, err)
+	require.Equal(t, gjson.String, gjson.GetBytes(out, "image").Type)
+	require.Equal(t, "data:image/png;base64,QUJD", gjson.GetBytes(out, "image").String())
+}
+
+func TestCanonicalizeGrokMediaStringImageURLFieldsForOfficialAPI(t *testing.T) {
+	body := []byte(`{
+		"image":"data:image/png;base64,QUJD",
+		"reference_images":["https://example.com/reference.png"]
+	}`)
+
+	out, err := canonicalizeGrokMediaStringImageURLFields(body, "image", "reference_images")
+
+	require.NoError(t, err)
+	require.Equal(t, "data:image/png;base64,QUJD", gjson.GetBytes(out, "image.url").String())
+	require.Equal(t, "https://example.com/reference.png", gjson.GetBytes(out, "reference_images.0.url").String())
+}
+
 func TestCanonicalizeGrokMediaImageURLFieldsPreservesOfficialURL(t *testing.T) {
 	body := []byte(`{
 		"image":{"url":"https://example.com/official.png","image_url":"https://example.com/legacy.png"},
@@ -1222,7 +1249,7 @@ func TestForwardGrokMediaVideoGenerationPreservesImageToVideoModel(t *testing.T)
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	body := []byte(`{"model":"grok-imagine-video-1.5","prompt":"animate","image":{"image_url":"data:image/png;base64,aW1n"}}`)
+	body := []byte(`{"model":"grok-imagine-video-1.5","prompt":"animate","image":"data:image/png;base64,aW1n"}`)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", bytes.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
 
@@ -1249,7 +1276,7 @@ func TestForwardGrokMediaVideoGenerationPreservesImageToVideoModel(t *testing.T)
 	result, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointVideosGenerations, "", body, "application/json")
 	require.NoError(t, err)
 	require.Equal(t, "https://xai.test/v1/videos/generations", upstream.lastReq.URL.String())
-	require.JSONEq(t, `{"model":"grok-imagine-video-1.5","prompt":"animate","image":{"url":"data:image/png;base64,aW1n"}}`, string(upstream.lastBody))
+	require.JSONEq(t, `{"model":"grok-imagine-video-1.5","prompt":"animate","image":"data:image/png;base64,aW1n"}`, string(upstream.lastBody))
 	require.Equal(t, "video-request-456", result.ResponseID)
 	require.Equal(t, "grok-imagine-video-1.5", result.BillingModel)
 	// 未指定 duration 时按上游默认 8 秒计费。
@@ -1262,7 +1289,7 @@ func TestForwardGrokMediaOAuthImageToVideoUsesOfficialAPIForLargeBody(t *testing
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	imageData := strings.Repeat("A", 2*1024*1024)
-	body := []byte(`{"model":"grok-imagine-video-1.5","prompt":"animate","image":{"image_url":"data:image/png;base64,` + imageData + `"}}`)
+	body := []byte(`{"model":"grok-imagine-video-1.5","prompt":"animate","image":"data:image/png;base64,` + imageData + `"}`)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", bytes.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
 

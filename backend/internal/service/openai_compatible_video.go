@@ -208,12 +208,23 @@ func normalizeArkVideoGenerationBody(body []byte) ([]byte, error) {
 	if !gjson.ValidBytes(body) {
 		return nil, errors.New("invalid video generation JSON")
 	}
+	content := []map[string]any{{
+		"type": "text",
+		"text": gjson.GetBytes(body, "prompt").String(),
+	}}
+	imageURL := openAICompatibleVideoImageURL(body)
+	if imageURL != "" {
+		content = append(content, map[string]any{
+			"type": "image_url",
+			"image_url": map[string]any{
+				"url": imageURL,
+			},
+			"role": "first_frame",
+		})
+	}
 	payload := map[string]any{
-		"model": gjson.GetBytes(body, "model").String(),
-		"content": []map[string]any{{
-			"type": "text",
-			"text": gjson.GetBytes(body, "prompt").String(),
-		}},
+		"model":   gjson.GetBytes(body, "model").String(),
+		"content": content,
 	}
 	copyNumber := func(source, target string) {
 		if value := gjson.GetBytes(body, source); value.Exists() && value.Type == gjson.Number {
@@ -231,6 +242,26 @@ func normalizeArkVideoGenerationBody(body []byte) ([]byte, error) {
 	copyString("resolution", "resolution")
 	copyString("watermark", "watermark")
 	return json.Marshal(payload)
+}
+
+func openAICompatibleVideoImageURL(body []byte) string {
+	for _, path := range []string{
+		"image.url",
+		"image.image_url",
+		"image",
+		"image_url.url",
+		"image_url",
+		"first_frame_image",
+	} {
+		value := gjson.GetBytes(body, path)
+		if value.Type != gjson.String {
+			continue
+		}
+		if imageURL := strings.TrimSpace(value.String()); imageURL != "" {
+			return imageURL
+		}
+	}
+	return ""
 }
 
 func normalizeArkVideoStatusResponse(body []byte) []byte {

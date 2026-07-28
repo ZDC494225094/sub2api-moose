@@ -116,6 +116,7 @@ export interface PlaygroundVideoResult {
   height?: number
   mimeType?: string
   assetIndex?: number
+  localFileName?: string
 }
 
 export interface PlaygroundRun {

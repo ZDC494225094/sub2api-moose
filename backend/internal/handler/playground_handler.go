@@ -111,7 +111,7 @@ func (h *PlaygroundHandler) GetRunVideo(c *gin.Context) {
 		response.BadRequest(c, "Invalid video index")
 		return
 	}
-	asset, found, err := h.runService.GetVideo(subject.UserID, c.Param("id"), index)
+	asset, found, err := h.runService.GetVideoContext(c.Request.Context(), subject.UserID, c.Param("id"), index)
 	if !found {
 		response.NotFound(c, "Playground video not found")
 		return

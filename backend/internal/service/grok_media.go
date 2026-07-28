@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
@@ -351,6 +352,12 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 	body, contentType, err = normalizeGrokMediaForwardBody(endpoint, body, contentType)
 	if err != nil {
 		return nil, err
+	}
+	if endpoint == GrokMediaEndpointVideosGenerations && xai.IsOfficialBaseURL(targetURL) {
+		body, err = canonicalizeGrokMediaStringImageURLFields(body, "image", "images", "reference_images")
+		if err != nil {
+			return nil, err
+		}
 	}
 	requestInfo := ParseGrokMediaRequest(contentType, body)
 	upstreamModel := requestInfo.Model
@@ -713,6 +720,38 @@ func canonicalizeGrokMediaImageURLFields(body []byte, fields ...string) ([]byte,
 		out, err = canonicalizeGrokMediaImageURLObject(out, field)
 		if err != nil {
 			return nil, err
+		}
+	}
+	return out, nil
+}
+
+func canonicalizeGrokMediaStringImageURLFields(body []byte, fields ...string) ([]byte, error) {
+	out := body
+	for _, field := range fields {
+		value := gjson.GetBytes(out, field)
+		if !value.Exists() {
+			continue
+		}
+		if value.IsArray() {
+			for index, item := range value.Array() {
+				if item.Type != gjson.String || strings.TrimSpace(item.String()) == "" {
+					continue
+				}
+				var err error
+				out, err = sjson.SetBytes(out, fmt.Sprintf("%s.%d", field, index), map[string]any{"url": strings.TrimSpace(item.String())})
+				if err != nil {
+					return nil, fmt.Errorf("normalize grok media string image url: %w", err)
+				}
+			}
+			continue
+		}
+		if value.Type != gjson.String || strings.TrimSpace(value.String()) == "" {
+			continue
+		}
+		var err error
+		out, err = sjson.SetBytes(out, field, map[string]any{"url": strings.TrimSpace(value.String())})
+		if err != nil {
+			return nil, fmt.Errorf("normalize grok media string image url: %w", err)
 		}
 	}
 	return out, nil

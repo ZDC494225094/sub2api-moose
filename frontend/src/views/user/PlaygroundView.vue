@@ -388,6 +388,22 @@
           </div>
 
           <div v-else-if="isVideoBoardMode" class="video-board-root mx-auto max-w-[1280px]">
+            <div class="mb-4 flex min-w-0 flex-col gap-2 border-b border-slate-200 pb-3 dark:border-white/[0.08] sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex min-w-0 items-center gap-2 text-xs text-slate-500 dark:text-dark-300">
+                <Icon name="folder" size="sm" class="shrink-0" />
+                <span class="truncate" :title="videoDirectoryStatusLabel">{{ videoDirectoryStatusLabel }}</span>
+              </div>
+              <button
+                type="button"
+                class="inline-flex min-h-9 shrink-0 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-dark-100 dark:hover:border-sky-500/50 dark:hover:text-sky-300"
+                :disabled="!supportsVideoDirectoryStorage"
+                :title="videoDirectoryActionLabel"
+                @click="chooseVideoStorageDirectory"
+              >
+                <Icon name="folder" size="sm" />
+                {{ videoDirectoryActionLabel }}
+              </button>
+            </div>
             <div v-if="videoBoardTasks.length">
               <div class="video-board-grid">
                 <article
@@ -1882,7 +1898,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { marked } from 'marked'
@@ -2010,6 +2026,7 @@ interface PlaygroundMessage {
   error?: boolean
   favorite?: boolean
   videoDownloadProgress?: number | null
+  videoRestoreUnavailable?: boolean
 }
 
 interface PlaygroundPersistedPayload {
@@ -2130,6 +2147,25 @@ interface PlaygroundPersistedImage {
   savedAt: number
 }
 
+interface PlaygroundFileSystemWritable {
+  write(data: Blob): Promise<void>
+  close(): Promise<void>
+}
+
+interface PlaygroundFileSystemFileHandle {
+  getFile(): Promise<File>
+  createWritable(): Promise<PlaygroundFileSystemWritable>
+}
+
+interface PlaygroundFileSystemDirectoryHandle {
+  readonly name: string
+  getFileHandle(name: string, options?: { create?: boolean }): Promise<PlaygroundFileSystemFileHandle>
+  queryPermission?(options?: { mode: 'readwrite' }): Promise<PermissionState>
+  requestPermission?(options?: { mode: 'readwrite' }): Promise<PermissionState>
+}
+
+type PlaygroundVideoDirectoryPermission = PermissionState | 'unsupported'
+
 interface PlaygroundImagePersistBatch {
   records: PlaygroundPersistedImage[]
   applyThumbnails: () => void
@@ -2192,7 +2228,7 @@ marked.setOptions({
 
 const apiKeys = ref<ApiKey[]>([])
 const selectedKeyId = ref('')
-const loadingKeys = ref(false)
+const loadingKeys = ref(true)
 const loadingModels = ref(false)
 const showSettings = ref(false)
 const showAssistantDetails = ref(true)
@@ -2257,6 +2293,8 @@ const imageBoardRoot = ref<HTMLElement | null>(null)
 const imageBoardDetailTask = ref<PlaygroundImageBoardTask | null>(null)
 const imageBoardDetailImageIndex = ref(0)
 const videoBoardDetailTask = ref<PlaygroundVideoBoardTask | null>(null)
+const videoDirectoryHandle = shallowRef<PlaygroundFileSystemDirectoryHandle | null>(null)
+const videoDirectoryPermission = ref<PlaygroundVideoDirectoryPermission>('prompt')
 const imageBoardPage = ref(1)
 const videoBoardPage = ref(1)
 const selectedImageBoardTaskIds = ref<Set<string>>(new Set())
@@ -2299,6 +2337,7 @@ const doodleRedoStrokes = ref<DoodleOperation[]>([])
 const doodleSaving = ref(false)
 let modelAbortController: AbortController | null = null
 let promptOptimizerModelAbortController: AbortController | null = null
+let persistedVideoHydrationController: AbortController | null = null
 const runAbortControllers = new Map<string, PlaygroundRunHandle>()
 const runRecoveryTimers = new Map<string, number>()
 const runRecoveryAttempts = new Map<string, number>()
@@ -2329,9 +2368,10 @@ const attachmentThumbnailBlobCache = new Map<string, Blob>()
 
 const PLAYGROUND_STORAGE_VERSION = 1
 const PLAYGROUND_DB_NAME = 'sub2api-playground'
-const PLAYGROUND_DB_VERSION = 2
+const PLAYGROUND_DB_VERSION = 3
 const PLAYGROUND_STATE_STORE = 'states'
 const PLAYGROUND_IMAGE_STORE = 'images'
+const PLAYGROUND_HANDLE_STORE = 'handles'
 const PLAYGROUND_IMAGE_URL_PREFIX = 'playground-image://'
 const PLAYGROUND_STATE_UPDATED_EVENT = 'sub2api:playground-state-updated'
 const PLAYGROUND_PENDING_IMAGE_TTL_MS = 60 * 60 * 1000
@@ -2340,6 +2380,7 @@ const PLAYGROUND_RUN_POLL_MAX_MS = 45 * 60 * 1000
 const PLAYGROUND_RUN_START_MAX_ATTEMPTS = 6
 const PLAYGROUND_RUN_NOT_FOUND_MAX_ATTEMPTS = 10
 const PLAYGROUND_IMAGE_FETCH_MAX_ATTEMPTS = 6
+const PLAYGROUND_VIDEO_RESTORE_CONCURRENCY = 3
 const PLAYGROUND_RUN_RECOVERY_BASE_MS = 5000
 const PLAYGROUND_RUN_RECOVERY_MAX_MS = 60000
 const PLAYGROUND_RUN_RECOVERY_MAX_ATTEMPTS = 3
@@ -2359,6 +2400,9 @@ const imageResolutionEdges: Record<ImageResolution, number> = {
   '4K': 4096
 }
 const GPT_IMAGE_2_MAX_DIMENSION = 3840
+const supportsVideoDirectoryStorage = typeof window !== 'undefined' && typeof (window as Window & {
+  showDirectoryPicker?: (options?: { mode?: 'readwrite' }) => Promise<PlaygroundFileSystemDirectoryHandle>
+}).showDirectoryPicker === 'function'
 
 const modeOptions = computed(() => [
   { value: 'chat' as const, label: t('playground.chatMode'), icon: 'chat' as IconName },
@@ -3205,12 +3249,40 @@ function openPlaygroundDB(): Promise<IDBDatabase> {
         if (!db.objectStoreNames.contains(PLAYGROUND_IMAGE_STORE)) {
           db.createObjectStore(PLAYGROUND_IMAGE_STORE)
         }
+        if (!db.objectStoreNames.contains(PLAYGROUND_HANDLE_STORE)) {
+          db.createObjectStore(PLAYGROUND_HANDLE_STORE)
+        }
       }
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error || new Error('Failed to open playground database'))
     })
   }
   return playgroundDBPromise
+}
+
+function videoDirectoryHandleKey(): string {
+  return `${storageKey()}:video-directory`
+}
+
+async function saveVideoDirectoryHandleToDB(handle: PlaygroundFileSystemDirectoryHandle) {
+  const db = await openPlaygroundDB()
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(PLAYGROUND_HANDLE_STORE, 'readwrite')
+    transaction.objectStore(PLAYGROUND_HANDLE_STORE).put(handle, videoDirectoryHandleKey())
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = () => reject(transaction.error || new Error('Failed to persist video directory handle'))
+  })
+}
+
+async function loadVideoDirectoryHandleFromDB(): Promise<PlaygroundFileSystemDirectoryHandle | null> {
+  if (!supportsVideoDirectoryStorage) return null
+  const db = await openPlaygroundDB()
+  return await new Promise((resolve, reject) => {
+    const transaction = db.transaction(PLAYGROUND_HANDLE_STORE, 'readonly')
+    const request = transaction.objectStore(PLAYGROUND_HANDLE_STORE).get(videoDirectoryHandleKey())
+    request.onsuccess = () => resolve((request.result as PlaygroundFileSystemDirectoryHandle | undefined) || null)
+    request.onerror = () => reject(request.error || new Error('Failed to read video directory handle'))
+  })
 }
 
 async function savePlaygroundImagesToDB(images: PlaygroundPersistedImage[]) {
@@ -3464,36 +3536,61 @@ async function hydratePersistedImages() {
   }
 }
 
-async function hydratePersistedVideos() {
-  const restoreJobs: Array<Promise<void>> = []
+async function runVideoRestoreTasks(tasks: Array<() => Promise<void>>) {
+  let nextTask = 0
+  const workerCount = Math.min(PLAYGROUND_VIDEO_RESTORE_CONCURRENCY, tasks.length)
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextTask < tasks.length) {
+      const taskIndex = nextTask
+      nextTask += 1
+      await tasks[taskIndex]()
+    }
+  }))
+}
+
+async function hydratePersistedVideos(signal?: AbortSignal) {
+  const hydrationSignal = signal || new AbortController().signal
+  const restoreTasks: Array<() => Promise<void>> = []
   for (const thread of threads.value) {
     for (const message of thread.messages) {
       if (!message.runId || !message.videos?.length) continue
-      const needsHydration = message.videos.some((video) => !video.url || !video.url.startsWith('blob:'))
-      if (!needsHydration) continue
+      const knownUnavailable = Boolean(message.videoRestoreUnavailable)
+      // Blob URLs belong to the document that created them and cannot be
+      // trusted after a reload, even when the persisted string still starts
+      // with "blob:".
       const videos = message.videos.map((video, index) => ({
         ...video,
         url: '',
         thumbnailUrl: undefined,
         assetIndex: Number.isInteger(video.assetIndex) ? video.assetIndex : index
       }))
+      if (knownUnavailable && !videos.some((video) => video.localFileName)) {
+        revokeVideoObjectURLs(message.videos)
+        message.videos = videos
+        message.videoDownloadProgress = undefined
+        message.progress = ''
+        message.content = t('playground.videoCacheMissing')
+        message.error = true
+        continue
+      }
       message.videoDownloadProgress = null
       message.progress = t('playground.videoDownloading')
       message.content = t('playground.videoDownloading')
       message.error = false
-      const controller = new AbortController()
-      restoreJobs.push(hydratePlaygroundRunVideos({
-        id: message.runId,
-        mode: 'video',
-        status: 'succeeded',
-        videos
-      }, controller.signal, (progress) => {
-        message.videoDownloadProgress = progress
-        message.progress = progress === null
-          ? t('playground.videoDownloading')
-          : t('playground.videoDownloadingProgress', { progress: Math.round(progress) })
-      })
-        .then((restoredVideos) => {
+      restoreTasks.push(async () => {
+        if (hydrationSignal.aborted) return
+        try {
+          const restoredVideos = await hydratePlaygroundRunVideos({
+            id: message.runId as string,
+            mode: 'video',
+            status: 'succeeded',
+            videos
+          }, hydrationSignal, (progress) => {
+            message.videoDownloadProgress = progress
+            message.progress = progress === null
+              ? t('playground.videoDownloading')
+              : t('playground.videoDownloadingProgress', { progress: Math.round(progress) })
+          }, { retry: false, allowRemote: !knownUnavailable })
           message.videos = restoredVideos
           message.videoDownloadProgress = undefined
           message.progress = ''
@@ -3501,20 +3598,204 @@ async function hydratePersistedVideos() {
             ? t('playground.videoGenerated')
             : t('playground.videoCacheMissing')
           message.error = restoredVideos.length === 0
-        })
-        .catch((error) => {
-          console.warn('Failed to restore playground video:', error)
+          message.videoRestoreUnavailable = false
+        } catch (error) {
+          if (hydrationSignal.aborted) return
+          if (!knownUnavailable) console.warn('Failed to restore playground video:', error)
           revokeVideoObjectURLs(message.videos)
-          message.videos = []
+          // Keep localFileName/assetIndex so granting folder access or a later
+          // provider URL retry can recover the video without regeneration.
+          message.videos = videos
           message.videoDownloadProgress = undefined
           message.progress = ''
           message.content = t('playground.videoCacheMissing')
           message.error = true
-        }))
+          if (playgroundRequestStatus(error) === 404) message.videoRestoreUnavailable = true
+        }
+      })
     }
   }
-  await Promise.all(restoreJobs)
+  await runVideoRestoreTasks(restoreTasks)
 }
+
+async function queryVideoDirectoryPermission(
+  handle: PlaygroundFileSystemDirectoryHandle,
+  requestAccess = false,
+): Promise<PermissionState> {
+  const options = { mode: 'readwrite' as const }
+  let permission = handle.queryPermission ? await handle.queryPermission(options) : 'granted'
+  if (permission !== 'granted' && requestAccess && handle.requestPermission) {
+    permission = await handle.requestPermission(options)
+  }
+  videoDirectoryPermission.value = permission
+  return permission
+}
+
+async function restoreVideoDirectoryHandle() {
+  if (!supportsVideoDirectoryStorage) {
+    videoDirectoryPermission.value = 'unsupported'
+    return
+  }
+  try {
+    const handle = await loadVideoDirectoryHandleFromDB()
+    videoDirectoryHandle.value = handle
+    videoDirectoryPermission.value = handle
+      ? await queryVideoDirectoryPermission(handle)
+      : 'prompt'
+  } catch (error) {
+    console.warn('Failed to restore video directory handle:', error)
+    videoDirectoryHandle.value = null
+    videoDirectoryPermission.value = 'prompt'
+  }
+}
+
+function videoFileExtension(mimeType: string): string {
+  const normalized = mimeType.toLowerCase()
+  if (normalized.includes('webm')) return 'webm'
+  if (normalized.includes('quicktime')) return 'mov'
+  return 'mp4'
+}
+
+function videoLocalFileName(runId: string, assetIndex: number, mimeType: string): string {
+  const safeRunId = runId.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'video'
+  return `sub2api-${safeRunId}-${assetIndex + 1}.${videoFileExtension(mimeType)}`
+}
+
+async function saveVideoBlobToDirectory(blob: Blob, fileName: string): Promise<boolean> {
+  const handle = videoDirectoryHandle.value
+  if (!handle || await queryVideoDirectoryPermission(handle) !== 'granted') return false
+  const fileHandle = await handle.getFileHandle(fileName, { create: true })
+  const writable = await fileHandle.createWritable()
+  try {
+    await writable.write(blob)
+  } finally {
+    await writable.close()
+  }
+  return true
+}
+
+async function loadVideoBlobFromDirectory(fileName?: string): Promise<Blob | null> {
+  const handle = videoDirectoryHandle.value
+  if (!handle || !fileName || await queryVideoDirectoryPermission(handle) !== 'granted') return null
+  try {
+    const fileHandle = await handle.getFileHandle(fileName)
+    return await fileHandle.getFile()
+  } catch (error) {
+    if ((error as DOMException)?.name !== 'NotFoundError') {
+      console.warn('Failed to read locally persisted video:', error)
+    }
+    return null
+  }
+}
+
+async function persistLoadedVideosToSelectedDirectory() {
+  const jobs: Array<Promise<void>> = []
+  for (const thread of threads.value) {
+    for (const message of thread.messages) {
+      if (!message.runId || !message.videos?.length) continue
+      message.videos.forEach((video, index) => {
+        if (!video.url) return
+        jobs.push((async () => {
+          const response = await fetch(video.url)
+          if (!response.ok) throw new Error(`HTTP ${response.status}`)
+          const blob = await response.blob()
+          const mimeType = video.mimeType || blob.type || 'video/mp4'
+          const fileName = video.localFileName || videoLocalFileName(message.runId as string, index, mimeType)
+          if (await saveVideoBlobToDirectory(blob, fileName)) video.localFileName = fileName
+        })())
+      })
+    }
+  }
+  const results = await Promise.allSettled(jobs)
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      console.warn('Failed to move an existing video into the selected directory:', result.reason)
+    }
+  }
+}
+
+async function restoreUnavailableVideosAfterDirectoryPermission() {
+  const jobs: Array<Promise<void>> = []
+  for (const thread of threads.value) {
+    for (const message of thread.messages) {
+      if (!message.runId || !message.videos?.length || message.videos.some((video) => video.url)) continue
+      const storedVideos = message.videos.map((video, index) => ({
+        ...video,
+        assetIndex: Number.isInteger(video.assetIndex) ? video.assetIndex : index,
+      }))
+      jobs.push((async () => {
+        const controller = new AbortController()
+        try {
+          const restored = await hydratePlaygroundRunVideos({
+            id: message.runId as string,
+            mode: 'video',
+            status: 'succeeded',
+            videos: storedVideos,
+          }, controller.signal)
+          if (restored.length === 0) return
+          message.videos = restored
+          message.error = false
+          message.videoRestoreUnavailable = false
+          message.progress = ''
+          message.content = t('playground.videoGenerated')
+        } catch (error) {
+          console.warn('Failed to restore video after directory permission was granted:', error)
+        }
+      })())
+    }
+  }
+  await Promise.all(jobs)
+}
+
+async function chooseVideoStorageDirectory() {
+  if (!supportsVideoDirectoryStorage) {
+    appStore.showError(t('playground.videoFolderUnsupported'))
+    return
+  }
+  const picker = (window as Window & {
+    showDirectoryPicker?: (options?: { mode?: 'readwrite' }) => Promise<PlaygroundFileSystemDirectoryHandle>
+  }).showDirectoryPicker
+  if (!picker) return
+  try {
+    const currentHandle = videoDirectoryHandle.value
+    if (currentHandle && await queryVideoDirectoryPermission(currentHandle, true) === 'granted') {
+      await restoreUnavailableVideosAfterDirectoryPermission()
+      await persistLoadedVideosToSelectedDirectory()
+      persistPlaygroundState()
+      appStore.showSuccess(t('playground.videoFolderSelected', { name: currentHandle.name }))
+      return
+    }
+    const handle = await picker({ mode: 'readwrite' })
+    if (await queryVideoDirectoryPermission(handle, true) !== 'granted') return
+    await saveVideoDirectoryHandleToDB(handle)
+    videoDirectoryHandle.value = handle
+    await restoreUnavailableVideosAfterDirectoryPermission()
+    await persistLoadedVideosToSelectedDirectory()
+    persistPlaygroundState()
+    appStore.showSuccess(t('playground.videoFolderSelected', { name: handle.name }))
+  } catch (error) {
+    if ((error as DOMException)?.name === 'AbortError') return
+    console.warn('Failed to select video storage directory:', error)
+    appStore.showError(t('playground.videoFolderSelectFailed'))
+  }
+}
+
+const videoDirectoryStatusLabel = computed(() => {
+  if (!supportsVideoDirectoryStorage || videoDirectoryPermission.value === 'unsupported') {
+    return t('playground.videoFolderUnsupported')
+  }
+  if (!videoDirectoryHandle.value) return t('playground.videoFolderNotSelected')
+  if (videoDirectoryPermission.value !== 'granted') {
+    return t('playground.videoFolderNeedsPermission', { name: videoDirectoryHandle.value.name })
+  }
+  return t('playground.videoFolderSelected', { name: videoDirectoryHandle.value.name })
+})
+
+const videoDirectoryActionLabel = computed(() => (
+  videoDirectoryHandle.value && videoDirectoryPermission.value !== 'granted'
+    ? t('playground.videoFolderReauthorize')
+    : t('playground.videoFolderChoose')
+))
 
 async function hydratePersistedAttachments() {
   const restoreJobs: Array<Promise<void>> = []
@@ -3833,9 +4114,10 @@ function persistPlaygroundState() {
   }, 180)
 }
 
-async function restorePlaygroundState() {
+async function restorePlaygroundState(hydrateVideos = true) {
   restoringState = true
   try {
+    await restoreVideoDirectoryHandle()
     const dbPayload = await loadPlaygroundStateFromDB().catch((error) => {
       console.warn('Failed to load playground state from IndexedDB:', error)
       return null
@@ -3843,7 +4125,7 @@ async function restorePlaygroundState() {
     if (dbPayload) {
       applyPlaygroundPayload(dbPayload as unknown as Record<string, unknown>)
       await hydratePersistedImages()
-      await hydratePersistedVideos()
+      if (hydrateVideos) await hydratePersistedVideos()
       await hydratePersistedAttachments()
       return
     }
@@ -3851,7 +4133,7 @@ async function restorePlaygroundState() {
     if (!raw) return
     applyPlaygroundPayload(JSON.parse(raw) as Record<string, unknown>)
     await hydratePersistedImages()
-    await hydratePersistedVideos()
+    if (hydrateVideos) await hydratePersistedVideos()
     await hydratePersistedAttachments()
   } catch (error) {
     console.warn('Failed to restore playground state:', error)
@@ -5902,6 +6184,19 @@ function handleComposerInputResizePointerUp(event: PointerEvent) {
   persistPlaygroundState()
 }
 
+function ensureActiveKeySelection() {
+  const selectedKeyIsActive = activeKeys.value.some((key) => String(key.id) === selectedKeyId.value)
+  if (!selectedKeyIsActive) {
+    selectedKeyId.value = activeKeys.value.length > 0 ? String(activeKeys.value[0].id) : ''
+  }
+  const promptOptimizerKeyWasSelected = Boolean(promptOptimizerKeyId.value)
+  const promptOptimizerKeyIsActive = activeKeys.value.some((key) => String(key.id) === promptOptimizerKeyId.value)
+  if (!promptOptimizerKeyIsActive) {
+    promptOptimizerKeyId.value = selectedKeyId.value || (activeKeys.value[0] ? String(activeKeys.value[0].id) : '')
+    if (promptOptimizerKeyWasSelected) promptOptimizerModel.value = ''
+  }
+}
+
 async function loadKeys() {
   loadingKeys.value = true
   try {
@@ -5909,16 +6204,7 @@ async function loadKeys() {
     // consistently to every platform by older upgraded backend instances.
     const response = await keysAPI.list(1, 1000)
     apiKeys.value = response.items
-    const selectedKeyIsActive = activeKeys.value.some((key) => String(key.id) === selectedKeyId.value)
-    if (!selectedKeyIsActive) {
-      selectedKeyId.value = activeKeys.value.length > 0 ? String(activeKeys.value[0].id) : ''
-    }
-    const promptOptimizerKeyWasSelected = Boolean(promptOptimizerKeyId.value)
-    const promptOptimizerKeyIsActive = activeKeys.value.some((key) => String(key.id) === promptOptimizerKeyId.value)
-    if (!promptOptimizerKeyIsActive) {
-      promptOptimizerKeyId.value = selectedKeyId.value || (activeKeys.value[0] ? String(activeKeys.value[0].id) : '')
-      if (promptOptimizerKeyWasSelected) promptOptimizerModel.value = ''
-    }
+    ensureActiveKeySelection()
   } catch (error) {
     appStore.showError((error as Error)?.message || t('playground.loadKeysFailed'))
   } finally {
@@ -6838,7 +7124,7 @@ async function runImageGeneration(
 async function runVideoGeneration(
   thread: PlaygroundThread,
   prompt: string,
-  _attachments: PlaygroundAttachment[],
+  attachments: PlaygroundAttachment[],
   context: PlaygroundRunContext,
   controller: AbortController,
   runId: string
@@ -6851,6 +7137,7 @@ async function runVideoGeneration(
     model: context.model,
     prompt,
     n: 1,
+    images: buildImageEditInputs(attachments).slice(0, 1),
     duration: context.videoDuration,
     resolution: context.videoResolution,
     aspectRatio: context.videoAspectRatio
@@ -6932,6 +7219,7 @@ async function applyCompletedVideoRun(
   message.progress = t('playground.videoDownloading')
   message.videoDownloadProgress = null
   message.error = false
+  message.videoRestoreUnavailable = false
   message.content = t('playground.videoDownloading')
   thread.lastRunError = ''
   message.videos = (run.videos || []).map((video, index) => ({
@@ -6957,6 +7245,7 @@ async function applyCompletedVideoRun(
     message.progress = ''
     message.videoDownloadProgress = undefined
     message.content = t('playground.videoGenerated')
+    message.videoRestoreUnavailable = false
   } catch (error) {
     message.pending = false
     message.progress = ''
@@ -6965,7 +7254,6 @@ async function applyCompletedVideoRun(
       message.content = t('playground.requestStopped')
     } else {
       console.warn('Failed to hydrate completed playground video:', error)
-      message.videos = []
       message.error = true
       message.content = t('playground.videoCacheMissing')
       thread.lastRunError = message.content
@@ -6980,12 +7268,13 @@ async function hydratePlaygroundRunVideos(
   run: PlaygroundRun,
   signal: AbortSignal,
   onProgress?: (progress: number | null) => void,
+  options: { retry?: boolean; allowRemote?: boolean } = {},
 ): Promise<PlaygroundVideoResult[]> {
   return Promise.all((run.videos || []).map(async (video, index) => {
     const assetIndex = Number.isInteger(video.assetIndex) ? Number(video.assetIndex) : index
-    let blob: Blob | null = null
+    let blob: Blob | null = await loadVideoBlobFromDirectory(video.localFileName)
     let lastError: unknown
-    for (let attempt = 1; attempt <= PLAYGROUND_IMAGE_FETCH_MAX_ATTEMPTS; attempt += 1) {
+    for (let attempt = 1; options.allowRemote !== false && !blob && attempt <= PLAYGROUND_IMAGE_FETCH_MAX_ATTEMPTS; attempt += 1) {
       try {
         blob = await getPlaygroundRunVideo(run.id, assetIndex, signal, (progress) => {
           onProgress?.(typeof progress.percent === 'number' ? progress.percent : null)
@@ -6994,7 +7283,7 @@ async function hydratePlaygroundRunVideos(
       } catch (error) {
         if (signal.aborted) throw error
         const retryable = isRetryablePlaygroundRequestError(error) || playgroundRequestStatus(error) === 404
-        if (!retryable) throw error
+        if (!retryable || options.retry === false) throw error
         lastError = error
         if (attempt >= PLAYGROUND_IMAGE_FETCH_MAX_ATTEMPTS) {
           throw markRecoverablePlaygroundError(error, t('playground.runTimeout'))
@@ -7007,12 +7296,22 @@ async function hydratePlaygroundRunVideos(
     }
     const mimeType = video.mimeType || blob.type || 'video/mp4'
     const normalizedBlob = blob.type ? blob : new Blob([blob], { type: mimeType })
+    const fileName = video.localFileName || videoLocalFileName(run.id, assetIndex, mimeType)
+    let localFileName = video.localFileName
+    if (!localFileName) {
+      try {
+        if (await saveVideoBlobToDirectory(normalizedBlob, fileName)) localFileName = fileName
+      } catch (error) {
+        console.warn('Failed to persist generated video to selected directory:', error)
+      }
+    }
     return {
       ...video,
       url: createTrackedObjectURL(normalizedBlob),
       thumbnailUrl: undefined,
       mimeType,
-      assetIndex
+      assetIndex,
+      localFileName
     }
   }))
 }
@@ -7283,12 +7582,14 @@ watch(imagePreview, async (preview) => {
 
 onMounted(async () => {
   playgroundViewMounted = true
-  await appStore.fetchPublicSettings()
-  await restorePlaygroundState()
+  const publicSettingsPromise = appStore.fetchPublicSettings()
+  await loadKeys()
+  await restorePlaygroundState(false)
+  ensureActiveKeySelection()
   if (threads.value.length === 0) {
     createThread('chat')
   }
-  await loadKeys()
+  await publicSettingsPromise
   await loadModels()
   selectDefaultModel()
   persistenceReady = true
@@ -7304,6 +7605,16 @@ onMounted(async () => {
   window.addEventListener('keydown', handlePlaygroundGlobalKeydown)
   window.addEventListener('keyup', handlePlaygroundGlobalKeyup)
   scrollMessagesToBottom()
+  const videoHydrationController = new AbortController()
+  persistedVideoHydrationController = videoHydrationController
+  void hydratePersistedVideos(videoHydrationController.signal)
+    .then(() => writePlaygroundStateNow())
+    .catch((error) => console.warn('Failed to hydrate persisted playground videos:', error))
+    .finally(() => {
+      if (persistedVideoHydrationController === videoHydrationController) {
+        persistedVideoHydrationController = null
+      }
+    })
 })
 
 onBeforeUnmount(() => {
@@ -7326,6 +7637,8 @@ onBeforeUnmount(() => {
   modelAbortController?.abort()
   promptOptimizerModelAbortController?.abort()
   promptOptimizeAbortController?.abort()
+  persistedVideoHydrationController?.abort()
+  persistedVideoHydrationController = null
   for (const handle of runAbortControllers.values()) {
     handle.controller.abort()
   }

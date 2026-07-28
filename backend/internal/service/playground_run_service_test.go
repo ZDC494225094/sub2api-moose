@@ -26,7 +26,7 @@ func TestPlaygroundRunServicePersistsImageRunAcrossInstances(t *testing.T) {
 	t.Cleanup(func() { _ = redisClient.Close() })
 
 	completedAt := time.Now()
-	writer := ProvidePlaygroundRunService(redisClient)
+	writer := ProvidePlaygroundRunService(redisClient, nil)
 	run := &PlaygroundRun{
 		ID:          "persisted-image",
 		UserID:      7,
@@ -45,7 +45,7 @@ func TestPlaygroundRunServicePersistsImageRunAcrossInstances(t *testing.T) {
 		t.Fatalf("persist playground run: %v", err)
 	}
 
-	reader := ProvidePlaygroundRunService(redisClient)
+	reader := ProvidePlaygroundRunService(redisClient, nil)
 	stored, found := reader.Get(7, run.ID)
 	if !found {
 		t.Fatal("persisted playground run was not found")
@@ -99,7 +99,7 @@ func TestPlaygroundRunServiceStartIsIdempotentAcrossInstances(t *testing.T) {
 		Prompt:       "draw a cat",
 		N:            1,
 	}
-	writer := ProvidePlaygroundRunService(redisClient)
+	writer := ProvidePlaygroundRunService(redisClient, nil)
 	if _, err := writer.Start(7, request, server.URL); err != nil {
 		t.Fatalf("start initial run: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestPlaygroundRunServiceStartIsIdempotentAcrossInstances(t *testing.T) {
 		t.Fatal("initial run did not reach upstream")
 	}
 
-	reader := ProvidePlaygroundRunService(redisClient)
+	reader := ProvidePlaygroundRunService(redisClient, nil)
 	duplicate, err := reader.Start(7, request, server.URL)
 	if err != nil {
 		t.Fatalf("start duplicate run: %v", err)
@@ -896,7 +896,10 @@ func TestPlaygroundVideoGenerationPayloadMapsConfigByProvider(t *testing.T) {
 	}
 
 	t.Run("Gemini", func(t *testing.T) {
-		payload := playgroundVideoGenerationPayload(request, true)
+		payload, err := playgroundVideoGenerationPayload(request, true)
+		if err != nil {
+			t.Fatal(err)
+		}
 		parameters, ok := payload["parameters"].(map[string]any)
 		if !ok {
 			t.Fatalf("parameters = %#v, want map", payload["parameters"])
@@ -913,7 +916,10 @@ func TestPlaygroundVideoGenerationPayloadMapsConfigByProvider(t *testing.T) {
 	})
 
 	t.Run("OpenAI compatible", func(t *testing.T) {
-		payload := playgroundVideoGenerationPayload(request, false)
+		payload, err := playgroundVideoGenerationPayload(request, false)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if got := payload["duration"]; got != 8 {
 			t.Fatalf("duration = %#v, want 8", got)
 		}
@@ -922,6 +928,39 @@ func TestPlaygroundVideoGenerationPayloadMapsConfigByProvider(t *testing.T) {
 		}
 		if got := payload["aspect_ratio"]; got != "9:16" {
 			t.Fatalf("aspect_ratio = %#v, want 9:16", got)
+		}
+	})
+
+	t.Run("Gemini image to video", func(t *testing.T) {
+		request.Images = []PlaygroundRunImageInput{{
+			Type:    "image/png",
+			DataURL: "data:image/png;base64,QUJD",
+		}}
+		payload, err := playgroundVideoGenerationPayload(request, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		instances := payload["instances"].([]map[string]any)
+		image := instances[0]["image"].(map[string]any)
+		if got := image["bytesBase64Encoded"]; got != "QUJD" {
+			t.Fatalf("Gemini image bytes = %#v", got)
+		}
+		if got := image["mimeType"]; got != "image/png" {
+			t.Fatalf("Gemini image mime type = %#v", got)
+		}
+	})
+
+	t.Run("Grok compatible image to video", func(t *testing.T) {
+		request.Images = []PlaygroundRunImageInput{{
+			Type:    "image/png",
+			DataURL: "data:image/png;base64,QUJD",
+		}}
+		payload, err := playgroundVideoGenerationPayload(request, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := payload["image"]; got != "data:image/png;base64,QUJD" {
+			t.Fatalf("Grok image URL = %#v", got)
 		}
 	})
 }
@@ -1139,7 +1178,7 @@ func TestPlaygroundRunServicePersistsVideoAssetsAcrossInstances(t *testing.T) {
 	t.Cleanup(func() { _ = redisClient.Close() })
 
 	now := time.Now()
-	writer := ProvidePlaygroundRunService(redisClient)
+	writer := ProvidePlaygroundRunService(redisClient, nil)
 	run := &PlaygroundRun{
 		ID: "persisted-video", UserID: 9, Mode: "video", Status: PlaygroundRunSucceeded,
 		CreatedAt: now, UpdatedAt: now, CompletedAt: &now,
@@ -1148,7 +1187,7 @@ func TestPlaygroundRunServicePersistsVideoAssetsAcrossInstances(t *testing.T) {
 	if err := writer.persistRun(run); err != nil {
 		t.Fatalf("persist video run: %v", err)
 	}
-	reader := ProvidePlaygroundRunService(redisClient)
+	reader := ProvidePlaygroundRunService(redisClient, nil)
 	stored, found := reader.Get(9, run.ID)
 	if !found || len(stored.Videos) != 1 || stored.Videos[0].AssetIndex == nil {
 		t.Fatalf("stored video metadata = %#v", stored)
@@ -1156,5 +1195,61 @@ func TestPlaygroundRunServicePersistsVideoAssetsAcrossInstances(t *testing.T) {
 	asset, found, err := reader.GetVideo(9, run.ID, 0)
 	if err != nil || !found || string(asset.Data) != "video-bytes" || asset.ContentType != "video/mp4" {
 		t.Fatalf("video asset = %#v, found=%v, err=%v", asset, found, err)
+	}
+}
+
+type playgroundVideoAssetRepositoryStub struct {
+	asset   *PlaygroundVideoAssetMetadata
+	upserts []PlaygroundVideoAssetMetadata
+}
+
+func (r *playgroundVideoAssetRepositoryStub) Upsert(_ context.Context, asset PlaygroundVideoAssetMetadata) error {
+	r.upserts = append(r.upserts, asset)
+	r.asset = &asset
+	return nil
+}
+
+func (r *playgroundVideoAssetRepositoryStub) Get(_ context.Context, userID int64, runID string, assetIndex int) (*PlaygroundVideoAssetMetadata, error) {
+	if r.asset == nil || r.asset.UserID != userID || r.asset.RunID != runID || r.asset.AssetIndex != assetIndex {
+		return nil, nil
+	}
+	copy := *r.asset
+	return &copy, nil
+}
+
+func TestPlaygroundRunServiceRecoversVideoFromPersistedProviderURL(t *testing.T) {
+	assetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "" {
+			t.Errorf("persisted provider URL received authorization %q", got)
+		}
+		w.Header().Set("Content-Type", "video/mp4")
+		_, _ = w.Write([]byte("persisted-provider-video"))
+	}))
+	defer assetServer.Close()
+
+	repo := &playgroundVideoAssetRepositoryStub{asset: &PlaygroundVideoAssetMetadata{
+		UserID: 21, RunID: "expired-run", AssetIndex: 0,
+		SourceURL: assetServer.URL + "/result.mp4", MimeType: "video/mp4",
+	}}
+	svc := newPlaygroundRunService(nil, repo)
+	asset, found, err := svc.GetVideoContext(context.Background(), 21, "expired-run", 0)
+	if err != nil || !found {
+		t.Fatalf("GetVideoContext found=%v err=%v", found, err)
+	}
+	if got := string(asset.Data); got != "persisted-provider-video" {
+		t.Fatalf("video data = %q", got)
+	}
+}
+
+func TestSanitizePlaygroundUpstreamErrorMessageRemovesGroupPrefix(t *testing.T) {
+	got := sanitizePlaygroundUpstreamErrorMessage("分组 default 下模型 grok-video-r 的可用渠道不存在（retry）")
+	want := "grok-video-r 的可用渠道不存在（retry）"
+	if got != want {
+		t.Fatalf("sanitized message = %q, want %q", got, want)
+	}
+
+	plain := "No eligible Grok media accounts"
+	if got := sanitizePlaygroundUpstreamErrorMessage(plain); got != plain {
+		t.Fatalf("plain message changed to %q", got)
 	}
 }

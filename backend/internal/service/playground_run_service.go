@@ -143,27 +143,29 @@ type PlaygroundRunService struct {
 	runs              map[string]*PlaygroundRun
 	httpClient        *http.Client
 	rdb               *redis.Client
+	videoAssetRepo    PlaygroundVideoAssetRepository
 	ttl               time.Duration
 	videoPollInterval time.Duration
 }
 
 func NewPlaygroundRunService() *PlaygroundRunService {
-	return newPlaygroundRunService(nil)
+	return newPlaygroundRunService(nil, nil)
 }
 
 // ProvidePlaygroundRunService keeps completed Playground tasks available when a
 // browser refreshes or a subsequent request lands on a different API instance.
-func ProvidePlaygroundRunService(rdb *redis.Client) *PlaygroundRunService {
-	return newPlaygroundRunService(rdb)
+func ProvidePlaygroundRunService(rdb *redis.Client, videoAssetRepo PlaygroundVideoAssetRepository) *PlaygroundRunService {
+	return newPlaygroundRunService(rdb, videoAssetRepo)
 }
 
-func newPlaygroundRunService(rdb *redis.Client) *PlaygroundRunService {
+func newPlaygroundRunService(rdb *redis.Client, videoAssetRepo PlaygroundVideoAssetRepository) *PlaygroundRunService {
 	return &PlaygroundRunService{
 		runs: make(map[string]*PlaygroundRun),
 		httpClient: &http.Client{
 			Timeout: 0,
 		},
 		rdb:               rdb,
+		videoAssetRepo:    videoAssetRepo,
 		ttl:               6 * time.Hour,
 		videoPollInterval: 2 * time.Second,
 	}
@@ -310,6 +312,10 @@ func (s *PlaygroundRunService) GetImage(userID int64, id string, index int) (Pla
 }
 
 func (s *PlaygroundRunService) GetVideo(userID int64, id string, index int) (PlaygroundRunVideoAsset, bool, error) {
+	return s.GetVideoContext(context.Background(), userID, id, index)
+}
+
+func (s *PlaygroundRunService) GetVideoContext(ctx context.Context, userID int64, id string, index int) (PlaygroundRunVideoAsset, bool, error) {
 	if s == nil || userID <= 0 || index < 0 {
 		return PlaygroundRunVideoAsset{}, false, nil
 	}
@@ -328,21 +334,54 @@ func (s *PlaygroundRunService) GetVideo(userID int64, id string, index int) (Pla
 	if !found {
 		persistedRun, persisted, err := s.loadPersistentRun(userID, id)
 		if err != nil {
-			return PlaygroundRunVideoAsset{}, false, err
+			log.Printf("playground video Redis metadata read failed for user %d run %s: %v", userID, id, err)
 		}
-		if !persisted || persistedRun.Status != PlaygroundRunSucceeded || index >= len(persistedRun.Videos) {
-			return PlaygroundRunVideoAsset{}, false, nil
+		if err == nil && persisted && persistedRun.Status == PlaygroundRunSucceeded && index < len(persistedRun.Videos) {
+			video = persistedRun.Videos[index]
+			found = true
 		}
-		video = persistedRun.Videos[index]
 	}
-	if len(video.data) > 0 {
+	if found && len(video.data) > 0 {
 		asset, err := playgroundRunVideoAsset(video.data, video.MimeType)
 		return asset, true, err
 	}
-	if asset, persisted, err := s.loadPersistentVideo(userID, id, index, video.MimeType); err != nil || persisted {
-		return asset, persisted, err
+	if found {
+		if asset, persisted, err := s.loadPersistentVideo(userID, id, index, video.MimeType); err != nil || persisted {
+			return asset, persisted, err
+		}
 	}
-	return PlaygroundRunVideoAsset{}, true, errors.New("playground video is not available as a local asset")
+	if s.videoAssetRepo == nil {
+		if found {
+			return PlaygroundRunVideoAsset{}, true, errors.New("playground video is not available as a local asset")
+		}
+		return PlaygroundRunVideoAsset{}, false, nil
+	}
+	metadata, err := s.videoAssetRepo.Get(ctx, userID, id, index)
+	if err != nil {
+		return PlaygroundRunVideoAsset{}, found, err
+	}
+	if metadata == nil {
+		if found {
+			return PlaygroundRunVideoAsset{}, true, errors.New("playground video is not available as a local asset")
+		}
+		return PlaygroundRunVideoAsset{}, false, nil
+	}
+	assetURL, err := playgroundRemoteAssetURL(metadata.SourceURL)
+	if err != nil {
+		return PlaygroundRunVideoAsset{}, true, err
+	}
+	data, mimeType, err := s.downloadPlaygroundVideo(ctx, assetURL, "")
+	if err != nil {
+		return PlaygroundRunVideoAsset{}, true, err
+	}
+	if strings.TrimSpace(mimeType) == "" {
+		mimeType = metadata.MimeType
+	}
+	asset, err := playgroundRunVideoAsset(data, mimeType)
+	if err != nil {
+		return PlaygroundRunVideoAsset{}, true, err
+	}
+	return asset, true, nil
 }
 
 func (s *PlaygroundRunService) Cancel(userID int64, id string) (*PlaygroundRun, bool) {
@@ -583,7 +622,10 @@ func (s *PlaygroundRunService) executeImage(ctx context.Context, key string, req
 
 func (s *PlaygroundRunService) executeVideo(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string, started time.Time) (json.RawMessage, error) {
 	geminiVideo := isGeminiPlaygroundVideoRequest(request)
-	payload := playgroundVideoGenerationPayload(request, geminiVideo)
+	payload, err := playgroundVideoGenerationPayload(request, geminiVideo)
+	if err != nil {
+		return nil, err
+	}
 	endpointBase := request.EndpointBase
 	endpoint := "/v1/videos/generations"
 	if geminiVideo {
@@ -689,8 +731,23 @@ func isGeminiPlaygroundVideoRequest(request PlaygroundRunRequest) bool {
 	return platform == PlatformGemini || strings.HasPrefix(model, "veo-") || strings.Contains(model, "/veo-")
 }
 
-func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo bool) map[string]any {
+func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo bool) (map[string]any, error) {
+	images := filterPlaygroundImageInputs(request.Images)
 	if geminiVideo {
+		instance := map[string]any{"prompt": request.Prompt}
+		if len(images) > 0 {
+			data, mimeType, err := decodePlaygroundImageDataURL(images[0].DataURL)
+			if err != nil {
+				return nil, err
+			}
+			if requestType := strings.TrimSpace(images[0].Type); strings.HasPrefix(strings.ToLower(requestType), "image/") {
+				mimeType = requestType
+			}
+			instance["image"] = map[string]any{
+				"bytesBase64Encoded": base64.StdEncoding.EncodeToString(data),
+				"mimeType":           mimeType,
+			}
+		}
 		parameters := map[string]any{}
 		if request.Duration > 0 {
 			parameters["durationSeconds"] = request.Duration
@@ -705,11 +762,17 @@ func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo 
 			parameters["sampleCount"] = request.N
 		}
 		return map[string]any{
-			"instances":  []map[string]any{{"prompt": request.Prompt}},
+			"instances":  []map[string]any{instance},
 			"parameters": parameters,
-		}
+		}, nil
 	}
 	payload := map[string]any{"model": request.Model, "prompt": request.Prompt, "n": 1}
+	if len(images) > 0 {
+		// Keep the shared video contract compatible with relays whose request
+		// structs define image as a string. Native xAI and Ark adapters convert
+		// this value to their provider-specific object shapes before forwarding.
+		payload["image"] = images[0].DataURL
+	}
 	if request.Duration > 0 {
 		payload["duration"] = request.Duration
 	}
@@ -722,7 +785,7 @@ func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo 
 	if resolution := strings.TrimSpace(request.Resolution); resolution != "" {
 		payload["resolution"] = resolution
 	}
-	return payload
+	return payload, nil
 }
 
 func (s *PlaygroundRunService) executePlaygroundVideoJSON(ctx context.Context, method, endpointURL, apiKey string, payload any) (any, error) {
@@ -972,6 +1035,7 @@ func (s *PlaygroundRunService) materializePlaygroundImages(ctx context.Context, 
 }
 
 func (s *PlaygroundRunService) commitPlaygroundVideos(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string, started time.Time, videos []PlaygroundRunVideo) error {
+	recoverableURLs := make(map[int]string)
 	for index := range videos {
 		rawURL := strings.TrimSpace(videos[index].URL)
 		if rawURL == "" {
@@ -995,6 +1059,7 @@ func (s *PlaygroundRunService) commitPlaygroundVideos(ctx context.Context, key s
 			var assetURL string
 			assetURL, err = playgroundRemoteAssetURL(rawURL)
 			if err == nil {
+				recoverableURLs[index] = assetURL
 				// Absolute asset URLs are provider-controlled. Never forward the user's Sub2API key.
 				data, mimeType, err = s.downloadPlaygroundVideo(ctx, assetURL, "")
 			}
@@ -1008,17 +1073,35 @@ func (s *PlaygroundRunService) commitPlaygroundVideos(ctx context.Context, key s
 		videos[index].ThumbnailURL = ""
 	}
 	updated := false
+	var runUserID int64
+	var runID string
 	s.update(key, func(run *PlaygroundRun) {
 		if isTerminalPlaygroundRunStatus(run.Status) {
 			return
 		}
 		run.Videos = videos
+		runUserID = run.UserID
+		runID = run.ID
 		run.DurationMs = time.Since(started).Milliseconds()
 		run.UpdatedAt = time.Now()
 		updated = true
 	})
 	if !updated {
 		return context.Canceled
+	}
+	if s.videoAssetRepo != nil && runUserID > 0 && strings.TrimSpace(runID) != "" {
+		for index, sourceURL := range recoverableURLs {
+			metadata := PlaygroundVideoAssetMetadata{
+				UserID:     runUserID,
+				RunID:      runID,
+				AssetIndex: index,
+				SourceURL:  sourceURL,
+				MimeType:   videos[index].MimeType,
+			}
+			if err := s.videoAssetRepo.Upsert(ctx, metadata); err != nil {
+				log.Printf("playground video URL persistence failed for user %d run %s asset %d: %v", runUserID, runID, index, err)
+			}
+		}
 	}
 	return nil
 }
@@ -2152,7 +2235,18 @@ func parsePlaygroundUpstreamError(resp *http.Response) error {
 			message = strings.TrimSpace(value)
 		}
 	}
+	message = sanitizePlaygroundUpstreamErrorMessage(message)
 	return fmt.Errorf("%s (HTTP %d)", message, resp.StatusCode)
+}
+
+var playgroundUpstreamGroupPrefixPattern = regexp.MustCompile(`^分组\s+.+?\s+下模型\s+(.+)$`)
+
+func sanitizePlaygroundUpstreamErrorMessage(message string) string {
+	message = strings.TrimSpace(message)
+	if matches := playgroundUpstreamGroupPrefixPattern.FindStringSubmatch(message); len(matches) == 2 {
+		return strings.TrimSpace(matches[1])
+	}
+	return message
 }
 
 func normalizePlaygroundImageSize(size string) string {
