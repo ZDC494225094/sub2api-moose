@@ -963,6 +963,88 @@ func TestPlaygroundVideoGenerationPayloadMapsConfigByProvider(t *testing.T) {
 			t.Fatalf("Grok image URL = %#v", got)
 		}
 	})
+
+	t.Run("Grok compatible multi-reference video", func(t *testing.T) {
+		request.Images = []PlaygroundRunImageInput{
+			{Type: "image/png", DataURL: "data:image/png;base64,QUJD"},
+			{Type: "image/jpeg", DataURL: "data:image/jpeg;base64,REVG"},
+		}
+		payload, err := playgroundVideoGenerationPayload(request, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		references, ok := payload["reference_images"].([]string)
+		if !ok || len(references) != 2 {
+			t.Fatalf("reference_images = %#v, want two strings", payload["reference_images"])
+		}
+		if _, exists := payload["image"]; exists {
+			t.Fatalf("multi-reference payload unexpectedly contains image: %#v", payload)
+		}
+	})
+
+	t.Run("Gemini Omni reference images and video", func(t *testing.T) {
+		request.Model = "gemini-omni-flash"
+		request.ReferenceVideo = &PlaygroundRunVideoInput{
+			Type:            "video/mp4",
+			DataURL:         "data:video/mp4;base64,QUJD",
+			DurationSeconds: 8,
+		}
+		payload, err := playgroundVideoGenerationPayload(request, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		instances := payload["instances"].([]map[string]any)
+		references, ok := instances[0]["referenceImages"].([]map[string]any)
+		if !ok || len(references) != 2 {
+			t.Fatalf("Gemini referenceImages = %#v", instances[0]["referenceImages"])
+		}
+		video, ok := instances[0]["video"].(map[string]any)
+		if !ok || video["bytesBase64Encoded"] != "QUJD" || video["mimeType"] != "video/mp4" {
+			t.Fatalf("Gemini reference video = %#v", instances[0]["video"])
+		}
+	})
+}
+
+func TestNormalizePlaygroundVideoRequestAppliesNamedModelRules(t *testing.T) {
+	t.Run("grok-video-10 downgrades multi-reference duration", func(t *testing.T) {
+		request := PlaygroundRunRequest{
+			Model:      "grok-video-10",
+			Duration:   16,
+			Resolution: "720p",
+			Images: []PlaygroundRunImageInput{
+				{DataURL: "data:image/png;base64,QUJD"},
+				{DataURL: "data:image/png;base64,REVG"},
+			},
+		}
+		if err := normalizePlaygroundVideoRequest(&request); err != nil {
+			t.Fatal(err)
+		}
+		if request.Duration != 10 {
+			t.Fatalf("duration = %d, want 10", request.Duration)
+		}
+	})
+
+	t.Run("grok-video-r rejects more than seven images", func(t *testing.T) {
+		request := PlaygroundRunRequest{Model: "grok-video-r", Duration: 6}
+		for range 8 {
+			request.Images = append(request.Images, PlaygroundRunImageInput{DataURL: "data:image/png;base64,QUJD"})
+		}
+		if err := normalizePlaygroundVideoRequest(&request); err == nil {
+			t.Fatal("expected reference image limit error")
+		}
+	})
+
+	t.Run("Gemini Omni rejects forbidden prompt and long reference video", func(t *testing.T) {
+		request := PlaygroundRunRequest{Model: "gemini-omni-flash", Duration: 10, Prompt: "生成 16:9 的分镜视频"}
+		if err := normalizePlaygroundVideoRequest(&request); err == nil || !strings.Contains(err.Error(), "aspect ratios") {
+			t.Fatalf("prompt validation error = %v", err)
+		}
+		request.Prompt = "人物走入街道"
+		request.ReferenceVideo = &PlaygroundRunVideoInput{DataURL: "data:video/mp4;base64,QUJD", DurationSeconds: 10.5}
+		if err := normalizePlaygroundVideoRequest(&request); err == nil || !strings.Contains(err.Error(), "reference video") {
+			t.Fatalf("reference video validation error = %v", err)
+		}
+	})
 }
 
 func TestPlaygroundRunServiceExecuteVideoPollsGrokTaskAndStoresProtectedContent(t *testing.T) {

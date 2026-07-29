@@ -9,13 +9,17 @@ const {
   getAllGroups,
   getBatchUsersUsage,
   listEnabledDefinitions,
-  getBatchUserAttributes
+  getBatchUserAttributes,
+  batchDisableUsers,
+  batchDeleteUsers
 } = vi.hoisted(() => ({
   listUsers: vi.fn(),
   getAllGroups: vi.fn(),
   getBatchUsersUsage: vi.fn(),
   listEnabledDefinitions: vi.fn(),
-  getBatchUserAttributes: vi.fn()
+  getBatchUserAttributes: vi.fn(),
+  batchDisableUsers: vi.fn(),
+  batchDeleteUsers: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -23,7 +27,9 @@ vi.mock('@/api/admin', () => ({
     users: {
       list: listUsers,
       toggleStatus: vi.fn(),
-      delete: vi.fn()
+      delete: vi.fn(),
+      batchDisable: batchDisableUsers,
+      batchDelete: batchDeleteUsers
     },
     groups: {
       getAll: getAllGroups
@@ -119,6 +125,18 @@ const BulkEditUserModalStub = {
   `
 }
 
+const ConfirmDialogStub = {
+  props: ['show', 'title', 'message', 'confirmText', 'danger'],
+  emits: ['confirm', 'cancel'],
+  template: `
+    <div v-if="show" data-test="confirm-dialog">
+      <span data-test="confirm-title">{{ title }}</span>
+      <span data-test="confirm-message">{{ message }}</span>
+      <button data-test="confirm-action" @click="$emit('confirm')">{{ confirmText }}</button>
+    </div>
+  `
+}
+
 describe('admin UsersView', () => {
   beforeEach(() => {
     vi.useRealTimers()
@@ -129,6 +147,8 @@ describe('admin UsersView', () => {
     getBatchUsersUsage.mockReset()
     listEnabledDefinitions.mockReset()
     getBatchUserAttributes.mockReset()
+    batchDisableUsers.mockReset()
+    batchDeleteUsers.mockReset()
 
     listUsers.mockResolvedValue({
       items: [createAdminUser()],
@@ -141,6 +161,8 @@ describe('admin UsersView', () => {
     getBatchUsersUsage.mockResolvedValue({ stats: {} })
     listEnabledDefinitions.mockResolvedValue([])
     getBatchUserAttributes.mockResolvedValue({ values: {} })
+    batchDisableUsers.mockResolvedValue({ affected: 1, skipped: [] })
+    batchDeleteUsers.mockResolvedValue({ affected: 1, skipped: [] })
   })
 
   afterEach(() => {
@@ -367,6 +389,58 @@ describe('admin UsersView', () => {
     expect(listUsers.mock.calls.length).toBeGreaterThan(callsBeforeSuccess)
     expect(wrapper.get('[data-test="row-order"]').text()).toBe('refreshed-page-two@example.com')
     expect(wrapper.find('[data-test="bulk-edit-limits"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="selected-keys"]').text()).toBe('')
+  })
+
+  it('confirms batch disable and delete requests and clears the selection after success', async () => {
+    const wrapper = mount(UsersView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: {
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+          },
+          DataTable: DataTableStub,
+          Pagination: true,
+          ConfirmDialog: ConfirmDialogStub,
+          EmptyState: true,
+          GroupBadge: true,
+          Select: true,
+          UserAttributesConfigModal: true,
+          UserConcurrencyCell: true,
+          UserCreateModal: true,
+          UserEditModal: true,
+          BulkEditUserModal: BulkEditUserModalStub,
+          UserPlatformQuotaModal: true,
+          UserApiKeysModal: true,
+          UserAllowedGroupsModal: true,
+          UserBalanceModal: true,
+          UserBalanceHistoryModal: true,
+          GroupReplaceModal: true,
+          Icon: true,
+          Teleport: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await wrapper.get('[data-test="select-42"]').trigger('click')
+
+    await wrapper.get('[data-test="bulk-disable-users"]').trigger('click')
+    expect(wrapper.get('[data-test="confirm-title"]').text()).toBe('admin.users.batchActions.disableTitle')
+    await wrapper.get('[data-test="confirm-action"]').trigger('click')
+    await flushPromises()
+
+    expect(batchDisableUsers).toHaveBeenCalledWith([42])
+    expect(wrapper.get('[data-test="selected-keys"]').text()).toBe('')
+
+    await wrapper.get('[data-test="select-42"]').trigger('click')
+    await wrapper.get('[data-test="bulk-delete-users"]').trigger('click')
+    expect(wrapper.get('[data-test="confirm-title"]').text()).toBe('admin.users.batchActions.deleteTitle')
+    await wrapper.get('[data-test="confirm-action"]').trigger('click')
+    await flushPromises()
+
+    expect(batchDeleteUsers).toHaveBeenCalledWith([42])
     expect(wrapper.get('[data-test="selected-keys"]').text()).toBe('')
   })
 })

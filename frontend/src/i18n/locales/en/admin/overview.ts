@@ -450,6 +450,23 @@ export default {
         success: 'Updated limits for {count} users',
         failed: 'Failed to update user limits'
       },
+      batchActions: {
+        disableAction: 'Disable ({count})',
+        deleteAction: 'Delete ({count})',
+        disableTitle: 'Disable users',
+        deleteTitle: 'Delete users',
+        disableConfirm: 'Disable the {count} selected users? Protected admin accounts will be skipped.',
+        deleteConfirm: 'Delete the {count} selected users? This cannot be undone. Protected admin accounts will be skipped.',
+        confirmDisable: 'Disable users',
+        confirmDelete: 'Delete users',
+        disableSuccess: 'Disabled {count} users',
+        disablePartial: 'Disabled {count} users and skipped {skipped}',
+        deleteSuccess: 'Deleted {count} users',
+        deletePartial: 'Deleted {count} users and skipped {skipped}',
+        disableFailed: 'Failed to disable users',
+        deleteFailed: 'Failed to delete users',
+        tooMany: 'You can operate on at most 500 users at a time'
+      },
       editUser: 'Edit User',
       deleteUser: 'Delete User',
       deleteConfirmMessage: "Are you sure you want to delete user '{email}'? This action cannot be undone.",

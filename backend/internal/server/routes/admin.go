@@ -292,6 +292,8 @@ func registerUserManagementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	users := admin.Group("/users")
 	{
 		users.GET("", h.Admin.User.List)
+		users.POST("/batch-disable", h.Admin.User.BatchDisable)
+		users.POST("/batch-delete", h.Admin.User.BatchDelete)
 		users.GET("/:id", h.Admin.User.GetByID)
 		users.POST("/:id/auth-identities", h.Admin.User.BindAuthIdentity)
 		users.POST("", h.Admin.User.Create)

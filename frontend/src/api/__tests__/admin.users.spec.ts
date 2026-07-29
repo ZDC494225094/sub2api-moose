@@ -11,12 +11,15 @@ vi.mock('@/api/client', () => ({
 }))
 
 import {
+  batchDelete,
+  batchDisable,
   batchUpdateLimits,
   bindUserAuthIdentity,
   type AdminBindAuthIdentityRequest,
   type AdminBoundAuthIdentity,
   type BatchUpdateUserLimitsRequest,
   type BatchUpdateUserLimitsResponse,
+  type BatchUserActionResponse,
 } from '@/api/admin/users'
 
 type Assert<T extends true> = T
@@ -79,6 +82,12 @@ const batchRequestContractExact: Assert<
 > = true
 const batchResponseContractExact: Assert<
   IsExact<BatchUpdateUserLimitsResponse, { affected: number }>
+> = true
+const batchActionResponseContractExact: Assert<
+  IsExact<
+    BatchUserActionResponse,
+    { affected: number; skipped: Array<{ user_id: number; reason: string }> }
+  >
 > = true
 
 describe('admin users api auth identity binding', () => {
@@ -146,5 +155,20 @@ describe('admin users api auth identity binding', () => {
     expect(result).toEqual({ affected: 2 })
     expect(batchRequestContractExact).toBe(true)
     expect(batchResponseContractExact).toBe(true)
+  })
+
+  it('posts batch disable and delete requests with the selected user IDs', async () => {
+    const response: BatchUserActionResponse = {
+      affected: 1,
+      skipped: [{ user_id: 9, reason: 'cannot modify admin user' }],
+    }
+    post.mockResolvedValue({ data: response })
+
+    await expect(batchDisable([4, 9])).resolves.toEqual(response)
+    expect(post).toHaveBeenNthCalledWith(1, '/admin/users/batch-disable', { user_ids: [4, 9] })
+
+    await expect(batchDelete([4, 9])).resolves.toEqual(response)
+    expect(post).toHaveBeenNthCalledWith(2, '/admin/users/batch-delete', { user_ids: [4, 9] })
+    expect(batchActionResponseContractExact).toBe(true)
   })
 })

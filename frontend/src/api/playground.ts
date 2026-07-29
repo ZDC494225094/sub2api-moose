@@ -101,11 +101,20 @@ export interface PlaygroundRunRequest {
   background?: string
   outputFormat?: string
   images?: PlaygroundImageInput[]
+  referenceVideo?: PlaygroundVideoInput
   // Video generation specific
   duration?: number
   fps?: number
   aspectRatio?: string
   resolution?: string
+}
+
+export interface PlaygroundVideoInput {
+  name: string
+  type: string
+  dataUrl: string
+  durationSeconds?: number
+  storageId?: string
 }
 
 export interface PlaygroundVideoResult {

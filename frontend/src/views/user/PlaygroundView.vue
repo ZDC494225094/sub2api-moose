@@ -244,6 +244,41 @@
             class="image-board-root mx-auto max-w-[1280px]"
             @pointerdown="handleImageBoardPointerDown"
           >
+            <div class="board-toolbar" @pointerdown.stop>
+              <div class="board-folder-status">
+                <Icon name="folder" size="sm" class="shrink-0" />
+                <span class="truncate" :title="imageDirectoryStatusLabel">{{ imageDirectoryStatusLabel }}</span>
+              </div>
+              <div class="board-toolbar-actions">
+                <div class="board-column-control">
+                  <Icon name="grid" size="sm" />
+                  <span class="sr-only">{{ t('playground.boardColumns') }}</span>
+                  <div class="board-column-switch" role="group" :aria-label="t('playground.boardColumns')">
+                    <button
+                      v-for="columns in boardColumnOptions"
+                      :key="`image-columns-${columns}`"
+                      type="button"
+                      :class="imageBoardColumns === columns ? 'is-active' : ''"
+                      :aria-pressed="imageBoardColumns === columns"
+                      :title="t('playground.boardColumnOption', { count: columns })"
+                      @click="imageBoardColumns = columns"
+                    >
+                      {{ columns }}
+                    </button>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="board-folder-button"
+                  :disabled="!supportsDirectoryStorage"
+                  :title="imageDirectoryActionLabel"
+                  @click="chooseImageStorageDirectory"
+                >
+                  <Icon name="folder" size="sm" />
+                  {{ imageDirectoryActionLabel }}
+                </button>
+              </div>
+            </div>
             <div v-if="imageBoardTasks.length">
               <div v-if="selectedImageBoardTaskIds.size" class="image-board-selection-toolbar">
                 <span>{{ t('playground.imageBoardSelected', { count: selectedImageBoardTaskIds.size }) }}</span>
@@ -266,7 +301,7 @@
                   </button>
                 </div>
               </div>
-              <div class="image-board-grid">
+              <div class="image-board-grid" :style="{ '--board-columns': `${imageBoardColumns}` }">
                 <article
                   v-for="task in paginatedImageBoardTasks"
                   :key="task.message.id"
@@ -388,24 +423,43 @@
           </div>
 
           <div v-else-if="isVideoBoardMode" class="video-board-root mx-auto max-w-[1280px]">
-            <div class="mb-4 flex min-w-0 flex-col gap-2 border-b border-slate-200 pb-3 dark:border-white/[0.08] sm:flex-row sm:items-center sm:justify-between">
-              <div class="flex min-w-0 items-center gap-2 text-xs text-slate-500 dark:text-dark-300">
+            <div class="board-toolbar">
+              <div class="board-folder-status">
                 <Icon name="folder" size="sm" class="shrink-0" />
                 <span class="truncate" :title="videoDirectoryStatusLabel">{{ videoDirectoryStatusLabel }}</span>
               </div>
-              <button
-                type="button"
-                class="inline-flex min-h-9 shrink-0 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-dark-100 dark:hover:border-sky-500/50 dark:hover:text-sky-300"
-                :disabled="!supportsVideoDirectoryStorage"
-                :title="videoDirectoryActionLabel"
-                @click="chooseVideoStorageDirectory"
-              >
-                <Icon name="folder" size="sm" />
-                {{ videoDirectoryActionLabel }}
-              </button>
+              <div class="board-toolbar-actions">
+                <div class="board-column-control">
+                  <Icon name="grid" size="sm" />
+                  <span class="sr-only">{{ t('playground.boardColumns') }}</span>
+                  <div class="board-column-switch" role="group" :aria-label="t('playground.boardColumns')">
+                    <button
+                      v-for="columns in boardColumnOptions"
+                      :key="`video-columns-${columns}`"
+                      type="button"
+                      :class="videoBoardColumns === columns ? 'is-active' : ''"
+                      :aria-pressed="videoBoardColumns === columns"
+                      :title="t('playground.boardColumnOption', { count: columns })"
+                      @click="videoBoardColumns = columns"
+                    >
+                      {{ columns }}
+                    </button>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="board-folder-button"
+                  :disabled="!supportsDirectoryStorage"
+                  :title="videoDirectoryActionLabel"
+                  @click="chooseVideoStorageDirectory"
+                >
+                  <Icon name="folder" size="sm" />
+                  {{ videoDirectoryActionLabel }}
+                </button>
+              </div>
             </div>
             <div v-if="videoBoardTasks.length">
-              <div class="video-board-grid">
+              <div class="video-board-grid" :style="{ '--board-columns': `${videoBoardColumns}` }">
                 <article
                   v-for="task in paginatedVideoBoardTasks"
                   :key="task.message.id"
@@ -467,6 +521,15 @@
                       <span v-if="task.message.model" :title="task.message.model">{{ task.message.model }}</span>
                     </div>
                     <div class="image-board-card-actions">
+                      <button
+                        type="button"
+                        class="image-board-card-action"
+                        :title="t('playground.reuseVideoConfig')"
+                        :aria-label="t('playground.reuseVideoConfig')"
+                        @click.stop="reuseVideoBoardTask(task)"
+                      >
+                        <Icon name="refresh" size="xs" />
+                      </button>
                       <button
                         type="button"
                         class="image-board-card-action"
@@ -1048,7 +1111,7 @@
             </div>
 
             <div class="composer-toolbar" role="toolbar" :aria-label="t('playground.composerOptions')">
-              <input ref="fileInput" type="file" multiple class="hidden" :accept="mode === 'image' ? 'image/*' : undefined" @change="handleFileChange" />
+              <input ref="fileInput" type="file" multiple class="hidden" :accept="attachmentAccept" @change="handleFileChange" />
               <button
                 type="button"
                 class="composer-toolbar-button composer-toolbar-icon-button"
@@ -1920,6 +1983,7 @@ import {
   type PlaygroundChatMessage,
   type PlaygroundImageInput,
   type PlaygroundImageResult,
+  type PlaygroundVideoInput,
   type PlaygroundVideoResult,
   type PlaygroundModel,
   type PlaygroundRun,
@@ -1939,6 +2003,12 @@ import {
 import { firstActualImageSize, firstImageDescription, gptImage2SizeFor, isGptImage2Model, mapClientPointToCanvas, wrapGalleryIndex } from '@/utils/playgroundImageTools'
 import { toCloneablePlaygroundState } from '@/utils/playgroundPersistence'
 import {
+  normalizePlaygroundVideoDuration,
+  playgroundVideoModelRule,
+  validateGeminiOmniPrompt,
+  type PlaygroundVideoResolution
+} from '@/utils/playgroundVideoModelRules'
+import {
   isRecoverablePlaygroundError,
   isRetryablePlaygroundRequestError,
   markRecoverablePlaygroundError,
@@ -1948,15 +2018,16 @@ import type { ApiKey, GroupPlatform } from '@/types'
 
 type PlaygroundMode = 'chat' | 'image' | 'video' | 'audio'
 type MessageRole = 'user' | 'assistant'
-type AttachmentKind = 'image' | 'text' | 'file'
+type AttachmentKind = 'image' | 'video' | 'text' | 'file'
 type IconName = InstanceType<typeof Icon>['$props']['name']
 type ImageSizeMode = 'auto' | 'ratio' | 'custom'
 type ImageResolution = '1K' | '2K' | '4K'
-type VideoResolution = '480p' | '720p' | '1080p'
+type VideoResolution = PlaygroundVideoResolution
 type ImagePromptStyle = 'auto' | 'photo' | 'illustration' | 'anime' | 'cinematic' | 'product' | 'poster' | 'watercolor' | 'pixel'
 type DoodleDrawingTool = 'brush' | 'eraser'
 type DoodleTool = DoodleDrawingTool | 'sticker' | 'pan'
 type ImageWorkspaceMode = 'chat' | 'board'
+type BoardColumnCount = 3 | 4 | 5
 type ComposerPanel = 'model' | 'image' | 'video'
 type PlaygroundRestorableRunRequest = Omit<PlaygroundRunRequest, 'apiKey'>
 
@@ -2001,6 +2072,7 @@ interface PlaygroundAttachment {
   chatDataUrl?: string
   storageId?: string
   thumbnailUrl?: string
+  durationSeconds?: number
   text?: string
 }
 
@@ -2015,6 +2087,7 @@ interface PlaygroundMessage {
   images?: PlaygroundStoredImageResult[]
   videos?: PlaygroundVideoResult[]
   imageConfig?: PlaygroundImageConfig
+  videoConfig?: PlaygroundVideoConfig
   raw?: unknown
   pending?: boolean
   progress?: string
@@ -2053,6 +2126,8 @@ interface PlaygroundPersistedPayload {
   outputFormat: string
   imagePromptStyle: ImagePromptStyle
   imageWorkspaceMode?: ImageWorkspaceMode
+  imageBoardColumns?: BoardColumnCount
+  videoBoardColumns?: BoardColumnCount
   videoDuration?: number
   videoResolution?: VideoResolution
   videoAspectRatio?: string
@@ -2131,6 +2206,12 @@ interface PlaygroundImageConfig {
   count: number
 }
 
+interface PlaygroundVideoConfig {
+  duration: number
+  resolution: VideoResolution
+  aspectRatio: string
+}
+
 interface PlaygroundStoredImageResult extends PlaygroundImageResult {
   storageId?: string
   mimeType?: string
@@ -2164,7 +2245,7 @@ interface PlaygroundFileSystemDirectoryHandle {
   requestPermission?(options?: { mode: 'readwrite' }): Promise<PermissionState>
 }
 
-type PlaygroundVideoDirectoryPermission = PermissionState | 'unsupported'
+type PlaygroundDirectoryPermission = PermissionState | 'unsupported'
 
 interface PlaygroundImagePersistBatch {
   records: PlaygroundPersistedImage[]
@@ -2293,10 +2374,14 @@ const imageBoardRoot = ref<HTMLElement | null>(null)
 const imageBoardDetailTask = ref<PlaygroundImageBoardTask | null>(null)
 const imageBoardDetailImageIndex = ref(0)
 const videoBoardDetailTask = ref<PlaygroundVideoBoardTask | null>(null)
+const imageDirectoryHandle = shallowRef<PlaygroundFileSystemDirectoryHandle | null>(null)
+const imageDirectoryPermission = ref<PlaygroundDirectoryPermission>('prompt')
 const videoDirectoryHandle = shallowRef<PlaygroundFileSystemDirectoryHandle | null>(null)
-const videoDirectoryPermission = ref<PlaygroundVideoDirectoryPermission>('prompt')
+const videoDirectoryPermission = ref<PlaygroundDirectoryPermission>('prompt')
 const imageBoardPage = ref(1)
 const videoBoardPage = ref(1)
+const imageBoardColumns = ref<BoardColumnCount>(3)
+const videoBoardColumns = ref<BoardColumnCount>(3)
 const selectedImageBoardTaskIds = ref<Set<string>>(new Set())
 const showImageBoardDeleteConfirm = ref(false)
 const imageBoardBatchDownloading = ref(false)
@@ -2400,7 +2485,7 @@ const imageResolutionEdges: Record<ImageResolution, number> = {
   '4K': 4096
 }
 const GPT_IMAGE_2_MAX_DIMENSION = 3840
-const supportsVideoDirectoryStorage = typeof window !== 'undefined' && typeof (window as Window & {
+const supportsDirectoryStorage = typeof window !== 'undefined' && typeof (window as Window & {
   showDirectoryPicker?: (options?: { mode?: 'readwrite' }) => Promise<PlaygroundFileSystemDirectoryHandle>
 }).showDirectoryPicker === 'function'
 
@@ -2425,9 +2510,7 @@ const imageSizeModeOptions = computed<Array<{ value: ImageSizeMode; label: strin
 ])
 
 const imageResolutionOptions: ImageResolution[] = ['1K', '2K', '4K']
-const videoDurationValues = [4, 5, 6, 8, 10] as const
-const videoResolutionValues: VideoResolution[] = ['480p', '720p', '1080p']
-const videoAspectRatioValues = ['16:9', '9:16', '1:1'] as const
+const boardColumnOptions: BoardColumnCount[] = [3, 4, 5]
 
 const activeKeys = computed(() => apiKeys.value.filter((key) => String(key.status).toLowerCase() === 'active'))
 const keySelectOptions = computed<SelectOption[]>(() => activeKeys.value.map((key) => ({
@@ -2678,17 +2761,20 @@ const imageQualitySettingOptions = computed<SelectOption[]>(() => [
   { value: 'high', label: t('playground.qualityHigh') }
 ])
 
-const videoDurationSelectOptions = computed<SelectOption[]>(() => videoDurationValues.map((seconds) => ({
+const videoReferenceImageCount = computed(() => pendingAttachments.value.filter((attachment) => attachment.kind === 'image').length)
+const videoModelRule = computed(() => playgroundVideoModelRule(effectiveModel.value, videoReferenceImageCount.value))
+
+const videoDurationSelectOptions = computed<SelectOption[]>(() => videoModelRule.value.durations.map((seconds) => ({
   value: seconds,
   label: t('playground.videoSeconds', { count: seconds })
 })))
 
-const videoResolutionSelectOptions = computed<SelectOption[]>(() => videoResolutionValues.map((resolution) => ({
+const videoResolutionSelectOptions = computed<SelectOption[]>(() => videoModelRule.value.resolutions.map((resolution) => ({
   value: resolution,
   label: resolution
 })))
 
-const videoAspectRatioSelectOptions = computed<SelectOption[]>(() => videoAspectRatioValues.map((ratio) => ({
+const videoAspectRatioSelectOptions = computed<SelectOption[]>(() => videoModelRule.value.aspectRatios.map((ratio) => ({
   value: ratio,
   label: ratio
 })))
@@ -2732,9 +2818,19 @@ const filteredThreads = computed(() => {
 
 const composerPlaceholder = computed(() => {
   if (mode.value === 'image') return t('playground.imagePromptPlaceholder')
-  if (mode.value === 'video') return t('playground.videoPromptPlaceholder')
+  if (mode.value === 'video') {
+    return videoModelRule.value.kind === 'gemini-omni-flash'
+      ? t('playground.geminiOmniVideoPromptPlaceholder')
+      : t('playground.videoPromptPlaceholder')
+  }
   if (mode.value === 'audio') return t('playground.audioPromptPlaceholder')
   return t('playground.userPromptPlaceholder')
+})
+
+const attachmentAccept = computed(() => {
+  if (mode.value === 'image') return 'image/*'
+  if (mode.value !== 'video') return undefined
+  return videoModelRule.value.maxReferenceVideos > 0 ? 'image/*,video/*' : 'image/*'
 })
 
 const modeHint = computed(() => {
@@ -2863,8 +2959,8 @@ function ensureImageStorageIds() {
 }
 
 function ensureAttachmentStorageId(attachment: PlaygroundAttachment) {
-  if (attachment.kind === 'image' && !attachment.storageId) {
-    attachment.storageId = uid(`upload-${attachment.id || 'image'}`)
+  if ((attachment.kind === 'image' || attachment.kind === 'video') && !attachment.storageId) {
+    attachment.storageId = uid(`upload-${attachment.id || attachment.kind}`)
   }
 }
 
@@ -3072,7 +3168,7 @@ function isImageModel(model: string): boolean {
 }
 
 function isVideoModel(model: string): boolean {
-  return /(^|[-_])(video|sora|gen-|veo-|seedance|doubao)/i.test(model) || /grok-imagine-video/i.test(model)
+  return /(^|[-_])(video|sora|gen-|veo-|seedance|doubao)/i.test(model) || /grok-imagine-video|gemini-omni-flash/i.test(model)
 }
 
 function isAudioModel(model: string): boolean {
@@ -3260,28 +3356,28 @@ function openPlaygroundDB(): Promise<IDBDatabase> {
   return playgroundDBPromise
 }
 
-function videoDirectoryHandleKey(): string {
-  return `${storageKey()}:video-directory`
+function directoryHandleKey(kind: 'image' | 'video'): string {
+  return `${storageKey()}:${kind}-directory`
 }
 
-async function saveVideoDirectoryHandleToDB(handle: PlaygroundFileSystemDirectoryHandle) {
+async function saveDirectoryHandleToDB(kind: 'image' | 'video', handle: PlaygroundFileSystemDirectoryHandle) {
   const db = await openPlaygroundDB()
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(PLAYGROUND_HANDLE_STORE, 'readwrite')
-    transaction.objectStore(PLAYGROUND_HANDLE_STORE).put(handle, videoDirectoryHandleKey())
+    transaction.objectStore(PLAYGROUND_HANDLE_STORE).put(handle, directoryHandleKey(kind))
     transaction.oncomplete = () => resolve()
-    transaction.onerror = () => reject(transaction.error || new Error('Failed to persist video directory handle'))
+    transaction.onerror = () => reject(transaction.error || new Error(`Failed to persist ${kind} directory handle`))
   })
 }
 
-async function loadVideoDirectoryHandleFromDB(): Promise<PlaygroundFileSystemDirectoryHandle | null> {
-  if (!supportsVideoDirectoryStorage) return null
+async function loadDirectoryHandleFromDB(kind: 'image' | 'video'): Promise<PlaygroundFileSystemDirectoryHandle | null> {
+  if (!supportsDirectoryStorage) return null
   const db = await openPlaygroundDB()
   return await new Promise((resolve, reject) => {
     const transaction = db.transaction(PLAYGROUND_HANDLE_STORE, 'readonly')
-    const request = transaction.objectStore(PLAYGROUND_HANDLE_STORE).get(videoDirectoryHandleKey())
+    const request = transaction.objectStore(PLAYGROUND_HANDLE_STORE).get(directoryHandleKey(kind))
     request.onsuccess = () => resolve((request.result as PlaygroundFileSystemDirectoryHandle | undefined) || null)
-    request.onerror = () => reject(request.error || new Error('Failed to read video directory handle'))
+    request.onerror = () => reject(request.error || new Error(`Failed to read ${kind} directory handle`))
   })
 }
 
@@ -3374,16 +3470,16 @@ async function collectPersistedAttachmentsFromThreads(): Promise<PlaygroundAttac
       ...(thread.pendingAttachments || []),
       ...thread.messages.flatMap((message) => message.attachments || [])
     ]) {
-      if (attachment.kind !== 'image') continue
+      if (attachment.kind !== 'image' && attachment.kind !== 'video') continue
       ensureAttachmentStorageId(attachment)
       if (attachment.storageId && persistedAttachmentStorageIds.has(attachment.storageId)) continue
       if (!attachment.storageId || !attachment.dataUrl?.startsWith('data:')) continue
       const blob = dataURLToBlob(attachment.dataUrl)
       if (!blob) continue
-      const cachedThumbnailBlob = attachmentThumbnailBlobCache.get(attachment.storageId)
-      const thumbnailBlob = cachedThumbnailBlob || (!attachment.thumbnailUrl
-        ? await createImageThumbnailBlob(blob).catch(() => blob)
-        : undefined)
+      const cachedThumbnailBlob = attachment.kind === 'image' ? attachmentThumbnailBlobCache.get(attachment.storageId) : undefined
+      const thumbnailBlob = attachment.kind === 'image'
+        ? cachedThumbnailBlob || (!attachment.thumbnailUrl ? await createImageThumbnailBlob(blob).catch(() => blob) : undefined)
+        : undefined
       attachment.type = attachment.type || blob.type
       if (thumbnailBlob && !attachment.thumbnailUrl) {
         attachmentThumbnailBlobCache.set(attachment.storageId, thumbnailBlob)
@@ -3483,7 +3579,7 @@ function serializeMessageForPersistence(message: PlaygroundMessage): PlaygroundM
 }
 
 function serializeAttachmentForPersistence(attachment: PlaygroundAttachment): PlaygroundAttachment {
-  if (attachment.kind !== 'image') return attachment
+  if (attachment.kind !== 'image' && attachment.kind !== 'video') return attachment
   return {
     ...attachment,
     dataUrl: attachment.storageId ? storedImagePlaceholder(attachment.storageId) : attachment.dataUrl,
@@ -3618,7 +3714,7 @@ async function hydratePersistedVideos(signal?: AbortSignal) {
   await runVideoRestoreTasks(restoreTasks)
 }
 
-async function queryVideoDirectoryPermission(
+async function queryDirectoryPermission(
   handle: PlaygroundFileSystemDirectoryHandle,
   requestAccess = false,
 ): Promise<PermissionState> {
@@ -3627,17 +3723,52 @@ async function queryVideoDirectoryPermission(
   if (permission !== 'granted' && requestAccess && handle.requestPermission) {
     permission = await handle.requestPermission(options)
   }
+  return permission
+}
+
+async function queryImageDirectoryPermission(
+  handle: PlaygroundFileSystemDirectoryHandle,
+  requestAccess = false,
+): Promise<PermissionState> {
+  const permission = await queryDirectoryPermission(handle, requestAccess)
+  imageDirectoryPermission.value = permission
+  return permission
+}
+
+async function queryVideoDirectoryPermission(
+  handle: PlaygroundFileSystemDirectoryHandle,
+  requestAccess = false,
+): Promise<PermissionState> {
+  const permission = await queryDirectoryPermission(handle, requestAccess)
   videoDirectoryPermission.value = permission
   return permission
 }
 
+async function restoreImageDirectoryHandle() {
+  if (!supportsDirectoryStorage) {
+    imageDirectoryPermission.value = 'unsupported'
+    return
+  }
+  try {
+    const handle = await loadDirectoryHandleFromDB('image')
+    imageDirectoryHandle.value = handle
+    imageDirectoryPermission.value = handle
+      ? await queryImageDirectoryPermission(handle)
+      : 'prompt'
+  } catch (error) {
+    console.warn('Failed to restore image directory handle:', error)
+    imageDirectoryHandle.value = null
+    imageDirectoryPermission.value = 'prompt'
+  }
+}
+
 async function restoreVideoDirectoryHandle() {
-  if (!supportsVideoDirectoryStorage) {
+  if (!supportsDirectoryStorage) {
     videoDirectoryPermission.value = 'unsupported'
     return
   }
   try {
-    const handle = await loadVideoDirectoryHandleFromDB()
+    const handle = await loadDirectoryHandleFromDB('video')
     videoDirectoryHandle.value = handle
     videoDirectoryPermission.value = handle
       ? await queryVideoDirectoryPermission(handle)
@@ -3649,6 +3780,51 @@ async function restoreVideoDirectoryHandle() {
   }
 }
 
+function localAssetBaseName(kind: 'image' | 'video', id: string, assetIndex: number): string {
+  const fallback = kind === 'image' ? 'image' : 'video'
+  const safeID = id.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || fallback
+  return `mooseApi-${kind}-${safeID}-${assetIndex + 1}`
+}
+
+function imageLocalFileName(message: PlaygroundMessage, assetIndex: number, mimeType: string): string {
+  return `${localAssetBaseName('image', message.runId || message.id, assetIndex)}.${imageFileExtension(normalizeImageMimeType(mimeType))}`
+}
+
+async function saveImageBlobToDirectory(blob: Blob, fileName: string): Promise<boolean> {
+  const handle = imageDirectoryHandle.value
+  if (!handle || await queryImageDirectoryPermission(handle) !== 'granted') return false
+  const fileHandle = await handle.getFileHandle(fileName, { create: true })
+  const writable = await fileHandle.createWritable()
+  try {
+    await writable.write(blob)
+  } finally {
+    await writable.close()
+  }
+  return true
+}
+
+async function persistMessageImagesToSelectedDirectory(message: PlaygroundMessage) {
+  if (!imageDirectoryHandle.value || imageDirectoryPermission.value !== 'granted') return
+  const results = await Promise.allSettled((message.images || []).map(async (image, index) => {
+    const blob = await resolveGeneratedImageBlob(image)
+    if (!blob) throw new Error('Image blob is unavailable')
+    const mimeType = normalizeImageMimeType(image.mimeType || blob.type) || 'image/png'
+    await saveImageBlobToDirectory(blob, imageLocalFileName(message, index, mimeType))
+  }))
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      console.warn('Failed to persist generated image to selected directory:', result.reason)
+    }
+  }
+}
+
+async function persistLoadedImagesToSelectedDirectory() {
+  const jobs = threads.value.flatMap((thread) => thread.messages
+    .filter((message) => message.images?.length)
+    .map((message) => persistMessageImagesToSelectedDirectory(message)))
+  await Promise.all(jobs)
+}
+
 function videoFileExtension(mimeType: string): string {
   const normalized = mimeType.toLowerCase()
   if (normalized.includes('webm')) return 'webm'
@@ -3657,8 +3833,7 @@ function videoFileExtension(mimeType: string): string {
 }
 
 function videoLocalFileName(runId: string, assetIndex: number, mimeType: string): string {
-  const safeRunId = runId.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'video'
-  return `sub2api-${safeRunId}-${assetIndex + 1}.${videoFileExtension(mimeType)}`
+  return `${localAssetBaseName('video', runId, assetIndex)}.${videoFileExtension(mimeType)}`
 }
 
 async function saveVideoBlobToDirectory(blob: Blob, fileName: string): Promise<boolean> {
@@ -3747,8 +3922,38 @@ async function restoreUnavailableVideosAfterDirectoryPermission() {
   await Promise.all(jobs)
 }
 
+async function chooseImageStorageDirectory() {
+  if (!supportsDirectoryStorage) {
+    appStore.showError(t('playground.imageFolderUnsupported'))
+    return
+  }
+  const picker = (window as Window & {
+    showDirectoryPicker?: (options?: { mode?: 'readwrite' }) => Promise<PlaygroundFileSystemDirectoryHandle>
+  }).showDirectoryPicker
+  if (!picker) return
+  try {
+    const currentHandle = imageDirectoryHandle.value
+    if (currentHandle && await queryImageDirectoryPermission(currentHandle) !== 'granted') {
+      if (await queryImageDirectoryPermission(currentHandle, true) !== 'granted') return
+      await persistLoadedImagesToSelectedDirectory()
+      appStore.showSuccess(t('playground.imageFolderSelected', { name: currentHandle.name }))
+      return
+    }
+    const handle = await picker({ mode: 'readwrite' })
+    if (await queryImageDirectoryPermission(handle, true) !== 'granted') return
+    await saveDirectoryHandleToDB('image', handle)
+    imageDirectoryHandle.value = handle
+    await persistLoadedImagesToSelectedDirectory()
+    appStore.showSuccess(t('playground.imageFolderSelected', { name: handle.name }))
+  } catch (error) {
+    if ((error as DOMException)?.name === 'AbortError') return
+    console.warn('Failed to select image storage directory:', error)
+    appStore.showError(t('playground.imageFolderSelectFailed'))
+  }
+}
+
 async function chooseVideoStorageDirectory() {
-  if (!supportsVideoDirectoryStorage) {
+  if (!supportsDirectoryStorage) {
     appStore.showError(t('playground.videoFolderUnsupported'))
     return
   }
@@ -3758,7 +3963,8 @@ async function chooseVideoStorageDirectory() {
   if (!picker) return
   try {
     const currentHandle = videoDirectoryHandle.value
-    if (currentHandle && await queryVideoDirectoryPermission(currentHandle, true) === 'granted') {
+    if (currentHandle && await queryVideoDirectoryPermission(currentHandle) !== 'granted') {
+      if (await queryVideoDirectoryPermission(currentHandle, true) !== 'granted') return
       await restoreUnavailableVideosAfterDirectoryPermission()
       await persistLoadedVideosToSelectedDirectory()
       persistPlaygroundState()
@@ -3767,7 +3973,7 @@ async function chooseVideoStorageDirectory() {
     }
     const handle = await picker({ mode: 'readwrite' })
     if (await queryVideoDirectoryPermission(handle, true) !== 'granted') return
-    await saveVideoDirectoryHandleToDB(handle)
+    await saveDirectoryHandleToDB('video', handle)
     videoDirectoryHandle.value = handle
     await restoreUnavailableVideosAfterDirectoryPermission()
     await persistLoadedVideosToSelectedDirectory()
@@ -3780,8 +3986,25 @@ async function chooseVideoStorageDirectory() {
   }
 }
 
+const imageDirectoryStatusLabel = computed(() => {
+  if (!supportsDirectoryStorage || imageDirectoryPermission.value === 'unsupported') {
+    return t('playground.imageFolderUnsupported')
+  }
+  if (!imageDirectoryHandle.value) return t('playground.imageFolderNotSelected')
+  if (imageDirectoryPermission.value !== 'granted') {
+    return t('playground.imageFolderNeedsPermission', { name: imageDirectoryHandle.value.name })
+  }
+  return t('playground.imageFolderSelected', { name: imageDirectoryHandle.value.name })
+})
+
+const imageDirectoryActionLabel = computed(() => (
+  imageDirectoryHandle.value && imageDirectoryPermission.value !== 'granted'
+    ? t('playground.imageFolderReauthorize')
+    : t('playground.imageFolderChoose')
+))
+
 const videoDirectoryStatusLabel = computed(() => {
-  if (!supportsVideoDirectoryStorage || videoDirectoryPermission.value === 'unsupported') {
+  if (!supportsDirectoryStorage || videoDirectoryPermission.value === 'unsupported') {
     return t('playground.videoFolderUnsupported')
   }
   if (!videoDirectoryHandle.value) return t('playground.videoFolderNotSelected')
@@ -3804,16 +4027,16 @@ async function hydratePersistedAttachments() {
       ...(thread.pendingAttachments || []),
       ...thread.messages.flatMap((message) => message.attachments || [])
     ]) {
-      if (attachment.kind !== 'image') continue
+      if (attachment.kind !== 'image' && attachment.kind !== 'video') continue
       const storageId = attachment.storageId || storedImageIdFromURL(attachment.dataUrl || '')
       if (!storageId) continue
       attachment.storageId = storageId
       restoreJobs.push(loadPlaygroundImageFromDB(storageId)
         .then(async (persisted) => {
           if (!persisted) return
-          if (persisted.thumbnailBlob) {
+          if (attachment.kind === 'image' && persisted.thumbnailBlob) {
             attachment.thumbnailUrl = createTrackedObjectURL(persisted.thumbnailBlob)
-          } else if (persisted.blob) {
+          } else if (attachment.kind === 'image' && persisted.blob) {
             const thumbnailBlob = await createImageThumbnailBlob(persisted.blob).catch(() => persisted.blob as Blob)
             attachment.thumbnailUrl = createTrackedObjectURL(thumbnailBlob)
           }
@@ -3826,26 +4049,39 @@ async function hydratePersistedAttachments() {
           persistedAttachmentStorageIds.add(storageId)
         })
         .catch((error) => {
-          console.warn('Failed to restore playground attachment image:', error)
+          console.warn('Failed to restore playground attachment:', error)
         }))
     }
   }
   await Promise.all(restoreJobs)
   for (const thread of threads.value) {
+    const attachmentsByStorageId = new Map(
+      [
+        ...(thread.pendingAttachments || []),
+        ...thread.messages.flatMap((message) => message.attachments || [])
+      ]
+        .filter((attachment) => attachment.storageId && attachment.dataUrl?.startsWith('data:'))
+        .map((attachment) => [attachment.storageId as string, attachment])
+    )
     for (const message of thread.messages) {
-      if (!message.runRequest?.images?.length || !message.attachments?.length) continue
-      const imagesByStorageId = new Map(
-        message.attachments
-          .filter((attachment) => attachment.kind === 'image' && attachment.storageId && attachment.dataUrl?.startsWith('data:'))
-          .map((attachment) => [attachment.storageId as string, attachment])
-      )
-      message.runRequest.images = message.runRequest.images.map((image) => {
-        const storageId = image.storageId || storedImageIdFromURL(image.dataUrl || '')
-        const attachment = storageId ? imagesByStorageId.get(storageId) : undefined
-        return attachment?.dataUrl
-          ? { ...image, storageId, dataUrl: attachment.dataUrl }
-          : image
-      })
+      const request = message.runRequest
+      if (!request) continue
+      if (request.images?.length) {
+        request.images = request.images.map((image) => {
+          const storageId = image.storageId || storedImageIdFromURL(image.dataUrl || '')
+          const attachment = storageId ? attachmentsByStorageId.get(storageId) : undefined
+          return attachment?.kind === 'image' && attachment.dataUrl
+            ? { ...image, storageId, dataUrl: attachment.dataUrl }
+            : image
+        })
+      }
+      if (request.referenceVideo) {
+        const storageId = request.referenceVideo.storageId || storedImageIdFromURL(request.referenceVideo.dataUrl || '')
+        const attachment = storageId ? attachmentsByStorageId.get(storageId) : undefined
+        if (attachment?.kind === 'video' && attachment.dataUrl) {
+          request.referenceVideo = { ...request.referenceVideo, storageId, dataUrl: attachment.dataUrl }
+        }
+      }
     }
   }
 }
@@ -3896,6 +4132,8 @@ function buildPlaygroundPayload(): PlaygroundPersistedPayload {
     outputFormat: outputFormat.value,
     imagePromptStyle: imagePromptStyle.value,
     imageWorkspaceMode: imageWorkspaceMode.value,
+    imageBoardColumns: imageBoardColumns.value,
+    videoBoardColumns: videoBoardColumns.value,
     videoDuration: videoDuration.value,
     videoResolution: videoResolution.value,
     videoAspectRatio: videoAspectRatio.value,
@@ -3949,7 +4187,7 @@ function buildLocalStoragePayload(payload: PlaygroundPersistedPayload): Playgrou
 }
 
 function stripAttachmentDataForLocalStorage(attachment: PlaygroundAttachment): PlaygroundAttachment {
-  if (attachment.kind !== 'image') return attachment
+  if (attachment.kind !== 'image' && attachment.kind !== 'video') return attachment
   return {
     ...attachment,
     dataUrl: attachment.storageId ? storedImagePlaceholder(attachment.storageId) : undefined,
@@ -3958,13 +4196,19 @@ function stripAttachmentDataForLocalStorage(attachment: PlaygroundAttachment): P
 }
 
 function stripRunRequestImageDataForLocalStorage(request?: PlaygroundRestorableRunRequest): PlaygroundRestorableRunRequest | undefined {
-  if (!request?.images?.length) return request
+  if (!request) return request
   return {
     ...request,
-    images: request.images.map((image) => ({
+    images: request.images?.map((image) => ({
       ...image,
       dataUrl: image.storageId ? storedImagePlaceholder(image.storageId) : ''
-    }))
+    })),
+    referenceVideo: request.referenceVideo
+      ? {
+          ...request.referenceVideo,
+          dataUrl: request.referenceVideo.storageId ? storedImagePlaceholder(request.referenceVideo.storageId) : ''
+        }
+      : undefined
   }
 }
 
@@ -4010,16 +4254,16 @@ function applyPlaygroundPayload(payload: Record<string, unknown>) {
   outputFormat.value = typeof payload.outputFormat === 'string' ? payload.outputFormat : outputFormat.value
   imagePromptStyle.value = isImagePromptStyle(payload.imagePromptStyle) ? payload.imagePromptStyle : imagePromptStyle.value
   imageWorkspaceMode.value = payload.imageWorkspaceMode === 'board' ? 'board' : 'chat'
+  imageBoardColumns.value = boardColumnOptions.includes(payload.imageBoardColumns as BoardColumnCount)
+    ? payload.imageBoardColumns as BoardColumnCount
+    : imageBoardColumns.value
+  videoBoardColumns.value = boardColumnOptions.includes(payload.videoBoardColumns as BoardColumnCount)
+    ? payload.videoBoardColumns as BoardColumnCount
+    : videoBoardColumns.value
   const savedVideoDuration = Number(payload.videoDuration)
-  videoDuration.value = videoDurationValues.includes(savedVideoDuration as typeof videoDurationValues[number])
-    ? savedVideoDuration
-    : videoDuration.value
-  videoResolution.value = videoResolutionValues.includes(payload.videoResolution as VideoResolution)
-    ? payload.videoResolution as VideoResolution
-    : videoResolution.value
-  videoAspectRatio.value = videoAspectRatioValues.includes(payload.videoAspectRatio as typeof videoAspectRatioValues[number])
-    ? payload.videoAspectRatio as string
-    : videoAspectRatio.value
+  if (Number.isFinite(savedVideoDuration) && savedVideoDuration > 0) videoDuration.value = savedVideoDuration
+  if (typeof payload.videoResolution === 'string') videoResolution.value = payload.videoResolution as VideoResolution
+  if (typeof payload.videoAspectRatio === 'string') videoAspectRatio.value = payload.videoAspectRatio
   promptOptimizerKeyId.value = typeof payload.promptOptimizerKeyId === 'string' ? payload.promptOptimizerKeyId : promptOptimizerKeyId.value
   promptOptimizerModel.value = typeof payload.promptOptimizerModel === 'string' ? payload.promptOptimizerModel : promptOptimizerModel.value
   showComposerConfig.value = typeof payload.showComposerConfig === 'boolean' ? payload.showComposerConfig : showComposerConfig.value
@@ -4117,7 +4361,7 @@ function persistPlaygroundState() {
 async function restorePlaygroundState(hydrateVideos = true) {
   restoringState = true
   try {
-    await restoreVideoDirectoryHandle()
+    await Promise.all([restoreImageDirectoryHandle(), restoreVideoDirectoryHandle()])
     const dbPayload = await loadPlaygroundStateFromDB().catch((error) => {
       console.warn('Failed to load playground state from IndexedDB:', error)
       return null
@@ -4374,6 +4618,10 @@ async function reuseImageBoardTask(task: PlaygroundImageBoardTask) {
   closeImageBoardDetail()
 }
 
+async function reuseVideoBoardTask(task: PlaygroundVideoBoardTask) {
+  await reuseVideoConfig(task.message)
+}
+
 function isImageBoardTaskSelected(taskId: string): boolean {
   return selectedImageBoardTaskIds.value.has(taskId)
 }
@@ -4455,7 +4703,7 @@ function imageBoardBatchFileName(
   const stamp = date.toISOString().replace(/\D/g, '').slice(0, 14)
   const taskID = task.message.id.replace(/[^a-zA-Z0-9_-]/g, '').slice(-12) || 'image'
   const extension = imageFileExtension(normalizeImageMimeType(mimeType))
-  return `${String(sequence).padStart(3, '0')}-${stamp}-${taskID}-${imageIndex + 1}.${extension}`
+  return `mooseApi-image-${String(sequence).padStart(3, '0')}-${stamp}-${taskID}-${imageIndex + 1}.${extension}`
 }
 
 async function collectSelectedImageBoardDownloads(): Promise<Array<{ blob: Blob; fileName: string }>> {
@@ -4487,7 +4735,7 @@ async function downloadSelectedImageBoardTasks(asZip: boolean) {
       for (const file of files) zip.file(file.fileName, file.blob)
       const archive = await zip.generateAsync({ type: 'blob', compression: 'STORE' })
       const stamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14)
-      triggerPlaygroundBlobDownload(archive, `moosecloud-images-${stamp}.zip`)
+      triggerPlaygroundBlobDownload(archive, `mooseApi-images-${stamp}.zip`)
     } else {
       for (const file of files) {
         triggerPlaygroundBlobDownload(file.blob, file.fileName)
@@ -4549,7 +4797,7 @@ function videoDownloadName(message: PlaygroundMessage, mimeType: string): string
     : normalizedMimeType.includes('quicktime')
       ? 'mov'
       : 'mp4'
-  return `sub2api-video-${stamp}.${extension}`
+  return `mooseApi-video-${stamp}.${extension}`
 }
 
 function downloadVideoBoardDetail() {
@@ -4926,13 +5174,27 @@ function imageInputToReusableAttachment(image: PlaygroundImageInput, index: numb
   }
 }
 
+function videoInputToReusableAttachment(video: PlaygroundVideoInput): PlaygroundAttachment {
+  const storageId = video.storageId || storedImageIdFromURL(video.dataUrl || '')
+  return {
+    id: uid('file'),
+    name: video.name || 'reference-video.mp4',
+    type: video.type || '',
+    size: 0,
+    kind: 'video',
+    dataUrl: video.dataUrl,
+    durationSeconds: video.durationSeconds,
+    storageId: storageId || undefined
+  }
+}
+
 async function cloneAttachmentForReuse(attachment: PlaygroundAttachment): Promise<PlaygroundAttachment> {
   const clone: PlaygroundAttachment = {
     ...attachment,
     id: uid('file'),
     thumbnailUrl: undefined
   }
-  if (clone.kind !== 'image') return clone
+  if (clone.kind !== 'image' && clone.kind !== 'video') return clone
 
   const storageId = clone.storageId || storedImageIdFromURL(clone.dataUrl || '')
   if (storageId) clone.storageId = storageId
@@ -4947,7 +5209,7 @@ async function cloneAttachmentForReuse(attachment: PlaygroundAttachment): Promis
       blob = persisted.blob
       clone.dataUrl = await blobToDataURL(persisted.blob).catch(() => clone.dataUrl || '')
       clone.type = clone.type || persisted.mimeType || persisted.blob.type
-      if (persisted.thumbnailBlob) {
+      if (clone.kind === 'image' && persisted.thumbnailBlob) {
         clone.thumbnailUrl = createTrackedObjectURL(persisted.thumbnailBlob)
       }
     } else if (clone.dataUrl?.startsWith(PLAYGROUND_IMAGE_URL_PREFIX)) {
@@ -4955,12 +5217,12 @@ async function cloneAttachmentForReuse(attachment: PlaygroundAttachment): Promis
     }
   }
 
-  if (blob && !clone.thumbnailUrl) {
+  if (clone.kind === 'image' && blob && !clone.thumbnailUrl) {
     const thumbnailBlob = await createImageThumbnailBlob(blob).catch(() => blob as Blob)
     clone.thumbnailUrl = createTrackedObjectURL(thumbnailBlob)
     clone.type = clone.type || blob.type
   }
-  if (blob && !clone.chatDataUrl) {
+  if (clone.kind === 'image' && blob && !clone.chatDataUrl) {
     clone.chatDataUrl = await createChatImageDataURL(blob, clone.dataUrl || '').catch(() => clone.dataUrl || '')
   }
   if (!clone.storageId) clone.storageId = uid(`upload-${clone.id}`)
@@ -5074,6 +5336,40 @@ async function reuseImageConfig(message: PlaygroundMessage) {
   }
   await writePlaygroundStateNow()
   appStore.showSuccess(t('playground.imageConfigReused'))
+}
+
+async function reuseVideoConfig(message: PlaygroundMessage) {
+  const request = message.runRequest
+  const config = message.videoConfig
+  mode.value = 'video'
+  if (message.model || request?.model) selectedModel.value = message.model || request?.model || ''
+  const savedDuration = Number(config?.duration ?? request?.duration)
+  if (Number.isFinite(savedDuration) && savedDuration > 0) videoDuration.value = savedDuration
+  const savedResolution = config?.resolution ?? request?.resolution
+  if (typeof savedResolution === 'string') videoResolution.value = savedResolution as VideoResolution
+  const savedAspectRatio = config?.aspectRatio ?? request?.aspectRatio
+  if (typeof savedAspectRatio === 'string') videoAspectRatio.value = savedAspectRatio
+  const sourceMessage = findImageReuseSourceMessage(message)
+  const placeholderPrompt = t('playground.attachmentOnlyPrompt')
+  const reusablePrompt = typeof request?.prompt === 'string'
+    ? request.prompt
+    : (sourceMessage?.content && sourceMessage.content !== placeholderPrompt ? sourceMessage.content : '')
+  const sourceAttachments = sourceMessage?.attachments?.length
+    ? sourceMessage.attachments
+    : [
+        ...(request?.images || []).map(imageInputToReusableAttachment),
+        ...(request?.referenceVideo ? [videoInputToReusableAttachment(request.referenceVideo)] : [])
+      ]
+  const reusableAttachments = await Promise.all(sourceAttachments.map(cloneAttachmentForReuse))
+  revokeAttachmentObjectURLs(pendingAttachments.value)
+  draftPrompt.value = reusablePrompt
+  pendingAttachments.value = reusableAttachments
+  if (activeThread.value) {
+    activeThread.value.mode = 'video'
+    activeThread.value.updatedAt = Date.now()
+  }
+  await writePlaygroundStateNow()
+  appStore.showSuccess(t('playground.videoConfigReused'))
 }
 
 function clampImagePreviewZoom(value: number): number {
@@ -5292,7 +5588,7 @@ async function openAttachmentImagePreview(attachment: PlaygroundAttachment) {
 function imagePreviewDownloadName(createdAt: number, index: number, mimeType: string): string {
   const date = new Date(Number.isFinite(createdAt) ? createdAt : Date.now())
   const stamp = date.toISOString().replace(/\D/g, '').slice(0, 14)
-  return `moosecloud-image-${stamp}-${index + 1}.${imageFileExtension(normalizeImageMimeType(mimeType))}`
+  return `mooseApi-image-${stamp}-${index + 1}.${imageFileExtension(normalizeImageMimeType(mimeType))}`
 }
 
 async function navigateImagePreview(direction: -1 | 1) {
@@ -5331,7 +5627,7 @@ function isPlaygroundImageStorageReferenced(storageId: string): boolean {
         message.images?.some((image) => (image.storageId || storedImageIdFromURL(image.url)) === storageId) ||
         message.runRequest?.images?.some((image) => {
           return (image.storageId || storedImageIdFromURL(image.dataUrl || '')) === storageId
-        })
+        }) || (message.runRequest?.referenceVideo?.storageId || storedImageIdFromURL(message.runRequest?.referenceVideo?.dataUrl || '')) === storageId
     })
   })
 }
@@ -6284,6 +6580,32 @@ function validateRun(): boolean {
     appStore.showInfo(mode.value === 'image' ? t('playground.enterImagePrompt') : t('playground.enterPrompt'))
     return false
   }
+  if (mode.value === 'video') {
+    const rule = videoModelRule.value
+    const referenceImageCount = pendingAttachments.value.filter((attachment) => attachment.kind === 'image').length
+    const referenceVideos = pendingAttachments.value.filter((attachment) => attachment.kind === 'video')
+    if (rule.maxReferenceImages !== null && referenceImageCount > rule.maxReferenceImages) {
+      appStore.showInfo(t('playground.videoReferenceImageLimit', { count: rule.maxReferenceImages }))
+      return false
+    }
+    if (referenceVideos.length > rule.maxReferenceVideos) {
+      appStore.showInfo(rule.maxReferenceVideos > 0
+        ? t('playground.videoReferenceVideoLimit', { count: rule.maxReferenceVideos })
+        : t('playground.videoReferenceNotSupported'))
+      return false
+    }
+    if (rule.kind === 'gemini-omni-flash') {
+      if (referenceVideos.some((attachment) => Number(attachment.durationSeconds) > 10.05)) {
+        appStore.showInfo(t('playground.videoReferenceDurationLimit', { count: 10 }))
+        return false
+      }
+      const violation = validateGeminiOmniPrompt(draftPrompt.value)
+      if (violation) {
+        appStore.showInfo(t(`playground.geminiOmniPrompt${violation === 'ratio' ? 'Ratio' : violation === 'duration' ? 'Duration' : 'Storyboard'}Forbidden`))
+        return false
+      }
+    }
+  }
   return true
 }
 
@@ -6468,6 +6790,18 @@ function buildImageEditInputs(attachments: PlaygroundAttachment[]): PlaygroundIm
       dataUrl: attachment.dataUrl || '',
       storageId: attachment.storageId
     }))
+}
+
+function buildVideoReferenceInput(attachments: PlaygroundAttachment[]): PlaygroundVideoInput | undefined {
+  const attachment = attachments.find((item) => item.kind === 'video' && item.dataUrl?.startsWith('data:video/'))
+  if (!attachment?.dataUrl) return undefined
+  return {
+    name: attachment.name || 'reference-video.mp4',
+    type: attachment.type,
+    dataUrl: attachment.dataUrl,
+    durationSeconds: attachment.durationSeconds,
+    storageId: attachment.storageId
+  }
 }
 
 function stripRunAPIKey(request: PlaygroundRunRequest): PlaygroundRestorableRunRequest {
@@ -6658,6 +6992,11 @@ async function applyCompletedImageRun(
         : undefined)
     }))
     message.raw = undefined
+    try {
+      await persistMessageImagesToSelectedDirectory(message)
+    } catch (error) {
+      console.warn('Failed to persist generated images to selected directory:', error)
+    }
   } catch (error) {
     message.error = true
     message.content = (error as Error)?.message || t('playground.noImageReturned')
@@ -6902,7 +7241,11 @@ async function submitPrompt() {
     imageCount: Math.min(Math.max(Number(imageCount.value) || 1, 1), 4),
     imageQuality: imageQuality.value,
     outputFormat: outputFormat.value,
-    videoDuration: videoDuration.value,
+    videoDuration: normalizePlaygroundVideoDuration(
+      effectiveModel.value,
+      videoDuration.value,
+      pendingAttachments.value.filter((attachment) => attachment.kind === 'image').length
+    ),
     videoResolution: videoResolution.value,
     videoAspectRatio: videoAspectRatio.value
   }
@@ -7137,7 +7480,8 @@ async function runVideoGeneration(
     model: context.model,
     prompt,
     n: 1,
-    images: buildImageEditInputs(attachments).slice(0, 1),
+    images: buildImageEditInputs(attachments),
+    referenceVideo: buildVideoReferenceInput(attachments),
     duration: context.videoDuration,
     resolution: context.videoResolution,
     aspectRatio: context.videoAspectRatio
@@ -7149,6 +7493,11 @@ async function runVideoGeneration(
     createdAt: Date.now(),
     model: context.model,
     platform: context.platform,
+    videoConfig: {
+      duration: context.videoDuration,
+      resolution: context.videoResolution,
+      aspectRatio: context.videoAspectRatio
+    },
     progress: t('playground.generatingVideo'),
     pending: true,
     runId,
@@ -7349,12 +7698,40 @@ function retryLastPrompt() {
   submitPrompt()
 }
 
-function readFile(file: File): Promise<PlaygroundAttachment> {
+function readVideoFileDuration(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file)
+    const video = document.createElement('video')
+    const cleanup = () => {
+      video.removeAttribute('src')
+      video.load()
+      URL.revokeObjectURL(objectUrl)
+    }
+    video.preload = 'metadata'
+    video.onloadedmetadata = () => {
+      const duration = video.duration
+      cleanup()
+      if (!Number.isFinite(duration) || duration <= 0) {
+        reject(new Error(t('playground.videoReferenceInvalid')))
+        return
+      }
+      resolve(duration)
+    }
+    video.onerror = () => {
+      cleanup()
+      reject(new Error(t('playground.videoReferenceInvalid')))
+    }
+    video.src = objectUrl
+  })
+}
+
+function readFile(file: File, durationSeconds?: number): Promise<PlaygroundAttachment> {
   return new Promise((resolve) => {
     const id = uid('file')
     const isImage = file.type.startsWith('image/')
+    const isVideo = file.type.startsWith('video/')
     const isText = file.type.startsWith('text/') || /\.(md|txt|json|csv|log|xml|yaml|yml)$/i.test(file.name)
-    const storageId = isImage ? uid(`upload-${id}`) : undefined
+    const storageId = isImage || isVideo ? uid(`upload-${id}`) : undefined
     const reader = new FileReader()
 
     reader.onload = async () => {
@@ -7377,16 +7754,17 @@ function readFile(file: File): Promise<PlaygroundAttachment> {
         name: file.name,
         type: file.type,
         size: file.size,
-        kind: isImage ? 'image' : isText ? 'text' : 'file',
-        dataUrl: isImage ? dataUrl : undefined,
+        kind: isImage ? 'image' : isVideo ? 'video' : isText ? 'text' : 'file',
+        dataUrl: isImage || isVideo ? dataUrl : undefined,
         chatDataUrl,
         storageId,
         thumbnailUrl,
+        durationSeconds,
         text: isText ? dataUrl.slice(0, 12000) : undefined
       })
     }
 
-    if (isImage) {
+    if (isImage || isVideo) {
       reader.readAsDataURL(file)
     } else if (isText) {
       reader.readAsText(file)
@@ -7405,15 +7783,73 @@ async function handleFileChange(event: Event) {
 
 async function addAttachmentFiles(files: File[]) {
   if (files.length === 0) return
-  const acceptedFiles = mode.value === 'image'
-    ? files.filter((file) => file.type.startsWith('image/'))
-    : files
-  if (acceptedFiles.length !== files.length) {
-    appStore.showError(t('playground.imageFilesOnly'))
+  if (mode.value === 'image') {
+    const acceptedFiles = files.filter((file) => file.type.startsWith('image/'))
+    if (acceptedFiles.length !== files.length) appStore.showError(t('playground.imageFilesOnly'))
+    if (acceptedFiles.length === 0) return
+    const attachments = await Promise.all(acceptedFiles.map((file) => readFile(file)))
+    pendingAttachments.value = [...pendingAttachments.value, ...attachments]
+    persistPlaygroundState()
+    return
   }
+
+  if (mode.value !== 'video') {
+    const attachments = await Promise.all(files.map((file) => readFile(file)))
+    pendingAttachments.value = [...pendingAttachments.value, ...attachments]
+    persistPlaygroundState()
+    return
+  }
+
+  const rule = videoModelRule.value
+  const supportedFiles = files.filter((file) => file.type.startsWith('image/') || file.type.startsWith('video/'))
+  if (supportedFiles.length !== files.length) appStore.showError(t('playground.videoReferenceFilesOnly'))
+  let imageCount = pendingAttachments.value.filter((attachment) => attachment.kind === 'image').length
+  let videoCount = pendingAttachments.value.filter((attachment) => attachment.kind === 'video').length
+  const acceptedFiles: Array<{ file: File; durationSeconds?: number }> = []
+  let imageLimitReported = false
+  let videoLimitReported = false
+
+  for (const file of supportedFiles) {
+    if (file.type.startsWith('image/')) {
+      if (rule.maxReferenceImages !== null && imageCount >= rule.maxReferenceImages) {
+        if (!imageLimitReported) appStore.showError(t('playground.videoReferenceImageLimit', { count: rule.maxReferenceImages }))
+        imageLimitReported = true
+        continue
+      }
+      imageCount += 1
+      acceptedFiles.push({ file })
+      continue
+    }
+    if (rule.maxReferenceVideos <= 0) {
+      if (!videoLimitReported) appStore.showError(t('playground.videoReferenceNotSupported'))
+      videoLimitReported = true
+      continue
+    }
+    if (videoCount >= rule.maxReferenceVideos) {
+      if (!videoLimitReported) appStore.showError(t('playground.videoReferenceVideoLimit', { count: rule.maxReferenceVideos }))
+      videoLimitReported = true
+      continue
+    }
+    try {
+      const durationSeconds = await readVideoFileDuration(file)
+      if (durationSeconds > 10.05) {
+        appStore.showError(t('playground.videoReferenceDurationLimit', { count: 10 }))
+        continue
+      }
+      videoCount += 1
+      acceptedFiles.push({ file, durationSeconds })
+    } catch (error) {
+      appStore.showError((error as Error)?.message || t('playground.videoReferenceInvalid'))
+    }
+  }
+
   if (acceptedFiles.length === 0) return
-  const attachments = await Promise.all(acceptedFiles.map(readFile))
+  const attachments = await Promise.all(acceptedFiles.map(({ file, durationSeconds }) => readFile(file, durationSeconds)))
   pendingAttachments.value = [...pendingAttachments.value, ...attachments]
+  if (rule.kind === 'grok-video-10' && imageCount > 1 && videoDuration.value > 10) {
+    videoDuration.value = 10
+    appStore.showInfo(t('playground.grokVideo10DurationAdjusted'))
+  }
   persistPlaygroundState()
 }
 
@@ -7521,6 +7957,13 @@ watch([effectiveModel, imageRatio, imageResolution, customImageWidth, customImag
   customImageHeight.value = clampImageDimension(customImageHeight.value, GPT_IMAGE_2_MAX_DIMENSION)
 }, { immediate: true })
 
+watch([effectiveModel, videoReferenceImageCount], ([model, referenceImageCount]) => {
+  const rule = playgroundVideoModelRule(model, referenceImageCount)
+  videoDuration.value = normalizePlaygroundVideoDuration(model, Number(videoDuration.value), referenceImageCount)
+  if (!rule.resolutions.includes(videoResolution.value)) videoResolution.value = rule.resolutions[0]
+  if (!rule.aspectRatios.includes(videoAspectRatio.value)) videoAspectRatio.value = rule.aspectRatios[0]
+}, { immediate: true })
+
 watch(() => ({
   activeThreadId: activeThreadId.value,
   mode: mode.value,
@@ -7543,6 +7986,8 @@ watch(() => ({
   outputFormat: outputFormat.value,
   imagePromptStyle: imagePromptStyle.value,
   imageWorkspaceMode: imageWorkspaceMode.value,
+  imageBoardColumns: imageBoardColumns.value,
+  videoBoardColumns: videoBoardColumns.value,
   videoDuration: videoDuration.value,
   videoResolution: videoResolution.value,
   videoAspectRatio: videoAspectRatio.value,
@@ -8235,6 +8680,146 @@ onBeforeUnmount(() => {
   user-select: none;
 }
 
+.board-toolbar {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid rgb(226 232 240);
+  padding-bottom: 0.75rem;
+}
+
+.dark .board-toolbar {
+  border-color: rgb(255 255 255 / 0.08);
+}
+
+.board-folder-status {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+}
+
+.dark .board-folder-status {
+  color: rgb(148 163 184);
+}
+
+.board-toolbar-actions,
+.board-column-control {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.board-toolbar-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.board-column-control {
+  color: rgb(100 116 139);
+}
+
+.board-column-switch {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.375rem;
+  background: white;
+}
+
+.board-column-switch button {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  font-weight: 700;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.board-column-switch button + button {
+  border-left: 1px solid rgb(226 232 240);
+}
+
+.board-column-switch button:hover {
+  background: rgb(240 249 255);
+  color: rgb(3 105 161);
+}
+
+.board-column-switch button.is-active {
+  background: rgb(14 165 233);
+  color: white;
+}
+
+.dark .board-column-switch {
+  border-color: rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.04);
+}
+
+.dark .board-column-switch button {
+  color: rgb(203 213 225);
+}
+
+.dark .board-column-switch button + button {
+  border-color: rgb(255 255 255 / 0.1);
+}
+
+.dark .board-column-switch button:hover {
+  background: rgb(12 74 110 / 0.32);
+  color: rgb(125 211 252);
+}
+
+.dark .board-column-switch button.is-active {
+  background: rgb(14 165 233);
+  color: white;
+}
+
+.board-folder-button {
+  display: inline-flex;
+  min-height: 2.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.375rem;
+  background: white;
+  padding: 0.375rem 0.75rem;
+  color: rgb(51 65 85);
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+
+.board-folder-button:hover:not(:disabled) {
+  border-color: rgb(125 211 252);
+  color: rgb(3 105 161);
+}
+
+.board-folder-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.dark .board-folder-button {
+  border-color: rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.04);
+  color: rgb(226 232 240);
+}
+
+.dark .board-folder-button:hover:not(:disabled) {
+  border-color: rgb(14 165 233 / 0.5);
+  color: rgb(125 211 252);
+}
+
 .image-board-grid,
 .video-board-grid {
   display: grid;
@@ -8858,6 +9443,15 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 640px) {
+  .board-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .board-toolbar-actions {
+    justify-content: space-between;
+  }
+
   .playground-image-strip {
     max-width: calc(100vw - 5.5rem);
   }
@@ -8882,7 +9476,7 @@ onBeforeUnmount(() => {
 @media (min-width: 1024px) {
   .image-board-grid,
   .video-board-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--board-columns, 3), minmax(0, 1fr));
   }
 }
 

@@ -252,6 +252,28 @@
               {{ t('admin.users.bulkLimits.action', { count: selectedCount }) }}
             </button>
 
+            <button
+              v-if="selectedCount > 0"
+              class="btn btn-secondary flex-1 md:flex-initial"
+              data-test="bulk-disable-users"
+              :disabled="batchActionLoading"
+              @click="requestBatchAction('disable')"
+            >
+              <Icon name="ban" size="md" class="mr-2" />
+              {{ t('admin.users.batchActions.disableAction', { count: selectedCount }) }}
+            </button>
+
+            <button
+              v-if="selectedCount > 0"
+              class="btn btn-danger flex-1 md:flex-initial"
+              data-test="bulk-delete-users"
+              :disabled="batchActionLoading"
+              @click="requestBatchAction('delete')"
+            >
+              <Icon name="trash" size="md" class="mr-2" />
+              {{ t('admin.users.batchActions.deleteAction', { count: selectedCount }) }}
+            </button>
+
             <!-- Create User Button (full width on mobile, auto width on desktop) -->
             <button @click="showCreateModal = true" class="btn btn-primary flex-1 md:flex-initial">
               <Icon name="plus" size="md" class="mr-2" />
@@ -748,6 +770,17 @@
     </Teleport>
 
     <ConfirmDialog :show="showDeleteDialog" :title="t('admin.users.deleteUser')" :message="t('admin.users.deleteConfirm', { email: deletingUser?.email })" :danger="true" @confirm="confirmDelete" @cancel="showDeleteDialog = false" />
+    <ConfirmDialog
+      :show="pendingBatchAction !== null"
+      :title="pendingBatchAction === 'delete' ? t('admin.users.batchActions.deleteTitle') : t('admin.users.batchActions.disableTitle')"
+      :message="pendingBatchAction === 'delete'
+        ? t('admin.users.batchActions.deleteConfirm', { count: selectedCount })
+        : t('admin.users.batchActions.disableConfirm', { count: selectedCount })"
+      :confirm-text="pendingBatchAction === 'delete' ? t('admin.users.batchActions.confirmDelete') : t('admin.users.batchActions.confirmDisable')"
+      :danger="pendingBatchAction === 'delete'"
+      @confirm="confirmBatchAction"
+      @cancel="pendingBatchAction = null"
+    />
     <UserCreateModal :show="showCreateModal" @close="showCreateModal = false" @success="loadUsers" />
     <UserEditModal :show="showEditModal" :user="editingUser" @close="closeEditModal" @success="loadUsers" />
     <BulkEditUserModal
@@ -1322,6 +1355,8 @@ const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const showBulkEditModal = ref(false)
 const showDeleteDialog = ref(false)
+const pendingBatchAction = ref<'disable' | 'delete' | null>(null)
+const batchActionLoading = ref(false)
 const showApiKeysModal = ref(false)
 const showAttributesModal = ref(false)
 const showPlatformQuotaModal = ref(false)
@@ -1782,6 +1817,47 @@ const confirmDelete = async () => {
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.users.failedToDelete'))
     console.error('Error deleting user:', error)
+  }
+}
+
+const requestBatchAction = (action: 'disable' | 'delete') => {
+  if (selectedCount.value === 0) return
+  if (selectedCount.value > 500) {
+    appStore.showError(t('admin.users.batchActions.tooMany'))
+    return
+  }
+  pendingBatchAction.value = action
+}
+
+const confirmBatchAction = async () => {
+  const action = pendingBatchAction.value
+  if (!action || batchActionLoading.value) return
+
+  const userIds = [...selectedIds.value]
+  pendingBatchAction.value = null
+  if (userIds.length === 0) return
+
+  batchActionLoading.value = true
+  try {
+    const result = action === 'disable'
+      ? await adminAPI.users.batchDisable(userIds)
+      : await adminAPI.users.batchDelete(userIds)
+    const skipped = result.skipped?.length ?? 0
+    const successKey = action === 'disable'
+      ? (skipped > 0 ? 'admin.users.batchActions.disablePartial' : 'admin.users.batchActions.disableSuccess')
+      : (skipped > 0 ? 'admin.users.batchActions.deletePartial' : 'admin.users.batchActions.deleteSuccess')
+
+    appStore.showSuccess(t(successKey, { count: result.affected, skipped }))
+    clearSelection()
+    await loadUsers()
+  } catch (error: any) {
+    const fallbackKey = action === 'disable'
+      ? 'admin.users.batchActions.disableFailed'
+      : 'admin.users.batchActions.deleteFailed'
+    appStore.showError(error.response?.data?.detail || t(fallbackKey))
+    console.error(`Error running batch user ${action}:`, error)
+  } finally {
+    batchActionLoading.value = false
   }
 }
 

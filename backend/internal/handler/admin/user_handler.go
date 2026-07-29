@@ -381,6 +381,101 @@ func (h *UserHandler) Delete(c *gin.Context) {
 	response.Success(c, gin.H{"message": "User deleted successfully"})
 }
 
+type batchUserActionRequest struct {
+	UserIDs []int64 `json:"user_ids"`
+}
+
+type batchUserActionSkipped struct {
+	UserID int64  `json:"user_id"`
+	Reason string `json:"reason"`
+}
+
+type batchUserActionResult struct {
+	Affected int                      `json:"affected"`
+	Skipped  []batchUserActionSkipped `json:"skipped"`
+}
+
+func bindBatchUserIDs(c *gin.Context) ([]int64, bool) {
+	var req batchUserActionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return nil, false
+	}
+	if len(req.UserIDs) == 0 {
+		response.BadRequest(c, "user_ids is required")
+		return nil, false
+	}
+	if len(req.UserIDs) > 500 {
+		response.BadRequest(c, "user_ids cannot exceed 500")
+		return nil, false
+	}
+
+	userIDs := make([]int64, 0, len(req.UserIDs))
+	seen := make(map[int64]struct{}, len(req.UserIDs))
+	for _, userID := range req.UserIDs {
+		if userID <= 0 {
+			response.BadRequest(c, "user_ids must contain positive integers")
+			return nil, false
+		}
+		if _, exists := seen[userID]; exists {
+			continue
+		}
+		seen[userID] = struct{}{}
+		userIDs = append(userIDs, userID)
+	}
+	return userIDs, true
+}
+
+func runBatchUserAction(userIDs []int64, action func(userID int64) error) batchUserActionResult {
+	result := batchUserActionResult{Skipped: make([]batchUserActionSkipped, 0)}
+	for _, userID := range userIDs {
+		if err := action(userID); err != nil {
+			result.Skipped = append(result.Skipped, batchUserActionSkipped{
+				UserID: userID,
+				Reason: err.Error(),
+			})
+			continue
+		}
+		result.Affected++
+	}
+	return result
+}
+
+// BatchDisable disables multiple non-admin users while preserving per-user safeguards.
+// POST /api/v1/admin/users/batch-disable
+func (h *UserHandler) BatchDisable(c *gin.Context) {
+	userIDs, ok := bindBatchUserIDs(c)
+	if !ok {
+		return
+	}
+
+	ctx := c.Request.Context()
+	actorAdminID := getAdminIDFromContext(c)
+	result := runBatchUserAction(userIDs, func(userID int64) error {
+		_, err := h.adminService.UpdateUser(ctx, userID, &service.UpdateUserInput{
+			Status:       service.StatusDisabled,
+			ActorAdminID: actorAdminID,
+		})
+		return err
+	})
+	response.Success(c, result)
+}
+
+// BatchDelete deletes multiple non-admin users while preserving per-user cleanup and safeguards.
+// POST /api/v1/admin/users/batch-delete
+func (h *UserHandler) BatchDelete(c *gin.Context) {
+	userIDs, ok := bindBatchUserIDs(c)
+	if !ok {
+		return
+	}
+
+	ctx := c.Request.Context()
+	result := runBatchUserAction(userIDs, func(userID int64) error {
+		return h.adminService.DeleteUser(ctx, userID)
+	})
+	response.Success(c, result)
+}
+
 // UpdateBalance handles updating user balance
 // POST /api/v1/admin/users/:id/balance
 func (h *UserHandler) UpdateBalance(c *gin.Context) {

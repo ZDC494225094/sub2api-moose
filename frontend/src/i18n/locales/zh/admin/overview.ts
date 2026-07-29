@@ -450,6 +450,23 @@ export default {
         success: '已更新 {count} 个用户的限制',
         failed: '批量更新用户限制失败'
       },
+      batchActions: {
+        disableAction: '批量禁用（{count}）',
+        deleteAction: '批量删除（{count}）',
+        disableTitle: '批量禁用用户',
+        deleteTitle: '批量删除用户',
+        disableConfirm: '确定禁用选中的 {count} 个用户吗？管理员账号会自动跳过。',
+        deleteConfirm: '确定删除选中的 {count} 个用户吗？删除后无法恢复，管理员账号会自动跳过。',
+        confirmDisable: '确认禁用',
+        confirmDelete: '确认删除',
+        disableSuccess: '已禁用 {count} 个用户',
+        disablePartial: '已禁用 {count} 个用户，跳过 {skipped} 个',
+        deleteSuccess: '已删除 {count} 个用户',
+        deletePartial: '已删除 {count} 个用户，跳过 {skipped} 个',
+        disableFailed: '批量禁用用户失败',
+        deleteFailed: '批量删除用户失败',
+        tooMany: '一次最多操作 500 个用户'
+      },
       editUser: '编辑用户',
       deleteUser: '删除用户',
       deleteConfirmMessage: "确定要删除用户 '{email}' 吗？此操作无法撤销。",
