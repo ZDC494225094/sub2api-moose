@@ -204,20 +204,6 @@
               {{ t('admin.accounts.viewModeUpstream') }}
             </button>
           </div>
-          <div class="flex items-center gap-2">
-            <span v-if="customOrderEnabled" class="hidden text-xs text-gray-500 dark:text-dark-400 sm:inline">
-              {{ t('admin.accounts.dragSortHint') }}
-            </span>
-            <button
-              type="button"
-              :class="['btn px-3', customOrderEnabled ? 'btn-primary' : 'btn-secondary']"
-              :aria-pressed="customOrderEnabled"
-              @click="toggleCustomOrder"
-            >
-              <Icon name="arrowsUpDown" size="sm" />
-              <span>{{ customOrderEnabled ? t('admin.accounts.dragSortDone') : t('admin.accounts.dragSort') }}</span>
-            </button>
-          </div>
         </div>
       </template>
       <template #table>
@@ -244,7 +230,7 @@
           row-key="id"
           :row-group="accountViewMode === 'upstream' ? getAccountUpstreamKey : undefined"
           :row-group-expanded="accountViewMode === 'upstream' ? isUpstreamGroupExpanded : undefined"
-          :row-draggable="customOrderEnabled && !savingSortOrder"
+          :row-draggable="!savingSortOrder"
           drag-handle-selector=".account-drag-handle"
           :row-class="getAccountRowClass"
           :server-side-sort="true"
@@ -588,7 +574,7 @@
         </DataTable>
         </div>
       </template>
-      <template #pagination><Pagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" /></template>
+      <template #pagination><Pagination v-if="accountViewMode !== 'upstream' && pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" /></template>
     </TablePageLayout>
     <CreateAccountModal
       :show="showCreate"
@@ -867,6 +853,8 @@ const HIDDEN_COLUMNS_CURRENT_VERSION = 'scheduler-score-hidden-by-default'
 
 // Sorting settings
 const ACCOUNT_SORT_STORAGE_KEY = 'account-table-sort'
+const ACCOUNT_SORT_DEFAULT_VERSION_KEY = 'account-table-sort-default-version'
+const ACCOUNT_SORT_DEFAULT_VERSION = 'drag-order-v1'
 type AccountSortOrder = 'asc' | 'desc'
 type AccountSortState = {
   sort_by: string
@@ -886,8 +874,13 @@ const ACCOUNT_SORTABLE_KEYS = new Set([
   'expires_at'
 ])
 const loadInitialAccountSortState = (): AccountSortState => {
-  const fallback: AccountSortState = { sort_by: 'name', sort_order: 'asc' }
+  const fallback: AccountSortState = { sort_by: 'sort_order', sort_order: 'asc' }
   try {
+    if (localStorage.getItem(ACCOUNT_SORT_DEFAULT_VERSION_KEY) !== ACCOUNT_SORT_DEFAULT_VERSION) {
+      localStorage.setItem(ACCOUNT_SORT_DEFAULT_VERSION_KEY, ACCOUNT_SORT_DEFAULT_VERSION)
+      localStorage.setItem(ACCOUNT_SORT_STORAGE_KEY, JSON.stringify({ key: 'sort_order', order: 'asc' }))
+      return fallback
+    }
     const raw = localStorage.getItem(ACCOUNT_SORT_STORAGE_KEY)
     if (!raw) return fallback
     const parsed = JSON.parse(raw) as { key?: string; order?: string }
@@ -918,6 +911,38 @@ const accountTableDefaultSortKey = computed(() =>
 const accountTableSortRenderKey = computed(() =>
   `${accountViewMode.value}:${customOrderEnabled.value}:${sortState.sort_by}:${sortState.sort_order}`
 )
+
+const UPSTREAM_GROUP_PAGE_SIZE = 1000
+
+const fetchAccountsForTable = async (
+  page: number,
+  pageSize: number,
+  filters: any,
+  options?: { signal?: AbortSignal }
+) => {
+  if (accountViewMode.value !== 'upstream') {
+    return adminAPI.accounts.list(page, pageSize, filters, options)
+  }
+
+  const firstPage = await adminAPI.accounts.list(1, UPSTREAM_GROUP_PAGE_SIZE, filters, options)
+  const items = [...(firstPage.items || [])]
+  const pageCount = Math.max(
+    firstPage.pages || 0,
+    Math.ceil((firstPage.total || 0) / UPSTREAM_GROUP_PAGE_SIZE)
+  )
+  for (let nextPage = 2; nextPage <= pageCount; nextPage += 1) {
+    const response = await adminAPI.accounts.list(nextPage, UPSTREAM_GROUP_PAGE_SIZE, filters, options)
+    items.push(...(response.items || []))
+  }
+
+  return {
+    ...firstPage,
+    items,
+    page: 1,
+    page_size: items.length || UPSTREAM_GROUP_PAGE_SIZE,
+    pages: items.length > 0 ? 1 : 0,
+  }
+}
 
 const isUpstreamGroupExpanded = (groupKey: string | number) =>
   expandedUpstreamGroups.value.has(String(groupKey))
@@ -1183,7 +1208,7 @@ const {
   handlePageChange: baseHandlePageChange,
   handlePageSizeChange: baseHandlePageSizeChange
 } = useTableLoader<Account, any>({
-  fetchFn: adminAPI.accounts.list,
+  fetchFn: fetchAccountsForTable,
   initialParams: {
     platform: '',
     type: '',
@@ -1504,20 +1529,6 @@ const setAccountViewMode = (mode: AccountViewMode) => {
   load()
 }
 
-const toggleCustomOrder = () => {
-  customOrderEnabled.value = !customOrderEnabled.value
-  if (customOrderEnabled.value) {
-    sortState.sort_by = 'sort_order'
-    sortState.sort_order = 'asc'
-  } else {
-    sortState.sort_by = 'name'
-    sortState.sort_order = 'asc'
-  }
-  saveAccountSortPreference()
-  pagination.page = 1
-  load()
-}
-
 const getAccountRowClass = (account: Account) =>
   dragOverAccountID.value === account.id
     ? 'bg-primary-50 ring-1 ring-inset ring-primary-300 dark:bg-primary-950/20 dark:ring-primary-700'
@@ -1539,6 +1550,7 @@ const reorderAccountScope = async (source: Account, target: Account) => {
   }
 
   const before = accounts.value.map(account => ({ ...account }))
+  const previousSort = { sort_by: sortState.sort_by, sort_order: sortState.sort_order }
   const scope = accountViewMode.value === 'upstream'
     ? displayAccounts.value.filter(account => getAccountUpstreamKey(account) === getAccountUpstreamKey(source))
     : [...displayAccounts.value]
@@ -1570,6 +1582,12 @@ const reorderAccountScope = async (source: Account, target: Account) => {
     accounts.value = reorderedWithSlots
   }
 
+  customOrderEnabled.value = true
+  sortState.sort_by = 'sort_order'
+  sortState.sort_order = 'asc'
+  syncAccountListDerivedParams()
+  saveAccountSortPreference()
+
   savingSortOrder.value = true
   enterAutoRefreshSilentWindow()
   try {
@@ -1579,6 +1597,11 @@ const reorderAccountScope = async (source: Account, target: Account) => {
     appStore.showSuccess(t('admin.accounts.reorderSuccess'))
   } catch (error) {
     accounts.value = before
+    customOrderEnabled.value = previousSort.sort_by === 'sort_order'
+    sortState.sort_by = previousSort.sort_by
+    sortState.sort_order = previousSort.sort_order
+    syncAccountListDerivedParams()
+    saveAccountSortPreference()
     appStore.showError(t('admin.accounts.reorderFailed'))
     console.error('Failed to reorder accounts:', error)
   } finally {
@@ -1598,7 +1621,7 @@ const handleAccountDragEnd = () => {
 }
 
 const moveAccountByKeyboard = async (account: Account, offset: number) => {
-  if (!customOrderEnabled.value || savingSortOrder.value) return
+  if (savingSortOrder.value) return
   const scope = accountViewMode.value === 'upstream'
     ? displayAccounts.value.filter(row => getAccountUpstreamKey(row) === getAccountUpstreamKey(account))
     : displayAccounts.value
@@ -1713,6 +1736,19 @@ const refreshAccountsIncrementally = async () => {
   syncAccountListDerivedParams()
   autoRefreshFetching.value = true
   try {
+    if (accountViewMode.value === 'upstream') {
+      const result = await fetchAccountsForTable(1, pagination.page_size, toRaw(params))
+      accounts.value = result.items || []
+      pagination.page = 1
+      pagination.total = result.total || 0
+      pagination.pages = result.pages || 0
+      hasPendingListSync.value = false
+      markUpstreamBillingSortRefresh()
+      upstreamBillingNow.value = Date.now()
+      await refreshTodayStatsBatch()
+      return
+    }
+
     const result = await adminAPI.accounts.listWithEtag(
       pagination.page,
       pagination.page_size,
@@ -1973,9 +2009,7 @@ const allColumns = computed(() => {
   const c = [
     { key: 'select', label: '', sortable: false },
     { key: 'name', label: t('admin.accounts.columns.name'), sortable: true },
-    ...(customOrderEnabled.value
-      ? [{ key: 'sort_order', label: '', sortable: false, class: 'w-12 text-center' }]
-      : []),
+    { key: 'sort_order', label: '', sortable: false, class: 'w-12 text-center' },
     { key: 'id', label: t('admin.accounts.columns.id'), sortable: true },
     { key: 'platform_type', label: t('admin.accounts.columns.platformType'), sortable: false },
     { key: 'capacity', label: t('admin.accounts.columns.capacity'), sortable: false },

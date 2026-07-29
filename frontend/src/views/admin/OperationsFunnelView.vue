@@ -94,10 +94,17 @@
                 class="flex w-full items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-left transition-colors hover:bg-primary-50 dark:bg-dark-700 dark:hover:bg-primary-950/20"
                 @click="openUserDetails(item.segment, item.label)"
               >
-                <span class="text-xs text-gray-500 dark:text-gray-400">{{ item.label }}</span>
-                <span class="flex items-center gap-1 text-sm font-semibold text-gray-900 dark:text-white">
-                  {{ item.value }}
-                  <Icon name="chevronRight" size="xs" class="text-gray-400" />
+                <span class="block min-w-0 flex-1">
+                  <span class="flex items-center justify-between gap-3">
+                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ item.label }}</span>
+                    <span class="flex items-center gap-1 text-sm font-semibold text-gray-900 dark:text-white">
+                      {{ item.value }}
+                      <Icon name="chevronRight" size="xs" class="text-gray-400" />
+                    </span>
+                  </span>
+                  <span class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-gray-400 dark:text-dark-400">
+                    <span v-for="detail in item.details" :key="detail.label">{{ detail.label }} {{ detail.value }}</span>
+                  </span>
                 </span>
               </button>
             </div>
@@ -776,9 +783,27 @@ const userSummaryItems = computed(() => {
 const creditSummaryItems = computed(() => {
   const credits = funnel.value?.credits
   return [
-    { key: 'recharge', label: t('admin.operations.totalRechargeAmount'), value: formatUSD(credits?.total_recharge_amount ?? 0), segment: 'recharge' as OperationsUserSegment },
-    { key: 'remaining', label: t('admin.operations.remainingBalance'), value: formatUSD(credits?.remaining_balance ?? 0), segment: 'balance' as OperationsUserSegment },
-    { key: 'gifted', label: t('admin.operations.giftedAmount'), value: formatUSD(credits?.gifted_amount ?? 0), segment: 'recharge' as OperationsUserSegment },
+    {
+      key: 'recharge',
+      label: t('admin.operations.totalRechargeAmount'),
+      value: formatUSD(credits?.total_recharge_amount ?? 0),
+      segment: 'all' as OperationsUserSegment,
+      details: [
+        { label: t('admin.operations.balanceRechargeAmount'), value: formatUSD(credits?.balance_recharge_amount ?? 0) },
+        { label: t('admin.operations.subscriptionRechargeAmount'), value: formatUSD(credits?.subscription_recharge_amount ?? 0) },
+      ],
+    },
+    {
+      key: 'remaining',
+      label: t('admin.operations.totalRemainingAmount'),
+      value: formatUSD(credits?.total_remaining_amount ?? 0),
+      segment: 'all' as OperationsUserSegment,
+      details: [
+        { label: t('admin.operations.balanceRechargeRemaining'), value: formatUSD(credits?.balance_recharge_remaining ?? 0) },
+        { label: t('admin.operations.subscriptionRemaining'), value: formatUSD(credits?.subscription_remaining ?? 0) },
+        { label: t('admin.operations.giftedRemaining'), value: formatUSD(credits?.gifted_remaining ?? 0) },
+      ],
+    },
   ]
 })
 

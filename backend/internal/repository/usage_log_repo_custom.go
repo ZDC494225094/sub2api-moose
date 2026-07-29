@@ -80,6 +80,13 @@ func (r *usageLogRepository) GetOperationsFunnel(ctx context.Context, startTime,
 		WITH paid_statuses(status) AS (
 			VALUES ($3), ($4), ($5)
 		),
+		balance_recharge_by_user AS (
+			SELECT user_id, COALESCE(SUM(amount), 0) AS balance_recharged
+			FROM payment_orders
+			WHERE status IN (SELECT status FROM paid_statuses)
+				AND order_type = $6
+			GROUP BY user_id
+		),
 		active_users_period AS (
 			SELECT DISTINCT ul.user_id
 			FROM usage_logs ul
@@ -128,11 +135,15 @@ func (r *usageLogRepository) GetOperationsFunnel(ctx context.Context, startTime,
 				COUNT(*) AS total_users,
 				COUNT(aup.user_id) AS active_users,
 				COALESCE(SUM(u.balance), 0) AS remaining_balance,
+				COALESCE(SUM(LEAST(GREATEST(u.balance, 0), COALESCE(br.balance_recharged, 0))), 0) AS balance_recharge_remaining,
+				COALESCE(SUM(GREATEST(GREATEST(u.balance, 0) - COALESCE(br.balance_recharged, 0), 0)), 0) AS gifted_remaining,
+				COALESCE(SUM(GREATEST(COALESCE(u.total_recharged, 0) - COALESCE(br.balance_recharged, 0), 0)), 0) AS gifted_amount,
 				COUNT(*) FILTER (WHERE u.status = $14) AS active_status_users,
 				COUNT(*) FILTER (WHERE u.status = $15) AS disabled_status_users,
 				COUNT(*) FILTER (WHERE COALESCE(u.total_recharged, 0) > 0) AS recharged_users
 			FROM users u
 			LEFT JOIN active_users_period aup ON aup.user_id = u.id
+			LEFT JOIN balance_recharge_by_user br ON br.user_id = u.id
 			WHERE u.deleted_at IS NULL
 		),
 		period_orders AS (
@@ -155,7 +166,8 @@ func (r *usageLogRepository) GetOperationsFunnel(ctx context.Context, startTime,
 		),
 		balance_recharge_inventory AS (
 			SELECT
-				COALESCE(SUM(amount) FILTER (WHERE order_type = $6), 0) AS total_recharge_amount,
+				COALESCE(SUM(amount) FILTER (WHERE order_type = $6), 0) AS balance_recharge_amount,
+				COALESCE(SUM(amount) FILTER (WHERE order_type = $7), 0) AS subscription_recharge_amount,
 				COUNT(DISTINCT user_id) FILTER (WHERE order_type = $6) AS balance_recharge_users,
 				COUNT(DISTINCT user_id) FILTER (WHERE order_type = $7) AS subscription_purchase_users
 			FROM payment_orders
@@ -163,13 +175,15 @@ func (r *usageLogRepository) GetOperationsFunnel(ctx context.Context, startTime,
 		),
 		user_credit_inventory AS (
 			SELECT
-				COALESCE(b.total_recharge_amount, 0) AS total_recharge_amount,
+				COALESCE(b.balance_recharge_amount, 0) + COALESCE(b.subscription_recharge_amount, 0) AS total_recharge_amount,
+				COALESCE(b.balance_recharge_amount, 0) AS balance_recharge_amount,
+				COALESCE(b.subscription_recharge_amount, 0) AS subscription_recharge_amount,
+				b.balance_recharge_users,
+				b.subscription_purchase_users,
 				u.remaining_balance,
-				GREATEST(
-					(SELECT COALESCE(SUM(total_recharged), 0) FROM users WHERE deleted_at IS NULL)
-						- COALESCE(b.total_recharge_amount, 0),
-					0
-				) AS gifted_amount
+				u.balance_recharge_remaining,
+				u.gifted_amount,
+				u.gifted_remaining
 			FROM all_user_stats u
 			CROSS JOIN balance_recharge_inventory b
 		),
@@ -200,6 +214,15 @@ func (r *usageLogRepository) GetOperationsFunnel(ctx context.Context, startTime,
 						ELSE 0
 					END
 				), 0) AS subscription_monthly_remaining,
+				COALESCE(SUM(COALESCE((
+					SELECT MIN(quota.remaining)
+					FROM (VALUES
+						(CASE WHEN COALESCE(g.daily_limit_usd, 0) > 0 THEN GREATEST(g.daily_limit_usd - COALESCE(us.daily_usage_usd, 0), 0) END),
+						(CASE WHEN COALESCE(g.weekly_limit_usd, 0) > 0 THEN GREATEST(g.weekly_limit_usd - COALESCE(us.weekly_usage_usd, 0), 0) END),
+						(CASE WHEN COALESCE(g.monthly_limit_usd, 0) > 0 THEN GREATEST(g.monthly_limit_usd - COALESCE(us.monthly_usage_usd, 0), 0) END)
+					) AS quota(remaining)
+					WHERE quota.remaining IS NOT NULL
+				), 0)), 0) AS subscription_remaining,
 				COALESCE(SUM(COALESCE(g.daily_limit_usd, 0)), 0) AS subscription_daily_limit,
 				COALESCE(SUM(COALESCE(g.weekly_limit_usd, 0)), 0) AS subscription_weekly_limit,
 				COALESCE(SUM(COALESCE(g.monthly_limit_usd, 0)), 0) AS subscription_monthly_limit,
@@ -228,14 +251,19 @@ func (r *usageLogRepository) GetOperationsFunnel(ctx context.Context, startTime,
 			p.subscription_revenue,
 			p.subscription_orders,
 			c.total_recharge_amount,
+			c.balance_recharge_amount,
+			c.subscription_recharge_amount,
 			c.remaining_balance,
+			c.balance_recharge_remaining,
 			c.gifted_amount,
+			c.gifted_remaining,
 			s.active_subscriptions,
 			s.active_subscription_users,
 			s.limited_subscriptions,
 			s.subscription_daily_remaining,
 			s.subscription_weekly_remaining,
 			s.subscription_monthly_remaining,
+			s.subscription_remaining,
 			p.pending_orders,
 			p.failed_orders,
 			p.refund_requested_orders,
@@ -294,14 +322,19 @@ func (r *usageLogRepository) GetOperationsFunnel(ctx context.Context, startTime,
 		&stats.SubscriptionRevenue,
 		&stats.SubscriptionOrders,
 		&stats.TotalRechargeAmount,
+		&stats.BalanceRechargeAmount,
+		&stats.SubscriptionRechargeAmount,
 		&stats.RemainingBalance,
+		&stats.BalanceRechargeRemaining,
 		&stats.GiftedAmount,
+		&stats.GiftedRemaining,
 		&stats.ActiveSubscriptions,
 		&stats.ActiveSubscriptionUsers,
 		&stats.LimitedSubscriptions,
 		&stats.SubscriptionDailyRemaining,
 		&stats.SubscriptionWeeklyRemaining,
 		&stats.SubscriptionMonthlyRemaining,
+		&stats.SubscriptionRemaining,
 		&stats.PendingOrders,
 		&stats.FailedOrders,
 		&stats.RefundRequestedOrders,
@@ -330,6 +363,13 @@ func (r *usageLogRepository) getOperationsFunnelBase(ctx context.Context, startT
 	query := `
 		WITH paid_statuses(status) AS (
 			VALUES ($3), ($4), ($5)
+		),
+		balance_recharge_by_user AS (
+			SELECT user_id, COALESCE(SUM(amount), 0) AS balance_recharged
+			FROM payment_orders
+			WHERE status IN (SELECT status FROM paid_statuses)
+				AND order_type = $6
+			GROUP BY user_id
 		),
 		active_users_period AS (
 			SELECT DISTINCT ul.user_id
@@ -378,9 +418,13 @@ func (r *usageLogRepository) getOperationsFunnelBase(ctx context.Context, startT
 			SELECT
 				COUNT(*) AS total_users,
 				COUNT(aup.user_id) AS active_users,
-				COALESCE(SUM(u.balance), 0) AS remaining_balance
+				COALESCE(SUM(u.balance), 0) AS remaining_balance,
+				COALESCE(SUM(LEAST(GREATEST(u.balance, 0), COALESCE(br.balance_recharged, 0))), 0) AS balance_recharge_remaining,
+				COALESCE(SUM(GREATEST(GREATEST(u.balance, 0) - COALESCE(br.balance_recharged, 0), 0)), 0) AS gifted_remaining,
+				COALESCE(SUM(GREATEST(COALESCE(u.total_recharged, 0) - COALESCE(br.balance_recharged, 0), 0)), 0) AS gifted_amount
 			FROM users u
 			LEFT JOIN active_users_period aup ON aup.user_id = u.id
+			LEFT JOIN balance_recharge_by_user br ON br.user_id = u.id
 			WHERE u.deleted_at IS NULL
 		),
 		period_orders AS (
@@ -402,20 +446,21 @@ func (r *usageLogRepository) getOperationsFunnelBase(ctx context.Context, startT
 				OR (paid_at >= $1 AND paid_at < $2)
 		),
 		balance_recharge_inventory AS (
-			SELECT COALESCE(SUM(amount), 0) AS total_recharge_amount
+			SELECT
+				COALESCE(SUM(amount) FILTER (WHERE order_type = $6), 0) AS balance_recharge_amount,
+				COALESCE(SUM(amount) FILTER (WHERE order_type = $7), 0) AS subscription_recharge_amount
 			FROM payment_orders
 			WHERE status IN (SELECT status FROM paid_statuses)
-				AND order_type = $6
 		),
 		user_credit_inventory AS (
 			SELECT
-				COALESCE(b.total_recharge_amount, 0) AS total_recharge_amount,
+				COALESCE(b.balance_recharge_amount, 0) + COALESCE(b.subscription_recharge_amount, 0) AS total_recharge_amount,
+				COALESCE(b.balance_recharge_amount, 0) AS balance_recharge_amount,
+				COALESCE(b.subscription_recharge_amount, 0) AS subscription_recharge_amount,
 				u.remaining_balance,
-				GREATEST(
-					(SELECT COALESCE(SUM(total_recharged), 0) FROM users WHERE deleted_at IS NULL)
-						- COALESCE(b.total_recharge_amount, 0),
-					0
-				) AS gifted_amount
+				u.balance_recharge_remaining,
+				u.gifted_amount,
+				u.gifted_remaining
 			FROM all_user_stats u
 			CROSS JOIN balance_recharge_inventory b
 		),
@@ -445,7 +490,16 @@ func (r *usageLogRepository) getOperationsFunnelBase(ctx context.Context, startT
 						THEN GREATEST(COALESCE(g.monthly_limit_usd, 0) - COALESCE(us.monthly_usage_usd, 0), 0)
 						ELSE 0
 					END
-				), 0) AS subscription_monthly_remaining
+				), 0) AS subscription_monthly_remaining,
+				COALESCE(SUM(COALESCE((
+					SELECT MIN(quota.remaining)
+					FROM (VALUES
+						(CASE WHEN COALESCE(g.daily_limit_usd, 0) > 0 THEN GREATEST(g.daily_limit_usd - COALESCE(us.daily_usage_usd, 0), 0) END),
+						(CASE WHEN COALESCE(g.weekly_limit_usd, 0) > 0 THEN GREATEST(g.weekly_limit_usd - COALESCE(us.weekly_usage_usd, 0), 0) END),
+						(CASE WHEN COALESCE(g.monthly_limit_usd, 0) > 0 THEN GREATEST(g.monthly_limit_usd - COALESCE(us.monthly_usage_usd, 0), 0) END)
+					) AS quota(remaining)
+					WHERE quota.remaining IS NOT NULL
+				), 0)), 0) AS subscription_remaining
 			FROM user_subscriptions us
 			JOIN groups g ON g.id = us.group_id AND g.deleted_at IS NULL
 			WHERE us.deleted_at IS NULL
@@ -468,14 +522,19 @@ func (r *usageLogRepository) getOperationsFunnelBase(ctx context.Context, startT
 			p.subscription_revenue,
 			p.subscription_orders,
 			c.total_recharge_amount,
+			c.balance_recharge_amount,
+			c.subscription_recharge_amount,
 			c.remaining_balance,
+			c.balance_recharge_remaining,
 			c.gifted_amount,
+			c.gifted_remaining,
 			s.active_subscriptions,
 			s.active_subscription_users,
 			s.limited_subscriptions,
 			s.subscription_daily_remaining,
 			s.subscription_weekly_remaining,
 			s.subscription_monthly_remaining,
+			s.subscription_remaining,
 			p.pending_orders,
 			p.failed_orders,
 			p.refund_requested_orders,
@@ -521,14 +580,19 @@ func (r *usageLogRepository) getOperationsFunnelBase(ctx context.Context, startT
 		&stats.SubscriptionRevenue,
 		&stats.SubscriptionOrders,
 		&stats.TotalRechargeAmount,
+		&stats.BalanceRechargeAmount,
+		&stats.SubscriptionRechargeAmount,
 		&stats.RemainingBalance,
+		&stats.BalanceRechargeRemaining,
 		&stats.GiftedAmount,
+		&stats.GiftedRemaining,
 		&stats.ActiveSubscriptions,
 		&stats.ActiveSubscriptionUsers,
 		&stats.LimitedSubscriptions,
 		&stats.SubscriptionDailyRemaining,
 		&stats.SubscriptionWeeklyRemaining,
 		&stats.SubscriptionMonthlyRemaining,
+		&stats.SubscriptionRemaining,
 		&stats.PendingOrders,
 		&stats.FailedOrders,
 		&stats.RefundRequestedOrders,

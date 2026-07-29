@@ -34,7 +34,8 @@ vi.mock('@/api/admin', () => ({
       renameUpstreamGroup,
       updateUpstreamGroupSortOrders,
       updateSortOrder,
-      getBatchTodayStats
+      getBatchTodayStats,
+      getUpstreamBillingProbeSettings: vi.fn().mockResolvedValue({ enabled: false })
     },
     proxies: { getAll: vi.fn().mockResolvedValue([]) },
     groups: { getAll: vi.fn().mockResolvedValue([]) }
@@ -259,6 +260,37 @@ describe('admin AccountsView upstream grouping and reorder', () => {
     expect(wrapper.findAll('[data-test^="row-"]')).toHaveLength(0)
   })
 
+  it('loads every account page before rendering upstream groups', async () => {
+    listAccounts.mockImplementation(async (page: number, _pageSize: number, filters: { sort_by?: string }) => {
+      if (filters?.sort_by !== 'upstream') {
+        return { items: accounts, total: 3, page: 1, page_size: 20, pages: 1 }
+      }
+      if (page === 1) {
+        return { items: [accounts[0]], total: 3, page: 1, page_size: 1, pages: 2 }
+      }
+      return { items: [accounts[1], accounts[2]], total: 3, page: 2, page_size: 2, pages: 2 }
+    })
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('button[aria-pressed="false"]').trigger('click')
+    await flushPromises()
+
+    expect(listAccounts).toHaveBeenCalledWith(
+      2,
+      1000,
+      expect.objectContaining({ sort_by: 'upstream', sort_order: 'asc' }),
+      expect.any(Object)
+    )
+    const hiCodeHeader = wrapper.findAll('button[aria-expanded="false"]')
+      .find(button => button.text().includes('hi-code'))
+    await hiCodeHeader!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="row-1"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="row-2"]').exists()).toBe(true)
+  })
+
   it('loads all existing upstream groups when opening the create dialog', async () => {
     listUpstreamGroups.mockResolvedValueOnce([
       { id: 2, key: 'hi-code', name: 'hi-code', sort_order: 10, account_count: 4 }
@@ -281,6 +313,7 @@ describe('admin AccountsView upstream grouping and reorder', () => {
     await flushPromises()
 
     const headers = wrapper.findAll('button[aria-expanded="false"]')
+      .filter(header => header.text().includes('hi-code') || header.text().includes('Anthropic official'))
     expect(headers.map(header => header.text())).toEqual([
       expect.stringContaining('hi-code'),
       expect.stringContaining('Anthropic official')
@@ -345,14 +378,12 @@ describe('admin AccountsView upstream grouping and reorder', () => {
     )
   })
 
-  it('persists reordered rows using the existing sort slots', async () => {
+  it('enables drag ordering by default and persists reordered rows', async () => {
     const wrapper = mountView()
     await flushPromises()
 
-    const reorderButton = wrapper.findAll('button').find(button => button.text().includes('admin.accounts.dragSort'))
-    expect(reorderButton).toBeTruthy()
-    await reorderButton!.trigger('click')
-    await flushPromises()
+    expect(wrapper.get('[data-test="data-table"]').attributes('data-draggable')).toBe('true')
+    expect(wrapper.findAll('button').some(button => button.text().includes('admin.accounts.dragSort'))).toBe(false)
 
     await wrapper.get('[data-test="drag-1"]').trigger('click')
     await wrapper.get('[data-test="drop-2"]').trigger('click')
@@ -376,10 +407,6 @@ describe('admin AccountsView upstream grouping and reorder', () => {
       await header.trigger('click')
     }
     await flushPromises()
-    const reorderButton = wrapper.findAll('button').find(button => button.text().includes('admin.accounts.dragSort'))
-    await reorderButton!.trigger('click')
-    await flushPromises()
-
     await wrapper.get('[data-test="drag-1"]').trigger('click')
     await wrapper.get('[data-test="drop-3"]').trigger('click')
     await flushPromises()
@@ -398,10 +425,6 @@ describe('admin AccountsView upstream grouping and reorder', () => {
       .find(button => button.text().includes('hi-code'))
     await hiCodeHeader!.trigger('click')
     await flushPromises()
-    const reorderButton = wrapper.findAll('button').find(button => button.text().includes('admin.accounts.dragSort'))
-    await reorderButton!.trigger('click')
-    await flushPromises()
-
     await wrapper.get('[data-test="row-1"] .account-drag-handle').trigger('keydown', { key: 'ArrowDown' })
     await flushPromises()
 
@@ -421,9 +444,6 @@ describe('admin AccountsView upstream grouping and reorder', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    const reorderButton = wrapper.findAll('button').find(button => button.text().includes('admin.accounts.dragSort'))
-    await reorderButton!.trigger('click')
-    await flushPromises()
     await wrapper.get('[data-test="drag-1"]').trigger('click')
     await wrapper.get('[data-test="drop-2"]').trigger('click')
     await flushPromises()

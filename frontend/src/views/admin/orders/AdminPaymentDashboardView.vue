@@ -96,6 +96,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
+import { formatLocalDate } from '@/utils/localDate'
 import type { DashboardStats } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
@@ -106,10 +107,6 @@ import DailyUserChart from '@/components/admin/payment/DailyUserChart.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
-
-function fmtDate(d: Date) {
-  return d.toISOString().slice(0, 10)
-}
 
 type ShortcutKey = 'current-month' | 'last-month' | '7d' | '30d' | '90d'
 
@@ -122,8 +119,8 @@ const SHORTCUTS = computed<{ key: ShortcutKey; label: string }[]>(() => [
 ])
 
 const now = new Date()
-const startDate = ref(fmtDate(new Date(now.getFullYear(), now.getMonth(), 1)))
-const endDate = ref(fmtDate(now))
+const startDate = ref(formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1)))
+const endDate = ref(formatLocalDate(now))
 const activeShortcut = ref<ShortcutKey>('current-month')
 const loading = ref(false)
 const stats = ref<DashboardStats | null>(null)
@@ -132,22 +129,22 @@ function applyShortcut(key: ShortcutKey) {
   activeShortcut.value = key
   const today = new Date()
   if (key === 'current-month') {
-    startDate.value = fmtDate(new Date(today.getFullYear(), today.getMonth(), 1))
-    endDate.value = fmtDate(today)
+    startDate.value = formatLocalDate(new Date(today.getFullYear(), today.getMonth(), 1))
+    endDate.value = formatLocalDate(today)
   } else if (key === 'last-month') {
     const first = new Date(today.getFullYear(), today.getMonth() - 1, 1)
     const last = new Date(today.getFullYear(), today.getMonth(), 0)
-    startDate.value = fmtDate(first)
-    endDate.value = fmtDate(last)
+    startDate.value = formatLocalDate(first)
+    endDate.value = formatLocalDate(last)
   } else if (key === '7d') {
-    startDate.value = fmtDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6))
-    endDate.value = fmtDate(today)
+    startDate.value = formatLocalDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6))
+    endDate.value = formatLocalDate(today)
   } else if (key === '30d') {
-    startDate.value = fmtDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29))
-    endDate.value = fmtDate(today)
+    startDate.value = formatLocalDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29))
+    endDate.value = formatLocalDate(today)
   } else if (key === '90d') {
-    startDate.value = fmtDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 89))
-    endDate.value = fmtDate(today)
+    startDate.value = formatLocalDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 89))
+    endDate.value = formatLocalDate(today)
   }
   loadDashboard()
 }

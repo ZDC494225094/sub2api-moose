@@ -286,6 +286,12 @@ export interface OperationsUserSummary {
 
 export interface OperationsCreditSummary {
   total_recharge_amount: number
+  balance_recharge_amount: number
+  subscription_recharge_amount: number
+  total_remaining_amount: number
+  balance_recharge_remaining: number
+  subscription_remaining: number
+  gifted_remaining: number
   remaining_balance: number
   gifted_amount: number
 }

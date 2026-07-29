@@ -27,8 +27,13 @@ type OperationsFunnelStats struct {
 	SubscriptionRevenue          float64
 	SubscriptionOrders           int64
 	TotalRechargeAmount          float64
+	BalanceRechargeAmount        float64
+	SubscriptionRechargeAmount   float64
 	RemainingBalance             float64
+	BalanceRechargeRemaining     float64
+	SubscriptionRemaining        float64
 	GiftedAmount                 float64
+	GiftedRemaining              float64
 	ActiveSubscriptions          int64
 	ActiveSubscriptionUsers      int64
 	LimitedSubscriptions         int64
@@ -89,9 +94,15 @@ type OperationsUserSummary struct {
 }
 
 type OperationsCreditSummary struct {
-	TotalRechargeAmount float64 `json:"total_recharge_amount"`
-	RemainingBalance    float64 `json:"remaining_balance"`
-	GiftedAmount        float64 `json:"gifted_amount"`
+	TotalRechargeAmount        float64 `json:"total_recharge_amount"`
+	BalanceRechargeAmount      float64 `json:"balance_recharge_amount"`
+	SubscriptionRechargeAmount float64 `json:"subscription_recharge_amount"`
+	TotalRemainingAmount       float64 `json:"total_remaining_amount"`
+	BalanceRechargeRemaining   float64 `json:"balance_recharge_remaining"`
+	SubscriptionRemaining      float64 `json:"subscription_remaining"`
+	GiftedRemaining            float64 `json:"gifted_remaining"`
+	RemainingBalance           float64 `json:"remaining_balance"`
+	GiftedAmount               float64 `json:"gifted_amount"`
 }
 
 type OperationsSubscriptionSummary struct {
@@ -220,11 +231,7 @@ func (s *DashboardService) GetOperationsFunnel(ctx context.Context, startTime, e
 			InactiveUsers: stats.AllInactiveUsers,
 			ActiveRate:    percent(stats.AllActiveUsers, stats.TotalUsers),
 		},
-		Credits: OperationsCreditSummary{
-			TotalRechargeAmount: round2(stats.TotalRechargeAmount),
-			RemainingBalance:    round2(stats.RemainingBalance),
-			GiftedAmount:        round2(stats.GiftedAmount),
-		},
+		Credits: buildOperationsCreditSummary(stats),
 		Subscriptions: OperationsSubscriptionSummary{
 			ActiveSubscriptions:     stats.ActiveSubscriptions,
 			ActiveSubscriptionUsers: stats.ActiveSubscriptionUsers,
@@ -307,8 +314,26 @@ func buildOperationsFunnelSteps(stats *OperationsFunnelStats) []OperationsFunnel
 	return steps
 }
 
+func buildOperationsCreditSummary(stats *OperationsFunnelStats) OperationsCreditSummary {
+	if stats == nil {
+		stats = &OperationsFunnelStats{}
+	}
+	totalRemaining := stats.BalanceRechargeRemaining + stats.SubscriptionRemaining + stats.GiftedRemaining
+	return OperationsCreditSummary{
+		TotalRechargeAmount:        round2(stats.TotalRechargeAmount),
+		BalanceRechargeAmount:      round2(stats.BalanceRechargeAmount),
+		SubscriptionRechargeAmount: round2(stats.SubscriptionRechargeAmount),
+		TotalRemainingAmount:       round2(totalRemaining),
+		BalanceRechargeRemaining:   round2(stats.BalanceRechargeRemaining),
+		SubscriptionRemaining:      round2(stats.SubscriptionRemaining),
+		GiftedRemaining:            round2(stats.GiftedRemaining),
+		RemainingBalance:           round2(stats.RemainingBalance),
+		GiftedAmount:               round2(stats.GiftedAmount),
+	}
+}
+
 func buildOperationsBreakdown(stats *OperationsFunnelStats) OperationsBreakdownSummary {
-	consumedCredit := math.Max(stats.TotalRechargeAmount+stats.GiftedAmount-stats.RemainingBalance, 0)
+	consumedCredit := math.Max(stats.BalanceRechargeAmount+stats.GiftedAmount-stats.RemainingBalance, 0)
 	return OperationsBreakdownSummary{
 		Users: []OperationsBreakdownItem{
 			{Key: "active_period", Label: "周期活跃用户", Count: stats.AllActiveUsers, Percent: percent(stats.AllActiveUsers, stats.TotalUsers)},
@@ -318,7 +343,7 @@ func buildOperationsBreakdown(stats *OperationsFunnelStats) OperationsBreakdownS
 			{Key: "recharged", Label: "有充值记录用户", Count: stats.RechargedUsers, Percent: percent(stats.RechargedUsers, stats.TotalUsers)},
 		},
 		Credits: []OperationsBreakdownItem{
-			{Key: "balance_recharge", Label: "余额充值额度", Count: stats.BalanceRechargeUsers, Amount: round2(stats.TotalRechargeAmount)},
+			{Key: "balance_recharge", Label: "余额充值额度", Count: stats.BalanceRechargeUsers, Amount: round2(stats.BalanceRechargeAmount)},
 			{Key: "remaining_balance", Label: "用户剩余额度", Amount: round2(stats.RemainingBalance)},
 			{Key: "gifted", Label: "赠送额度估算", Amount: round2(stats.GiftedAmount)},
 			{Key: "consumed", Label: "已消耗额度估算", Amount: round2(consumedCredit)},
