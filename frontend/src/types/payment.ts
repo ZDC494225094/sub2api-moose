@@ -228,30 +228,46 @@ export interface CreateOrderResult {
   jsapi_payload?: WechatJSAPIPayload
 }
 
-export interface DailyStatPoint {
+export type CurrencyAmounts = Record<string, number>
+
+export interface DailyPaymentStats {
   date: string
-  amount: number
+  amount: CurrencyAmounts
   count: number
-  balance_amount: number
+  balance_amount: CurrencyAmounts
   balance_count: number
-  subscription_amount: number
+  subscription_amount: CurrencyAmounts
   subscription_count: number
   new_user_count: number
-  new_user_amount: number
+  new_user_amount: CurrencyAmounts
   returning_user_count: number
-  returning_user_amount: number
+  returning_user_amount: CurrencyAmounts
 }
 
+export interface PaymentMethodStats {
+  type: string
+  amount: CurrencyAmounts
+  count: number
+}
+
+export interface TopUserPaymentStats {
+  user_id: number
+  email: string
+  amount: number
+}
+
+export type DailyStatPoint = DailyPaymentStats
+
 export interface DashboardStats {
-  today_amount: number
-  total_amount: number
+  today_amount: CurrencyAmounts
+  total_amount: CurrencyAmounts
   today_count: number
   total_count: number
-  avg_amount: number
+  avg_amount: CurrencyAmounts
   pending_orders: number
-  daily_series: DailyStatPoint[]
-  payment_methods: { type: string; amount: number; count: number }[]
-  top_users: { user_id: number; email: string; amount: number }[]
+  daily_series: DailyPaymentStats[]
+  payment_methods: PaymentMethodStats[]
+  top_users: Record<string, TopUserPaymentStats[]>
 }
 
 export type CouponScope = 'balance' | 'subscription' | 'universal'

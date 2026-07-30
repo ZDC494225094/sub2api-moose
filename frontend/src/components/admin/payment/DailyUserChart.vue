@@ -46,14 +46,14 @@ import {
 } from 'chart.js'
 import { Bar } from 'vue-chartjs'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
-import type { DailyStatPoint } from '@/types/payment'
+import type { DailyPaymentStats } from '@/types/payment'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
 const { t } = useI18n()
 
 const props = defineProps<{
-  data: DailyStatPoint[]
+  data: DailyPaymentStats[]
   loading?: boolean
 }>()
 
@@ -87,22 +87,26 @@ const chartData = computed(() => {
       ]
     }
   }
+  const currencies = [...new Set(props.data.flatMap(day => [
+    ...Object.keys(day.new_user_amount),
+    ...Object.keys(day.returning_user_amount),
+  ]))].sort()
   return {
     labels: labels.value,
-    datasets: [
+    datasets: currencies.flatMap((currency, index) => [
       {
-        label: t('payment.admin.newUser'),
-        data: props.data.map(d => d.new_user_amount),
-        backgroundColor: 'rgba(16, 185, 129, 0.75)',
-        stack: 'amounts',
+        label: `${currency} ${t('payment.admin.newUser')}`,
+        data: props.data.map(d => d.new_user_amount[currency] || 0),
+        backgroundColor: index % 2 === 0 ? 'rgba(16, 185, 129, 0.75)' : 'rgba(5, 150, 105, 0.75)',
+        stack: currency,
       },
       {
-        label: t('payment.admin.returningUser'),
-        data: props.data.map(d => d.returning_user_amount),
-        backgroundColor: 'rgba(59, 130, 246, 0.75)',
-        stack: 'amounts',
-      }
-    ]
+        label: `${currency} ${t('payment.admin.returningUser')}`,
+        data: props.data.map(d => d.returning_user_amount[currency] || 0),
+        backgroundColor: index % 2 === 0 ? 'rgba(59, 130, 246, 0.75)' : 'rgba(37, 99, 235, 0.75)',
+        stack: currency,
+      },
+    ]),
   }
 })
 

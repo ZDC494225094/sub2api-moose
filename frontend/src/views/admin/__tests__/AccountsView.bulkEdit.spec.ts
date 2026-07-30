@@ -377,6 +377,7 @@ describe('admin AccountsView bulk edit scope', () => {
   })
 
   it('reloads the server-sorted list after a batch probe changes a snapshot', async () => {
+    localStorage.setItem('account-table-sort-default-version', 'drag-order-v1')
     localStorage.setItem('account-table-sort', JSON.stringify({ key: 'upstream_billing_rate', order: 'asc' }))
     const account = (id: number) => ({
       id,

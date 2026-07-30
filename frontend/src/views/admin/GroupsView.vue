@@ -3903,6 +3903,9 @@
                 class="input"
                 placeholder="gpt-5"
               />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {{ t("admin.groups.compositeRoutes.upstreamModelHint") }}
+              </p>
             </div>
 
             <div>
@@ -5204,9 +5207,13 @@ const deleteConfirmMessage = computed(() => {
 
 const loadLiveCapability = async () => {
   if (liveCapability.value) return liveCapability.value;
+  const getCapability = adminAPI.groups.getLiveCapability;
+  if (typeof getCapability !== "function") {
+    liveCapability.value = { supported: false };
+    return liveCapability.value;
+  }
   if (!liveCapabilityRequest) {
-    liveCapabilityRequest = adminAPI.groups
-      .getLiveCapability()
+    liveCapabilityRequest = getCapability()
       .catch(() => ({ supported: false }))
       .finally(() => {
         liveCapabilityRequest = null;

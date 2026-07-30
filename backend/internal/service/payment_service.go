@@ -148,37 +148,41 @@ type RefundResult struct {
 }
 
 type DashboardStats struct {
-	TodayAmount   float64 `json:"today_amount"`
-	TotalAmount   float64 `json:"total_amount"`
-	TodayCount    int     `json:"today_count"`
-	TotalCount    int     `json:"total_count"`
-	AvgAmount     float64 `json:"avg_amount"`
-	PendingOrders int     `json:"pending_orders"`
+	TodayAmount   CurrencyAmounts `json:"today_amount"`
+	TotalAmount   CurrencyAmounts `json:"total_amount"`
+	TodayCount    int             `json:"today_count"`
+	TotalCount    int             `json:"total_count"`
+	AvgAmount     CurrencyAmounts `json:"avg_amount"`
+	PendingOrders int             `json:"pending_orders"`
 
 	DailySeries    []DailyStats        `json:"daily_series"`
 	PaymentMethods []PaymentMethodStat `json:"payment_methods"`
-	TopUsers       []TopUserStat       `json:"top_users"`
+	TopUsers       TopUsersByCurrency  `json:"top_users"`
 }
 
-type DailyStats struct {
-	Date   string  `json:"date"`
-	Amount float64 `json:"amount"`
-	Count  int     `json:"count"`
+// CurrencyAmounts holds payment amounts keyed by their ISO 4217 currency.
+// Amounts in different currencies must never be added together.
+type CurrencyAmounts map[string]float64
 
-	BalanceAmount       float64 `json:"balance_amount"`
-	BalanceCount        int     `json:"balance_count"`
-	SubscriptionAmount  float64 `json:"subscription_amount"`
-	SubscriptionCount   int     `json:"subscription_count"`
-	NewUserCount        int     `json:"new_user_count"`
-	NewUserAmount       float64 `json:"new_user_amount"`
-	ReturningUserCount  int     `json:"returning_user_count"`
-	ReturningUserAmount float64 `json:"returning_user_amount"`
+type DailyStats struct {
+	Date   string          `json:"date"`
+	Amount CurrencyAmounts `json:"amount"`
+	Count  int             `json:"count"`
+
+	BalanceAmount       CurrencyAmounts `json:"balance_amount"`
+	BalanceCount        int             `json:"balance_count"`
+	SubscriptionAmount  CurrencyAmounts `json:"subscription_amount"`
+	SubscriptionCount   int             `json:"subscription_count"`
+	NewUserCount        int             `json:"new_user_count"`
+	NewUserAmount       CurrencyAmounts `json:"new_user_amount"`
+	ReturningUserCount  int             `json:"returning_user_count"`
+	ReturningUserAmount CurrencyAmounts `json:"returning_user_amount"`
 }
 
 type PaymentMethodStat struct {
-	Type   string  `json:"type"`
-	Amount float64 `json:"amount"`
-	Count  int     `json:"count"`
+	Type   string          `json:"type"`
+	Amount CurrencyAmounts `json:"amount"`
+	Count  int             `json:"count"`
 }
 
 type TopUserStat struct {
@@ -186,6 +190,10 @@ type TopUserStat struct {
 	Email  string  `json:"email"`
 	Amount float64 `json:"amount"`
 }
+
+// TopUsersByCurrency contains an independent ranked user list for each
+// currency. A single cross-currency leaderboard would be misleading.
+type TopUsersByCurrency map[string][]TopUserStat
 
 // --- Service ---
 

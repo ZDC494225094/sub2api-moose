@@ -51,14 +51,14 @@ import {
 } from 'chart.js'
 import { Line, Bar } from 'vue-chartjs'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
-import type { DailyStatPoint } from '@/types/payment'
+import type { DailyPaymentStats } from '@/types/payment'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Filler)
 
 const { t } = useI18n()
 
 const props = defineProps<{
-  data: DailyStatPoint[]
+  data: DailyPaymentStats[]
   loading?: boolean
 }>()
 
@@ -74,33 +74,46 @@ const chartModes = computed(() => [
 
 const labels = computed(() => props.data.map(d => d.date))
 
-// Line chart: revenue + order count
-const lineData = computed(() => ({
-  labels: labels.value,
-  datasets: [
-    {
-      label: t('payment.admin.revenue'),
-      data: props.data.map(d => d.amount),
-      borderColor: 'rgb(59, 130, 246)',
-      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-      fill: true,
-      tension: 0.3,
-      pointRadius: 3,
-      pointHoverRadius: 5,
-    },
-    {
-      label: t('payment.admin.orderCount'),
-      data: props.data.map(d => d.count),
-      borderColor: 'rgb(16, 185, 129)',
-      backgroundColor: 'rgba(16, 185, 129, 0.1)',
-      fill: false,
-      tension: 0.3,
-      pointRadius: 3,
-      pointHoverRadius: 5,
-      yAxisID: 'y1',
-    }
-  ]
-}))
+const colors = [
+  ['rgb(59, 130, 246)', 'rgba(59, 130, 246, 0.1)'],
+  ['rgb(168, 85, 247)', 'rgba(168, 85, 247, 0.1)'],
+  ['rgb(245, 158, 11)', 'rgba(245, 158, 11, 0.1)'],
+  ['rgb(239, 68, 68)', 'rgba(239, 68, 68, 0.1)'],
+]
+
+const lineData = computed(() => {
+  if (!props.data || props.data.length === 0) return null
+  const currencies = [...new Set(props.data.flatMap(day => Object.keys(day.amount)))].sort()
+  return {
+    labels: props.data.map(d => d.date),
+    datasets: [
+      ...currencies.map((currency, index) => {
+        const [borderColor, backgroundColor] = colors[index % colors.length]
+        return {
+          label: `${currency} ${t('payment.admin.revenue')}`,
+          data: props.data.map(day => day.amount[currency] || 0),
+          borderColor,
+          backgroundColor,
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+        }
+      }),
+      {
+        label: t('payment.admin.orderCount'),
+        data: props.data.map(d => d.count),
+        borderColor: 'rgb(16, 185, 129)',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        fill: false,
+        tension: 0.3,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        yAxisID: 'y1',
+      }
+    ]
+  }
+})
 
 const lineOptions = {
   responsive: true,
@@ -155,23 +168,33 @@ const barOptions = {
 }
 
 // Bar chart: stacked daily revenue by order type
-const barTypeData = computed(() => ({
-  labels: labels.value,
-  datasets: [
-    {
-      label: t('payment.admin.balanceOrder'),
-      data: props.data.map(d => d.balance_amount),
-      backgroundColor: 'rgba(59, 130, 246, 0.75)',
-      stack: 'revenue',
-    },
-    {
-      label: t('payment.admin.subscriptionOrder'),
-      data: props.data.map(d => d.subscription_amount),
-      backgroundColor: 'rgba(168, 85, 247, 0.75)',
-      stack: 'revenue',
-    }
-  ]
-}))
+const barTypeData = computed(() => {
+  const currencies = [...new Set(props.data.flatMap(day => [
+    ...Object.keys(day.balance_amount),
+    ...Object.keys(day.subscription_amount),
+  ]))].sort()
+  return {
+    labels: labels.value,
+    datasets: currencies.flatMap((currency, index) => {
+      const [balanceColor] = colors[index % colors.length]
+      const [subscriptionColor] = colors[(index + 1) % colors.length]
+      return [
+        {
+          label: `${currency} ${t('payment.admin.balanceOrder')}`,
+          data: props.data.map(d => d.balance_amount[currency] || 0),
+          backgroundColor: balanceColor,
+          stack: currency,
+        },
+        {
+          label: `${currency} ${t('payment.admin.subscriptionOrder')}`,
+          data: props.data.map(d => d.subscription_amount[currency] || 0),
+          backgroundColor: subscriptionColor,
+          stack: currency,
+        },
+      ]
+    }),
+  }
+})
 
 const barTypeOptions = {
   responsive: true,

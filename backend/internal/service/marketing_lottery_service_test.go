@@ -109,15 +109,20 @@ func (lotteryConsumeProgressRepoNoop) GetQualifiedAmount(context.Context, int64,
 
 type lotteryUserRepoNoop struct{}
 
-func (lotteryUserRepoNoop) Create(context.Context, *User) error           { panic("unexpected") }
+func (lotteryUserRepoNoop) Create(context.Context, *User) error { panic("unexpected") }
+func (lotteryUserRepoNoop) CreateWithEmailAliasGuard(context.Context, *User) error {
+	panic("unexpected")
+}
 func (lotteryUserRepoNoop) GetByID(context.Context, int64) (*User, error) { panic("unexpected") }
 func (lotteryUserRepoNoop) GetByIDIncludeDeleted(context.Context, int64) (*User, error) {
 	panic("unexpected")
 }
 func (lotteryUserRepoNoop) GetByEmail(context.Context, string) (*User, error) { panic("unexpected") }
 func (lotteryUserRepoNoop) GetFirstAdmin(context.Context) (*User, error)      { panic("unexpected") }
-func (lotteryUserRepoNoop) Update(context.Context, *User) error               { panic("unexpected") }
-func (lotteryUserRepoNoop) Delete(context.Context, int64) error               { panic("unexpected") }
+func (lotteryUserRepoNoop) Update(context.Context, *User, UserUpdateFields) error {
+	panic("unexpected")
+}
+func (lotteryUserRepoNoop) Delete(context.Context, int64) error { panic("unexpected") }
 func (lotteryUserRepoNoop) GetUserAvatar(context.Context, int64) (*UserAvatar, error) {
 	panic("unexpected")
 }
@@ -133,6 +138,12 @@ func (lotteryUserRepoNoop) ListWithFilters(context.Context, pagination.Paginatio
 }
 func (lotteryUserRepoNoop) UpdateBalance(context.Context, int64, float64) error { panic("unexpected") }
 func (lotteryUserRepoNoop) DeductBalance(context.Context, int64, float64) error { panic("unexpected") }
+func (lotteryUserRepoNoop) AdjustBalance(context.Context, int64, float64) (BalanceChange, error) {
+	panic("unexpected")
+}
+func (lotteryUserRepoNoop) SetBalance(context.Context, int64, float64) (BalanceChange, error) {
+	panic("unexpected")
+}
 func (lotteryUserRepoNoop) UpdateConcurrency(context.Context, int64, int) error { panic("unexpected") }
 func (lotteryUserRepoNoop) BatchSetConcurrency(context.Context, []int64, int) (int, error) {
 	panic("unexpected")
@@ -140,7 +151,13 @@ func (lotteryUserRepoNoop) BatchSetConcurrency(context.Context, []int64, int) (i
 func (lotteryUserRepoNoop) BatchAddConcurrency(context.Context, []int64, int) (int, error) {
 	panic("unexpected")
 }
+func (lotteryUserRepoNoop) BatchUpdateLimits(context.Context, []int64, *int, *int) (int, error) {
+	panic("unexpected")
+}
 func (lotteryUserRepoNoop) ExistsByEmail(context.Context, string) (bool, error) { panic("unexpected") }
+func (lotteryUserRepoNoop) ExistsByEmailAlias(context.Context, string) (bool, error) {
+	panic("unexpected")
+}
 func (lotteryUserRepoNoop) RemoveGroupFromAllowedGroups(context.Context, int64) (int64, error) {
 	panic("unexpected")
 }

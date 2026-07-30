@@ -88,7 +88,7 @@ func (r *apiKeySelectionUserRepo) GetByEmail(context.Context, string) (*User, er
 func (r *apiKeySelectionUserRepo) GetFirstAdmin(context.Context) (*User, error) {
 	panic("unexpected GetFirstAdmin call")
 }
-func (r *apiKeySelectionUserRepo) Update(context.Context, *User) error {
+func (r *apiKeySelectionUserRepo) Update(context.Context, *User, UserUpdateFields) error {
 	panic("unexpected Update call")
 }
 func (r *apiKeySelectionUserRepo) Delete(context.Context, int64) error {
@@ -120,6 +120,12 @@ func (r *apiKeySelectionUserRepo) UpdateUserLastActiveAt(context.Context, int64,
 }
 func (r *apiKeySelectionUserRepo) UpdateBalance(context.Context, int64, float64) error {
 	panic("unexpected UpdateBalance call")
+}
+func (r *apiKeySelectionUserRepo) AdjustBalance(context.Context, int64, float64) (BalanceChange, error) {
+	panic("unexpected AdjustBalance call")
+}
+func (r *apiKeySelectionUserRepo) SetBalance(context.Context, int64, float64) (BalanceChange, error) {
+	panic("unexpected SetBalance call")
 }
 func (r *apiKeySelectionUserRepo) DeductBalance(context.Context, int64, float64) error {
 	panic("unexpected DeductBalance call")
