@@ -160,9 +160,11 @@ const (
 	SettingKeySMTPUseTLS   = "smtp_use_tls"   // 是否使用TLS
 
 	// Cloudflare Turnstile 设置
-	SettingKeyTurnstileEnabled   = "turnstile_enabled"    // 是否启用 Turnstile 验证
-	SettingKeyTurnstileSiteKey   = "turnstile_site_key"   // Turnstile Site Key
-	SettingKeyTurnstileSecretKey = "turnstile_secret_key" // Turnstile Secret Key
+	SettingKeyTurnstileEnabled            = "turnstile_enabled"             // 是否启用 Turnstile 验证
+	SettingKeyTurnstileSiteKey            = "turnstile_site_key"            // Turnstile Site Key
+	SettingKeyTurnstileSecretKey          = "turnstile_secret_key"          // Turnstile Secret Key
+	SettingKeyRegistrationProofEnabled    = "registration_proof_enabled"    // 是否启用注册工作量证明
+	SettingKeyRegistrationProofDifficulty = "registration_proof_difficulty" // 注册工作量证明难度（前导零位数）
 
 	// API Key IP 访问控制设置
 	SettingKeyAPIKeyACLTrustForwardedIP = "api_key_acl_trust_forwarded_ip" // API Key IP 白/黑名单是否信任转发 IP

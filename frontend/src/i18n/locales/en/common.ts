@@ -246,6 +246,12 @@ export default {
     turnstileExpired: 'Verification expired, please try again',
     turnstileFailed: 'Verification failed, please try again',
     completeVerification: 'Please complete the verification',
+    registrationProof: {
+      label: 'Local security check',
+      idle: 'Pending',
+      solving: 'Checking',
+      ready: 'Verified',
+    },
     verifyYourEmail: 'Verify Your Email',
     sessionExpired: 'Session expired',
     sessionExpiredDesc: 'Please go back to the registration page and start again.',

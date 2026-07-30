@@ -147,6 +147,16 @@ export default {
         secretKeyHint: 'Server-side verification key (keep this secret)',
         secretKeyConfiguredHint: 'Secret key configured. Leave empty to keep the current value.'
       },
+      registrationProof: {
+        title: 'Local Registration Verification',
+        description: 'Registration bot protection without an external service',
+        enabled: 'Enable proof of work',
+        enabledHint: 'Require a short local computation before registration and verify it on the server',
+        difficulty: 'Verification difficulty',
+        difficultyHint: '18 is recommended. Each additional level roughly doubles the average work.',
+        faster: 'Faster',
+        stronger: 'Stronger'
+      },
       apiKeyAcl: {
         title: 'API Key IP Access Control',
         description:

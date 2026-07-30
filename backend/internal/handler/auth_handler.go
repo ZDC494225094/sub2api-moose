@@ -48,19 +48,34 @@ func NewAuthHandler(cfg *config.Config, authService *service.AuthService, userSe
 
 // RegisterRequest represents the registration request payload
 type RegisterRequest struct {
-	Email          string `json:"email" binding:"required,email"`
-	Password       string `json:"password" binding:"required,min=6"`
-	VerifyCode     string `json:"verify_code"`
-	TurnstileToken string `json:"turnstile_token"`
-	PromoCode      string `json:"promo_code"`      // 注册优惠码
-	InvitationCode string `json:"invitation_code"` // 邀请码
-	AffCode        string `json:"aff_code"`        // 邀请返利码
+	Email                      string `json:"email" binding:"required,email"`
+	Password                   string `json:"password" binding:"required,min=6"`
+	VerifyCode                 string `json:"verify_code"`
+	TurnstileToken             string `json:"turnstile_token"`
+	RegistrationProofChallenge string `json:"registration_proof_challenge"`
+	RegistrationProofSolution  string `json:"registration_proof_solution"`
+	PromoCode                  string `json:"promo_code"`      // 注册优惠码
+	InvitationCode             string `json:"invitation_code"` // 邀请码
+	AffCode                    string `json:"aff_code"`        // 邀请返利码
 }
 
 // SendVerifyCodeRequest 发送验证码请求
 type SendVerifyCodeRequest struct {
-	Email          string `json:"email" binding:"required,email"`
-	TurnstileToken string `json:"turnstile_token"`
+	Email                      string `json:"email" binding:"required,email"`
+	TurnstileToken             string `json:"turnstile_token"`
+	RegistrationProofChallenge string `json:"registration_proof_challenge"`
+	RegistrationProofSolution  string `json:"registration_proof_solution"`
+}
+
+type RegistrationProofChallengeRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type RegistrationProofChallengeResponse struct {
+	Enabled    bool   `json:"enabled"`
+	Challenge  string `json:"challenge,omitempty"`
+	Difficulty int    `json:"difficulty,omitempty"`
+	ExpiresAt  int64  `json:"expires_at,omitempty"`
 }
 
 // SendVerifyCodeResponse 发送验证码响应
@@ -164,6 +179,16 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
+	if err := h.authService.VerifyRegistrationProof(
+		c.Request.Context(),
+		req.Email,
+		ip.GetClientIP(c),
+		req.RegistrationProofChallenge,
+		req.RegistrationProofSolution,
+	); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 
 	// Turnstile 验证（邮箱验证码注册场景避免重复校验一次性 token）
 	if err := h.authService.VerifyTurnstileForRegister(c.Request.Context(), req.TurnstileToken, ip.GetClientIP(c), req.VerifyCode); err != nil {
@@ -196,6 +221,16 @@ func (h *AuthHandler) SendVerifyCode(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
+	if err := h.authService.VerifyRegistrationProof(
+		c.Request.Context(),
+		req.Email,
+		ip.GetClientIP(c),
+		req.RegistrationProofChallenge,
+		req.RegistrationProofSolution,
+	); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 
 	// Turnstile 验证
 	if err := h.authService.VerifyTurnstile(c.Request.Context(), req.TurnstileToken, ip.GetClientIP(c)); err != nil {
@@ -212,6 +247,30 @@ func (h *AuthHandler) SendVerifyCode(c *gin.Context) {
 	response.Success(c, SendVerifyCodeResponse{
 		Message:   "Verification code sent successfully",
 		Countdown: result.Countdown,
+	})
+}
+
+func (h *AuthHandler) CreateRegistrationProofChallenge(c *gin.Context) {
+	var req RegistrationProofChallengeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	challenge, err := h.authService.CreateRegistrationProofChallenge(
+		c.Request.Context(),
+		req.Email,
+		ip.GetClientIP(c),
+	)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, RegistrationProofChallengeResponse{
+		Enabled:    challenge.Enabled,
+		Challenge:  challenge.Challenge,
+		Difficulty: challenge.Difficulty,
+		ExpiresAt:  challenge.ExpiresAt,
 	})
 }
 

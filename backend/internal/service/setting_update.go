@@ -161,6 +161,8 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	if settings.TurnstileSecretKey != "" {
 		updates[SettingKeyTurnstileSecretKey] = settings.TurnstileSecretKey
 	}
+	updates[SettingKeyRegistrationProofEnabled] = strconv.FormatBool(settings.RegistrationProofEnabled)
+	updates[SettingKeyRegistrationProofDifficulty] = strconv.Itoa(clampRegistrationProofDifficulty(settings.RegistrationProofDifficulty))
 	updates[SettingKeyAPIKeyACLTrustForwardedIP] = strconv.FormatBool(settings.APIKeyACLTrustForwardedIP)
 	forwardedClientIPHeadersJSON, err := json.Marshal(settings.ForwardedClientIPHeaders)
 	if err != nil {

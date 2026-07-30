@@ -41,6 +41,8 @@ type SystemSettings struct {
 	TurnstileSiteKey             string
 	TurnstileSecretKey           string
 	TurnstileSecretKeyConfigured bool
+	RegistrationProofEnabled     bool
+	RegistrationProofDifficulty  int
 	APIKeyACLTrustForwardedIP    bool
 	ForwardedClientIPHeaders     []string
 
@@ -297,6 +299,7 @@ type PublicSettings struct {
 	LoginAgreementDocuments          []LoginAgreementDocument
 	TurnstileEnabled                 bool
 	TurnstileSiteKey                 string
+	RegistrationProofEnabled         bool
 	SiteName                         string
 	SiteLogo                         string
 	SiteSubtitle                     string

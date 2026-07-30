@@ -63,6 +63,8 @@ type SystemSettings struct {
 	TurnstileEnabled             bool     `json:"turnstile_enabled"`
 	TurnstileSiteKey             string   `json:"turnstile_site_key"`
 	TurnstileSecretKeyConfigured bool     `json:"turnstile_secret_key_configured"`
+	RegistrationProofEnabled     bool     `json:"registration_proof_enabled"`
+	RegistrationProofDifficulty  int      `json:"registration_proof_difficulty"`
 	APIKeyACLTrustForwardedIP    bool     `json:"api_key_acl_trust_forwarded_ip"`
 	ForwardedClientIPHeaders     []string `json:"forwarded_client_ip_headers"`
 
@@ -341,6 +343,7 @@ type PublicSettings struct {
 	LoginAgreementDocuments          []LoginAgreementDocument `json:"login_agreement_documents"`
 	TurnstileEnabled                 bool                     `json:"turnstile_enabled"`
 	TurnstileSiteKey                 string                   `json:"turnstile_site_key"`
+	RegistrationProofEnabled         bool                     `json:"registration_proof_enabled"`
 	SiteName                         string                   `json:"site_name"`
 	SiteLogo                         string                   `json:"site_logo"`
 	SiteSubtitle                     string                   `json:"site_subtitle"`

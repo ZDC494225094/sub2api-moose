@@ -1717,6 +1717,59 @@
             </div>
           </div>
 
+          <div class="card">
+            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ t("admin.settings.registrationProof.title") }}
+              </h2>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.registrationProof.description") }}
+              </p>
+            </div>
+            <div class="space-y-5 p-6">
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <label class="font-medium text-gray-900 dark:text-white">
+                    {{ t("admin.settings.registrationProof.enabled") }}
+                  </label>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.registrationProof.enabledHint") }}
+                  </p>
+                </div>
+                <Toggle v-model="form.registration_proof_enabled" />
+              </div>
+
+              <div
+                v-if="form.registration_proof_enabled"
+                class="border-t border-gray-100 pt-4 dark:border-dark-700"
+              >
+                <div class="mb-2 flex items-center justify-between gap-3">
+                  <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t("admin.settings.registrationProof.difficulty") }}
+                  </label>
+                  <span class="min-w-8 text-right font-mono text-sm font-semibold text-gray-900 dark:text-white">
+                    {{ form.registration_proof_difficulty }}
+                  </span>
+                </div>
+                <input
+                  v-model.number="form.registration_proof_difficulty"
+                  type="range"
+                  min="16"
+                  max="24"
+                  step="1"
+                  class="w-full accent-primary-500"
+                />
+                <div class="mt-1 flex justify-between text-xs text-gray-400 dark:text-dark-500">
+                  <span>{{ t("admin.settings.registrationProof.faster") }}</span>
+                  <span>{{ t("admin.settings.registrationProof.stronger") }}</span>
+                </div>
+                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.registrationProof.difficultyHint") }}
+                </p>
+              </div>
+            </div>
+          </div>
+
           <!-- Cloudflare Turnstile Settings -->
           <div class="card">
             <div
@@ -8935,6 +8988,8 @@ const form = reactive<SettingsForm>({
   turnstile_site_key: "",
   turnstile_secret_key: "",
   turnstile_secret_key_configured: false,
+  registration_proof_enabled: false,
+  registration_proof_difficulty: 18,
   api_key_acl_trust_forwarded_ip: true,
   forwarded_client_ip_headers: [],
   // LinuxDo Connect OAuth 登录
@@ -10488,6 +10543,8 @@ async function saveSettings() {
       turnstile_enabled: form.turnstile_enabled,
       turnstile_site_key: form.turnstile_site_key,
       turnstile_secret_key: form.turnstile_secret_key || undefined,
+      registration_proof_enabled: form.registration_proof_enabled,
+      registration_proof_difficulty: form.registration_proof_difficulty,
       api_key_acl_trust_forwarded_ip: form.api_key_acl_trust_forwarded_ip,
       forwarded_client_ip_headers: form.forwarded_client_ip_headers,
       linuxdo_connect_enabled: form.linuxdo_connect_enabled,

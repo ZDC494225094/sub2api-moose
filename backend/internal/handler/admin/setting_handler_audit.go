@@ -104,6 +104,12 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if req.TurnstileSecretKey != "" {
 		changed = append(changed, "turnstile_secret_key")
 	}
+	if before.RegistrationProofEnabled != after.RegistrationProofEnabled {
+		changed = append(changed, "registration_proof_enabled")
+	}
+	if before.RegistrationProofDifficulty != after.RegistrationProofDifficulty {
+		changed = append(changed, "registration_proof_difficulty")
+	}
 	if before.APIKeyACLTrustForwardedIP != after.APIKeyACLTrustForwardedIP {
 		changed = append(changed, "api_key_acl_trust_forwarded_ip")
 	}

@@ -182,6 +182,34 @@
           </transition>
         </div>
 
+        <div
+          v-if="registrationProofEnabled"
+          class="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-3 dark:border-dark-700 dark:bg-dark-800/60"
+        >
+          <div class="flex min-w-0 items-center gap-2.5">
+            <Icon
+              :name="registrationProofStatus === 'ready' ? 'checkCircle' : 'cpu'"
+              size="md"
+              :class="registrationProofStatus === 'ready'
+                ? 'text-emerald-500'
+                : registrationProofStatus === 'solving'
+                  ? 'animate-pulse text-primary-500'
+                  : 'text-gray-400 dark:text-dark-400'"
+            />
+            <span class="truncate text-sm font-medium text-gray-700 dark:text-dark-200">
+              {{ t('auth.registrationProof.label') }}
+            </span>
+          </div>
+          <span
+            class="flex-shrink-0 text-xs font-medium"
+            :class="registrationProofStatus === 'ready'
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-gray-500 dark:text-dark-400'"
+          >
+            {{ t(`auth.registrationProof.${registrationProofStatus}`) }}
+          </span>
+        </div>
+
         <!-- Turnstile Widget -->
         <div v-if="turnstileEnabled && turnstileSiteKey">
           <TurnstileWidget
@@ -318,6 +346,10 @@ import {
 } from '@/api/auth'
 import { buildAuthErrorMessage } from '@/utils/authError'
 import {
+  createAndSolveRegistrationProof,
+  type RegistrationProof
+} from '@/utils/registrationProof'
+import {
   formatRegistrationEmailSuffixWhitelistForMessage,
   isRegistrationEmailSuffixAllowed,
   normalizeRegistrationEmailSuffixWhitelist
@@ -353,6 +385,7 @@ const promoCodeEnabled = ref<boolean>(true)
 const invitationCodeEnabled = ref<boolean>(false)
 const turnstileEnabled = ref<boolean>(false)
 const turnstileSiteKey = ref<string>('')
+const registrationProofEnabled = ref<boolean>(false)
 const siteName = ref<string>('Sub2API')
 const linuxdoOAuthEnabled = ref<boolean>(false)
 const wechatOAuthEnabled = ref<boolean>(false)
@@ -372,6 +405,11 @@ const showAgreementModal = ref<boolean>(false)
 // Turnstile
 const turnstileRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
 const turnstileToken = ref<string>('')
+
+const registrationProof = ref<RegistrationProof | null>(null)
+const registrationProofEmail = ref<string>('')
+const registrationProofStatus = ref<'idle' | 'solving' | 'ready'>('idle')
+const registrationProofAbortController = ref<AbortController | null>(null)
 
 // Promo code validation
 const promoValidating = ref<boolean>(false)
@@ -461,6 +499,7 @@ onMounted(async () => {
     invitationCodeEnabled.value = settings.invitation_code_enabled
     turnstileEnabled.value = settings.turnstile_enabled
     turnstileSiteKey.value = settings.turnstile_site_key || ''
+    registrationProofEnabled.value = settings.registration_proof_enabled === true
     siteName.value = settings.site_name || 'Sub2API'
     linuxdoOAuthEnabled.value = settings.linuxdo_oauth_enabled
     wechatOAuthEnabled.value = isWeChatWebOAuthEnabled(settings)
@@ -500,12 +539,19 @@ watch(
 )
 
 onUnmounted(() => {
+  registrationProofAbortController.value?.abort()
   if (promoValidateTimeout) {
     clearTimeout(promoValidateTimeout)
   }
   if (invitationValidateTimeout) {
     clearTimeout(invitationValidateTimeout)
   }
+})
+
+watch(() => formData.email, () => {
+  registrationProof.value = null
+  registrationProofEmail.value = ''
+  registrationProofStatus.value = 'idle'
 })
 
 // ==================== Login Agreement ====================
@@ -709,6 +755,44 @@ function getInvitationErrorMessage(errorCode?: string): string {
 
 // ==================== Turnstile Handlers ====================
 
+async function ensureRegistrationProof(): Promise<RegistrationProof | null> {
+  if (!registrationProofEnabled.value) return null
+
+  const normalizedEmail = formData.email.trim().toLowerCase()
+  const currentProof = registrationProof.value
+  if (
+    currentProof &&
+    registrationProofEmail.value === normalizedEmail &&
+    currentProof.expiresAt * 1000 > Date.now() + 5000
+  ) {
+    registrationProofStatus.value = 'ready'
+    return currentProof
+  }
+
+  registrationProofAbortController.value?.abort()
+  const controller = new AbortController()
+  registrationProofAbortController.value = controller
+  registrationProofStatus.value = 'solving'
+  try {
+    const proof = await createAndSolveRegistrationProof(
+      normalizedEmail,
+      undefined,
+      controller.signal
+    )
+    registrationProof.value = proof
+    registrationProofEmail.value = normalizedEmail
+    registrationProofStatus.value = proof ? 'ready' : 'idle'
+    return proof
+  } catch (error) {
+    registrationProofStatus.value = 'idle'
+    throw error
+  } finally {
+    if (registrationProofAbortController.value === controller) {
+      registrationProofAbortController.value = null
+    }
+  }
+}
+
 function onTurnstileVerify(token: string): void {
   turnstileToken.value = token
   errors.turnstile = ''
@@ -856,6 +940,7 @@ async function handleRegister(): Promise<void> {
   isLoading.value = true
 
   try {
+    const proof = await ensureRegistrationProof()
     const affCode = formData.aff_code.trim() || loadAffiliateReferralCode()
     if (affCode) {
       formData.aff_code = affCode
@@ -870,6 +955,9 @@ async function handleRegister(): Promise<void> {
           email: formData.email,
           password: formData.password,
           turnstile_token: turnstileToken.value,
+          registration_proof_challenge: proof?.challenge,
+          registration_proof_solution: proof?.solution,
+          registration_proof_expires_at: proof?.expiresAt,
           promo_code: formData.promo_code || undefined,
           invitation_code: formData.invitation_code || undefined,
           ...(affCode ? { aff_code: affCode } : {})
@@ -886,6 +974,8 @@ async function handleRegister(): Promise<void> {
       email: formData.email,
       password: formData.password,
       turnstile_token: turnstileEnabled.value ? turnstileToken.value : undefined,
+      registration_proof_challenge: proof?.challenge,
+      registration_proof_solution: proof?.solution,
       promo_code: formData.promo_code || undefined,
       invitation_code: formData.invitation_code || undefined,
       ...(affCode ? { aff_code: affCode } : {})

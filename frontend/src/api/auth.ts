@@ -148,6 +148,23 @@ export async function register(userData: RegisterRequest): Promise<AuthResponse>
   return data
 }
 
+export interface RegistrationProofChallengeResponse {
+  enabled: boolean
+  challenge?: string
+  difficulty?: number
+  expires_at?: number
+}
+
+export async function createRegistrationProofChallenge(
+  email: string
+): Promise<RegistrationProofChallengeResponse> {
+  const { data } = await apiClient.post<RegistrationProofChallengeResponse>(
+    '/auth/registration-proof/challenge',
+    { email }
+  )
+  return data
+}
+
 /**
  * Get current authenticated user
  * @returns User profile data

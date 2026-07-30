@@ -122,6 +122,8 @@ export interface RegisterRequest {
   password: string
   verify_code?: string
   turnstile_token?: string
+  registration_proof_challenge?: string
+  registration_proof_solution?: string
   promo_code?: string
   invitation_code?: string
   aff_code?: string
@@ -156,6 +158,8 @@ export interface AffiliateTransferResponse {
 export interface SendVerifyCodeRequest {
   email: string
   turnstile_token?: string
+  registration_proof_challenge?: string
+  registration_proof_solution?: string
   pending_auth_token?: string
   pending_oauth_token?: string
 }
@@ -211,6 +215,7 @@ export interface PublicSettings {
   login_agreement_documents?: LoginAgreementDocument[]
   turnstile_enabled: boolean
   turnstile_site_key: string
+  registration_proof_enabled?: boolean
   site_name: string
   site_logo: string
   site_subtitle: string

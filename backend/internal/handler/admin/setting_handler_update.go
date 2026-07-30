@@ -46,9 +46,11 @@ type UpdateSettingsRequest struct {
 	SMTPUseTLS   bool   `json:"smtp_use_tls"`
 
 	// Cloudflare Turnstile 设置
-	TurnstileEnabled   bool   `json:"turnstile_enabled"`
-	TurnstileSiteKey   string `json:"turnstile_site_key"`
-	TurnstileSecretKey string `json:"turnstile_secret_key"`
+	TurnstileEnabled            bool   `json:"turnstile_enabled"`
+	TurnstileSiteKey            string `json:"turnstile_site_key"`
+	TurnstileSecretKey          string `json:"turnstile_secret_key"`
+	RegistrationProofEnabled    bool   `json:"registration_proof_enabled"`
+	RegistrationProofDifficulty int    `json:"registration_proof_difficulty"`
 
 	// API Key IP 访问控制设置
 	APIKeyACLTrustForwardedIP *bool     `json:"api_key_acl_trust_forwarded_ip"`
@@ -537,6 +539,15 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	// 注册工作量证明参数验证
+	if req.RegistrationProofDifficulty == 0 {
+		req.RegistrationProofDifficulty = service.DefaultRegistrationProofDifficulty
+	}
+	if req.RegistrationProofDifficulty < service.RegistrationProofMinDifficulty || req.RegistrationProofDifficulty > service.RegistrationProofMaxDifficulty {
+		response.BadRequest(c, "Registration proof difficulty must be between 16 and 24")
+		return
 	}
 
 	// TOTP 双因素认证参数验证
@@ -1347,6 +1358,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		TurnstileEnabled:                 req.TurnstileEnabled,
 		TurnstileSiteKey:                 req.TurnstileSiteKey,
 		TurnstileSecretKey:               req.TurnstileSecretKey,
+		RegistrationProofEnabled:         req.RegistrationProofEnabled,
+		RegistrationProofDifficulty:      req.RegistrationProofDifficulty,
 		APIKeyACLTrustForwardedIP: func() bool {
 			if req.APIKeyACLTrustForwardedIP != nil {
 				return *req.APIKeyACLTrustForwardedIP
@@ -1887,6 +1900,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		TurnstileEnabled:                                       updatedSettings.TurnstileEnabled,
 		TurnstileSiteKey:                                       updatedSettings.TurnstileSiteKey,
 		TurnstileSecretKeyConfigured:                           updatedSettings.TurnstileSecretKeyConfigured,
+		RegistrationProofEnabled:                               updatedSettings.RegistrationProofEnabled,
+		RegistrationProofDifficulty:                            updatedSettings.RegistrationProofDifficulty,
 		APIKeyACLTrustForwardedIP:                              updatedSettings.APIKeyACLTrustForwardedIP,
 		ForwardedClientIPHeaders:                               updatedSettings.ForwardedClientIPHeaders,
 		LinuxDoConnectEnabled:                                  updatedSettings.LinuxDoConnectEnabled,

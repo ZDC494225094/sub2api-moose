@@ -164,6 +164,10 @@ import {
 import { apiClient } from '@/api/client'
 import { buildAuthErrorMessage } from '@/utils/authError'
 import {
+  createAndSolveRegistrationProof,
+  type RegistrationProof
+} from '@/utils/registrationProof'
+import {
   formatRegistrationEmailSuffixWhitelistForMessage,
   isRegistrationEmailSuffixAllowed,
   normalizeRegistrationEmailSuffixWhitelist
@@ -213,6 +217,9 @@ type PendingOAuthCreateAccountResponse = {
 const email = ref<string>('')
 const password = ref<string>('')
 const initialTurnstileToken = ref<string>('')
+const registrationProof = ref<RegistrationProof | null>(null)
+const registrationProofEnabled = ref<boolean>(false)
+const registrationProofAbortController = ref<AbortController | null>(null)
 const promoCode = ref<string>('')
 const invitationCode = ref<string>('')
 const affCode = ref<string>('')
@@ -265,6 +272,13 @@ onMounted(async () => {
       email.value = registerData.email || ''
       password.value = registerData.password || ''
       initialTurnstileToken.value = registerData.turnstile_token || ''
+      if (registerData.registration_proof_challenge && registerData.registration_proof_solution) {
+        registrationProof.value = {
+          challenge: registerData.registration_proof_challenge,
+          solution: registerData.registration_proof_solution,
+          expiresAt: Number(registerData.registration_proof_expires_at || 0)
+        }
+      }
       promoCode.value = registerData.promo_code || ''
       invitationCode.value = registerData.invitation_code || ''
       affCode.value = registerData.aff_code || loadAffiliateReferralCode()
@@ -294,6 +308,7 @@ onMounted(async () => {
     const settings = await getPublicSettings()
     turnstileEnabled.value = settings.turnstile_enabled
     turnstileSiteKey.value = settings.turnstile_site_key || ''
+    registrationProofEnabled.value = settings.registration_proof_enabled === true
     siteName.value = settings.site_name || 'Sub2API'
     registrationEmailSuffixWhitelist.value = normalizeRegistrationEmailSuffixWhitelist(
       settings.registration_email_suffix_whitelist || []
@@ -309,11 +324,35 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  registrationProofAbortController.value?.abort()
   if (countdownTimer) {
     clearInterval(countdownTimer)
     countdownTimer = null
   }
 })
+
+async function ensureRegistrationProof(): Promise<RegistrationProof | null> {
+  if (!registrationProofEnabled.value || isPendingOAuthFlow()) return null
+  if (registrationProof.value && registrationProof.value.expiresAt * 1000 > Date.now() + 5000) {
+    return registrationProof.value
+  }
+
+  registrationProofAbortController.value?.abort()
+  const controller = new AbortController()
+  registrationProofAbortController.value = controller
+  try {
+    registrationProof.value = await createAndSolveRegistrationProof(
+      email.value.trim().toLowerCase(),
+      undefined,
+      controller.signal
+    )
+    return registrationProof.value
+  } finally {
+    if (registrationProofAbortController.value === controller) {
+      registrationProofAbortController.value = null
+    }
+  }
+}
 
 // ==================== Countdown ====================
 
@@ -406,11 +445,15 @@ async function sendCode(): Promise<void> {
       return
     }
 
+    const proof = await ensureRegistrationProof()
+
     const requestPayload = {
       email: email.value,
       [pendingAuthTokenField.value]: pendingAuthToken.value || undefined,
       // 优先使用重发时新获取的 token（因为初始 token 可能已被使用）
-      turnstile_token: resendTurnstileToken.value || initialTurnstileToken.value || undefined
+      turnstile_token: resendTurnstileToken.value || initialTurnstileToken.value || undefined,
+      registration_proof_challenge: proof?.challenge,
+      registration_proof_solution: proof?.solution
     } as Parameters<typeof sendVerifyCode>[0]
     const response = isPendingOAuthFlow()
       ? await sendPendingOAuthVerifyCode(requestPayload)
@@ -535,11 +578,14 @@ async function handleVerify(): Promise<void> {
       authStore.clearPendingAuthSession?.()
     } else {
       // Register with verification code
+      const proof = await ensureRegistrationProof()
       await authStore.register({
         email: email.value,
         password: password.value,
         verify_code: verifyCode.value.trim(),
         turnstile_token: initialTurnstileToken.value || undefined,
+        registration_proof_challenge: proof?.challenge,
+        registration_proof_solution: proof?.solution,
         promo_code: promoCode.value || undefined,
         invitation_code: invitationCode.value || undefined,
         ...(affCode.value ? { aff_code: affCode.value } : {})

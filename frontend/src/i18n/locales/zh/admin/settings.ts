@@ -147,6 +147,16 @@ export default {
         secretKeyHint: '服务端验证密钥（请保密）',
         secretKeyConfiguredHint: '密钥已配置，留空以保留当前值。'
       },
+      registrationProof: {
+        title: '本地注册验证',
+        description: '无需境外服务的注册机器人防护',
+        enabled: '启用工作量验证',
+        enabledHint: '注册前由访问设备完成短时本地计算，服务端校验结果',
+        difficulty: '验证难度',
+        difficultyHint: '推荐使用 18；每增加 1，平均计算量约翻倍。',
+        faster: '更快',
+        stronger: '更强'
+      },
       apiKeyAcl: {
         title: 'API Key IP 访问控制',
         description: '控制 API Key 白/黑名单、操作审计日志与会话 IP/UA 绑定使用哪个客户端 IP 判断',

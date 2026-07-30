@@ -245,6 +245,12 @@ export default {
     turnstileExpired: '验证已过期，请重试',
     turnstileFailed: '验证失败，请重试',
     completeVerification: '请完成验证',
+    registrationProof: {
+      label: '本地安全验证',
+      idle: '待验证',
+      solving: '计算中',
+      ready: '已通过',
+    },
     verifyYourEmail: '验证您的邮箱',
     sessionExpired: '会话已过期',
     sessionExpiredDesc: '请返回注册页面重新开始。',
