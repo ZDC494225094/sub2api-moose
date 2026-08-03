@@ -123,7 +123,7 @@ func (_m *BatchImageEvent) Update() *BatchImageEventUpdateOne {
 func (_m *BatchImageEvent) Unwrap() *BatchImageEvent {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: BatchImageEvent is not a transactional entity")
+		panic("enttmp: BatchImageEvent is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

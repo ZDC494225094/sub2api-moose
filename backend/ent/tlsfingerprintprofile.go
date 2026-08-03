@@ -213,7 +213,7 @@ func (_m *TLSFingerprintProfile) Update() *TLSFingerprintProfileUpdateOne {
 func (_m *TLSFingerprintProfile) Unwrap() *TLSFingerprintProfile {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: TLSFingerprintProfile is not a transactional entity")
+		panic("enttmp: TLSFingerprintProfile is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

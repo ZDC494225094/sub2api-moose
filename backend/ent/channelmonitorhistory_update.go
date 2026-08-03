@@ -206,21 +206,21 @@ func (_u *ChannelMonitorHistoryUpdate) ExecX(ctx context.Context) {
 func (_u *ChannelMonitorHistoryUpdate) check() error {
 	if v, ok := _u.mutation.Model(); ok {
 		if err := channelmonitorhistory.ModelValidator(v); err != nil {
-			return &ValidationError{Name: "model", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitorHistory.model": %w`, err)}
+			return &ValidationError{Name: "model", err: fmt.Errorf(`enttmp: validator failed for field "ChannelMonitorHistory.model": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := channelmonitorhistory.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitorHistory.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "ChannelMonitorHistory.status": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Message(); ok {
 		if err := channelmonitorhistory.MessageValidator(v); err != nil {
-			return &ValidationError{Name: "message", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitorHistory.message": %w`, err)}
+			return &ValidationError{Name: "message", err: fmt.Errorf(`enttmp: validator failed for field "ChannelMonitorHistory.message": %w`, err)}
 		}
 	}
 	if _u.mutation.MonitorCleared() && len(_u.mutation.MonitorIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "ChannelMonitorHistory.monitor"`)
+		return errors.New(`enttmp: clearing a required unique edge "ChannelMonitorHistory.monitor"`)
 	}
 	return nil
 }
@@ -509,21 +509,21 @@ func (_u *ChannelMonitorHistoryUpdateOne) ExecX(ctx context.Context) {
 func (_u *ChannelMonitorHistoryUpdateOne) check() error {
 	if v, ok := _u.mutation.Model(); ok {
 		if err := channelmonitorhistory.ModelValidator(v); err != nil {
-			return &ValidationError{Name: "model", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitorHistory.model": %w`, err)}
+			return &ValidationError{Name: "model", err: fmt.Errorf(`enttmp: validator failed for field "ChannelMonitorHistory.model": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := channelmonitorhistory.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitorHistory.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "ChannelMonitorHistory.status": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Message(); ok {
 		if err := channelmonitorhistory.MessageValidator(v); err != nil {
-			return &ValidationError{Name: "message", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitorHistory.message": %w`, err)}
+			return &ValidationError{Name: "message", err: fmt.Errorf(`enttmp: validator failed for field "ChannelMonitorHistory.message": %w`, err)}
 		}
 	}
 	if _u.mutation.MonitorCleared() && len(_u.mutation.MonitorIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "ChannelMonitorHistory.monitor"`)
+		return errors.New(`enttmp: clearing a required unique edge "ChannelMonitorHistory.monitor"`)
 	}
 	return nil
 }
@@ -535,7 +535,7 @@ func (_u *ChannelMonitorHistoryUpdateOne) sqlSave(ctx context.Context) (_node *C
 	_spec := sqlgraph.NewUpdateSpec(channelmonitorhistory.Table, channelmonitorhistory.Columns, sqlgraph.NewFieldSpec(channelmonitorhistory.FieldID, field.TypeInt64))
 	id, ok := _u.mutation.ID()
 	if !ok {
-		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "ChannelMonitorHistory.id" for update`)}
+		return nil, &ValidationError{Name: "id", err: errors.New(`enttmp: missing "ChannelMonitorHistory.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
 	if fields := _u.fields; len(fields) > 0 {
@@ -543,7 +543,7 @@ func (_u *ChannelMonitorHistoryUpdateOne) sqlSave(ctx context.Context) (_node *C
 		_spec.Node.Columns = append(_spec.Node.Columns, channelmonitorhistory.FieldID)
 		for _, f := range fields {
 			if !channelmonitorhistory.ValidColumn(f) {
-				return nil, &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
+				return nil, &ValidationError{Name: f, err: fmt.Errorf("enttmp: invalid field %q for query", f)}
 			}
 			if f != channelmonitorhistory.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, f)

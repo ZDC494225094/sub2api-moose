@@ -249,7 +249,7 @@ func (_q *UserPlatformQuotaQuery) Exist(ctx context.Context) (bool, error) {
 	case IsNotFound(err):
 		return false, nil
 	case err != nil:
-		return false, fmt.Errorf("ent: check existence: %w", err)
+		return false, fmt.Errorf("enttmp: check existence: %w", err)
 	default:
 		return true, nil
 	}
@@ -345,7 +345,7 @@ func (_q *UserPlatformQuotaQuery) Aggregate(fns ...AggregateFunc) *UserPlatformQ
 func (_q *UserPlatformQuotaQuery) prepareQuery(ctx context.Context) error {
 	for _, inter := range _q.inters {
 		if inter == nil {
-			return fmt.Errorf("ent: uninitialized interceptor (forgotten import ent/runtime?)")
+			return fmt.Errorf("enttmp: uninitialized interceptor (forgotten import enttmp/runtime?)")
 		}
 		if trv, ok := inter.(Traverser); ok {
 			if err := trv.Traverse(ctx, _q); err != nil {
@@ -355,7 +355,7 @@ func (_q *UserPlatformQuotaQuery) prepareQuery(ctx context.Context) error {
 	}
 	for _, f := range _q.ctx.Fields {
 		if !userplatformquota.ValidColumn(f) {
-			return &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
+			return &ValidationError{Name: f, err: fmt.Errorf("enttmp: invalid field %q for query", f)}
 		}
 	}
 	if _q.path != nil {

@@ -508,7 +508,7 @@ func (_m *Account) Update() *AccountUpdateOne {
 func (_m *Account) Unwrap() *Account {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: Account is not a transactional entity")
+		panic("enttmp: Account is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

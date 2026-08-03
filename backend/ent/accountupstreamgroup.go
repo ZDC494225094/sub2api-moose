@@ -143,7 +143,7 @@ func (_m *AccountUpstreamGroup) Update() *AccountUpstreamGroupUpdateOne {
 func (_m *AccountUpstreamGroup) Unwrap() *AccountUpstreamGroup {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: AccountUpstreamGroup is not a transactional entity")
+		panic("enttmp: AccountUpstreamGroup is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

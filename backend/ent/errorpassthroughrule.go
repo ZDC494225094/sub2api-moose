@@ -211,7 +211,7 @@ func (_m *ErrorPassthroughRule) Update() *ErrorPassthroughRuleUpdateOne {
 func (_m *ErrorPassthroughRule) Unwrap() *ErrorPassthroughRule {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: ErrorPassthroughRule is not a transactional entity")
+		panic("enttmp: ErrorPassthroughRule is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

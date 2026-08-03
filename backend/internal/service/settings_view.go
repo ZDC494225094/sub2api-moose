@@ -147,6 +147,7 @@ type SystemSettings struct {
 	HomeDocsEnabled             bool
 	FooterContent               string
 	FooterFriendLinks           string // JSON array of footer friend links
+	CompactHomeEnabled          bool
 	HideCcsImportButton         bool
 	PurchaseSubscriptionEnabled bool
 	PurchaseSubscriptionURL     string
@@ -320,6 +321,7 @@ type PublicSettings struct {
 	HomeDocsEnabled                  bool
 	FooterContent                    string
 	FooterFriendLinks                string // JSON array of footer friend links
+	CompactHomeEnabled               bool
 	HideCcsImportButton              bool
 
 	PurchaseSubscriptionEnabled bool

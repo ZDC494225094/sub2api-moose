@@ -286,17 +286,17 @@ func (_u *RedeemCodeUpdate) ExecX(ctx context.Context) {
 func (_u *RedeemCodeUpdate) check() error {
 	if v, ok := _u.mutation.Code(); ok {
 		if err := redeemcode.CodeValidator(v); err != nil {
-			return &ValidationError{Name: "code", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.code": %w`, err)}
+			return &ValidationError{Name: "code", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.code": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.GetType(); ok {
 		if err := redeemcode.TypeValidator(v); err != nil {
-			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.type": %w`, err)}
+			return &ValidationError{Name: "type", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.type": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := redeemcode.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.status": %w`, err)}
 		}
 	}
 	return nil
@@ -700,17 +700,17 @@ func (_u *RedeemCodeUpdateOne) ExecX(ctx context.Context) {
 func (_u *RedeemCodeUpdateOne) check() error {
 	if v, ok := _u.mutation.Code(); ok {
 		if err := redeemcode.CodeValidator(v); err != nil {
-			return &ValidationError{Name: "code", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.code": %w`, err)}
+			return &ValidationError{Name: "code", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.code": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.GetType(); ok {
 		if err := redeemcode.TypeValidator(v); err != nil {
-			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.type": %w`, err)}
+			return &ValidationError{Name: "type", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.type": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := redeemcode.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.status": %w`, err)}
 		}
 	}
 	return nil
@@ -723,7 +723,7 @@ func (_u *RedeemCodeUpdateOne) sqlSave(ctx context.Context) (_node *RedeemCode, 
 	_spec := sqlgraph.NewUpdateSpec(redeemcode.Table, redeemcode.Columns, sqlgraph.NewFieldSpec(redeemcode.FieldID, field.TypeInt64))
 	id, ok := _u.mutation.ID()
 	if !ok {
-		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "RedeemCode.id" for update`)}
+		return nil, &ValidationError{Name: "id", err: errors.New(`enttmp: missing "RedeemCode.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
 	if fields := _u.fields; len(fields) > 0 {
@@ -731,7 +731,7 @@ func (_u *RedeemCodeUpdateOne) sqlSave(ctx context.Context) (_node *RedeemCode, 
 		_spec.Node.Columns = append(_spec.Node.Columns, redeemcode.FieldID)
 		for _, f := range fields {
 			if !redeemcode.ValidColumn(f) {
-				return nil, &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
+				return nil, &ValidationError{Name: f, err: fmt.Errorf("enttmp: invalid field %q for query", f)}
 			}
 			if f != redeemcode.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, f)

@@ -244,6 +244,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		HomeDocsEnabled:                                        settings.HomeDocsEnabled,
 		FooterContent:                                          settings.FooterContent,
 		FooterFriendLinks:                                      dto.ParseFooterFriendLinks(settings.FooterFriendLinks),
+		CompactHomeEnabled:                                     settings.CompactHomeEnabled,
 		HideCcsImportButton:                                    settings.HideCcsImportButton,
 		PurchaseSubscriptionEnabled:                            settings.PurchaseSubscriptionEnabled,
 		PurchaseSubscriptionURL:                                settings.PurchaseSubscriptionURL,

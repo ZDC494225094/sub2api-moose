@@ -179,7 +179,7 @@ func (_m *PromoCode) Update() *PromoCodeUpdateOne {
 func (_m *PromoCode) Unwrap() *PromoCode {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: PromoCode is not a transactional entity")
+		panic("enttmp: PromoCode is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

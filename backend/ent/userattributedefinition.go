@@ -217,7 +217,7 @@ func (_m *UserAttributeDefinition) Update() *UserAttributeDefinitionUpdateOne {
 func (_m *UserAttributeDefinition) Unwrap() *UserAttributeDefinition {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: UserAttributeDefinition is not a transactional entity")
+		panic("enttmp: UserAttributeDefinition is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

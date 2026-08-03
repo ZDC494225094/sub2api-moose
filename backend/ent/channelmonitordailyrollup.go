@@ -218,7 +218,7 @@ func (_m *ChannelMonitorDailyRollup) Update() *ChannelMonitorDailyRollupUpdateOn
 func (_m *ChannelMonitorDailyRollup) Unwrap() *ChannelMonitorDailyRollup {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: ChannelMonitorDailyRollup is not a transactional entity")
+		panic("enttmp: ChannelMonitorDailyRollup is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

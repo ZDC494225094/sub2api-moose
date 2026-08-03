@@ -367,7 +367,7 @@ func (_m *APIKey) Update() *APIKeyUpdateOne {
 func (_m *APIKey) Unwrap() *APIKey {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: APIKey is not a transactional entity")
+		panic("enttmp: APIKey is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

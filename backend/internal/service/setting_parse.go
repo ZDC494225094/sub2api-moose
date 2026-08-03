@@ -346,6 +346,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		HomeDocsEnabled:                  !isFalseSettingValue(settings[SettingKeyHomeDocsEnabled]),
 		FooterContent:                    settings[SettingKeyFooterContent],
 		FooterFriendLinks:                settings[SettingKeyFooterFriendLinks],
+		CompactHomeEnabled:               settings[SettingKeyCompactHomeEnabled] == "true",
 		HideCcsImportButton:              settings[SettingKeyHideCcsImportButton] == "true",
 		PurchaseSubscriptionEnabled:      settings[SettingKeyPurchaseSubscriptionEnabled] == "true",
 		PurchaseSubscriptionURL:          strings.TrimSpace(settings[SettingKeyPurchaseSubscriptionURL]),

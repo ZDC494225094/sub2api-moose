@@ -182,7 +182,7 @@ func (_m *ChannelMonitorRequestTemplate) Update() *ChannelMonitorRequestTemplate
 func (_m *ChannelMonitorRequestTemplate) Unwrap() *ChannelMonitorRequestTemplate {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: ChannelMonitorRequestTemplate is not a transactional entity")
+		panic("enttmp: ChannelMonitorRequestTemplate is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

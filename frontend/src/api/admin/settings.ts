@@ -447,6 +447,7 @@ export interface SystemSettings {
   home_docs_enabled: boolean;
   footer_content: string;
   footer_friend_links: FooterFriendLink[];
+  compact_home_enabled: boolean;
   hide_ccs_import_button: boolean;
   table_default_page_size: number;
   table_page_size_options: number[];
@@ -767,6 +768,7 @@ export interface UpdateSettingsRequest {
   home_docs_enabled?: boolean;
   footer_content?: string;
   footer_friend_links?: FooterFriendLink[];
+  compact_home_enabled?: boolean;
   hide_ccs_import_button?: boolean;
   table_default_page_size?: number;
   table_page_size_options?: number[];

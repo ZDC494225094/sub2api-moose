@@ -753,6 +753,48 @@ func (_c *GroupCreate) SetReasoningEffortMappings(v []domain.ReasoningEffortMapp
 	return _c
 }
 
+// SetProfitControlEnabled sets the "profit_control_enabled" field.
+func (_c *GroupCreate) SetProfitControlEnabled(v bool) *GroupCreate {
+	_c.mutation.SetProfitControlEnabled(v)
+	return _c
+}
+
+// SetNillableProfitControlEnabled sets the "profit_control_enabled" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableProfitControlEnabled(v *bool) *GroupCreate {
+	if v != nil {
+		_c.SetProfitControlEnabled(*v)
+	}
+	return _c
+}
+
+// SetProfitMinMargin sets the "profit_min_margin" field.
+func (_c *GroupCreate) SetProfitMinMargin(v float64) *GroupCreate {
+	_c.mutation.SetProfitMinMargin(v)
+	return _c
+}
+
+// SetNillableProfitMinMargin sets the "profit_min_margin" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableProfitMinMargin(v *float64) *GroupCreate {
+	if v != nil {
+		_c.SetProfitMinMargin(*v)
+	}
+	return _c
+}
+
+// SetProfitSafetyBuffer sets the "profit_safety_buffer" field.
+func (_c *GroupCreate) SetProfitSafetyBuffer(v float64) *GroupCreate {
+	_c.mutation.SetProfitSafetyBuffer(v)
+	return _c
+}
+
+// SetNillableProfitSafetyBuffer sets the "profit_safety_buffer" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableProfitSafetyBuffer(v *float64) *GroupCreate {
+	if v != nil {
+		_c.SetProfitSafetyBuffer(*v)
+	}
+	return _c
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_c *GroupCreate) AddAPIKeyIDs(ids ...int64) *GroupCreate {
 	_c.mutation.AddAPIKeyIDs(ids...)
@@ -882,14 +924,14 @@ func (_c *GroupCreate) ExecX(ctx context.Context) {
 func (_c *GroupCreate) defaults() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if group.DefaultCreatedAt == nil {
-			return fmt.Errorf("ent: uninitialized group.DefaultCreatedAt (forgotten import ent/runtime?)")
+			return fmt.Errorf("enttmp: uninitialized group.DefaultCreatedAt (forgotten import enttmp/runtime?)")
 		}
 		v := group.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
 	}
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
 		if group.DefaultUpdatedAt == nil {
-			return fmt.Errorf("ent: uninitialized group.DefaultUpdatedAt (forgotten import ent/runtime?)")
+			return fmt.Errorf("enttmp: uninitialized group.DefaultUpdatedAt (forgotten import enttmp/runtime?)")
 		}
 		v := group.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
@@ -1030,176 +1072,197 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultReasoningEffortMappings
 		_c.mutation.SetReasoningEffortMappings(v)
 	}
+	if _, ok := _c.mutation.ProfitControlEnabled(); !ok {
+		v := group.DefaultProfitControlEnabled
+		_c.mutation.SetProfitControlEnabled(v)
+	}
+	if _, ok := _c.mutation.ProfitMinMargin(); !ok {
+		v := group.DefaultProfitMinMargin
+		_c.mutation.SetProfitMinMargin(v)
+	}
+	if _, ok := _c.mutation.ProfitSafetyBuffer(); !ok {
+		v := group.DefaultProfitSafetyBuffer
+		_c.mutation.SetProfitSafetyBuffer(v)
+	}
 	return nil
 }
 
 // check runs all checks and user-defined validators on the builder.
 func (_c *GroupCreate) check() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
-		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Group.created_at"`)}
+		return &ValidationError{Name: "created_at", err: errors.New(`enttmp: missing required field "Group.created_at"`)}
 	}
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
-		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "Group.updated_at"`)}
+		return &ValidationError{Name: "updated_at", err: errors.New(`enttmp: missing required field "Group.updated_at"`)}
 	}
 	if _, ok := _c.mutation.Name(); !ok {
-		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "Group.name"`)}
+		return &ValidationError{Name: "name", err: errors.New(`enttmp: missing required field "Group.name"`)}
 	}
 	if v, ok := _c.mutation.Name(); ok {
 		if err := group.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Group.name": %w`, err)}
+			return &ValidationError{Name: "name", err: fmt.Errorf(`enttmp: validator failed for field "Group.name": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.RateMultiplier(); !ok {
-		return &ValidationError{Name: "rate_multiplier", err: errors.New(`ent: missing required field "Group.rate_multiplier"`)}
+		return &ValidationError{Name: "rate_multiplier", err: errors.New(`enttmp: missing required field "Group.rate_multiplier"`)}
 	}
 	if v, ok := _c.mutation.BillingRateSyncAccountID(); ok {
 		if err := group.BillingRateSyncAccountIDValidator(v); err != nil {
-			return &ValidationError{Name: "billing_rate_sync_account_id", err: fmt.Errorf(`ent: validator failed for field "Group.billing_rate_sync_account_id": %w`, err)}
+			return &ValidationError{Name: "billing_rate_sync_account_id", err: fmt.Errorf(`enttmp: validator failed for field "Group.billing_rate_sync_account_id": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.BillingRateMarkup(); !ok {
-		return &ValidationError{Name: "billing_rate_markup", err: errors.New(`ent: missing required field "Group.billing_rate_markup"`)}
+		return &ValidationError{Name: "billing_rate_markup", err: errors.New(`enttmp: missing required field "Group.billing_rate_markup"`)}
 	}
 	if v, ok := _c.mutation.BillingRateMarkup(); ok {
 		if err := group.BillingRateMarkupValidator(v); err != nil {
-			return &ValidationError{Name: "billing_rate_markup", err: fmt.Errorf(`ent: validator failed for field "Group.billing_rate_markup": %w`, err)}
+			return &ValidationError{Name: "billing_rate_markup", err: fmt.Errorf(`enttmp: validator failed for field "Group.billing_rate_markup": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.PeakRateEnabled(); !ok {
-		return &ValidationError{Name: "peak_rate_enabled", err: errors.New(`ent: missing required field "Group.peak_rate_enabled"`)}
+		return &ValidationError{Name: "peak_rate_enabled", err: errors.New(`enttmp: missing required field "Group.peak_rate_enabled"`)}
 	}
 	if _, ok := _c.mutation.PeakStart(); !ok {
-		return &ValidationError{Name: "peak_start", err: errors.New(`ent: missing required field "Group.peak_start"`)}
+		return &ValidationError{Name: "peak_start", err: errors.New(`enttmp: missing required field "Group.peak_start"`)}
 	}
 	if v, ok := _c.mutation.PeakStart(); ok {
 		if err := group.PeakStartValidator(v); err != nil {
-			return &ValidationError{Name: "peak_start", err: fmt.Errorf(`ent: validator failed for field "Group.peak_start": %w`, err)}
+			return &ValidationError{Name: "peak_start", err: fmt.Errorf(`enttmp: validator failed for field "Group.peak_start": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.PeakEnd(); !ok {
-		return &ValidationError{Name: "peak_end", err: errors.New(`ent: missing required field "Group.peak_end"`)}
+		return &ValidationError{Name: "peak_end", err: errors.New(`enttmp: missing required field "Group.peak_end"`)}
 	}
 	if v, ok := _c.mutation.PeakEnd(); ok {
 		if err := group.PeakEndValidator(v); err != nil {
-			return &ValidationError{Name: "peak_end", err: fmt.Errorf(`ent: validator failed for field "Group.peak_end": %w`, err)}
+			return &ValidationError{Name: "peak_end", err: fmt.Errorf(`enttmp: validator failed for field "Group.peak_end": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.PeakRateMultiplier(); !ok {
-		return &ValidationError{Name: "peak_rate_multiplier", err: errors.New(`ent: missing required field "Group.peak_rate_multiplier"`)}
+		return &ValidationError{Name: "peak_rate_multiplier", err: errors.New(`enttmp: missing required field "Group.peak_rate_multiplier"`)}
 	}
 	if _, ok := _c.mutation.IsExclusive(); !ok {
-		return &ValidationError{Name: "is_exclusive", err: errors.New(`ent: missing required field "Group.is_exclusive"`)}
+		return &ValidationError{Name: "is_exclusive", err: errors.New(`enttmp: missing required field "Group.is_exclusive"`)}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
-		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Group.status"`)}
+		return &ValidationError{Name: "status", err: errors.New(`enttmp: missing required field "Group.status"`)}
 	}
 	if v, ok := _c.mutation.Status(); ok {
 		if err := group.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Group.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "Group.status": %w`, err)}
 		}
 	}
 	if v, ok := _c.mutation.DuplicateOperationID(); ok {
 		if err := group.DuplicateOperationIDValidator(v); err != nil {
-			return &ValidationError{Name: "duplicate_operation_id", err: fmt.Errorf(`ent: validator failed for field "Group.duplicate_operation_id": %w`, err)}
+			return &ValidationError{Name: "duplicate_operation_id", err: fmt.Errorf(`enttmp: validator failed for field "Group.duplicate_operation_id": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Platform(); !ok {
-		return &ValidationError{Name: "platform", err: errors.New(`ent: missing required field "Group.platform"`)}
+		return &ValidationError{Name: "platform", err: errors.New(`enttmp: missing required field "Group.platform"`)}
 	}
 	if v, ok := _c.mutation.Platform(); ok {
 		if err := group.PlatformValidator(v); err != nil {
-			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "Group.platform": %w`, err)}
+			return &ValidationError{Name: "platform", err: fmt.Errorf(`enttmp: validator failed for field "Group.platform": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.SubscriptionType(); !ok {
-		return &ValidationError{Name: "subscription_type", err: errors.New(`ent: missing required field "Group.subscription_type"`)}
+		return &ValidationError{Name: "subscription_type", err: errors.New(`enttmp: missing required field "Group.subscription_type"`)}
 	}
 	if v, ok := _c.mutation.SubscriptionType(); ok {
 		if err := group.SubscriptionTypeValidator(v); err != nil {
-			return &ValidationError{Name: "subscription_type", err: fmt.Errorf(`ent: validator failed for field "Group.subscription_type": %w`, err)}
+			return &ValidationError{Name: "subscription_type", err: fmt.Errorf(`enttmp: validator failed for field "Group.subscription_type": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.DefaultValidityDays(); !ok {
-		return &ValidationError{Name: "default_validity_days", err: errors.New(`ent: missing required field "Group.default_validity_days"`)}
+		return &ValidationError{Name: "default_validity_days", err: errors.New(`enttmp: missing required field "Group.default_validity_days"`)}
 	}
 	if _, ok := _c.mutation.AllowImageGeneration(); !ok {
-		return &ValidationError{Name: "allow_image_generation", err: errors.New(`ent: missing required field "Group.allow_image_generation"`)}
+		return &ValidationError{Name: "allow_image_generation", err: errors.New(`enttmp: missing required field "Group.allow_image_generation"`)}
 	}
 	if _, ok := _c.mutation.AllowBatchImageGeneration(); !ok {
-		return &ValidationError{Name: "allow_batch_image_generation", err: errors.New(`ent: missing required field "Group.allow_batch_image_generation"`)}
+		return &ValidationError{Name: "allow_batch_image_generation", err: errors.New(`enttmp: missing required field "Group.allow_batch_image_generation"`)}
 	}
 	if _, ok := _c.mutation.ImageRateIndependent(); !ok {
-		return &ValidationError{Name: "image_rate_independent", err: errors.New(`ent: missing required field "Group.image_rate_independent"`)}
+		return &ValidationError{Name: "image_rate_independent", err: errors.New(`enttmp: missing required field "Group.image_rate_independent"`)}
 	}
 	if _, ok := _c.mutation.ImageRateMultiplier(); !ok {
-		return &ValidationError{Name: "image_rate_multiplier", err: errors.New(`ent: missing required field "Group.image_rate_multiplier"`)}
+		return &ValidationError{Name: "image_rate_multiplier", err: errors.New(`enttmp: missing required field "Group.image_rate_multiplier"`)}
 	}
 	if _, ok := _c.mutation.BatchImageDiscountMultiplier(); !ok {
-		return &ValidationError{Name: "batch_image_discount_multiplier", err: errors.New(`ent: missing required field "Group.batch_image_discount_multiplier"`)}
+		return &ValidationError{Name: "batch_image_discount_multiplier", err: errors.New(`enttmp: missing required field "Group.batch_image_discount_multiplier"`)}
 	}
 	if _, ok := _c.mutation.BatchImageHoldMultiplier(); !ok {
-		return &ValidationError{Name: "batch_image_hold_multiplier", err: errors.New(`ent: missing required field "Group.batch_image_hold_multiplier"`)}
+		return &ValidationError{Name: "batch_image_hold_multiplier", err: errors.New(`enttmp: missing required field "Group.batch_image_hold_multiplier"`)}
 	}
 	if _, ok := _c.mutation.VideoRateIndependent(); !ok {
-		return &ValidationError{Name: "video_rate_independent", err: errors.New(`ent: missing required field "Group.video_rate_independent"`)}
+		return &ValidationError{Name: "video_rate_independent", err: errors.New(`enttmp: missing required field "Group.video_rate_independent"`)}
 	}
 	if _, ok := _c.mutation.VideoRateMultiplier(); !ok {
-		return &ValidationError{Name: "video_rate_multiplier", err: errors.New(`ent: missing required field "Group.video_rate_multiplier"`)}
+		return &ValidationError{Name: "video_rate_multiplier", err: errors.New(`enttmp: missing required field "Group.video_rate_multiplier"`)}
 	}
 	if _, ok := _c.mutation.ClaudeCodeOnly(); !ok {
-		return &ValidationError{Name: "claude_code_only", err: errors.New(`ent: missing required field "Group.claude_code_only"`)}
+		return &ValidationError{Name: "claude_code_only", err: errors.New(`enttmp: missing required field "Group.claude_code_only"`)}
 	}
 	if _, ok := _c.mutation.ModelRoutingEnabled(); !ok {
-		return &ValidationError{Name: "model_routing_enabled", err: errors.New(`ent: missing required field "Group.model_routing_enabled"`)}
+		return &ValidationError{Name: "model_routing_enabled", err: errors.New(`enttmp: missing required field "Group.model_routing_enabled"`)}
 	}
 	if _, ok := _c.mutation.McpXMLInject(); !ok {
-		return &ValidationError{Name: "mcp_xml_inject", err: errors.New(`ent: missing required field "Group.mcp_xml_inject"`)}
+		return &ValidationError{Name: "mcp_xml_inject", err: errors.New(`enttmp: missing required field "Group.mcp_xml_inject"`)}
 	}
 	if _, ok := _c.mutation.SupportedModelScopes(); !ok {
-		return &ValidationError{Name: "supported_model_scopes", err: errors.New(`ent: missing required field "Group.supported_model_scopes"`)}
+		return &ValidationError{Name: "supported_model_scopes", err: errors.New(`enttmp: missing required field "Group.supported_model_scopes"`)}
 	}
 	if _, ok := _c.mutation.SortOrder(); !ok {
-		return &ValidationError{Name: "sort_order", err: errors.New(`ent: missing required field "Group.sort_order"`)}
+		return &ValidationError{Name: "sort_order", err: errors.New(`enttmp: missing required field "Group.sort_order"`)}
 	}
 	if _, ok := _c.mutation.AllowMessagesDispatch(); !ok {
-		return &ValidationError{Name: "allow_messages_dispatch", err: errors.New(`ent: missing required field "Group.allow_messages_dispatch"`)}
+		return &ValidationError{Name: "allow_messages_dispatch", err: errors.New(`enttmp: missing required field "Group.allow_messages_dispatch"`)}
 	}
 	if _, ok := _c.mutation.AllowLive(); !ok {
-		return &ValidationError{Name: "allow_live", err: errors.New(`ent: missing required field "Group.allow_live"`)}
+		return &ValidationError{Name: "allow_live", err: errors.New(`enttmp: missing required field "Group.allow_live"`)}
 	}
 	if _, ok := _c.mutation.RequireOauthOnly(); !ok {
-		return &ValidationError{Name: "require_oauth_only", err: errors.New(`ent: missing required field "Group.require_oauth_only"`)}
+		return &ValidationError{Name: "require_oauth_only", err: errors.New(`enttmp: missing required field "Group.require_oauth_only"`)}
 	}
 	if _, ok := _c.mutation.RequirePrivacySet(); !ok {
-		return &ValidationError{Name: "require_privacy_set", err: errors.New(`ent: missing required field "Group.require_privacy_set"`)}
+		return &ValidationError{Name: "require_privacy_set", err: errors.New(`enttmp: missing required field "Group.require_privacy_set"`)}
 	}
 	if _, ok := _c.mutation.DefaultMappedModel(); !ok {
-		return &ValidationError{Name: "default_mapped_model", err: errors.New(`ent: missing required field "Group.default_mapped_model"`)}
+		return &ValidationError{Name: "default_mapped_model", err: errors.New(`enttmp: missing required field "Group.default_mapped_model"`)}
 	}
 	if v, ok := _c.mutation.DefaultMappedModel(); ok {
 		if err := group.DefaultMappedModelValidator(v); err != nil {
-			return &ValidationError{Name: "default_mapped_model", err: fmt.Errorf(`ent: validator failed for field "Group.default_mapped_model": %w`, err)}
+			return &ValidationError{Name: "default_mapped_model", err: fmt.Errorf(`enttmp: validator failed for field "Group.default_mapped_model": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.MessagesDispatchModelConfig(); !ok {
-		return &ValidationError{Name: "messages_dispatch_model_config", err: errors.New(`ent: missing required field "Group.messages_dispatch_model_config"`)}
+		return &ValidationError{Name: "messages_dispatch_model_config", err: errors.New(`enttmp: missing required field "Group.messages_dispatch_model_config"`)}
 	}
 	if _, ok := _c.mutation.ModelsListConfig(); !ok {
-		return &ValidationError{Name: "models_list_config", err: errors.New(`ent: missing required field "Group.models_list_config"`)}
+		return &ValidationError{Name: "models_list_config", err: errors.New(`enttmp: missing required field "Group.models_list_config"`)}
 	}
 	if _, ok := _c.mutation.RpmLimit(); !ok {
-		return &ValidationError{Name: "rpm_limit", err: errors.New(`ent: missing required field "Group.rpm_limit"`)}
+		return &ValidationError{Name: "rpm_limit", err: errors.New(`enttmp: missing required field "Group.rpm_limit"`)}
 	}
 	if _, ok := _c.mutation.MaxReasoningEffort(); !ok {
-		return &ValidationError{Name: "max_reasoning_effort", err: errors.New(`ent: missing required field "Group.max_reasoning_effort"`)}
+		return &ValidationError{Name: "max_reasoning_effort", err: errors.New(`enttmp: missing required field "Group.max_reasoning_effort"`)}
 	}
 	if v, ok := _c.mutation.MaxReasoningEffort(); ok {
 		if err := group.MaxReasoningEffortValidator(v); err != nil {
-			return &ValidationError{Name: "max_reasoning_effort", err: fmt.Errorf(`ent: validator failed for field "Group.max_reasoning_effort": %w`, err)}
+			return &ValidationError{Name: "max_reasoning_effort", err: fmt.Errorf(`enttmp: validator failed for field "Group.max_reasoning_effort": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.ReasoningEffortMappings(); !ok {
-		return &ValidationError{Name: "reasoning_effort_mappings", err: errors.New(`ent: missing required field "Group.reasoning_effort_mappings"`)}
+		return &ValidationError{Name: "reasoning_effort_mappings", err: errors.New(`enttmp: missing required field "Group.reasoning_effort_mappings"`)}
+	}
+	if _, ok := _c.mutation.ProfitControlEnabled(); !ok {
+		return &ValidationError{Name: "profit_control_enabled", err: errors.New(`enttmp: missing required field "Group.profit_control_enabled"`)}
+	}
+	if _, ok := _c.mutation.ProfitMinMargin(); !ok {
+		return &ValidationError{Name: "profit_min_margin", err: errors.New(`enttmp: missing required field "Group.profit_min_margin"`)}
+	}
+	if _, ok := _c.mutation.ProfitSafetyBuffer(); !ok {
+		return &ValidationError{Name: "profit_safety_buffer", err: errors.New(`enttmp: missing required field "Group.profit_safety_buffer"`)}
 	}
 	return nil
 }
@@ -1443,6 +1506,18 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ReasoningEffortMappings(); ok {
 		_spec.SetField(group.FieldReasoningEffortMappings, field.TypeJSON, value)
 		_node.ReasoningEffortMappings = value
+	}
+	if value, ok := _c.mutation.ProfitControlEnabled(); ok {
+		_spec.SetField(group.FieldProfitControlEnabled, field.TypeBool, value)
+		_node.ProfitControlEnabled = value
+	}
+	if value, ok := _c.mutation.ProfitMinMargin(); ok {
+		_spec.SetField(group.FieldProfitMinMargin, field.TypeFloat64, value)
+		_node.ProfitMinMargin = value
+	}
+	if value, ok := _c.mutation.ProfitSafetyBuffer(); ok {
+		_spec.SetField(group.FieldProfitSafetyBuffer, field.TypeFloat64, value)
+		_node.ProfitSafetyBuffer = value
 	}
 	if nodes := _c.mutation.APIKeysIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -2455,6 +2530,54 @@ func (u *GroupUpsert) SetReasoningEffortMappings(v []domain.ReasoningEffortMappi
 // UpdateReasoningEffortMappings sets the "reasoning_effort_mappings" field to the value that was provided on create.
 func (u *GroupUpsert) UpdateReasoningEffortMappings() *GroupUpsert {
 	u.SetExcluded(group.FieldReasoningEffortMappings)
+	return u
+}
+
+// SetProfitControlEnabled sets the "profit_control_enabled" field.
+func (u *GroupUpsert) SetProfitControlEnabled(v bool) *GroupUpsert {
+	u.Set(group.FieldProfitControlEnabled, v)
+	return u
+}
+
+// UpdateProfitControlEnabled sets the "profit_control_enabled" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateProfitControlEnabled() *GroupUpsert {
+	u.SetExcluded(group.FieldProfitControlEnabled)
+	return u
+}
+
+// SetProfitMinMargin sets the "profit_min_margin" field.
+func (u *GroupUpsert) SetProfitMinMargin(v float64) *GroupUpsert {
+	u.Set(group.FieldProfitMinMargin, v)
+	return u
+}
+
+// UpdateProfitMinMargin sets the "profit_min_margin" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateProfitMinMargin() *GroupUpsert {
+	u.SetExcluded(group.FieldProfitMinMargin)
+	return u
+}
+
+// AddProfitMinMargin adds v to the "profit_min_margin" field.
+func (u *GroupUpsert) AddProfitMinMargin(v float64) *GroupUpsert {
+	u.Add(group.FieldProfitMinMargin, v)
+	return u
+}
+
+// SetProfitSafetyBuffer sets the "profit_safety_buffer" field.
+func (u *GroupUpsert) SetProfitSafetyBuffer(v float64) *GroupUpsert {
+	u.Set(group.FieldProfitSafetyBuffer, v)
+	return u
+}
+
+// UpdateProfitSafetyBuffer sets the "profit_safety_buffer" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateProfitSafetyBuffer() *GroupUpsert {
+	u.SetExcluded(group.FieldProfitSafetyBuffer)
+	return u
+}
+
+// AddProfitSafetyBuffer adds v to the "profit_safety_buffer" field.
+func (u *GroupUpsert) AddProfitSafetyBuffer(v float64) *GroupUpsert {
+	u.Add(group.FieldProfitSafetyBuffer, v)
 	return u
 }
 
@@ -3507,10 +3630,66 @@ func (u *GroupUpsertOne) UpdateReasoningEffortMappings() *GroupUpsertOne {
 	})
 }
 
+// SetProfitControlEnabled sets the "profit_control_enabled" field.
+func (u *GroupUpsertOne) SetProfitControlEnabled(v bool) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetProfitControlEnabled(v)
+	})
+}
+
+// UpdateProfitControlEnabled sets the "profit_control_enabled" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateProfitControlEnabled() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateProfitControlEnabled()
+	})
+}
+
+// SetProfitMinMargin sets the "profit_min_margin" field.
+func (u *GroupUpsertOne) SetProfitMinMargin(v float64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetProfitMinMargin(v)
+	})
+}
+
+// AddProfitMinMargin adds v to the "profit_min_margin" field.
+func (u *GroupUpsertOne) AddProfitMinMargin(v float64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddProfitMinMargin(v)
+	})
+}
+
+// UpdateProfitMinMargin sets the "profit_min_margin" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateProfitMinMargin() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateProfitMinMargin()
+	})
+}
+
+// SetProfitSafetyBuffer sets the "profit_safety_buffer" field.
+func (u *GroupUpsertOne) SetProfitSafetyBuffer(v float64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetProfitSafetyBuffer(v)
+	})
+}
+
+// AddProfitSafetyBuffer adds v to the "profit_safety_buffer" field.
+func (u *GroupUpsertOne) AddProfitSafetyBuffer(v float64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddProfitSafetyBuffer(v)
+	})
+}
+
+// UpdateProfitSafetyBuffer sets the "profit_safety_buffer" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateProfitSafetyBuffer() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateProfitSafetyBuffer()
+	})
+}
+
 // Exec executes the query.
 func (u *GroupUpsertOne) Exec(ctx context.Context) error {
 	if len(u.create.conflict) == 0 {
-		return errors.New("ent: missing options for GroupCreate.OnConflict")
+		return errors.New("enttmp: missing options for GroupCreate.OnConflict")
 	}
 	return u.create.Exec(ctx)
 }
@@ -4722,6 +4901,62 @@ func (u *GroupUpsertBulk) UpdateReasoningEffortMappings() *GroupUpsertBulk {
 	})
 }
 
+// SetProfitControlEnabled sets the "profit_control_enabled" field.
+func (u *GroupUpsertBulk) SetProfitControlEnabled(v bool) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetProfitControlEnabled(v)
+	})
+}
+
+// UpdateProfitControlEnabled sets the "profit_control_enabled" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateProfitControlEnabled() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateProfitControlEnabled()
+	})
+}
+
+// SetProfitMinMargin sets the "profit_min_margin" field.
+func (u *GroupUpsertBulk) SetProfitMinMargin(v float64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetProfitMinMargin(v)
+	})
+}
+
+// AddProfitMinMargin adds v to the "profit_min_margin" field.
+func (u *GroupUpsertBulk) AddProfitMinMargin(v float64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddProfitMinMargin(v)
+	})
+}
+
+// UpdateProfitMinMargin sets the "profit_min_margin" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateProfitMinMargin() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateProfitMinMargin()
+	})
+}
+
+// SetProfitSafetyBuffer sets the "profit_safety_buffer" field.
+func (u *GroupUpsertBulk) SetProfitSafetyBuffer(v float64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetProfitSafetyBuffer(v)
+	})
+}
+
+// AddProfitSafetyBuffer adds v to the "profit_safety_buffer" field.
+func (u *GroupUpsertBulk) AddProfitSafetyBuffer(v float64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddProfitSafetyBuffer(v)
+	})
+}
+
+// UpdateProfitSafetyBuffer sets the "profit_safety_buffer" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateProfitSafetyBuffer() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateProfitSafetyBuffer()
+	})
+}
+
 // Exec executes the query.
 func (u *GroupUpsertBulk) Exec(ctx context.Context) error {
 	if u.create.err != nil {
@@ -4729,11 +4964,11 @@ func (u *GroupUpsertBulk) Exec(ctx context.Context) error {
 	}
 	for i, b := range u.create.builders {
 		if len(b.conflict) != 0 {
-			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the GroupCreateBulk instead", i)
+			return fmt.Errorf("enttmp: OnConflict was set for builder %d. Set it on the GroupCreateBulk instead", i)
 		}
 	}
 	if len(u.create.conflict) == 0 {
-		return errors.New("ent: missing options for GroupCreateBulk.OnConflict")
+		return errors.New("enttmp: missing options for GroupCreateBulk.OnConflict")
 	}
 	return u.create.Exec(ctx)
 }

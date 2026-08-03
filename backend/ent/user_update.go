@@ -939,7 +939,7 @@ func (_u *UserUpdate) ExecX(ctx context.Context) {
 func (_u *UserUpdate) defaults() error {
 	if _, ok := _u.mutation.UpdatedAt(); !ok {
 		if user.UpdateDefaultUpdatedAt == nil {
-			return fmt.Errorf("ent: uninitialized user.UpdateDefaultUpdatedAt (forgotten import ent/runtime?)")
+			return fmt.Errorf("enttmp: uninitialized user.UpdateDefaultUpdatedAt (forgotten import enttmp/runtime?)")
 		}
 		v := user.UpdateDefaultUpdatedAt()
 		_u.mutation.SetUpdatedAt(v)
@@ -951,32 +951,32 @@ func (_u *UserUpdate) defaults() error {
 func (_u *UserUpdate) check() error {
 	if v, ok := _u.mutation.Email(); ok {
 		if err := user.EmailValidator(v); err != nil {
-			return &ValidationError{Name: "email", err: fmt.Errorf(`ent: validator failed for field "User.email": %w`, err)}
+			return &ValidationError{Name: "email", err: fmt.Errorf(`enttmp: validator failed for field "User.email": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.PasswordHash(); ok {
 		if err := user.PasswordHashValidator(v); err != nil {
-			return &ValidationError{Name: "password_hash", err: fmt.Errorf(`ent: validator failed for field "User.password_hash": %w`, err)}
+			return &ValidationError{Name: "password_hash", err: fmt.Errorf(`enttmp: validator failed for field "User.password_hash": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Role(); ok {
 		if err := user.RoleValidator(v); err != nil {
-			return &ValidationError{Name: "role", err: fmt.Errorf(`ent: validator failed for field "User.role": %w`, err)}
+			return &ValidationError{Name: "role", err: fmt.Errorf(`enttmp: validator failed for field "User.role": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := user.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "User.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "User.status": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Username(); ok {
 		if err := user.UsernameValidator(v); err != nil {
-			return &ValidationError{Name: "username", err: fmt.Errorf(`ent: validator failed for field "User.username": %w`, err)}
+			return &ValidationError{Name: "username", err: fmt.Errorf(`enttmp: validator failed for field "User.username": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.SignupSource(); ok {
 		if err := user.SignupSourceValidator(v); err != nil {
-			return &ValidationError{Name: "signup_source", err: fmt.Errorf(`ent: validator failed for field "User.signup_source": %w`, err)}
+			return &ValidationError{Name: "signup_source", err: fmt.Errorf(`enttmp: validator failed for field "User.signup_source": %w`, err)}
 		}
 	}
 	return nil
@@ -2628,7 +2628,7 @@ func (_u *UserUpdateOne) ExecX(ctx context.Context) {
 func (_u *UserUpdateOne) defaults() error {
 	if _, ok := _u.mutation.UpdatedAt(); !ok {
 		if user.UpdateDefaultUpdatedAt == nil {
-			return fmt.Errorf("ent: uninitialized user.UpdateDefaultUpdatedAt (forgotten import ent/runtime?)")
+			return fmt.Errorf("enttmp: uninitialized user.UpdateDefaultUpdatedAt (forgotten import enttmp/runtime?)")
 		}
 		v := user.UpdateDefaultUpdatedAt()
 		_u.mutation.SetUpdatedAt(v)
@@ -2640,32 +2640,32 @@ func (_u *UserUpdateOne) defaults() error {
 func (_u *UserUpdateOne) check() error {
 	if v, ok := _u.mutation.Email(); ok {
 		if err := user.EmailValidator(v); err != nil {
-			return &ValidationError{Name: "email", err: fmt.Errorf(`ent: validator failed for field "User.email": %w`, err)}
+			return &ValidationError{Name: "email", err: fmt.Errorf(`enttmp: validator failed for field "User.email": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.PasswordHash(); ok {
 		if err := user.PasswordHashValidator(v); err != nil {
-			return &ValidationError{Name: "password_hash", err: fmt.Errorf(`ent: validator failed for field "User.password_hash": %w`, err)}
+			return &ValidationError{Name: "password_hash", err: fmt.Errorf(`enttmp: validator failed for field "User.password_hash": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Role(); ok {
 		if err := user.RoleValidator(v); err != nil {
-			return &ValidationError{Name: "role", err: fmt.Errorf(`ent: validator failed for field "User.role": %w`, err)}
+			return &ValidationError{Name: "role", err: fmt.Errorf(`enttmp: validator failed for field "User.role": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := user.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "User.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "User.status": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Username(); ok {
 		if err := user.UsernameValidator(v); err != nil {
-			return &ValidationError{Name: "username", err: fmt.Errorf(`ent: validator failed for field "User.username": %w`, err)}
+			return &ValidationError{Name: "username", err: fmt.Errorf(`enttmp: validator failed for field "User.username": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.SignupSource(); ok {
 		if err := user.SignupSourceValidator(v); err != nil {
-			return &ValidationError{Name: "signup_source", err: fmt.Errorf(`ent: validator failed for field "User.signup_source": %w`, err)}
+			return &ValidationError{Name: "signup_source", err: fmt.Errorf(`enttmp: validator failed for field "User.signup_source": %w`, err)}
 		}
 	}
 	return nil
@@ -2678,7 +2678,7 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	_spec := sqlgraph.NewUpdateSpec(user.Table, user.Columns, sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt64))
 	id, ok := _u.mutation.ID()
 	if !ok {
-		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "User.id" for update`)}
+		return nil, &ValidationError{Name: "id", err: errors.New(`enttmp: missing "User.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
 	if fields := _u.fields; len(fields) > 0 {
@@ -2686,7 +2686,7 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 		_spec.Node.Columns = append(_spec.Node.Columns, user.FieldID)
 		for _, f := range fields {
 			if !user.ValidColumn(f) {
-				return nil, &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
+				return nil, &ValidationError{Name: f, err: fmt.Errorf("enttmp: invalid field %q for query", f)}
 			}
 			if f != user.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, f)

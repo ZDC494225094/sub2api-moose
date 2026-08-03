@@ -175,7 +175,7 @@ func (_m *PaymentProviderInstance) Update() *PaymentProviderInstanceUpdateOne {
 func (_m *PaymentProviderInstance) Unwrap() *PaymentProviderInstance {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: PaymentProviderInstance is not a transactional entity")
+		panic("enttmp: PaymentProviderInstance is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

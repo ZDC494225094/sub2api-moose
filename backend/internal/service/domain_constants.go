@@ -279,6 +279,7 @@ const (
 	SettingKeyHomeDocsEnabled             = "home_docs_enabled"             // 是否展示首页文档中心入口
 	SettingKeyFooterContent               = "footer_content"                // 首页页脚内容
 	SettingKeyFooterFriendLinks           = "footer_friend_links"           // 首页页脚友情链接（JSON 数组）
+	SettingKeyCompactHomeEnabled          = "compact_home_enabled"          // 是否启用内置简洁首页
 	SettingKeyHideCcsImportButton         = "hide_ccs_import_button"        // 是否隐藏 API Keys 页面的导入 CCS 按钮
 	SettingKeyPurchaseSubscriptionEnabled = "purchase_subscription_enabled" // 是否展示"购买订阅"页面入口
 	SettingKeyPurchaseSubscriptionURL     = "purchase_subscription_url"     // "购买订阅"页面 URL（作为 iframe src）

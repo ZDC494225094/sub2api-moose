@@ -303,7 +303,7 @@ func (_m *ChannelMonitor) Update() *ChannelMonitorUpdateOne {
 func (_m *ChannelMonitor) Unwrap() *ChannelMonitor {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: ChannelMonitor is not a transactional entity")
+		panic("enttmp: ChannelMonitor is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

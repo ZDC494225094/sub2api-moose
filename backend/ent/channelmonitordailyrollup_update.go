@@ -343,11 +343,11 @@ func (_u *ChannelMonitorDailyRollupUpdate) defaults() {
 func (_u *ChannelMonitorDailyRollupUpdate) check() error {
 	if v, ok := _u.mutation.Model(); ok {
 		if err := channelmonitordailyrollup.ModelValidator(v); err != nil {
-			return &ValidationError{Name: "model", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitorDailyRollup.model": %w`, err)}
+			return &ValidationError{Name: "model", err: fmt.Errorf(`enttmp: validator failed for field "ChannelMonitorDailyRollup.model": %w`, err)}
 		}
 	}
 	if _u.mutation.MonitorCleared() && len(_u.mutation.MonitorIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "ChannelMonitorDailyRollup.monitor"`)
+		return errors.New(`enttmp: clearing a required unique edge "ChannelMonitorDailyRollup.monitor"`)
 	}
 	return nil
 }
@@ -809,11 +809,11 @@ func (_u *ChannelMonitorDailyRollupUpdateOne) defaults() {
 func (_u *ChannelMonitorDailyRollupUpdateOne) check() error {
 	if v, ok := _u.mutation.Model(); ok {
 		if err := channelmonitordailyrollup.ModelValidator(v); err != nil {
-			return &ValidationError{Name: "model", err: fmt.Errorf(`ent: validator failed for field "ChannelMonitorDailyRollup.model": %w`, err)}
+			return &ValidationError{Name: "model", err: fmt.Errorf(`enttmp: validator failed for field "ChannelMonitorDailyRollup.model": %w`, err)}
 		}
 	}
 	if _u.mutation.MonitorCleared() && len(_u.mutation.MonitorIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "ChannelMonitorDailyRollup.monitor"`)
+		return errors.New(`enttmp: clearing a required unique edge "ChannelMonitorDailyRollup.monitor"`)
 	}
 	return nil
 }
@@ -825,7 +825,7 @@ func (_u *ChannelMonitorDailyRollupUpdateOne) sqlSave(ctx context.Context) (_nod
 	_spec := sqlgraph.NewUpdateSpec(channelmonitordailyrollup.Table, channelmonitordailyrollup.Columns, sqlgraph.NewFieldSpec(channelmonitordailyrollup.FieldID, field.TypeInt64))
 	id, ok := _u.mutation.ID()
 	if !ok {
-		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "ChannelMonitorDailyRollup.id" for update`)}
+		return nil, &ValidationError{Name: "id", err: errors.New(`enttmp: missing "ChannelMonitorDailyRollup.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
 	if fields := _u.fields; len(fields) > 0 {
@@ -833,7 +833,7 @@ func (_u *ChannelMonitorDailyRollupUpdateOne) sqlSave(ctx context.Context) (_nod
 		_spec.Node.Columns = append(_spec.Node.Columns, channelmonitordailyrollup.FieldID)
 		for _, f := range fields {
 			if !channelmonitordailyrollup.ValidColumn(f) {
-				return nil, &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
+				return nil, &ValidationError{Name: f, err: fmt.Errorf("enttmp: invalid field %q for query", f)}
 			}
 			if f != channelmonitordailyrollup.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, f)

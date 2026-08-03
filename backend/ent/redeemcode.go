@@ -220,7 +220,7 @@ func (_m *RedeemCode) Update() *RedeemCodeUpdateOne {
 func (_m *RedeemCode) Unwrap() *RedeemCode {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: RedeemCode is not a transactional entity")
+		panic("enttmp: RedeemCode is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

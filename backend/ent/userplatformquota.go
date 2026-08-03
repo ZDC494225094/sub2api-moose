@@ -227,7 +227,7 @@ func (_m *UserPlatformQuota) Update() *UserPlatformQuotaUpdateOne {
 func (_m *UserPlatformQuota) Unwrap() *UserPlatformQuota {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: UserPlatformQuota is not a transactional entity")
+		panic("enttmp: UserPlatformQuota is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

@@ -254,37 +254,37 @@ func (_c *RedeemCodeCreate) defaults() {
 // check runs all checks and user-defined validators on the builder.
 func (_c *RedeemCodeCreate) check() error {
 	if _, ok := _c.mutation.Code(); !ok {
-		return &ValidationError{Name: "code", err: errors.New(`ent: missing required field "RedeemCode.code"`)}
+		return &ValidationError{Name: "code", err: errors.New(`enttmp: missing required field "RedeemCode.code"`)}
 	}
 	if v, ok := _c.mutation.Code(); ok {
 		if err := redeemcode.CodeValidator(v); err != nil {
-			return &ValidationError{Name: "code", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.code": %w`, err)}
+			return &ValidationError{Name: "code", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.code": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.GetType(); !ok {
-		return &ValidationError{Name: "type", err: errors.New(`ent: missing required field "RedeemCode.type"`)}
+		return &ValidationError{Name: "type", err: errors.New(`enttmp: missing required field "RedeemCode.type"`)}
 	}
 	if v, ok := _c.mutation.GetType(); ok {
 		if err := redeemcode.TypeValidator(v); err != nil {
-			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.type": %w`, err)}
+			return &ValidationError{Name: "type", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.type": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Value(); !ok {
-		return &ValidationError{Name: "value", err: errors.New(`ent: missing required field "RedeemCode.value"`)}
+		return &ValidationError{Name: "value", err: errors.New(`enttmp: missing required field "RedeemCode.value"`)}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
-		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "RedeemCode.status"`)}
+		return &ValidationError{Name: "status", err: errors.New(`enttmp: missing required field "RedeemCode.status"`)}
 	}
 	if v, ok := _c.mutation.Status(); ok {
 		if err := redeemcode.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.status": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
-		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "RedeemCode.created_at"`)}
+		return &ValidationError{Name: "created_at", err: errors.New(`enttmp: missing required field "RedeemCode.created_at"`)}
 	}
 	if _, ok := _c.mutation.ValidityDays(); !ok {
-		return &ValidationError{Name: "validity_days", err: errors.New(`ent: missing required field "RedeemCode.validity_days"`)}
+		return &ValidationError{Name: "validity_days", err: errors.New(`enttmp: missing required field "RedeemCode.validity_days"`)}
 	}
 	return nil
 }
@@ -834,7 +834,7 @@ func (u *RedeemCodeUpsertOne) UpdateValidityDays() *RedeemCodeUpsertOne {
 // Exec executes the query.
 func (u *RedeemCodeUpsertOne) Exec(ctx context.Context) error {
 	if len(u.create.conflict) == 0 {
-		return errors.New("ent: missing options for RedeemCodeCreate.OnConflict")
+		return errors.New("enttmp: missing options for RedeemCodeCreate.OnConflict")
 	}
 	return u.create.Exec(ctx)
 }
@@ -1238,11 +1238,11 @@ func (u *RedeemCodeUpsertBulk) Exec(ctx context.Context) error {
 	}
 	for i, b := range u.create.builders {
 		if len(b.conflict) != 0 {
-			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the RedeemCodeCreateBulk instead", i)
+			return fmt.Errorf("enttmp: OnConflict was set for builder %d. Set it on the RedeemCodeCreateBulk instead", i)
 		}
 	}
 	if len(u.create.conflict) == 0 {
-		return errors.New("ent: missing options for RedeemCodeCreateBulk.OnConflict")
+		return errors.New("enttmp: missing options for RedeemCodeCreateBulk.OnConflict")
 	}
 	return u.create.Exec(ctx)
 }

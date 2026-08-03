@@ -1001,6 +1001,62 @@ func (_u *GroupUpdate) AppendReasoningEffortMappings(v []domain.ReasoningEffortM
 	return _u
 }
 
+// SetProfitControlEnabled sets the "profit_control_enabled" field.
+func (_u *GroupUpdate) SetProfitControlEnabled(v bool) *GroupUpdate {
+	_u.mutation.SetProfitControlEnabled(v)
+	return _u
+}
+
+// SetNillableProfitControlEnabled sets the "profit_control_enabled" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableProfitControlEnabled(v *bool) *GroupUpdate {
+	if v != nil {
+		_u.SetProfitControlEnabled(*v)
+	}
+	return _u
+}
+
+// SetProfitMinMargin sets the "profit_min_margin" field.
+func (_u *GroupUpdate) SetProfitMinMargin(v float64) *GroupUpdate {
+	_u.mutation.ResetProfitMinMargin()
+	_u.mutation.SetProfitMinMargin(v)
+	return _u
+}
+
+// SetNillableProfitMinMargin sets the "profit_min_margin" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableProfitMinMargin(v *float64) *GroupUpdate {
+	if v != nil {
+		_u.SetProfitMinMargin(*v)
+	}
+	return _u
+}
+
+// AddProfitMinMargin adds value to the "profit_min_margin" field.
+func (_u *GroupUpdate) AddProfitMinMargin(v float64) *GroupUpdate {
+	_u.mutation.AddProfitMinMargin(v)
+	return _u
+}
+
+// SetProfitSafetyBuffer sets the "profit_safety_buffer" field.
+func (_u *GroupUpdate) SetProfitSafetyBuffer(v float64) *GroupUpdate {
+	_u.mutation.ResetProfitSafetyBuffer()
+	_u.mutation.SetProfitSafetyBuffer(v)
+	return _u
+}
+
+// SetNillableProfitSafetyBuffer sets the "profit_safety_buffer" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableProfitSafetyBuffer(v *float64) *GroupUpdate {
+	if v != nil {
+		_u.SetProfitSafetyBuffer(*v)
+	}
+	return _u
+}
+
+// AddProfitSafetyBuffer adds value to the "profit_safety_buffer" field.
+func (_u *GroupUpdate) AddProfitSafetyBuffer(v float64) *GroupUpdate {
+	_u.mutation.AddProfitSafetyBuffer(v)
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *GroupUpdate) AddAPIKeyIDs(ids ...int64) *GroupUpdate {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -1256,7 +1312,7 @@ func (_u *GroupUpdate) ExecX(ctx context.Context) {
 func (_u *GroupUpdate) defaults() error {
 	if _, ok := _u.mutation.UpdatedAt(); !ok {
 		if group.UpdateDefaultUpdatedAt == nil {
-			return fmt.Errorf("ent: uninitialized group.UpdateDefaultUpdatedAt (forgotten import ent/runtime?)")
+			return fmt.Errorf("enttmp: uninitialized group.UpdateDefaultUpdatedAt (forgotten import enttmp/runtime?)")
 		}
 		v := group.UpdateDefaultUpdatedAt()
 		_u.mutation.SetUpdatedAt(v)
@@ -1268,52 +1324,52 @@ func (_u *GroupUpdate) defaults() error {
 func (_u *GroupUpdate) check() error {
 	if v, ok := _u.mutation.Name(); ok {
 		if err := group.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Group.name": %w`, err)}
+			return &ValidationError{Name: "name", err: fmt.Errorf(`enttmp: validator failed for field "Group.name": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.BillingRateSyncAccountID(); ok {
 		if err := group.BillingRateSyncAccountIDValidator(v); err != nil {
-			return &ValidationError{Name: "billing_rate_sync_account_id", err: fmt.Errorf(`ent: validator failed for field "Group.billing_rate_sync_account_id": %w`, err)}
+			return &ValidationError{Name: "billing_rate_sync_account_id", err: fmt.Errorf(`enttmp: validator failed for field "Group.billing_rate_sync_account_id": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.BillingRateMarkup(); ok {
 		if err := group.BillingRateMarkupValidator(v); err != nil {
-			return &ValidationError{Name: "billing_rate_markup", err: fmt.Errorf(`ent: validator failed for field "Group.billing_rate_markup": %w`, err)}
+			return &ValidationError{Name: "billing_rate_markup", err: fmt.Errorf(`enttmp: validator failed for field "Group.billing_rate_markup": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.PeakStart(); ok {
 		if err := group.PeakStartValidator(v); err != nil {
-			return &ValidationError{Name: "peak_start", err: fmt.Errorf(`ent: validator failed for field "Group.peak_start": %w`, err)}
+			return &ValidationError{Name: "peak_start", err: fmt.Errorf(`enttmp: validator failed for field "Group.peak_start": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.PeakEnd(); ok {
 		if err := group.PeakEndValidator(v); err != nil {
-			return &ValidationError{Name: "peak_end", err: fmt.Errorf(`ent: validator failed for field "Group.peak_end": %w`, err)}
+			return &ValidationError{Name: "peak_end", err: fmt.Errorf(`enttmp: validator failed for field "Group.peak_end": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := group.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Group.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "Group.status": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Platform(); ok {
 		if err := group.PlatformValidator(v); err != nil {
-			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "Group.platform": %w`, err)}
+			return &ValidationError{Name: "platform", err: fmt.Errorf(`enttmp: validator failed for field "Group.platform": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.SubscriptionType(); ok {
 		if err := group.SubscriptionTypeValidator(v); err != nil {
-			return &ValidationError{Name: "subscription_type", err: fmt.Errorf(`ent: validator failed for field "Group.subscription_type": %w`, err)}
+			return &ValidationError{Name: "subscription_type", err: fmt.Errorf(`enttmp: validator failed for field "Group.subscription_type": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.DefaultMappedModel(); ok {
 		if err := group.DefaultMappedModelValidator(v); err != nil {
-			return &ValidationError{Name: "default_mapped_model", err: fmt.Errorf(`ent: validator failed for field "Group.default_mapped_model": %w`, err)}
+			return &ValidationError{Name: "default_mapped_model", err: fmt.Errorf(`enttmp: validator failed for field "Group.default_mapped_model": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.MaxReasoningEffort(); ok {
 		if err := group.MaxReasoningEffortValidator(v); err != nil {
-			return &ValidationError{Name: "max_reasoning_effort", err: fmt.Errorf(`ent: validator failed for field "Group.max_reasoning_effort": %w`, err)}
+			return &ValidationError{Name: "max_reasoning_effort", err: fmt.Errorf(`enttmp: validator failed for field "Group.max_reasoning_effort": %w`, err)}
 		}
 	}
 	return nil
@@ -1616,6 +1672,21 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		_spec.AddModifier(func(u *sql.UpdateBuilder) {
 			sqljson.Append(u, group.FieldReasoningEffortMappings, value)
 		})
+	}
+	if value, ok := _u.mutation.ProfitControlEnabled(); ok {
+		_spec.SetField(group.FieldProfitControlEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ProfitMinMargin(); ok {
+		_spec.SetField(group.FieldProfitMinMargin, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedProfitMinMargin(); ok {
+		_spec.AddField(group.FieldProfitMinMargin, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.ProfitSafetyBuffer(); ok {
+		_spec.SetField(group.FieldProfitSafetyBuffer, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedProfitSafetyBuffer(); ok {
+		_spec.AddField(group.FieldProfitSafetyBuffer, field.TypeFloat64, value)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -2896,6 +2967,62 @@ func (_u *GroupUpdateOne) AppendReasoningEffortMappings(v []domain.ReasoningEffo
 	return _u
 }
 
+// SetProfitControlEnabled sets the "profit_control_enabled" field.
+func (_u *GroupUpdateOne) SetProfitControlEnabled(v bool) *GroupUpdateOne {
+	_u.mutation.SetProfitControlEnabled(v)
+	return _u
+}
+
+// SetNillableProfitControlEnabled sets the "profit_control_enabled" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableProfitControlEnabled(v *bool) *GroupUpdateOne {
+	if v != nil {
+		_u.SetProfitControlEnabled(*v)
+	}
+	return _u
+}
+
+// SetProfitMinMargin sets the "profit_min_margin" field.
+func (_u *GroupUpdateOne) SetProfitMinMargin(v float64) *GroupUpdateOne {
+	_u.mutation.ResetProfitMinMargin()
+	_u.mutation.SetProfitMinMargin(v)
+	return _u
+}
+
+// SetNillableProfitMinMargin sets the "profit_min_margin" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableProfitMinMargin(v *float64) *GroupUpdateOne {
+	if v != nil {
+		_u.SetProfitMinMargin(*v)
+	}
+	return _u
+}
+
+// AddProfitMinMargin adds value to the "profit_min_margin" field.
+func (_u *GroupUpdateOne) AddProfitMinMargin(v float64) *GroupUpdateOne {
+	_u.mutation.AddProfitMinMargin(v)
+	return _u
+}
+
+// SetProfitSafetyBuffer sets the "profit_safety_buffer" field.
+func (_u *GroupUpdateOne) SetProfitSafetyBuffer(v float64) *GroupUpdateOne {
+	_u.mutation.ResetProfitSafetyBuffer()
+	_u.mutation.SetProfitSafetyBuffer(v)
+	return _u
+}
+
+// SetNillableProfitSafetyBuffer sets the "profit_safety_buffer" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableProfitSafetyBuffer(v *float64) *GroupUpdateOne {
+	if v != nil {
+		_u.SetProfitSafetyBuffer(*v)
+	}
+	return _u
+}
+
+// AddProfitSafetyBuffer adds value to the "profit_safety_buffer" field.
+func (_u *GroupUpdateOne) AddProfitSafetyBuffer(v float64) *GroupUpdateOne {
+	_u.mutation.AddProfitSafetyBuffer(v)
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *GroupUpdateOne) AddAPIKeyIDs(ids ...int64) *GroupUpdateOne {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -3164,7 +3291,7 @@ func (_u *GroupUpdateOne) ExecX(ctx context.Context) {
 func (_u *GroupUpdateOne) defaults() error {
 	if _, ok := _u.mutation.UpdatedAt(); !ok {
 		if group.UpdateDefaultUpdatedAt == nil {
-			return fmt.Errorf("ent: uninitialized group.UpdateDefaultUpdatedAt (forgotten import ent/runtime?)")
+			return fmt.Errorf("enttmp: uninitialized group.UpdateDefaultUpdatedAt (forgotten import enttmp/runtime?)")
 		}
 		v := group.UpdateDefaultUpdatedAt()
 		_u.mutation.SetUpdatedAt(v)
@@ -3176,52 +3303,52 @@ func (_u *GroupUpdateOne) defaults() error {
 func (_u *GroupUpdateOne) check() error {
 	if v, ok := _u.mutation.Name(); ok {
 		if err := group.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Group.name": %w`, err)}
+			return &ValidationError{Name: "name", err: fmt.Errorf(`enttmp: validator failed for field "Group.name": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.BillingRateSyncAccountID(); ok {
 		if err := group.BillingRateSyncAccountIDValidator(v); err != nil {
-			return &ValidationError{Name: "billing_rate_sync_account_id", err: fmt.Errorf(`ent: validator failed for field "Group.billing_rate_sync_account_id": %w`, err)}
+			return &ValidationError{Name: "billing_rate_sync_account_id", err: fmt.Errorf(`enttmp: validator failed for field "Group.billing_rate_sync_account_id": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.BillingRateMarkup(); ok {
 		if err := group.BillingRateMarkupValidator(v); err != nil {
-			return &ValidationError{Name: "billing_rate_markup", err: fmt.Errorf(`ent: validator failed for field "Group.billing_rate_markup": %w`, err)}
+			return &ValidationError{Name: "billing_rate_markup", err: fmt.Errorf(`enttmp: validator failed for field "Group.billing_rate_markup": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.PeakStart(); ok {
 		if err := group.PeakStartValidator(v); err != nil {
-			return &ValidationError{Name: "peak_start", err: fmt.Errorf(`ent: validator failed for field "Group.peak_start": %w`, err)}
+			return &ValidationError{Name: "peak_start", err: fmt.Errorf(`enttmp: validator failed for field "Group.peak_start": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.PeakEnd(); ok {
 		if err := group.PeakEndValidator(v); err != nil {
-			return &ValidationError{Name: "peak_end", err: fmt.Errorf(`ent: validator failed for field "Group.peak_end": %w`, err)}
+			return &ValidationError{Name: "peak_end", err: fmt.Errorf(`enttmp: validator failed for field "Group.peak_end": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := group.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Group.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "Group.status": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Platform(); ok {
 		if err := group.PlatformValidator(v); err != nil {
-			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "Group.platform": %w`, err)}
+			return &ValidationError{Name: "platform", err: fmt.Errorf(`enttmp: validator failed for field "Group.platform": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.SubscriptionType(); ok {
 		if err := group.SubscriptionTypeValidator(v); err != nil {
-			return &ValidationError{Name: "subscription_type", err: fmt.Errorf(`ent: validator failed for field "Group.subscription_type": %w`, err)}
+			return &ValidationError{Name: "subscription_type", err: fmt.Errorf(`enttmp: validator failed for field "Group.subscription_type": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.DefaultMappedModel(); ok {
 		if err := group.DefaultMappedModelValidator(v); err != nil {
-			return &ValidationError{Name: "default_mapped_model", err: fmt.Errorf(`ent: validator failed for field "Group.default_mapped_model": %w`, err)}
+			return &ValidationError{Name: "default_mapped_model", err: fmt.Errorf(`enttmp: validator failed for field "Group.default_mapped_model": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.MaxReasoningEffort(); ok {
 		if err := group.MaxReasoningEffortValidator(v); err != nil {
-			return &ValidationError{Name: "max_reasoning_effort", err: fmt.Errorf(`ent: validator failed for field "Group.max_reasoning_effort": %w`, err)}
+			return &ValidationError{Name: "max_reasoning_effort", err: fmt.Errorf(`enttmp: validator failed for field "Group.max_reasoning_effort": %w`, err)}
 		}
 	}
 	return nil
@@ -3234,7 +3361,7 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	_spec := sqlgraph.NewUpdateSpec(group.Table, group.Columns, sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt64))
 	id, ok := _u.mutation.ID()
 	if !ok {
-		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "Group.id" for update`)}
+		return nil, &ValidationError{Name: "id", err: errors.New(`enttmp: missing "Group.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
 	if fields := _u.fields; len(fields) > 0 {
@@ -3242,7 +3369,7 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 		_spec.Node.Columns = append(_spec.Node.Columns, group.FieldID)
 		for _, f := range fields {
 			if !group.ValidColumn(f) {
-				return nil, &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
+				return nil, &ValidationError{Name: f, err: fmt.Errorf("enttmp: invalid field %q for query", f)}
 			}
 			if f != group.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, f)
@@ -3541,6 +3668,21 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 		_spec.AddModifier(func(u *sql.UpdateBuilder) {
 			sqljson.Append(u, group.FieldReasoningEffortMappings, value)
 		})
+	}
+	if value, ok := _u.mutation.ProfitControlEnabled(); ok {
+		_spec.SetField(group.FieldProfitControlEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ProfitMinMargin(); ok {
+		_spec.SetField(group.FieldProfitMinMargin, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedProfitMinMargin(); ok {
+		_spec.AddField(group.FieldProfitMinMargin, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.ProfitSafetyBuffer(); ok {
+		_spec.SetField(group.FieldProfitSafetyBuffer, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedProfitSafetyBuffer(); ok {
+		_spec.AddField(group.FieldProfitSafetyBuffer, field.TypeFloat64, value)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{

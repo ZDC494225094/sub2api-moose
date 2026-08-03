@@ -217,7 +217,7 @@ func (_m *AuthIdentity) Update() *AuthIdentityUpdateOne {
 func (_m *AuthIdentity) Unwrap() *AuthIdentity {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: AuthIdentity is not a transactional entity")
+		panic("enttmp: AuthIdentity is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

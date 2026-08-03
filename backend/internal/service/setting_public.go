@@ -186,6 +186,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyHomeDocsEnabled,
 		SettingKeyFooterContent,
 		SettingKeyFooterFriendLinks,
+		SettingKeyCompactHomeEnabled,
 		SettingKeyHideCcsImportButton,
 		SettingKeyPurchaseSubscriptionEnabled,
 		SettingKeyPurchaseSubscriptionURL,
@@ -321,6 +322,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		HomeDocsEnabled:                  !isFalseSettingValue(settings[SettingKeyHomeDocsEnabled]),
 		FooterContent:                    settings[SettingKeyFooterContent],
 		FooterFriendLinks:                settings[SettingKeyFooterFriendLinks],
+		CompactHomeEnabled:               settings[SettingKeyCompactHomeEnabled] == "true",
 		HideCcsImportButton:              settings[SettingKeyHideCcsImportButton] == "true",
 		PurchaseSubscriptionEnabled:      settings[SettingKeyPurchaseSubscriptionEnabled] == "true",
 		PurchaseSubscriptionURL:          strings.TrimSpace(settings[SettingKeyPurchaseSubscriptionURL]),
@@ -516,6 +518,7 @@ type PublicSettingsInjectionPayload struct {
 	HomeDocsEnabled                  bool                     `json:"home_docs_enabled"`
 	FooterContent                    string                   `json:"footer_content"`
 	FooterFriendLinks                json.RawMessage          `json:"footer_friend_links"`
+	CompactHomeEnabled               bool                     `json:"compact_home_enabled"`
 	HideCcsImportButton              bool                     `json:"hide_ccs_import_button"`
 	PurchaseSubscriptionEnabled      bool                     `json:"purchase_subscription_enabled"`
 	PurchaseSubscriptionURL          string                   `json:"purchase_subscription_url"`
@@ -595,6 +598,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		HomeDocsEnabled:                  settings.HomeDocsEnabled,
 		FooterContent:                    settings.FooterContent,
 		FooterFriendLinks:                safeRawJSONArray(settings.FooterFriendLinks),
+		CompactHomeEnabled:               settings.CompactHomeEnabled,
 		HideCcsImportButton:              settings.HideCcsImportButton,
 		PurchaseSubscriptionEnabled:      settings.PurchaseSubscriptionEnabled,
 		PurchaseSubscriptionURL:          settings.PurchaseSubscriptionURL,

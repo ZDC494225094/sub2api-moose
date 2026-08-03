@@ -570,7 +570,7 @@ func (_m *UsageLog) Update() *UsageLogUpdateOne {
 func (_m *UsageLog) Unwrap() *UsageLog {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: UsageLog is not a transactional entity")
+		panic("enttmp: UsageLog is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

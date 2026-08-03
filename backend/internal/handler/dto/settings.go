@@ -158,6 +158,7 @@ type SystemSettings struct {
 	HomeDocsEnabled             bool               `json:"home_docs_enabled"`
 	FooterContent               string             `json:"footer_content"`
 	FooterFriendLinks           []FooterFriendLink `json:"footer_friend_links"`
+	CompactHomeEnabled          bool               `json:"compact_home_enabled"`
 	HideCcsImportButton         bool               `json:"hide_ccs_import_button"`
 	PurchaseSubscriptionEnabled bool               `json:"purchase_subscription_enabled"`
 	PurchaseSubscriptionURL     string             `json:"purchase_subscription_url"`
@@ -367,6 +368,7 @@ type PublicSettings struct {
 	HomeDocsEnabled                  bool                     `json:"home_docs_enabled"`
 	FooterContent                    string                   `json:"footer_content"`
 	FooterFriendLinks                []FooterFriendLink       `json:"footer_friend_links"`
+	CompactHomeEnabled               bool                     `json:"compact_home_enabled"`
 	HideCcsImportButton              bool                     `json:"hide_ccs_import_button"`
 	PurchaseSubscriptionEnabled      bool                     `json:"purchase_subscription_enabled"`
 	PurchaseSubscriptionURL          string                   `json:"purchase_subscription_url"`

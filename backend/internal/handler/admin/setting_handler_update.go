@@ -150,6 +150,7 @@ type UpdateSettingsRequest struct {
 	HomeDocsEnabled             *bool                   `json:"home_docs_enabled"`
 	FooterContent               string                  `json:"footer_content"`
 	FooterFriendLinks           *[]dto.FooterFriendLink `json:"footer_friend_links"`
+	CompactHomeEnabled          bool                    `json:"compact_home_enabled"`
 	HideCcsImportButton         bool                    `json:"hide_ccs_import_button"`
 	PurchaseSubscriptionEnabled *bool                   `json:"purchase_subscription_enabled"`
 	PurchaseSubscriptionURL     *string                 `json:"purchase_subscription_url"`
@@ -1526,6 +1527,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		HomeDocsEnabled:                        boolValueOrDefault(req.HomeDocsEnabled, previousSettings.HomeDocsEnabled),
 		FooterContent:                          req.FooterContent,
 		FooterFriendLinks:                      footerFriendLinksJSON,
+		CompactHomeEnabled:                     req.CompactHomeEnabled,
 		HideCcsImportButton:                    req.HideCcsImportButton,
 		PurchaseSubscriptionEnabled:            purchaseEnabled,
 		PurchaseSubscriptionURL:                purchaseURL,
@@ -2086,6 +2088,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		HomeDocsEnabled:                                        updatedSettings.HomeDocsEnabled,
 		FooterContent:                                          updatedSettings.FooterContent,
 		FooterFriendLinks:                                      dto.ParseFooterFriendLinks(updatedSettings.FooterFriendLinks),
+		CompactHomeEnabled:                                     updatedSettings.CompactHomeEnabled,
 		HideCcsImportButton:                                    updatedSettings.HideCcsImportButton,
 		PurchaseSubscriptionEnabled:                            updatedSettings.PurchaseSubscriptionEnabled,
 		PurchaseSubscriptionURL:                                updatedSettings.PurchaseSubscriptionURL,

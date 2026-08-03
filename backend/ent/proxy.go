@@ -238,7 +238,7 @@ func (_m *Proxy) Update() *ProxyUpdateOne {
 func (_m *Proxy) Unwrap() *Proxy {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: Proxy is not a transactional entity")
+		panic("enttmp: Proxy is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m
