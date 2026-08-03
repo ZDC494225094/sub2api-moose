@@ -3,7 +3,8 @@ export type PlaygroundVideoResolution = '480p' | '720p' | '1080p'
 export type PlaygroundVideoModelKind =
   | 'grok-video-10'
   | 'grok-video-r'
-  | 'kling'
+  | 'kling-video'
+  | 'kling-omni-video'
   | 'seedance-2.0'
   | 'seedance-2.5'
   | 'seedance'
@@ -35,9 +36,12 @@ export function playgroundVideoModelKind(model: string): PlaygroundVideoModelKin
   const normalized = model.trim().toLowerCase()
   if (/(^|\/)grok-video-10(?:$|[-_:])/.test(normalized)) return 'grok-video-10'
   if (/(^|\/)grok-video-r(?:$|[-_:])/.test(normalized)) return 'grok-video-r'
-  if (/(^|\/)(?:kling|keling|kling-video)(?:$|[-_:])/.test(normalized)) return 'kling'
-  if (/(^|\/)(?:doubao-)?seedance[-_:]?2(?:[._-]?5)(?:$|[-_:])/.test(normalized)) return 'seedance-2.5'
-  if (/(^|\/)(?:doubao-)?seedance[-_:]?2(?:[._-]?0)(?:$|[-_:])/.test(normalized)) return 'seedance-2.0'
+  if (/(^|\/)(?:kling|keling)[-_:]?omni[-_:]?video(?:$|[-_:])/.test(normalized)) return 'kling-omni-video'
+  if (/(^|\/)(?:kling|keling)(?:[-_:]?video)?(?:$|[-_:])/.test(normalized)) return 'kling-video'
+  // Seedance 2.5: 支持 seedance-2.5 / doubao-seedance-2.5 / sd-2-5 / sd-2.5
+  if (/(^|\/)(?:(?:doubao-)?seedance|sd)[-_:]?2(?:[._-]?5)(?:$|[-_:])/.test(normalized)) return 'seedance-2.5'
+  // Seedance 2.0: 支持 seedance-2.0 / doubao-seedance-2.0 / sd-2-0 / sd-2.0
+  if (/(^|\/)(?:(?:doubao-)?seedance|sd)[-_:]?2(?:[._-]?0)(?:$|[-_:])/.test(normalized)) return 'seedance-2.0'
   if (/(^|\/)(?:seedance|doubao-seedance)(?:$|[-_:])/.test(normalized)) return 'seedance'
   if (/(^|\/)gemini-omni-flash(?:$|[-_:])/.test(normalized)) return 'gemini-omni-flash'
   return 'default'
@@ -66,13 +70,23 @@ export function playgroundVideoModelRule(model: string, referenceImageCount = 0)
         maxReferenceVideos: 0,
         supportsFramePair: false
       }
-    case 'kling':
+    case 'kling-video':
       return {
         kind,
         durations: [5, 10, 15],
         resolutions: ['720p', '1080p'],
         aspectRatios: DEFAULT_ASPECT_RATIOS,
         maxReferenceImages: 2,
+        maxReferenceVideos: 0,
+        supportsFramePair: true
+      }
+    case 'kling-omni-video':
+      return {
+        kind,
+        durations: [5, 10, 15],
+        resolutions: ['720p', '1080p'],
+        aspectRatios: DEFAULT_ASPECT_RATIOS,
+        maxReferenceImages: 3,
         maxReferenceVideos: 0,
         supportsFramePair: true
       }

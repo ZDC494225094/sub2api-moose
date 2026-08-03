@@ -37,11 +37,18 @@ describe('playgroundVideoModelRules', () => {
   })
 
   it('exposes Kling and Seedance frame-pair duration rules', () => {
-    const kling = playgroundVideoModelRule('kling-v1-6')
-    expect(kling.kind).toBe('kling')
-    expect(kling.durations).toEqual([5, 10, 15])
-    expect(kling.supportsFramePair).toBe(true)
+    const klingVideo = playgroundVideoModelRule('kling-v1-6')
+    expect(klingVideo.kind).toBe('kling-video')
+    expect(klingVideo.durations).toEqual([5, 10, 15])
+    expect(klingVideo.maxReferenceImages).toBe(2)
+    expect(klingVideo.supportsFramePair).toBe(true)
     expect(normalizePlaygroundVideoDuration('keling-v1-6', 8)).toBe(10)
+
+    const klingOmni = playgroundVideoModelRule('kling-omni-video')
+    expect(klingOmni.kind).toBe('kling-omni-video')
+    expect(klingOmni.durations).toEqual([5, 10, 15])
+    expect(klingOmni.maxReferenceImages).toBe(3)
+    expect(klingOmni.supportsFramePair).toBe(true)
 
     const seedance20 = playgroundVideoModelRule('doubao-seedance-2.0')
     expect(seedance20.kind).toBe('seedance-2.0')
@@ -58,9 +65,18 @@ describe('playgroundVideoModelRules', () => {
   it('recognizes supported model aliases without changing unknown models', () => {
     expect(playgroundVideoModelKind('models/grok-video-10-fast')).toBe('grok-video-10')
     expect(playgroundVideoModelKind('grok-video-r')).toBe('grok-video-r')
-    expect(playgroundVideoModelKind('kling-v1-6')).toBe('kling')
+    expect(playgroundVideoModelKind('kling-v1-6')).toBe('kling-video')
+    expect(playgroundVideoModelKind('kling-omni-video')).toBe('kling-omni-video')
+    expect(playgroundVideoModelKind('keling-omni-video')).toBe('kling-omni-video')
     expect(playgroundVideoModelKind('doubao-seedance-2.0')).toBe('seedance-2.0')
     expect(playgroundVideoModelKind('doubao-seedance-2.5')).toBe('seedance-2.5')
+    // SD 缩写支持（区分 Stable Diffusion）
+    expect(playgroundVideoModelKind('sd-2-5')).toBe('seedance-2.5')
+    expect(playgroundVideoModelKind('sd-2-0')).toBe('seedance-2.0')
+    expect(playgroundVideoModelKind('doubao-seedance-2-0-260128-1080p')).toBe('seedance-2.0')
+    // Stable Diffusion 不应被识别为视频模型
+    expect(playgroundVideoModelKind('sd-xl')).toBe('default')
+    expect(playgroundVideoModelKind('sd-1.5')).toBe('default')
     expect(playgroundVideoModelKind('other-video')).toBe('default')
   })
 })
