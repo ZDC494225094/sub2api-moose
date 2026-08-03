@@ -982,6 +982,23 @@ func TestPlaygroundVideoGenerationPayloadMapsConfigByProvider(t *testing.T) {
 		}
 	})
 
+	t.Run("frame pair video", func(t *testing.T) {
+		request.Images = []PlaygroundRunImageInput{
+			{Type: "image/png", DataURL: "data:image/png;base64,QUJD", Frame: "first"},
+			{Type: "image/png", DataURL: "data:image/png;base64,REVG", Frame: "last"},
+		}
+		payload, err := playgroundVideoGenerationPayload(request, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := payload["image"]; got != "data:image/png;base64,QUJD" {
+			t.Fatalf("first frame = %#v", got)
+		}
+		if got := payload["image_tail"]; got != "data:image/png;base64,REVG" {
+			t.Fatalf("last frame = %#v", got)
+		}
+	})
+
 	t.Run("Gemini Omni reference images and video", func(t *testing.T) {
 		request.Model = "gemini-omni-flash"
 		request.ReferenceVideo = &PlaygroundRunVideoInput{
@@ -1031,6 +1048,43 @@ func TestNormalizePlaygroundVideoRequestAppliesNamedModelRules(t *testing.T) {
 		}
 		if err := normalizePlaygroundVideoRequest(&request); err == nil {
 			t.Fatal("expected reference image limit error")
+		}
+	})
+
+	t.Run("kling accepts five, ten, or fifteen seconds", func(t *testing.T) {
+		request := PlaygroundRunRequest{Model: "kling-v1", Duration: 8}
+		if err := normalizePlaygroundVideoRequest(&request); err == nil {
+			t.Fatal("expected Kling duration validation error")
+		}
+		request.Duration = 15
+		if err := normalizePlaygroundVideoRequest(&request); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("Seedance supports a two to twelve second frame pair", func(t *testing.T) {
+		request := PlaygroundRunRequest{Model: "doubao-seedance-1-5-pro", Duration: 12, Images: []PlaygroundRunImageInput{
+			{DataURL: "data:image/png;base64,QUJD", Frame: "first"},
+			{DataURL: "data:image/png;base64,REVG", Frame: "last"},
+		}}
+		if err := normalizePlaygroundVideoRequest(&request); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("Seedance 2.0 and 2.5 use their versioned duration limits", func(t *testing.T) {
+		request := PlaygroundRunRequest{Model: "doubao-seedance-2.0", Duration: 15}
+		if err := normalizePlaygroundVideoRequest(&request); err != nil {
+			t.Fatal(err)
+		}
+		request.Duration = 16
+		if err := normalizePlaygroundVideoRequest(&request); err == nil {
+			t.Fatal("expected Seedance 2.0 duration validation error")
+		}
+		request.Model = "doubao-seedance-2.5"
+		request.Duration = 30
+		if err := normalizePlaygroundVideoRequest(&request); err != nil {
+			t.Fatal(err)
 		}
 	})
 

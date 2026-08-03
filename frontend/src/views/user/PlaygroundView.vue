@@ -1019,14 +1019,26 @@
 
               <section v-else-if="activeComposerPanel === 'video' && mode === 'video'" class="composer-image-panel composer-video-panel" :aria-label="t('playground.composerVideoGeneration')">
                 <div class="video-option-field">
-                  <span>{{ t('playground.videoDuration') }}</span>
-                  <Select
-                    v-model="videoDuration"
-                    class="image-option-select"
-                    :options="videoDurationSelectOptions"
-                    :searchable="false"
+                  <div class="flex items-center justify-between gap-2">
+                    <span>{{ t('playground.videoDuration') }}</span>
+                    <output class="font-semibold tabular-nums text-slate-700 dark:text-dark-100">
+                      {{ t('playground.videoSeconds', { count: videoDuration }) }}
+                    </output>
+                  </div>
+                  <input
+                    type="range"
+                    class="video-duration-slider"
+                    :min="videoDurationSliderMin"
+                    :max="videoDurationSliderMax"
+                    step="1"
+                    :value="videoDuration"
                     :aria-label="t('playground.videoDuration')"
-                  />
+                    @input="setVideoDurationFromSlider"
+                  >
+                  <div class="flex justify-between text-[11px] text-slate-400 dark:text-dark-500">
+                    <span>{{ t('playground.videoSeconds', { count: videoDurationSliderMin }) }}</span>
+                    <span>{{ t('playground.videoSeconds', { count: videoDurationSliderMax }) }}</span>
+                  </div>
                 </div>
                 <div class="video-option-field">
                   <span>{{ t('playground.videoResolution') }}</span>
@@ -1052,9 +1064,57 @@
 
             </div>
 
-            <div v-if="pendingAttachments.length" class="mb-2 flex flex-wrap gap-2 px-1">
+            <div
+              v-if="mode === 'video' && videoModelRule.supportsFramePair"
+              class="mb-2 grid gap-2 px-1"
+            >
+              <input ref="videoFrameInput" type="file" accept="image/*" class="hidden" @change="handleVideoFrameFileChange">
+              <div class="flex items-center justify-between gap-2 text-xs font-medium text-slate-600 dark:text-dark-300">
+                <span>{{ t('playground.videoFrameMode') }}</span>
+                <span class="text-[11px] font-normal text-slate-400 dark:text-dark-500">{{ t('playground.videoFrameModeHint') }}</span>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <div v-for="slot in videoFrameUploadSlots" :key="slot.role" class="group relative h-14 w-14">
+                  <button
+                    type="button"
+                    class="flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50 text-slate-500 transition hover:border-sky-400 hover:bg-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-300 dark:border-dark-600 dark:bg-dark-900/60 dark:text-dark-400 dark:hover:border-sky-500 dark:hover:bg-sky-950/30 dark:focus:ring-sky-800"
+                    :class="slot.attachment ? 'border-solid' : ''"
+                    :title="slot.attachment ? slot.attachment.name : `${slot.label} · ${t('playground.uploadFile')}`"
+                    :aria-label="slot.attachment ? `${slot.label}: ${slot.attachment.name}` : `${slot.label} · ${t('playground.uploadFile')}`"
+                    @click="openVideoFrameFilePicker(slot.role)"
+                  >
+                    <img
+                      v-if="slot.attachment && attachmentPreviewUrl(slot.attachment)"
+                      :src="attachmentPreviewUrl(slot.attachment)"
+                      :alt="slot.label"
+                      class="h-full w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                    >
+                    <template v-else>
+                      <Icon name="plus" size="xs" />
+                    </template>
+                    <span class="pointer-events-none absolute inset-x-0 bottom-0 bg-black/55 px-1 py-0.5 text-center text-[10px] leading-none text-white">
+                      {{ slot.label }}
+                    </span>
+                  </button>
+                  <button
+                    v-if="slot.attachment"
+                    type="button"
+                    class="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition hover:bg-black/80 focus:opacity-100 group-hover:opacity-100"
+                    :title="t('common.delete')"
+                    :aria-label="`${t('common.delete')} ${slot.label}`"
+                    @click="removeVideoFrame(slot.role)"
+                  >
+                    <Icon name="x" size="xs" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="displayPendingAttachments.length" class="mb-2 flex flex-wrap gap-2 px-1">
               <span
-                v-for="attachment in pendingAttachments"
+                v-for="attachment in displayPendingAttachments"
                 :key="attachment.id"
                 class="playground-pending-attachment"
                 :class="attachment.kind === 'image' && attachmentPreviewUrl(attachment) ? 'playground-pending-attachment-image' : ''"
@@ -1288,7 +1348,25 @@
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
                 <label class="input-label">{{ t('playground.videoDuration') }}</label>
-                <Select v-model="videoDuration" :options="videoDurationSelectOptions" :searchable="false" />
+                <div class="mt-1 flex items-center justify-between gap-2">
+                  <output class="text-sm font-semibold tabular-nums text-slate-700 dark:text-dark-100">
+                    {{ t('playground.videoSeconds', { count: videoDuration }) }}
+                  </output>
+                </div>
+                <input
+                  type="range"
+                  class="video-duration-slider mt-2"
+                  :min="videoDurationSliderMin"
+                  :max="videoDurationSliderMax"
+                  step="1"
+                  :value="videoDuration"
+                  :aria-label="t('playground.videoDuration')"
+                  @input="setVideoDurationFromSlider"
+                >
+                <div class="mt-1 flex justify-between text-[11px] text-slate-400 dark:text-dark-500">
+                  <span>{{ t('playground.videoSeconds', { count: videoDurationSliderMin }) }}</span>
+                  <span>{{ t('playground.videoSeconds', { count: videoDurationSliderMax }) }}</span>
+                </div>
               </div>
               <div>
                 <label class="input-label">{{ t('playground.videoResolution') }}</label>
@@ -2074,6 +2152,7 @@ import type { ApiKey, GroupPlatform } from '@/types'
 type PlaygroundMode = 'chat' | 'image' | 'video' | 'audio'
 type MessageRole = 'user' | 'assistant'
 type AttachmentKind = 'image' | 'video' | 'text' | 'file'
+type PlaygroundVideoFrameRole = 'first' | 'last' | 'reference'
 type IconName = InstanceType<typeof Icon>['$props']['name']
 type ImageSizeMode = 'auto' | 'ratio' | 'custom'
 type ImageResolution = '1K' | '2K' | '4K'
@@ -2129,6 +2208,7 @@ interface PlaygroundAttachment {
   storageId?: string
   thumbnailUrl?: string
   durationSeconds?: number
+  videoFrameRole?: PlaygroundVideoFrameRole
   text?: string
 }
 
@@ -2268,6 +2348,8 @@ interface PlaygroundVideoConfig {
   duration: number
   resolution: VideoResolution
   aspectRatio: string
+  firstFrame?: boolean
+  lastFrame?: boolean
 }
 
 interface PlaygroundStoredImageResult extends PlaygroundImageResult {
@@ -2422,6 +2504,7 @@ const activeThreadId = ref('')
 const historySearch = ref('')
 const mobileHistoryOpen = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
+const videoFrameInput = ref<HTMLInputElement | null>(null)
 const composerTextarea = ref<HTMLTextAreaElement | null>(null)
 const historyImportInput = ref<HTMLInputElement | null>(null)
 const messageScroller = ref<HTMLElement | null>(null)
@@ -2488,6 +2571,11 @@ const runAbortControllers = new Map<string, PlaygroundRunHandle>()
 const runRecoveryTimers = new Map<string, number>()
 const runRecoveryAttempts = new Map<string, number>()
 let persistTimer: number | undefined
+const pendingVideoFrameRole = ref<Extract<PlaygroundVideoFrameRole, 'first' | 'last'> | null>(null)
+// IndexedDB writes can involve image/blob reads. Serialize them so an older
+// snapshot cannot finish after a newer completed-run snapshot and restore a
+// message to its generating state.
+let playgroundPersistenceQueue: Promise<void> = Promise.resolve()
 let restoringState = false
 let persistenceReady = false
 let playgroundViewMounted = false
@@ -2798,7 +2886,9 @@ const playgroundNotice = computed(() => {
 
 const chatModels = computed(() => models.value.filter((model) => model.id && !isImageModel(model.id) && !isVideoModel(model.id) && !isAudioModel(model.id)))
 const imageModels = computed(() => models.value.filter((model) => model.id && isImageModel(model.id)))
-const videoModels = computed(() => models.value.filter((model) => model.id && isVideoModel(model.id)))
+const videoModels = computed(() => models.value
+  .filter((model) => model.id && !isAudioModel(model.id) && (isVideoModel(model.id) || !isImageModel(model.id)))
+  .sort((left, right) => Number(isVideoModel(right.id)) - Number(isVideoModel(left.id))))
 const audioModels = computed(() => models.value.filter((model) => model.id && isAudioModel(model.id)))
 const visibleModels = computed(() => {
   if (mode.value === 'image') return imageModels.value
@@ -2830,11 +2920,28 @@ const imageQualitySettingOptions = computed<SelectOption[]>(() => [
 
 const videoReferenceImageCount = computed(() => pendingAttachments.value.filter((attachment) => attachment.kind === 'image').length)
 const videoModelRule = computed(() => playgroundVideoModelRule(effectiveModel.value, videoReferenceImageCount.value))
+const videoFrameUploadSlots = computed(() => ([
+  {
+    role: 'first' as const,
+    label: t('playground.videoFirstFrame'),
+    attachment: videoFrameAttachmentForRole('first')
+  },
+  {
+    role: 'last' as const,
+    label: t('playground.videoLastFrame'),
+    attachment: videoFrameAttachmentForRole('last')
+  }
+]))
+const displayPendingAttachments = computed(() => {
+  if (mode.value !== 'video' || !videoModelRule.value.supportsFramePair) return pendingAttachments.value
+  const frameAttachmentIDs = new Set(videoFrameUploadSlots.value
+    .map((slot) => slot.attachment?.id)
+    .filter((id): id is string => Boolean(id)))
+  return pendingAttachments.value.filter((attachment) => !frameAttachmentIDs.has(attachment.id))
+})
 
-const videoDurationSelectOptions = computed<SelectOption[]>(() => videoModelRule.value.durations.map((seconds) => ({
-  value: seconds,
-  label: t('playground.videoSeconds', { count: seconds })
-})))
+const videoDurationSliderMin = computed(() => videoModelRule.value.durations[0] || 1)
+const videoDurationSliderMax = computed(() => videoModelRule.value.durations.at(-1) || videoDurationSliderMin.value)
 
 const videoResolutionSelectOptions = computed<SelectOption[]>(() => videoModelRule.value.resolutions.map((resolution) => ({
   value: resolution,
@@ -3221,7 +3328,7 @@ function platformForModel(modelID: string, owner?: string, fallbackPlatform: Gro
   if (source.includes('grok') || source.includes('xai') || source.includes('x.ai')) return 'grok'
   if (source.includes('gemini') || source.includes('google') || /(^|[-_/])veo([\d-]|$)/i.test(source)) return 'gemini'
   if (source.includes('antigravity')) return 'antigravity'
-  if (/(\bgpt\b|gpt-|^o\d|dall-e|openai|image|seedance|doubao)/i.test(source)) return 'openai'
+  if (/(\bgpt\b|gpt-|^o\d|dall-e|openai|image|seedance|doubao|kling|keling)/i.test(source)) return 'openai'
   return isGroupPlatform(fallbackPlatform) ? fallbackPlatform : undefined
 }
 
@@ -3231,11 +3338,11 @@ function messagePlatform(message: PlaygroundMessage): GroupPlatform | undefined 
 }
 
 function isImageModel(model: string): boolean {
-  return /(^|[-_])(image|dall-e|flux|sd|midjourney)/i.test(model) || /^gpt-image-/i.test(model)
+  return /(^|[-_])(image|dall-e|flux|sd|midjourney)(?:$|[-_])/i.test(model) || /^gpt-image-/i.test(model)
 }
 
 function isVideoModel(model: string): boolean {
-  return /(^|[-_])(video|sora|gen-|veo-|seedance|doubao)/i.test(model) || /grok-imagine-video|gemini-omni-flash/i.test(model)
+  return /(^|[-_])(video|sora|gen-|veo-|seedance|doubao|kling|keling)/i.test(model) || /grok-imagine-video|gemini-omni-flash/i.test(model)
 }
 
 function isAudioModel(model: string): boolean {
@@ -4351,6 +4458,12 @@ function applyPlaygroundPayload(payload: Record<string, unknown>) {
   composerInputHeight.value = composerManualInputHeight.value
 }
 
+function queuePlaygroundPersistence(task: () => Promise<void>): Promise<void> {
+  const queued = playgroundPersistenceQueue.then(task, task)
+  playgroundPersistenceQueue = queued.catch(() => undefined)
+  return queued
+}
+
 async function writePlaygroundStateNow(requireDurablePersistence = false) {
   if (restoringState) {
     if (requireDurablePersistence) throw new Error('Playground state is still restoring')
@@ -4360,71 +4473,75 @@ async function writePlaygroundStateNow(requireDurablePersistence = false) {
     window.clearTimeout(persistTimer)
     persistTimer = undefined
   }
-  ensureImageStorageIds()
-  const imageBatch = await collectPersistedImagesFromThreads()
-  const attachmentBatch = await collectPersistedAttachmentsFromThreads()
-  const payload = buildPlaygroundPayload()
-  let assetsPersisted = false
-  let databaseStatePersisted = false
-  let persistenceError: unknown
-  try {
-    await savePlaygroundImagesToDB([...imageBatch.records, ...attachmentBatch.records])
-    assetsPersisted = true
-    imageBatch.applyThumbnails()
-    attachmentBatch.applyThumbnails()
-    attachmentBatch.markPersisted()
-    await savePlaygroundStateToDB(payload)
-    databaseStatePersisted = true
-    localStorage.setItem(storageKey(), JSON.stringify(buildLocalStoragePayload(payload)))
-    window.dispatchEvent(new CustomEvent(PLAYGROUND_STATE_UPDATED_EVENT, { detail: { key: storageKey(), source: playgroundInstanceId } }))
-  } catch (error) {
-    persistenceError = error
-    console.warn('Failed to persist playground state:', error)
+  return queuePlaygroundPersistence(async () => {
+    ensureImageStorageIds()
+    const imageBatch = await collectPersistedImagesFromThreads()
+    const attachmentBatch = await collectPersistedAttachmentsFromThreads()
+    const payload = buildPlaygroundPayload()
+    let assetsPersisted = false
+    let databaseStatePersisted = false
+    let persistenceError: unknown
     try {
+      await savePlaygroundImagesToDB([...imageBatch.records, ...attachmentBatch.records])
+      assetsPersisted = true
+      imageBatch.applyThumbnails()
+      attachmentBatch.applyThumbnails()
+      attachmentBatch.markPersisted()
+      await savePlaygroundStateToDB(payload)
+      databaseStatePersisted = true
       localStorage.setItem(storageKey(), JSON.stringify(buildLocalStoragePayload(payload)))
-    } catch (fallbackError) {
-      console.warn('Failed to persist playground fallback state:', fallbackError)
+      window.dispatchEvent(new CustomEvent(PLAYGROUND_STATE_UPDATED_EVENT, { detail: { key: storageKey(), source: playgroundInstanceId } }))
+    } catch (error) {
+      persistenceError = error
+      console.warn('Failed to persist playground state:', error)
+      try {
+        localStorage.setItem(storageKey(), JSON.stringify(buildLocalStoragePayload(payload)))
+      } catch (fallbackError) {
+        console.warn('Failed to persist playground fallback state:', fallbackError)
+      }
     }
-  }
-  if (requireDurablePersistence && (!assetsPersisted || !databaseStatePersisted)) {
-    throw persistenceError instanceof Error ? persistenceError : new Error('Failed to persist playground state')
-  }
+    if (requireDurablePersistence && (!assetsPersisted || !databaseStatePersisted)) {
+      throw persistenceError instanceof Error ? persistenceError : new Error('Failed to persist playground state')
+    }
+  })
 }
 
 async function persistCompletedImageMessage(thread: PlaygroundThread, assistantMessage: PlaygroundMessage) {
-  try {
-    const imageRecords = await persistImageMessageAssets(assistantMessage)
-    const currentPayload = await loadPlaygroundStateFromDB().catch(() => null)
-    const basePayload = currentPayload || buildPlaygroundPayload()
-    const persistedMessage = serializeMessageForPersistence(assistantMessage)
-    let foundThread = false
-    const nextPayload: PlaygroundPersistedPayload = {
-      ...basePayload,
-      savedAt: Date.now(),
-      threads: basePayload.threads.map((savedThread) => {
-        if (savedThread.id !== thread.id) return savedThread
-        foundThread = true
-        const hasMessage = savedThread.messages.some((message) => message.id === assistantMessage.id)
-        return {
-          ...savedThread,
-          running: false,
-          updatedAt: thread.updatedAt,
-          lastRunError: thread.lastRunError,
-          unreadCount: thread.unreadCount,
-          messages: hasMessage
-            ? savedThread.messages.map((message) => message.id === assistantMessage.id ? persistedMessage : message)
-            : [...savedThread.messages, persistedMessage]
-        }
-      })
+  return queuePlaygroundPersistence(async () => {
+    try {
+      const imageRecords = await persistImageMessageAssets(assistantMessage)
+      const currentPayload = await loadPlaygroundStateFromDB().catch(() => null)
+      const basePayload = currentPayload || buildPlaygroundPayload()
+      const persistedMessage = serializeMessageForPersistence(assistantMessage)
+      let foundThread = false
+      const nextPayload: PlaygroundPersistedPayload = {
+        ...basePayload,
+        savedAt: Date.now(),
+        threads: basePayload.threads.map((savedThread) => {
+          if (savedThread.id !== thread.id) return savedThread
+          foundThread = true
+          const hasMessage = savedThread.messages.some((message) => message.id === assistantMessage.id)
+          return {
+            ...savedThread,
+            running: false,
+            updatedAt: thread.updatedAt,
+            lastRunError: thread.lastRunError,
+            unreadCount: thread.unreadCount,
+            messages: hasMessage
+              ? savedThread.messages.map((message) => message.id === assistantMessage.id ? persistedMessage : message)
+              : [...savedThread.messages, persistedMessage]
+          }
+        })
+      }
+      if (!foundThread) return
+      await savePlaygroundImagesToDB(imageRecords)
+      await savePlaygroundStateToDB(nextPayload)
+      localStorage.setItem(storageKey(), JSON.stringify(buildLocalStoragePayload(nextPayload)))
+      window.dispatchEvent(new CustomEvent(PLAYGROUND_STATE_UPDATED_EVENT, { detail: { key: storageKey(), source: playgroundInstanceId } }))
+    } catch (error) {
+      console.warn('Failed to persist completed playground image message:', error)
     }
-    if (!foundThread) return
-    await savePlaygroundImagesToDB(imageRecords)
-    await savePlaygroundStateToDB(nextPayload)
-    localStorage.setItem(storageKey(), JSON.stringify(buildLocalStoragePayload(nextPayload)))
-    window.dispatchEvent(new CustomEvent(PLAYGROUND_STATE_UPDATED_EVENT, { detail: { key: storageKey(), source: playgroundInstanceId } }))
-  } catch (error) {
-    console.warn('Failed to persist completed playground image message:', error)
-  }
+  })
 }
 
 function persistPlaygroundState() {
@@ -5254,6 +5371,7 @@ function imageInputToReusableAttachment(image: PlaygroundImageInput, index: numb
     size: 0,
     kind: 'image',
     dataUrl: image.dataUrl,
+    videoFrameRole: image.frame,
     storageId: storageId || undefined
   }
 }
@@ -6891,6 +7009,86 @@ function buildImageEditInputs(attachments: PlaygroundAttachment[]): PlaygroundIm
     }))
 }
 
+function videoFrameRoleForAttachment(attachment: PlaygroundAttachment): PlaygroundVideoFrameRole {
+  if (attachment.videoFrameRole === 'first' || attachment.videoFrameRole === 'last' || attachment.videoFrameRole === 'reference') {
+    return attachment.videoFrameRole
+  }
+  const imageAttachments = pendingAttachments.value.filter((item) => item.kind === 'image')
+  const index = imageAttachments.findIndex((item) => item.id === attachment.id)
+  if (videoModelRule.value.supportsFramePair && index === 0) return 'first'
+  if (videoModelRule.value.supportsFramePair && index === 1) return 'last'
+  return 'reference'
+}
+
+function videoFrameAttachmentForRole(role: Extract<PlaygroundVideoFrameRole, 'first' | 'last'>): PlaygroundAttachment | undefined {
+  return pendingAttachments.value.find((attachment) => (
+    attachment.kind === 'image' && videoFrameRoleForAttachment(attachment) === role
+  ))
+}
+
+function openVideoFrameFilePicker(role: Extract<PlaygroundVideoFrameRole, 'first' | 'last'>) {
+  if (mode.value !== 'video' || !videoModelRule.value.supportsFramePair) return
+  pendingVideoFrameRole.value = role
+  videoFrameInput.value?.click()
+}
+
+async function handleVideoFrameFileChange(event: Event) {
+  const input = event.target instanceof HTMLInputElement ? event.target : null
+  const file = input?.files?.[0]
+  const role = pendingVideoFrameRole.value
+  pendingVideoFrameRole.value = null
+  if (input) input.value = ''
+  if (!file || !role) return
+  if (!file.type.startsWith('image/')) {
+    appStore.showError(t('playground.imageFilesOnly'))
+    return
+  }
+
+  const existing = videoFrameAttachmentForRole(role)
+  const maxImages = videoModelRule.value.maxReferenceImages
+  const imageCount = pendingAttachments.value.filter((attachment) => attachment.kind === 'image').length
+  if (!existing && maxImages !== null && imageCount >= maxImages) {
+    appStore.showError(t('playground.videoReferenceImageLimit', { count: maxImages }))
+    return
+  }
+
+  const attachment = await readFile(file)
+  attachment.videoFrameRole = role
+  if (existing) revokeAttachmentObjectURLs([existing])
+  pendingAttachments.value = [
+    ...pendingAttachments.value.filter((item) => item.id !== existing?.id),
+    attachment
+  ]
+  persistPlaygroundState()
+}
+
+function removeVideoFrame(role: Extract<PlaygroundVideoFrameRole, 'first' | 'last'>) {
+  const attachment = videoFrameAttachmentForRole(role)
+  if (!attachment) return
+  removeAttachment(attachment.id)
+}
+
+function setVideoDurationFromSlider(event: Event) {
+  const target = event.target instanceof HTMLInputElement ? event.target : null
+  if (!target) return
+  videoDuration.value = normalizePlaygroundVideoDuration(
+    effectiveModel.value,
+    Number(target.value),
+    videoReferenceImageCount.value
+  )
+  persistPlaygroundState()
+}
+
+function buildVideoImageInputs(attachments: PlaygroundAttachment[], model: string): PlaygroundImageInput[] {
+  const images = buildImageEditInputs(attachments)
+  if (!playgroundVideoModelRule(model, images.length).supportsFramePair) return images
+  const imageAttachments = attachments.filter((attachment) => attachment.kind === 'image')
+  return images.map((image, index) => ({
+    ...image,
+    frame: videoFrameRoleForAttachment(imageAttachments[index])
+  }))
+}
+
 function buildVideoReferenceInput(attachments: PlaygroundAttachment[]): PlaygroundVideoInput | undefined {
   const attachment = attachments.find((item) => item.kind === 'video' && item.dataUrl?.startsWith('data:video/'))
   if (!attachment?.dataUrl) return undefined
@@ -7579,7 +7777,7 @@ async function runVideoGeneration(
     model: context.model,
     prompt,
     n: 1,
-    images: buildImageEditInputs(attachments),
+    images: buildVideoImageInputs(attachments, context.model),
     referenceVideo: buildVideoReferenceInput(attachments),
     duration: context.videoDuration,
     resolution: context.videoResolution,
@@ -7595,7 +7793,9 @@ async function runVideoGeneration(
     videoConfig: {
       duration: context.videoDuration,
       resolution: context.videoResolution,
-      aspectRatio: context.videoAspectRatio
+      aspectRatio: context.videoAspectRatio,
+      firstFrame: attachments.some((attachment) => attachment.kind === 'image' && videoFrameRoleForAttachment(attachment) === 'first'),
+      lastFrame: attachments.some((attachment) => attachment.kind === 'image' && videoFrameRoleForAttachment(attachment) === 'last')
     },
     progress: t('playground.generatingVideo'),
     pending: true,
@@ -8472,6 +8672,17 @@ onBeforeUnmount(() => {
 
 .dark .video-option-field > span {
   color: rgb(148 163 184);
+}
+
+.video-duration-slider {
+  width: 100%;
+  height: 1.125rem;
+  cursor: grab;
+  accent-color: rgb(14 165 233);
+}
+
+.video-duration-slider:active {
+  cursor: grabbing;
 }
 
 .composer-more-action {

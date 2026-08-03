@@ -36,9 +36,31 @@ describe('playgroundVideoModelRules', () => {
     expect(validateGeminiOmniPrompt('人物缓慢走入雨夜街道')).toBeNull()
   })
 
+  it('exposes Kling and Seedance frame-pair duration rules', () => {
+    const kling = playgroundVideoModelRule('kling-v1-6')
+    expect(kling.kind).toBe('kling')
+    expect(kling.durations).toEqual([5, 10, 15])
+    expect(kling.supportsFramePair).toBe(true)
+    expect(normalizePlaygroundVideoDuration('keling-v1-6', 8)).toBe(10)
+
+    const seedance20 = playgroundVideoModelRule('doubao-seedance-2.0')
+    expect(seedance20.kind).toBe('seedance-2.0')
+    expect(seedance20.durations[0]).toBe(4)
+    expect(seedance20.durations.at(-1)).toBe(15)
+    expect(seedance20.supportsFramePair).toBe(true)
+
+    const seedance25 = playgroundVideoModelRule('seedance-2-5-pro')
+    expect(seedance25.kind).toBe('seedance-2.5')
+    expect(seedance25.durations[0]).toBe(4)
+    expect(seedance25.durations.at(-1)).toBe(30)
+  })
+
   it('recognizes supported model aliases without changing unknown models', () => {
     expect(playgroundVideoModelKind('models/grok-video-10-fast')).toBe('grok-video-10')
     expect(playgroundVideoModelKind('grok-video-r')).toBe('grok-video-r')
+    expect(playgroundVideoModelKind('kling-v1-6')).toBe('kling')
+    expect(playgroundVideoModelKind('doubao-seedance-2.0')).toBe('seedance-2.0')
+    expect(playgroundVideoModelKind('doubao-seedance-2.5')).toBe('seedance-2.5')
     expect(playgroundVideoModelKind('other-video')).toBe('default')
   })
 })

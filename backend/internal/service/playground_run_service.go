@@ -80,6 +80,7 @@ type PlaygroundRunImageInput struct {
 	Name    string `json:"name"`
 	Type    string `json:"type"`
 	DataURL string `json:"dataUrl"`
+	Frame   string `json:"frame,omitempty"`
 }
 
 type PlaygroundRunVideoInput struct {
@@ -263,21 +264,47 @@ func (s *PlaygroundRunService) Get(userID int64, id string) (*PlaygroundRun, boo
 		return nil, false
 	}
 	id = strings.TrimSpace(id)
-	if run, found, err := s.loadPersistentRun(userID, id); err != nil {
-		log.Printf("playground run persistence read failed for user %d run %s: %v", userID, id, err)
-	} else if found {
-		return clonePlaygroundRunForClient(run), true
+	persistedRun, persistedFound, persistedErr := s.loadPersistentRun(userID, id)
+	if persistedErr != nil {
+		log.Printf("playground run persistence read failed for user %d run %s: %v", userID, id, persistedErr)
 	}
 	key := playgroundRunKey(userID, id)
 	s.mu.RLock()
-	run := s.runs[key]
-	if run == nil {
-		s.mu.RUnlock()
-		return nil, false
+	inMemoryRun := s.runs[key]
+	if inMemoryRun != nil {
+		inMemoryRun = clonePlaygroundRunForClient(inMemoryRun)
 	}
-	out := clonePlaygroundRunForClient(run)
 	s.mu.RUnlock()
-	return out, true
+
+	if persistedErr == nil && persistedFound && inMemoryRun != nil {
+		if playgroundRunIsNewer(inMemoryRun, persistedRun) {
+			return inMemoryRun, true
+		}
+		return clonePlaygroundRunForClient(persistedRun), true
+	}
+	if persistedErr == nil && persistedFound {
+		return clonePlaygroundRunForClient(persistedRun), true
+	}
+	if inMemoryRun != nil {
+		return inMemoryRun, true
+	}
+	return nil, false
+}
+
+func playgroundRunIsNewer(candidate, current *PlaygroundRun) bool {
+	if candidate == nil {
+		return false
+	}
+	if current == nil {
+		return true
+	}
+	if candidate.UpdatedAt.After(current.UpdatedAt) {
+		return true
+	}
+	if candidate.UpdatedAt.Before(current.UpdatedAt) {
+		return false
+	}
+	return isTerminalPlaygroundRunStatus(candidate.Status) && !isTerminalPlaygroundRunStatus(current.Status)
 }
 
 func (s *PlaygroundRunService) GetImage(userID int64, id string, index int) (PlaygroundRunImageAsset, bool, error) {
@@ -742,6 +769,8 @@ var (
 	geminiOmniPromptRatioPattern      = regexp.MustCompile(`(?i)(16[[:space:]]*[:：./比][[:space:]]*9|9[[:space:]]*[:：./比][[:space:]]*16)`)
 	geminiOmniPromptDurationPattern   = regexp.MustCompile(`(?i)([0-9]+([.][0-9]+)?[[:space:]]*(s|sec|secs|second|seconds)\b|[0-9]+([.][0-9]+)?[[:space:]]*(秒|秒钟))`)
 	geminiOmniPromptStoryboardPattern = regexp.MustCompile(`(?i)(故事板|故事版|分镜|story[[:space:]]*board|storyboard|(shot|scene)[[:space:]]*[0-9]+)`)
+	seedance20ModelPattern            = regexp.MustCompile(`(?i)(^|/)(doubao-)?seedance[-_:]?2(?:[._-]?0)(?:$|[-_:])`)
+	seedance25ModelPattern            = regexp.MustCompile(`(?i)(^|/)(doubao-)?seedance[-_:]?2(?:[._-]?5)(?:$|[-_:])`)
 )
 
 func isPlaygroundVideoModel(model, target string) bool {
@@ -758,6 +787,20 @@ func isPlaygroundVideoModel(model, target string) bool {
 		}
 	}
 	return false
+}
+
+func playgroundSeedanceModelVersion(model string) string {
+	normalized := strings.ToLower(strings.TrimSpace(model))
+	if seedance25ModelPattern.MatchString(normalized) {
+		return "2.5"
+	}
+	if seedance20ModelPattern.MatchString(normalized) {
+		return "2.0"
+	}
+	if isPlaygroundVideoModel(normalized, "seedance") || isPlaygroundVideoModel(normalized, "doubao-seedance") {
+		return "legacy"
+	}
+	return ""
 }
 
 func normalizePlaygroundVideoRequest(request *PlaygroundRunRequest) error {
@@ -799,6 +842,39 @@ func normalizePlaygroundVideoRequest(request *PlaygroundRunRequest) error {
 		}
 		if imageCount > 7 {
 			return errors.New("grok-video-r supports at most 7 reference images")
+		}
+	case isPlaygroundVideoModel(request.Model, "kling"), isPlaygroundVideoModel(request.Model, "keling"):
+		if hasReferenceVideo {
+			return errors.New("kling does not support reference videos")
+		}
+		if request.Duration == 0 {
+			request.Duration = 5
+		}
+		if request.Duration != 5 && request.Duration != 10 && request.Duration != 15 {
+			return errors.New("kling duration must be 5, 10, or 15 seconds")
+		}
+		if imageCount > 2 {
+			return errors.New("kling supports at most two frame images")
+		}
+	case playgroundSeedanceModelVersion(request.Model) != "":
+		if hasReferenceVideo {
+			return errors.New("seedance does not support reference videos")
+		}
+		if request.Duration == 0 {
+			request.Duration = 8
+		}
+		minDuration, maxDuration := 2, 12
+		switch playgroundSeedanceModelVersion(request.Model) {
+		case "2.0":
+			minDuration, maxDuration = 4, 15
+		case "2.5":
+			minDuration, maxDuration = 4, 30
+		}
+		if request.Duration < minDuration || request.Duration > maxDuration {
+			return fmt.Errorf("seedance duration must be between %d and %d seconds", minDuration, maxDuration)
+		}
+		if imageCount > 2 {
+			return errors.New("seedance supports at most two frame images")
 		}
 	case isPlaygroundVideoModel(request.Model, "gemini-omni-flash"):
 		if request.Duration == 0 {
@@ -904,16 +980,42 @@ func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo 
 		}, nil
 	}
 	payload := map[string]any{"model": request.Model, "prompt": request.Prompt, "n": 1}
-	if len(images) == 1 {
-		// Keep the shared video contract compatible with relays whose request
-		// structs define image as a string. Native xAI and Ark adapters convert
-		// this value to their provider-specific object shapes before forwarding.
-		payload["image"] = images[0].DataURL
-	} else if len(images) > 1 {
-		referenceImages := make([]string, 0, len(images))
-		for _, image := range images {
-			referenceImages = append(referenceImages, image.DataURL)
+	firstFrame := ""
+	lastFrame := ""
+	referenceImages := make([]string, 0, len(images))
+	for _, image := range images {
+		imageURL := strings.TrimSpace(image.DataURL)
+		if imageURL == "" {
+			continue
 		}
+		switch strings.ToLower(strings.TrimSpace(image.Frame)) {
+		case "first":
+			if firstFrame == "" {
+				firstFrame = imageURL
+			}
+		case "last", "tail":
+			if lastFrame == "" {
+				lastFrame = imageURL
+			}
+		default:
+			referenceImages = append(referenceImages, imageURL)
+		}
+	}
+	if firstFrame != "" || lastFrame != "" {
+		// Keep the shared contract string-based. Kling consumes image/image_tail
+		// directly, while the Ark adapter converts them to first/last_frame parts.
+		if firstFrame != "" {
+			payload["image"] = firstFrame
+		}
+		if lastFrame != "" {
+			payload["image_tail"] = lastFrame
+		}
+		if len(referenceImages) > 0 {
+			payload["reference_images"] = referenceImages
+		}
+	} else if len(referenceImages) == 1 {
+		payload["image"] = referenceImages[0]
+	} else if len(referenceImages) > 1 {
 		payload["reference_images"] = referenceImages
 	}
 	if request.ReferenceVideo != nil && strings.TrimSpace(request.ReferenceVideo.DataURL) != "" {

@@ -3,6 +3,10 @@ export type PlaygroundVideoResolution = '480p' | '720p' | '1080p'
 export type PlaygroundVideoModelKind =
   | 'grok-video-10'
   | 'grok-video-r'
+  | 'kling'
+  | 'seedance-2.0'
+  | 'seedance-2.5'
+  | 'seedance'
   | 'gemini-omni-flash'
   | 'default'
 
@@ -15,6 +19,7 @@ export interface PlaygroundVideoModelRule {
   aspectRatios: string[]
   maxReferenceImages: number | null
   maxReferenceVideos: number
+  supportsFramePair: boolean
 }
 
 const DEFAULT_DURATIONS = [4, 5, 6, 8, 10]
@@ -30,6 +35,10 @@ export function playgroundVideoModelKind(model: string): PlaygroundVideoModelKin
   const normalized = model.trim().toLowerCase()
   if (/(^|\/)grok-video-10(?:$|[-_:])/.test(normalized)) return 'grok-video-10'
   if (/(^|\/)grok-video-r(?:$|[-_:])/.test(normalized)) return 'grok-video-r'
+  if (/(^|\/)(?:kling|keling|kling-video)(?:$|[-_:])/.test(normalized)) return 'kling'
+  if (/(^|\/)(?:doubao-)?seedance[-_:]?2(?:[._-]?5)(?:$|[-_:])/.test(normalized)) return 'seedance-2.5'
+  if (/(^|\/)(?:doubao-)?seedance[-_:]?2(?:[._-]?0)(?:$|[-_:])/.test(normalized)) return 'seedance-2.0'
+  if (/(^|\/)(?:seedance|doubao-seedance)(?:$|[-_:])/.test(normalized)) return 'seedance'
   if (/(^|\/)gemini-omni-flash(?:$|[-_:])/.test(normalized)) return 'gemini-omni-flash'
   return 'default'
 }
@@ -44,7 +53,8 @@ export function playgroundVideoModelRule(model: string, referenceImageCount = 0)
         resolutions: ['480p', '720p'],
         aspectRatios: GROK_VIDEO_10_ASPECT_RATIOS,
         maxReferenceImages: null,
-        maxReferenceVideos: 0
+        maxReferenceVideos: 0,
+        supportsFramePair: false
       }
     case 'grok-video-r':
       return {
@@ -53,7 +63,48 @@ export function playgroundVideoModelRule(model: string, referenceImageCount = 0)
         resolutions: DEFAULT_RESOLUTIONS,
         aspectRatios: DEFAULT_ASPECT_RATIOS,
         maxReferenceImages: 7,
-        maxReferenceVideos: 0
+        maxReferenceVideos: 0,
+        supportsFramePair: false
+      }
+    case 'kling':
+      return {
+        kind,
+        durations: [5, 10, 15],
+        resolutions: ['720p', '1080p'],
+        aspectRatios: DEFAULT_ASPECT_RATIOS,
+        maxReferenceImages: 2,
+        maxReferenceVideos: 0,
+        supportsFramePair: true
+      }
+    case 'seedance-2.0':
+      return {
+        kind,
+        durations: integerRange(4, 15),
+        resolutions: ['720p', '1080p'],
+        aspectRatios: DEFAULT_ASPECT_RATIOS,
+        maxReferenceImages: 2,
+        maxReferenceVideos: 0,
+        supportsFramePair: true
+      }
+    case 'seedance-2.5':
+      return {
+        kind,
+        durations: integerRange(4, 30),
+        resolutions: ['720p', '1080p'],
+        aspectRatios: DEFAULT_ASPECT_RATIOS,
+        maxReferenceImages: 2,
+        maxReferenceVideos: 0,
+        supportsFramePair: true
+      }
+    case 'seedance':
+      return {
+        kind,
+        durations: integerRange(2, 12),
+        resolutions: ['720p', '1080p'],
+        aspectRatios: DEFAULT_ASPECT_RATIOS,
+        maxReferenceImages: 2,
+        maxReferenceVideos: 0,
+        supportsFramePair: true
       }
     case 'gemini-omni-flash':
       return {
@@ -62,7 +113,8 @@ export function playgroundVideoModelRule(model: string, referenceImageCount = 0)
         resolutions: DEFAULT_RESOLUTIONS,
         aspectRatios: DEFAULT_ASPECT_RATIOS,
         maxReferenceImages: 5,
-        maxReferenceVideos: 1
+        maxReferenceVideos: 1,
+        supportsFramePair: false
       }
     default:
       return {
@@ -71,7 +123,8 @@ export function playgroundVideoModelRule(model: string, referenceImageCount = 0)
         resolutions: DEFAULT_RESOLUTIONS,
         aspectRatios: DEFAULT_ASPECT_RATIOS,
         maxReferenceImages: 1,
-        maxReferenceVideos: 0
+        maxReferenceVideos: 0,
+        supportsFramePair: false
       }
   }
 }

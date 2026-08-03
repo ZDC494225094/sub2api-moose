@@ -102,3 +102,21 @@ func TestNormalizeArkVideoGenerationAddsFirstFrameImage(t *testing.T) {
 		t.Fatalf("image url = %q", got)
 	}
 }
+
+func TestNormalizeArkVideoGenerationAddsLastFrameImage(t *testing.T) {
+	body, err := normalizeArkVideoGenerationBody([]byte(`{
+		"model":"doubao-seedance-1-5-pro-250528",
+		"prompt":"animate",
+		"image":"data:image/png;base64,QUJD",
+		"image_tail":"data:image/png;base64,REVG"
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := gjson.GetBytes(body, "content.2.role").String(); got != "last_frame" {
+		t.Fatalf("last image role = %q", got)
+	}
+	if got := gjson.GetBytes(body, "content.2.image_url.url").String(); got != "data:image/png;base64,REVG" {
+		t.Fatalf("last image url = %q", got)
+	}
+}

@@ -222,6 +222,16 @@ func normalizeArkVideoGenerationBody(body []byte) ([]byte, error) {
 			"role": "first_frame",
 		})
 	}
+	lastFrameURL := openAICompatibleVideoImageTailURL(body)
+	if lastFrameURL != "" {
+		content = append(content, map[string]any{
+			"type": "image_url",
+			"image_url": map[string]any{
+				"url": lastFrameURL,
+			},
+			"role": "last_frame",
+		})
+	}
 	payload := map[string]any{
 		"model":   gjson.GetBytes(body, "model").String(),
 		"content": content,
@@ -252,6 +262,25 @@ func openAICompatibleVideoImageURL(body []byte) string {
 		"image_url.url",
 		"image_url",
 		"first_frame_image",
+	} {
+		value := gjson.GetBytes(body, path)
+		if value.Type != gjson.String {
+			continue
+		}
+		if imageURL := strings.TrimSpace(value.String()); imageURL != "" {
+			return imageURL
+		}
+	}
+	return ""
+}
+
+func openAICompatibleVideoImageTailURL(body []byte) string {
+	for _, path := range []string{
+		"image_tail",
+		"last_frame_image",
+		"last_frame",
+		"image.last_frame",
+		"image.image_tail",
 	} {
 		value := gjson.GetBytes(body, path)
 		if value.Type != gjson.String {

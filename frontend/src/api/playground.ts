@@ -62,6 +62,7 @@ export interface PlaygroundImageInput {
   type?: string
   dataUrl: string
   storageId?: string
+  frame?: 'first' | 'last' | 'reference'
 }
 
 export interface PlaygroundImageResult {
