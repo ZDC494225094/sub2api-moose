@@ -48,9 +48,17 @@ const messages: Record<string, string> = {
   'usage.imageSizeUnknown': 'unknown',
   'usage.imageUnitPrice': 'Per-image price',
   'usage.imageTotalPrice': 'Image total price',
+  'usage.videoUnit': ' video(s)',
+  'usage.videoCount': 'Video count',
+  'usage.videoDuration': 'Generation duration',
+  'usage.videoResolution': 'Resolution',
+  'usage.videoUnitPrice': 'Per-second price',
+  'usage.videoTotalPrice': 'Video total price',
+  'usage.videoSeconds': 's',
   'admin.usage.billingModeToken': 'Token',
   'admin.usage.billingModePerRequest': 'Per request',
   'admin.usage.billingModeImage': 'Image',
+  'admin.usage.billingModeVideo': 'Video',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -360,6 +368,53 @@ describe('admin UsageTable tooltip', () => {
     expect(text).toContain('Per-image price')
     expect(text).toContain('not recorded')
     expect(text).not.toContain('(2K)')
+  })
+
+  it('shows video metadata instead of a zero-token summary', async () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{
+          ...baseImageRow,
+          request_id: 'req-admin-video',
+          model: 'grok-video-r',
+          billing_mode: 'video',
+          image_count: 1,
+          video_count: 1,
+          video_duration_seconds: 30,
+          video_resolution: '720p',
+          total_cost: 2.1,
+          actual_cost: 2.1,
+        }],
+        loading: false,
+        columns: [],
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    await nextTick()
+
+    const summary = wrapper.get('[data-testid="video-usage-summary"]')
+    expect(summary.text()).toContain('1 video(s)')
+    expect(summary.text()).toContain('30s')
+    expect(summary.text()).toContain('720p')
+    expect(summary.text()).not.toContain('0 Token')
+
+    const tooltipTriggers = wrapper.findAll('.group.relative')
+    await tooltipTriggers[tooltipTriggers.length - 1].trigger('mouseenter')
+    await nextTick()
+
+    const text = wrapper.text()
+    expect(text).toContain('Generation duration')
+    expect(text).toContain('Resolution')
+    expect(text).toContain('Per-second price')
+    expect(text).toContain('$0.070000')
   })
 })
 

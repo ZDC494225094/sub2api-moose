@@ -282,6 +282,7 @@ function extractModelEntries(payload: unknown): unknown[] {
 export async function fetchModels(apiKey: string, endpointBase?: string, signal?: AbortSignal): Promise<PlaygroundModel[]> {
   const response = await fetch(buildPlaygroundEndpointURL(endpointBase, '/v1/models'), {
     method: 'GET',
+    credentials: 'omit',
     headers: { Authorization: `Bearer ${apiKey}` },
     signal
   })
@@ -405,6 +406,7 @@ export async function runChatCompletion(request: PlaygroundChatRequest): Promise
 
   const response = await fetch(buildPlaygroundEndpointURL(request.endpointBase, '/v1/chat/completions'), {
     method: 'POST',
+    credentials: 'omit',
     headers: authHeaders(request.apiKey),
     body: JSON.stringify(payload),
     signal: request.signal
@@ -424,6 +426,7 @@ export async function streamChatCompletion(request: PlaygroundChatStreamRequest)
   const payload = buildChatPayload(request, true)
   const response = await fetch(buildPlaygroundEndpointURL(request.endpointBase, '/v1/chat/completions'), {
     method: 'POST',
+    credentials: 'omit',
     headers: authHeaders(request.apiKey),
     body: JSON.stringify(payload),
     signal: request.signal
@@ -541,6 +544,7 @@ export async function generateImage(request: PlaygroundImageRequest): Promise<Pl
 
   const response = await fetch(buildPlaygroundEndpointURL(request.endpointBase, '/v1/images/generations'), {
     method: 'POST',
+    credentials: 'omit',
     headers: authHeaders(request.apiKey),
     body: JSON.stringify(payload),
     signal: request.signal
@@ -607,6 +611,7 @@ export async function generateVideo(request: PlaygroundVideoRequest): Promise<Pl
 
   const response = await fetch(buildPlaygroundEndpointURL(request.endpointBase, '/v1/videos/generations'), {
     method: 'POST',
+    credentials: 'omit',
     headers: authHeaders(request.apiKey),
     body: JSON.stringify(payload),
     signal: request.signal

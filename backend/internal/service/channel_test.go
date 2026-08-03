@@ -220,6 +220,7 @@ func TestBillingModeIsValid(t *testing.T) {
 		{"token", BillingModeToken, true},
 		{"per_request", BillingModePerRequest, true},
 		{"image", BillingModeImage, true},
+		{"video", BillingModeVideo, true},
 		{"empty", BillingMode(""), true},
 		{"unknown", BillingMode("unknown"), false},
 		{"random", BillingMode("xyz"), false},
@@ -435,7 +436,7 @@ func TestValidateIntervals_UnboundedNotLast(t *testing.T) {
 }
 
 func TestValidateIntervals_ImageModeAllowsMultipleUnboundedTiers(t *testing.T) {
-	// image / per_request 按 tier_label 匹配，多条 min=0/max=nil 是合法形态。
+	// image / per_request / video 按 tier_label 匹配，多条 min=0/max=nil 是合法形态。
 	intervals := []PricingInterval{
 		{MinTokens: 0, MaxTokens: nil, TierLabel: "1K", PerRequestPrice: testPtrFloat64(0.04)},
 		{MinTokens: 0, MaxTokens: nil, TierLabel: "2K", PerRequestPrice: testPtrFloat64(0.06)},
@@ -443,6 +444,11 @@ func TestValidateIntervals_ImageModeAllowsMultipleUnboundedTiers(t *testing.T) {
 	}
 	require.NoError(t, ValidateIntervals(intervals, BillingModeImage))
 	require.NoError(t, ValidateIntervals(intervals, BillingModePerRequest))
+	require.NoError(t, ValidateIntervals([]PricingInterval{
+		{MinTokens: 0, MaxTokens: nil, TierLabel: VideoBillingResolution480P, PerRequestPrice: testPtrFloat64(0.04)},
+		{MinTokens: 0, MaxTokens: nil, TierLabel: VideoBillingResolution720P, PerRequestPrice: testPtrFloat64(0.06)},
+		{MinTokens: 0, MaxTokens: nil, TierLabel: VideoBillingResolution1080P, PerRequestPrice: testPtrFloat64(0.08)},
+	}, BillingModeVideo))
 }
 
 func TestValidateIntervals_ImageModeStillRejectsNegativePrice(t *testing.T) {
@@ -512,7 +518,6 @@ func TestSupportedModels_WildcardExpandedFromPricing(t *testing.T) {
 		require.NotContains(t, m.Name, "*")
 	}
 }
-
 
 func TestSupportedModels_MissingPricingKeepsNilPricing(t *testing.T) {
 	ch := &Channel{

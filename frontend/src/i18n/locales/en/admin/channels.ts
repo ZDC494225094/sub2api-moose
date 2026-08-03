@@ -26,7 +26,7 @@ export default {
         billingModeToken: 'Per Token',
         billingModePerRequest: 'Per Request',
         billingModeImage: 'Per Image',
-        billingModeVideo: 'Per Video',
+        billingModeVideo: 'Video Per Second',
         inputPrice: 'Input',
         outputPrice: 'Output',
         cacheWritePrice: 'Cache Write',
@@ -93,7 +93,8 @@ export default {
       billingMode: {
         token: 'Token',
         perRequest: 'Per Request',
-        image: 'Image (Per Request)'
+        image: 'Image (Per Request)',
+        video: 'Video (Per Second)'
       },
       form: {
         name: 'Name',
@@ -127,11 +128,14 @@ export default {
         addInterval: 'Add Interval',
         requestTiers: 'Request Tiers',
         imageTiers: 'Image Tiers (Per Request)',
+        videoTiers: 'Video Resolution Tiers (Per Second)',
         addTier: 'Add Tier',
         noTiersYet: 'No tiers yet. Click add to configure per-request pricing.',
+        noVideoTiersYet: 'No resolution tiers yet. The default price applies to every video resolution.',
         noPricingRules: 'No pricing rules yet. Click "Add" to create one.',
         perRequestPrice: 'Price per Request',
-        perRequestPriceRequired: 'Per-request price or billing tiers required for per-request/image billing mode',
+        defaultVideoPerSecondPrice: 'Default Price Per Second',
+        perRequestPriceRequired: 'Per-request price or billing tiers required for per-request/image/video billing mode',
         tierLabel: 'Tier',
         resolution: 'Resolution',
         modelMapping: 'Model Mapping',

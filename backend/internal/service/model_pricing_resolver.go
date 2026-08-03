@@ -72,7 +72,7 @@ func (r *ModelPricingResolver) Resolve(ctx context.Context, input PricingInput) 
 			if mode == "" {
 				mode = BillingModeToken
 			}
-			if mode == BillingModePerRequest || mode == BillingModeImage {
+			if mode == BillingModePerRequest || mode == BillingModeImage || mode == BillingModeVideo {
 				resolved := &ResolvedPricing{
 					Mode:           mode,
 					Source:         PricingSourceChannel,
@@ -134,7 +134,7 @@ func (r *ModelPricingResolver) applyChannelOverrides(ctx context.Context, groupI
 	switch resolved.Mode {
 	case BillingModeToken:
 		r.applyTokenOverrides(chPricing, resolved)
-	case BillingModePerRequest, BillingModeImage:
+	case BillingModePerRequest, BillingModeImage, BillingModeVideo:
 		r.applyRequestTierOverrides(chPricing, resolved)
 	}
 }
@@ -216,7 +216,8 @@ func applyChannelImageInputPrice(chPricing *ChannelModelPricing, pricing *ModelP
 	}
 }
 
-// applyRequestTierOverrides 应用按次/图片模式的渠道覆盖
+// applyRequestTierOverrides 应用按次、图片或视频模式的渠道覆盖。
+// 视频模式的价格均为每秒单价，tier_label 用于匹配输出分辨率。
 func (r *ModelPricingResolver) applyRequestTierOverrides(chPricing *ChannelModelPricing, resolved *ResolvedPricing) {
 	resolved.RequestTiers = filterValidIntervals(chPricing.Intervals)
 	if chPricing.PerRequestPrice != nil {

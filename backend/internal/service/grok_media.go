@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -31,7 +33,11 @@ const (
 	GrokMediaEndpointVideosExtensions  GrokMediaEndpoint = "videos_extensions"
 	GrokMediaEndpointVideoStatus       GrokMediaEndpoint = "video_status"
 	GrokMediaEndpointVideoContent      GrokMediaEndpoint = "video_content"
+	grokVideoRModel                                      = "grok-video-r"
+	grokVideoRChatCompletionsEndpoint                    = "/v1/chat/completions"
 )
+
+var grokVideoRURLPattern = regexp.MustCompile(`https?://[^\s<>"']+`)
 
 func (e GrokMediaEndpoint) RequiresRequestBody() bool {
 	return !e.IsVideoLookupRequest()
@@ -376,6 +382,21 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 	if err != nil {
 		return nil, err
 	}
+	chatTextToVideo := shouldForwardGrokVideoRAsChat(endpoint, requestInfo)
+	upstreamEndpoint := ""
+	if chatTextToVideo {
+		targetURL, err = buildGrokChatCompletionsURL(account, s.cfg)
+		if err != nil {
+			return nil, err
+		}
+		body, err = buildGrokVideoRChatCompletionsBody(requestInfo, upstreamModel, body)
+		if err != nil {
+			return nil, err
+		}
+		contentType = "application/json"
+		upstreamEndpoint = grokVideoRChatCompletionsEndpoint
+		SetActualOpenAIUpstreamEndpoint(c, upstreamEndpoint)
+	}
 
 	var bodyReader io.Reader
 	if endpoint.RequiresRequestBody() {
@@ -388,7 +409,11 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 		return nil, err
 	}
 	upstreamReq.Header.Set("Authorization", "Bearer "+token)
-	upstreamReq.Header.Set("Accept", "application/json")
+	if chatTextToVideo {
+		upstreamReq.Header.Set("Accept", "text/event-stream")
+	} else {
+		upstreamReq.Header.Set("Accept", "application/json")
+	}
 	if account.IsGrokOAuth() && isGrokCLIProxyTarget(targetURL) {
 		applyGrokCLIHeaders(upstreamReq.Header)
 	}
@@ -425,6 +450,37 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 	if err != nil {
 		return nil, err
 	}
+	chatUsage := OpenAIUsage{}
+	if chatTextToVideo {
+		videoURL, parsedUsage, parseErr := parseGrokVideoRChatCompletionsResponse(respBody)
+		if parseErr != nil {
+			errorBody, _ := json.Marshal(map[string]any{
+				"error": map[string]string{
+					"type":    "upstream_error",
+					"message": parseErr.Error(),
+				},
+			})
+			responseHeaders := resp.Header.Clone()
+			responseHeaders.Set("Content-Type", "application/json")
+			responseHeaders.Del("Content-Length")
+			setOpsUpstreamError(c, http.StatusBadGateway, parseErr.Error(), truncateString(string(respBody), 512))
+			return nil, &UpstreamFailoverError{
+				StatusCode:      http.StatusBadGateway,
+				ResponseBody:    errorBody,
+				ResponseHeaders: responseHeaders,
+			}
+		}
+		respBody, err = buildGrokVideoRDirectResponse(requestInfo, videoURL)
+		if err != nil {
+			return nil, err
+		}
+		chatUsage = parsedUsage
+		resp.Header = resp.Header.Clone()
+		resp.Header.Set("Content-Type", "application/json")
+		resp.Header.Del("Content-Length")
+		resp.Header.Del("Content-Encoding")
+		resp.Header.Del("Transfer-Encoding")
+	}
 	if endpoint == GrokMediaEndpointImagesGenerations || endpoint == GrokMediaEndpointImagesEdits {
 		if countOpenAIResponseImageOutputsFromJSONBytes(respBody) <= 0 {
 			setOpsUpstreamError(c, http.StatusBadGateway, "xAI upstream returned no image output", truncateString(string(respBody), 512))
@@ -444,6 +500,9 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 	}
 	writeGrokMediaResponse(c, resp, respBody, s.responseHeaderFilter)
 	usage := grokMediaUsageFromResponse(endpoint, requestInfo, respBody)
+	if chatTextToVideo {
+		usage.Usage = chatUsage
+	}
 	return &OpenAIForwardResult{
 		RequestID:            requestIDHeader,
 		ResponseID:           usage.ResponseID,
@@ -451,6 +510,7 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 		Model:                requestModel,
 		BillingModel:         requestModel,
 		UpstreamModel:        upstreamModel,
+		UpstreamEndpoint:     upstreamEndpoint,
 		ResponseHeaders:      resp.Header.Clone(),
 		Duration:             time.Since(startTime),
 		ImageCount:           usage.ImageCount,
@@ -461,6 +521,123 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 		VideoResolution:      usage.VideoResolution,
 		VideoDurationSeconds: usage.VideoDurationSeconds,
 	}, nil
+}
+
+func shouldForwardGrokVideoRAsChat(endpoint GrokMediaEndpoint, requestInfo GrokMediaRequestInfo) bool {
+	return endpoint == GrokMediaEndpointVideosGenerations &&
+		strings.EqualFold(strings.TrimSpace(requestInfo.Model), grokVideoRModel) &&
+		!requestInfo.HasInputImage()
+}
+
+func buildGrokVideoRChatCompletionsBody(requestInfo GrokMediaRequestInfo, upstreamModel string, sourceBody []byte) ([]byte, error) {
+	prompt := strings.TrimSpace(requestInfo.Prompt)
+	requirements := make([]string, 0, 3)
+	if gjson.GetBytes(sourceBody, "duration").Exists() && requestInfo.DurationSeconds > 0 {
+		requirements = append(requirements, fmt.Sprintf("duration=%d seconds", requestInfo.DurationSeconds))
+	}
+	if gjson.GetBytes(sourceBody, "resolution").Exists() && strings.TrimSpace(requestInfo.Resolution) != "" {
+		requirements = append(requirements, "resolution="+strings.TrimSpace(requestInfo.Resolution))
+	}
+	if aspectRatio := strings.TrimSpace(gjson.GetBytes(sourceBody, "aspect_ratio").String()); aspectRatio != "" {
+		requirements = append(requirements, "aspect_ratio="+aspectRatio)
+	}
+	if len(requirements) > 0 {
+		control := "Video generation requirements: " + strings.Join(requirements, ", ") + "."
+		if prompt == "" {
+			prompt = control
+		} else {
+			prompt += "\n\n" + control
+		}
+	}
+
+	payload := map[string]any{
+		"model":  strings.TrimSpace(upstreamModel),
+		"stream": true,
+		"stream_options": map[string]any{
+			"include_usage": true,
+		},
+		"messages": []map[string]any{{
+			"role":    "user",
+			"content": prompt,
+		}},
+	}
+	return json.Marshal(payload)
+}
+
+func parseGrokVideoRChatCompletionsResponse(body []byte) (string, OpenAIUsage, error) {
+	var content strings.Builder
+	usage := OpenAIUsage{}
+	parseChunk := func(chunk []byte) {
+		if len(chunk) == 0 || !gjson.ValidBytes(chunk) {
+			return
+		}
+		if parsedUsage, ok := extractOpenAIUsageFromJSONBytes(chunk); ok {
+			usage = parsedUsage
+		}
+		for _, choice := range gjson.GetBytes(chunk, "choices").Array() {
+			text := choice.Get("delta.content").String()
+			if strings.TrimSpace(text) == "" {
+				text = choice.Get("message.content").String()
+			}
+			if text != "" {
+				content.WriteString(text)
+			}
+		}
+	}
+
+	if gjson.ValidBytes(body) {
+		parseChunk(body)
+	} else {
+		scanner := bufio.NewScanner(bytes.NewReader(body))
+		scanner.Buffer(make([]byte, 64*1024), 2*1024*1024)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if !strings.HasPrefix(line, "data:") {
+				continue
+			}
+			data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			if data == "" || data == "[DONE]" {
+				continue
+			}
+			parseChunk([]byte(data))
+		}
+		if err := scanner.Err(); err != nil {
+			return "", OpenAIUsage{}, fmt.Errorf("read grok-video-r stream: %w", err)
+		}
+	}
+
+	videoURL := extractGrokVideoRURL(content.String())
+	if videoURL == "" {
+		return "", usage, fmt.Errorf("grok-video-r upstream returned no video URL")
+	}
+	return videoURL, usage, nil
+}
+
+func extractGrokVideoRURL(content string) string {
+	var videoURL string
+	for _, candidate := range grokVideoRURLPattern.FindAllString(content, -1) {
+		candidate = strings.TrimRight(strings.TrimSpace(candidate), ").,;]}")
+		parsed, err := url.Parse(candidate)
+		if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+			continue
+		}
+		videoURL = candidate
+	}
+	return videoURL
+}
+
+func buildGrokVideoRDirectResponse(requestInfo GrokMediaRequestInfo, videoURL string) ([]byte, error) {
+	video := map[string]any{
+		"url":        strings.TrimSpace(videoURL),
+		"duration":   requestInfo.DurationSeconds,
+		"resolution": requestInfo.Resolution,
+		"mime_type":  "video/mp4",
+	}
+	return json.Marshal(map[string]any{
+		"created": time.Now().Unix(),
+		"model":   requestInfo.Model,
+		"data":    []map[string]any{video},
+	})
 }
 
 func (s *OpenAIGatewayService) forwardGrokMediaVideoContent(

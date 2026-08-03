@@ -221,6 +221,31 @@ func TestUsageLogFromService_IncludesImageBillingMetadataForUserAndAdmin(t *test
 	}
 }
 
+func TestUsageLogFromService_IncludesVideoBillingMetadataForUserAndAdmin(t *testing.T) {
+	t.Parallel()
+
+	resolution := "720p"
+	durationSeconds := 6
+	log := &service.UsageLog{
+		RequestID:            "req_video_metadata",
+		Model:                "vendor-video",
+		VideoCount:           1,
+		VideoResolution:      &resolution,
+		VideoDurationSeconds: &durationSeconds,
+	}
+
+	userDTO := UsageLogFromService(log)
+	adminDTO := UsageLogFromServiceAdmin(log)
+
+	for _, got := range []*UsageLog{userDTO, &adminDTO.UsageLog} {
+		require.Equal(t, 1, got.VideoCount)
+		require.NotNil(t, got.VideoResolution)
+		require.Equal(t, resolution, *got.VideoResolution)
+		require.NotNil(t, got.VideoDurationSeconds)
+		require.Equal(t, durationSeconds, *got.VideoDurationSeconds)
+	}
+}
+
 func TestUsageLogFromService_PreservesHistoricalMissingImageSize(t *testing.T) {
 	t.Parallel()
 

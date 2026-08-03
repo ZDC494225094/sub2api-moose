@@ -227,14 +227,20 @@
           :class="isBoardMode ? '' : 'md:px-10 xl:px-16'"
           :style="{ paddingBottom: `${composerSpacerHeight}px` }"
         >
-          <div v-if="!selectedKey && !loadingKeys" class="flex h-full items-center justify-center text-center">
+          <div v-if="!effectiveApiKey && !loadingKeys" class="flex h-full items-center justify-center text-center">
             <div class="max-w-sm">
               <Icon name="key" size="xl" class="mx-auto text-slate-300 dark:text-dark-600" />
               <p class="mt-3 text-sm font-semibold text-slate-700 dark:text-dark-100">{{ t('playground.noKeys') }}</p>
-              <button type="button" class="mt-4 inline-flex h-10 items-center gap-2 rounded-lg bg-sky-500 px-4 text-sm font-semibold text-white transition hover:bg-sky-600" @click="openApiKeyManagement">
-                <Icon name="key" size="sm" />
-                {{ t('dashboard.createKey') }}
-              </button>
+              <div class="mt-4 flex justify-center gap-2">
+                <button type="button" class="inline-flex h-10 items-center gap-2 rounded-lg bg-sky-500 px-4 text-sm font-semibold text-white transition hover:bg-sky-600" @click="openManualApiKeyEntry">
+                  <Icon name="edit" size="sm" />
+                  {{ t('playground.manualKeySource') }}
+                </button>
+                <button type="button" class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-dark-700 dark:text-dark-100 dark:hover:bg-dark-800" @click="openApiKeyManagement">
+                  <Icon name="key" size="sm" />
+                  {{ t('dashboard.createKey') }}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -815,40 +821,98 @@
           <div ref="composerShell" class="playground-composer-shell pointer-events-auto mx-auto max-w-[1220px] rounded-lg border border-slate-200 bg-white/95 p-3 shadow-[0_20px_60px_-28px_rgba(15,23,42,0.35)] backdrop-blur dark:border-dark-700 dark:bg-dark-900/95">
             <div v-if="activeComposerPanel" class="composer-control-panel">
               <section v-if="activeComposerPanel === 'model'" class="composer-model-picker" :aria-label="t('playground.model')">
-                <template v-if="activeKeys.length">
                   <aside class="composer-model-key">
-                    <p class="composer-panel-label">{{ t('playground.apiKey') }}</p>
-                    <Select
-                      v-model="selectedKeyId"
-                      class="playground-compact-select playground-key-select"
-                      :options="keySelectOptions"
-                      :placeholder="t('playground.selectKey')"
-                      searchable
-                    >
-                      <template #selected="{ option }">
-                        <span v-if="option" class="playground-select-value playground-key-select-value">
-                          <span class="playground-platform-icon" :class="platformIconClass(optionPlatform(option) || '')">
-                            <PlatformIcon :platform="optionPlatform(option)" size="xs" />
+                    <p class="composer-panel-label">{{ t('playground.apiKeySource') }}</p>
+                    <div class="composer-key-source" role="tablist" :aria-label="t('playground.apiKeySource')">
+                      <button
+                        type="button"
+                        role="tab"
+                        :aria-selected="keySourceMode === 'saved'"
+                        :class="keySourceMode === 'saved' ? 'is-active' : ''"
+                        :disabled="!activeKeys.length"
+                        @click="keySourceMode = 'saved'"
+                      >
+                        <Icon name="key" size="xs" />
+                        <span>{{ t('playground.savedKeySource') }}</span>
+                      </button>
+                      <button
+                        type="button"
+                        role="tab"
+                        :aria-selected="keySourceMode === 'manual'"
+                        :class="keySourceMode === 'manual' ? 'is-active' : ''"
+                        @click="keySourceMode = 'manual'"
+                      >
+                        <Icon name="edit" size="xs" />
+                        <span>{{ t('playground.manualKeySource') }}</span>
+                      </button>
+                    </div>
+
+                    <template v-if="keySourceMode === 'saved'">
+                      <Select
+                        v-if="activeKeys.length"
+                        v-model="selectedKeyId"
+                        class="playground-compact-select playground-key-select"
+                        :options="keySelectOptions"
+                        :placeholder="t('playground.selectKey')"
+                        searchable
+                      >
+                        <template #selected="{ option }">
+                          <span v-if="option" class="playground-select-value playground-key-select-value">
+                            <span class="playground-platform-icon" :class="platformIconClass(optionPlatform(option) || '')">
+                              <PlatformIcon :platform="optionPlatform(option)" size="xs" />
+                            </span>
+                            <span class="playground-key-select-label min-w-0 break-words text-left leading-5">{{ option.label }}</span>
                           </span>
-                          <span class="playground-key-select-label min-w-0 break-words text-left leading-5">{{ option.label }}</span>
-                        </span>
-                        <span v-else>{{ t('playground.selectKey') }}</span>
-                      </template>
-                      <template #option="{ option, selected }">
-                        <div class="playground-select-option playground-key-select-option">
-                          <span class="playground-platform-icon" :class="platformIconClass(optionPlatform(option) || '')">
-                            <PlatformIcon :platform="optionPlatform(option)" size="xs" />
-                          </span>
-                          <span class="min-w-0 flex-1 break-words text-left leading-4">{{ option.label }}</span>
-                          <Icon v-if="selected" name="check" size="sm" class="text-primary-500" />
-                        </div>
-                      </template>
-                    </Select>
+                          <span v-else>{{ t('playground.selectKey') }}</span>
+                        </template>
+                        <template #option="{ option, selected }">
+                          <div class="playground-select-option playground-key-select-option">
+                            <span class="playground-platform-icon" :class="platformIconClass(optionPlatform(option) || '')">
+                              <PlatformIcon :platform="optionPlatform(option)" size="xs" />
+                            </span>
+                            <span class="min-w-0 flex-1 break-words text-left leading-4">{{ option.label }}</span>
+                            <Icon v-if="selected" name="check" size="sm" class="text-primary-500" />
+                          </div>
+                        </template>
+                      </Select>
+                      <button
+                        v-else
+                        type="button"
+                        class="composer-more-action w-full justify-center"
+                        @click="openApiKeyManagement"
+                      >
+                        <Icon name="key" size="sm" />
+                        <span>{{ t('dashboard.createKey') }}</span>
+                      </button>
+                    </template>
+
+                    <template v-else>
+                      <div class="relative">
+                        <input
+                          v-model="manualApiKey"
+                          class="composer-manual-key-input"
+                          type="password"
+                          autocomplete="off"
+                          :placeholder="t('playground.manualApiKeyPlaceholder')"
+                          @keyup.enter="loadModels()"
+                        >
+                        <button
+                          v-if="manualApiKey"
+                          type="button"
+                          class="composer-manual-key-clear"
+                          :title="t('playground.clearManualApiKey')"
+                          @click="manualApiKey = ''"
+                        >
+                          <Icon name="x" size="xs" />
+                        </button>
+                      </div>
+                      <p class="composer-manual-key-hint">{{ t('playground.manualApiKeyHint') }}</p>
+                    </template>
                     <button
                       type="button"
                       class="composer-more-action mt-auto w-full justify-center"
-                      :disabled="!selectedKey || loadingModels"
-                      @click="loadModels"
+                      :disabled="!effectiveApiKey || loadingModels"
+                      @click="loadModels()"
                     >
                       <Icon name="refresh" size="sm" :class="loadingModels ? 'animate-spin' : ''" />
                       <span>{{ t('playground.refreshModels') }}</span>
@@ -886,15 +950,6 @@
                     </button>
                   </div>
                   <p v-else class="composer-model-empty">{{ modelLoadError || t('common.noOptionsFound') }}</p>
-                </div>
-                </template>
-                <div v-else class="col-span-2 m-3 flex min-h-40 flex-col items-center justify-center text-center">
-                  <Icon name="key" size="lg" class="text-slate-300 dark:text-dark-600" />
-                  <p class="mt-2 text-sm font-semibold text-slate-700 dark:text-dark-100">{{ t('playground.noKeys') }}</p>
-                  <button type="button" class="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-sky-500 px-3 text-xs font-semibold text-white transition hover:bg-sky-600" @click="openApiKeyManagement">
-                    <Icon name="key" size="xs" />
-                    {{ t('dashboard.createKey') }}
-                  </button>
                 </div>
               </section>
 
@@ -2029,6 +2084,7 @@ type DoodleTool = DoodleDrawingTool | 'sticker' | 'pan'
 type ImageWorkspaceMode = 'chat' | 'board'
 type BoardColumnCount = 3 | 4 | 5
 type ComposerPanel = 'model' | 'image' | 'video'
+type PlaygroundKeySource = 'saved' | 'manual'
 type PlaygroundRestorableRunRequest = Omit<PlaygroundRunRequest, 'apiKey'>
 
 interface DoodlePoint {
@@ -2108,6 +2164,8 @@ interface PlaygroundPersistedPayload {
   activeThreadId: string
   mode: PlaygroundMode
   selectedKeyId: string
+  keySourceMode?: PlaygroundKeySource
+  manualApiKey?: string
   selectedModel: string
   selectedModelsByMode?: Partial<Record<PlaygroundMode, string>>
   systemPrompt: string
@@ -2309,6 +2367,8 @@ marked.setOptions({
 
 const apiKeys = ref<ApiKey[]>([])
 const selectedKeyId = ref('')
+const manualApiKey = ref('')
+const keySourceMode = ref<PlaygroundKeySource>('saved')
 const loadingKeys = ref(true)
 const loadingModels = ref(false)
 const showSettings = ref(false)
@@ -2421,6 +2481,7 @@ const doodleStrokes = ref<DoodleOperation[]>([])
 const doodleRedoStrokes = ref<DoodleOperation[]>([])
 const doodleSaving = ref(false)
 let modelAbortController: AbortController | null = null
+let manualKeyModelLoadTimer: number | undefined
 let promptOptimizerModelAbortController: AbortController | null = null
 let persistedVideoHydrationController: AbortController | null = null
 const runAbortControllers = new Map<string, PlaygroundRunHandle>()
@@ -2525,6 +2586,10 @@ const promptOptimizerGroupOptions = computed<SelectOption[]>(() => activeKeys.va
   platform: key.platform || key.group?.platform
 })))
 const selectedKey = computed(() => activeKeys.value.find((key) => String(key.id) === selectedKeyId.value) || null)
+const usingManualApiKey = computed(() => keySourceMode.value === 'manual')
+const effectiveApiKey = computed(() => (
+  usingManualApiKey.value ? manualApiKey.value.trim() : (selectedKey.value?.key || '')
+))
 const selectedPromptOptimizerKey = computed(() => activeKeys.value.find((key) => String(key.id) === promptOptimizerKeyId.value) || null)
 const promptOptimizerDraftPlatform = computed<GroupPlatform | ''>(() => {
   const key = activeKeys.value.find((item) => String(item.id) === promptOptimizerDraftKeyId.value)
@@ -2710,7 +2775,9 @@ const doodleCanvasCursorClass = computed(() => {
     ? 'cursor-grab'
     : 'cursor-crosshair'
 })
-const selectedKeyPlatform = computed<GroupPlatform | ''>(() => selectedKey.value?.platform || selectedKey.value?.group?.platform || '')
+const selectedKeyPlatform = computed<GroupPlatform | ''>(() => (
+  usingManualApiKey.value ? '' : (selectedKey.value?.platform || selectedKey.value?.group?.platform || '')
+))
 
 const userDisplayName = computed(() => {
   const user = authStore.user
@@ -4114,6 +4181,8 @@ function buildPlaygroundPayload(): PlaygroundPersistedPayload {
     activeThreadId: activeThreadId.value,
     mode: mode.value,
     selectedKeyId: selectedKeyId.value,
+    keySourceMode: keySourceMode.value,
+    manualApiKey: manualApiKey.value.trim(),
     selectedModel: selectedModel.value,
     selectedModelsByMode: selectedModelsByMode.value,
     systemPrompt: systemPrompt.value,
@@ -4228,6 +4297,14 @@ function applyPlaygroundPayload(payload: Record<string, unknown>) {
   }
 
   selectedKeyId.value = typeof payload.selectedKeyId === 'string' ? payload.selectedKeyId : selectedKeyId.value
+  manualApiKey.value = typeof payload.manualApiKey === 'string' ? payload.manualApiKey.trim() : ''
+  if (payload.keySourceMode === 'manual') {
+    keySourceMode.value = 'manual'
+  } else if (payload.keySourceMode === 'saved' && activeKeys.value.length > 0) {
+    keySourceMode.value = 'saved'
+  } else {
+    keySourceMode.value = activeKeys.value.length > 0 ? 'saved' : 'manual'
+  }
   selectedModel.value = typeof payload.selectedModel === 'string' ? payload.selectedModel : selectedModel.value
   if (payload.selectedModelsByMode && typeof payload.selectedModelsByMode === 'object') {
     const savedModels = payload.selectedModelsByMode as Partial<Record<PlaygroundMode, string>>
@@ -5096,6 +5173,13 @@ function openVideoComposerOptions() {
 
 function openApiKeyManagement() {
   void router.push({ name: 'Keys' })
+}
+
+function openManualApiKeyEntry() {
+  keySourceMode.value = 'manual'
+  activeComposerPanel.value = 'model'
+  composerModelSearch.value = ''
+  void nextTick(updateComposerSpacer)
 }
 
 function rememberSelectedModelForMode(targetMode: PlaygroundMode = mode.value) {
@@ -6501,6 +6585,7 @@ async function loadKeys() {
     const response = await keysAPI.list(1, 1000)
     apiKeys.value = response.items
     ensureActiveKeySelection()
+    if (activeKeys.value.length === 0) keySourceMode.value = 'manual'
   } catch (error) {
     appStore.showError((error as Error)?.message || t('playground.loadKeysFailed'))
   } finally {
@@ -6508,8 +6593,19 @@ async function loadKeys() {
   }
 }
 
-async function loadModels() {
-  if (!selectedKey.value) {
+function resetModelsForKeyChange() {
+  modelAbortController?.abort()
+  models.value = []
+  selectedModel.value = ''
+  selectedModelsByMode.value = {}
+  modelLoadError.value = ''
+  lastRunError.value = ''
+  composerModelSearch.value = ''
+}
+
+async function loadModels(options: { silent?: boolean } = {}) {
+  const apiKey = effectiveApiKey.value
+  if (!apiKey) {
     models.value = []
     selectedModel.value = ''
     return
@@ -6520,14 +6616,14 @@ async function loadModels() {
   loadingModels.value = true
   modelLoadError.value = ''
   try {
-    const fetched = await fetchModels(selectedKey.value.key, undefined, controller.signal)
+    const fetched = await fetchModels(apiKey, undefined, controller.signal)
     if (controller.signal.aborted) return
     models.value = fetched
     selectDefaultModel()
   } catch (error) {
     if (controller.signal.aborted) return
     modelLoadError.value = (error as Error)?.message || t('playground.loadModelsFailed')
-    appStore.showError(modelLoadError.value)
+    if (!options.silent) appStore.showError(modelLoadError.value)
     selectDefaultModel()
   } finally {
     if (modelAbortController === controller) {
@@ -6568,8 +6664,8 @@ async function loadPromptOptimizerModels(keyId = promptOptimizerDraftKeyId.value
 }
 
 function validateRun(): boolean {
-  if (!selectedKey.value) {
-    appStore.showInfo(t('playground.selectKeyFirst'))
+  if (!effectiveApiKey.value) {
+    appStore.showInfo(t('playground.enterApiKeyFirst'))
     return false
   }
   if (!effectiveModel.value) {
@@ -6660,7 +6756,10 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 function apiKeyForRunMessage(message: PlaygroundMessage): string {
-  const keyId = message.runKeyId || selectedKeyId.value
+  // A blank ID marks the persisted manual-key source. It must never fall back
+  // to a saved key while restoring a run.
+  if (message.runKeyId === '') return manualApiKey.value.trim()
+  const keyId = message.runKeyId ?? selectedKeyId.value
   const key = activeKeys.value.find((item) => String(item.id) === keyId)
   return key?.key || ''
 }
@@ -7224,12 +7323,12 @@ function buildChatMessages(
 
 async function submitPrompt() {
   const thread = ensureActiveThread()
-  if ((thread.mode !== 'image' && thread.mode !== 'video' && thread.running) || !validateRun() || !selectedKey.value) return
+  if ((thread.mode !== 'image' && thread.mode !== 'video' && thread.running) || !validateRun()) return
   lastRunError.value = ''
   const context: PlaygroundRunContext = {
     mode: thread.mode,
-    keyId: selectedKeyId.value,
-    apiKey: selectedKey.value.key,
+    keyId: usingManualApiKey.value ? '' : selectedKeyId.value,
+    apiKey: effectiveApiKey.value,
     model: effectiveModel.value,
     platform: selectedKeyPlatform.value || platformForModel(effectiveModel.value),
     temperature: temperature.value,
@@ -7914,14 +8013,35 @@ async function copyText(value: string) {
 }
 
 watch(selectedKeyId, () => {
+  if (restoringState || keySourceMode.value !== 'saved') return
+  resetModelsForKeyChange()
+  void loadModels()
+})
+
+watch(keySourceMode, () => {
+  if (manualKeyModelLoadTimer !== undefined) {
+    window.clearTimeout(manualKeyModelLoadTimer)
+    manualKeyModelLoadTimer = undefined
+  }
   if (restoringState) return
-  models.value = []
-  selectedModel.value = ''
-  selectedModelsByMode.value = {}
-  modelLoadError.value = ''
-  lastRunError.value = ''
-  composerModelSearch.value = ''
-  loadModels()
+  resetModelsForKeyChange()
+  if (effectiveApiKey.value) void loadModels()
+})
+
+watch(manualApiKey, () => {
+  if (restoringState || keySourceMode.value !== 'manual') return
+  if (manualKeyModelLoadTimer !== undefined) {
+    window.clearTimeout(manualKeyModelLoadTimer)
+    manualKeyModelLoadTimer = undefined
+  }
+  resetModelsForKeyChange()
+
+  if (effectiveApiKey.value) {
+    manualKeyModelLoadTimer = window.setTimeout(() => {
+      manualKeyModelLoadTimer = undefined
+      void loadModels({ silent: true })
+    }, 450)
+  }
 })
 
 watch(mode, (nextMode) => {
@@ -7968,6 +8088,8 @@ watch(() => ({
   activeThreadId: activeThreadId.value,
   mode: mode.value,
   selectedKeyId: selectedKeyId.value,
+  keySourceMode: keySourceMode.value,
+  manualApiKey: manualApiKey.value,
   selectedModel: selectedModel.value,
   selectedModelsByMode: selectedModelsByMode.value,
   systemPrompt: systemPrompt.value,
@@ -8079,6 +8201,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handlePlaygroundGlobalKeydown)
   window.removeEventListener('keyup', handlePlaygroundGlobalKeyup)
   composerInputResizeState = null
+  if (manualKeyModelLoadTimer !== undefined) window.clearTimeout(manualKeyModelLoadTimer)
   modelAbortController?.abort()
   promptOptimizerModelAbortController?.abort()
   promptOptimizeAbortController?.abort()
@@ -8137,6 +8260,102 @@ onBeforeUnmount(() => {
   color: rgb(100 116 139);
   font-size: 0.6875rem;
   font-weight: 700;
+  line-height: 1rem;
+}
+
+.composer-key-source {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 0.375rem;
+  background: rgb(226 232 240 / 0.72);
+  padding: 0.1875rem;
+}
+
+.composer-key-source button {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 0.25rem;
+  padding: 0.375rem 0.5rem;
+  color: rgb(100 116 139);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1rem;
+  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+
+.composer-key-source button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-key-source button:hover:not(:disabled) {
+  color: rgb(2 132 199);
+}
+
+.composer-key-source button.is-active {
+  background: rgb(255 255 255);
+  color: rgb(3 105 161);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.12);
+}
+
+.composer-key-source button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.composer-manual-key-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 0.375rem;
+  background: rgb(255 255 255);
+  padding: 0.5rem 2rem 0.5rem 0.625rem;
+  color: rgb(15 23 42);
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  outline: none;
+}
+
+.composer-manual-key-input::placeholder {
+  color: rgb(148 163 184);
+}
+
+.composer-manual-key-input:focus {
+  border-color: rgb(14 165 233);
+  box-shadow: 0 0 0 2px rgb(125 211 252 / 0.35);
+}
+
+.composer-manual-key-clear {
+  position: absolute;
+  top: 50%;
+  right: 0.25rem;
+  display: inline-flex;
+  height: 1.5rem;
+  width: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+  color: rgb(100 116 139);
+  transform: translateY(-50%);
+}
+
+.composer-manual-key-clear:hover {
+  background: rgb(226 232 240);
+  color: rgb(15 23 42);
+}
+
+.composer-manual-key-hint {
+  margin: -0.375rem 0 0;
+  color: rgb(148 163 184);
+  font-size: 0.6875rem;
   line-height: 1rem;
 }
 
@@ -8330,6 +8549,45 @@ onBeforeUnmount(() => {
 .dark .composer-model-key {
   border-color: rgb(51 65 85);
   background: rgb(2 6 23 / 0.48);
+}
+
+.dark .composer-key-source {
+  border-color: rgb(51 65 85);
+  background: rgb(2 6 23 / 0.78);
+}
+
+.dark .composer-key-source button {
+  color: rgb(148 163 184);
+}
+
+.dark .composer-key-source button:hover:not(:disabled) {
+  color: rgb(125 211 252);
+}
+
+.dark .composer-key-source button.is-active {
+  background: rgb(30 41 59);
+  color: rgb(186 230 253);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.45);
+}
+
+.dark .composer-manual-key-input {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(241 245 249);
+}
+
+.dark .composer-manual-key-input:focus {
+  border-color: rgb(56 189 248);
+  box-shadow: 0 0 0 2px rgb(14 116 144 / 0.5);
+}
+
+.dark .composer-manual-key-clear {
+  color: rgb(148 163 184);
+}
+
+.dark .composer-manual-key-clear:hover {
+  background: rgb(51 65 85);
+  color: rgb(241 245 249);
 }
 
 .dark .composer-panel-label,

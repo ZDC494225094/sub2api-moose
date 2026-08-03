@@ -1243,6 +1243,118 @@ func TestForwardGrokMediaVideoGenerationReturnsUsageAndResponseID(t *testing.T) 
 	require.Equal(t, 10, result.VideoDurationSeconds)
 }
 
+func TestForwardGrokMediaGrokVideoRWithoutImageUsesChatCompletions(t *testing.T) {
+	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	body := []byte(`{"model":"grok-video-r","prompt":"waves at sunset","images":[],"reference_images":[],"resolution":"720p","duration":30,"aspect_ratio":"16:9"}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	account := &Account{
+		ID:          63,
+		Name:        "grok",
+		Platform:    PlatformGrok,
+		Type:        AccountTypeAPIKey,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"api_key":       "api-key",
+			"base_url":      "https://xai.test/v1",
+			"model_mapping": map[string]any{"grok-video-r": "grok-video-r"},
+		},
+	}
+	upstreamBody := strings.Join([]string{
+		`data: {"choices":[{"delta":{"reasoning_content":"video generating 50%"}}]}`,
+		`data: {"choices":[{"delta":{"content":"https://videos.test/generated.mp4?id=video-30"}}]}`,
+		`data: {"choices":[],"usage":{"prompt_tokens":5,"completion_tokens":7}}`,
+		`data: [DONE]`,
+		``,
+	}, "\n\n")
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header: http.Header{
+			"Content-Type": []string{"text/event-stream"},
+			"X-Request-Id": []string{"chat-video-request"},
+		},
+		Body: io.NopCloser(strings.NewReader(upstreamBody)),
+	}}
+	svc := &OpenAIGatewayService{httpUpstream: upstream}
+
+	result, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointVideosGenerations, "", body, "application/json")
+	require.NoError(t, err)
+	require.Equal(t, "https://xai.test/v1/chat/completions", upstream.lastReq.URL.String())
+	require.Equal(t, http.MethodPost, upstream.lastReq.Method)
+	require.Equal(t, "text/event-stream", upstream.lastReq.Header.Get("Accept"))
+	require.Equal(t, "grok-video-r", gjson.GetBytes(upstream.lastBody, "model").String())
+	require.True(t, gjson.GetBytes(upstream.lastBody, "stream").Bool())
+	require.True(t, gjson.GetBytes(upstream.lastBody, "stream_options.include_usage").Bool())
+	require.Equal(t, "user", gjson.GetBytes(upstream.lastBody, "messages.0.role").String())
+	message := gjson.GetBytes(upstream.lastBody, "messages.0.content").String()
+	require.Contains(t, message, "waves at sunset")
+	require.Contains(t, message, "duration=30 seconds")
+	require.Contains(t, message, "resolution=720p")
+	require.Contains(t, message, "aspect_ratio=16:9")
+	require.False(t, gjson.GetBytes(upstream.lastBody, "image").Exists())
+	require.False(t, gjson.GetBytes(upstream.lastBody, "images").Exists())
+	require.False(t, gjson.GetBytes(upstream.lastBody, "reference_images").Exists())
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Header().Get("Content-Type"), "application/json")
+	require.Equal(t, "https://videos.test/generated.mp4?id=video-30", gjson.Get(recorder.Body.String(), "data.0.url").String())
+	require.Equal(t, int64(30), gjson.Get(recorder.Body.String(), "data.0.duration").Int())
+	require.Equal(t, "720p", gjson.Get(recorder.Body.String(), "data.0.resolution").String())
+	require.Equal(t, "grok-video-r", result.Model)
+	require.Equal(t, "grok-video-r", result.BillingModel)
+	require.Equal(t, "grok-video-r", result.UpstreamModel)
+	require.Equal(t, grokVideoRChatCompletionsEndpoint, result.UpstreamEndpoint)
+	require.Empty(t, result.ResponseID)
+	require.Equal(t, 1, result.VideoCount)
+	require.Equal(t, 30, result.VideoDurationSeconds)
+	require.Equal(t, VideoBillingResolution720P, result.VideoResolution)
+	require.Equal(t, 5, result.Usage.InputTokens)
+	require.Equal(t, 7, result.Usage.OutputTokens)
+}
+
+func TestForwardGrokMediaGrokVideoRWithImageKeepsVideoEndpoint(t *testing.T) {
+	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	body := []byte(`{"model":"grok-video-r","prompt":"animate","image":"data:image/png;base64,aW1n","duration":30}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	account := &Account{
+		ID:          63,
+		Name:        "grok",
+		Platform:    PlatformGrok,
+		Type:        AccountTypeAPIKey,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"api_key":  "api-key",
+			"base_url": "https://xai.test/v1",
+		},
+	}
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"request_id":"video-request-r-image"}`)),
+	}}
+	svc := &OpenAIGatewayService{httpUpstream: upstream}
+
+	result, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointVideosGenerations, "", body, "application/json")
+	require.NoError(t, err)
+	require.Equal(t, "https://xai.test/v1/videos/generations", upstream.lastReq.URL.String())
+	require.Equal(t, "application/json", upstream.lastReq.Header.Get("Accept"))
+	require.JSONEq(t, string(body), string(upstream.lastBody))
+	require.Equal(t, "video-request-r-image", result.ResponseID)
+	require.Equal(t, "grok-video-r", result.UpstreamModel)
+	require.Empty(t, result.UpstreamEndpoint)
+}
+
 func TestForwardGrokMediaVideoGenerationPreservesImageToVideoModel(t *testing.T) {
 	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
 	gin.SetMode(gin.TestMode)

@@ -2375,6 +2375,12 @@ func TestValidatePricingBillingMode(t *testing.T) {
 			errMsg:  "per-request price or intervals required",
 		},
 		{
+			name:    "video no price no intervals - invalid",
+			pricing: []ChannelModelPricing{{BillingMode: BillingModeVideo}},
+			wantErr: true,
+			errMsg:  "per-request price or intervals required",
+		},
+		{
 			name:    "empty list - valid",
 			pricing: []ChannelModelPricing{},
 		},

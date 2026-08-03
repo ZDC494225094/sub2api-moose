@@ -44,6 +44,7 @@ const messages: Record<string, string> = {
   'admin.usage.billingModeToken': 'Token',
   'admin.usage.billingModePerRequest': 'Per request',
   'admin.usage.billingModeImage': 'Image',
+  'admin.usage.billingModeVideo': 'Video',
   'admin.usage.allGroups': 'All groups',
   'admin.usage.allModels': 'All models',
   'usage.allApiKeys': 'All API Keys',
@@ -302,6 +303,61 @@ describe('user UsageView', () => {
     expect(csvContent).toContain('Billing Mode')
     expect(csvContent).toContain('Image')
     expect(csvContent).not.toContain(',Token,0,0,0,0,')
+
+    window.URL.createObjectURL = originalCreateObjectURL
+    window.URL.revokeObjectURL = originalRevokeObjectURL
+    vi.unstubAllGlobals()
+    clickSpy.mockRestore()
+  })
+
+  it('exports video rows as video when legacy image_count is also populated', async () => {
+    query.mockResolvedValue({
+      items: [
+        {
+          ...usageLog,
+          request_id: 'req-user-export-video',
+          actual_cost: 0.42,
+          total_cost: 0.42,
+          input_cost: 0,
+          output_cost: 0,
+          cache_creation_cost: 0,
+          cache_read_cost: 0,
+          input_tokens: 0,
+          output_tokens: 0,
+          cache_creation_tokens: 0,
+          cache_read_tokens: 0,
+          image_count: 1,
+          video_count: 1,
+          video_resolution: '720p',
+          video_duration_seconds: 6,
+          model: 'vendor-video',
+          billing_mode: 'image',
+          ip_address: null,
+        },
+      ],
+      total: 1,
+      pages: 1,
+    })
+
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    let csvContent = ''
+    const OriginalBlob = globalThis.Blob
+    vi.stubGlobal('Blob', vi.fn((parts: BlobPart[], options?: BlobPropertyBag) => {
+      csvContent = parts.map((part) => String(part)).join('')
+      return new OriginalBlob(parts, options)
+    }))
+    const originalCreateObjectURL = window.URL.createObjectURL
+    const originalRevokeObjectURL = window.URL.revokeObjectURL
+    window.URL.createObjectURL = vi.fn(() => 'blob:usage-export') as typeof window.URL.createObjectURL
+    window.URL.revokeObjectURL = vi.fn(() => {}) as typeof window.URL.revokeObjectURL
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+    await (wrapper.vm as any).exportToCSV()
+
+    expect(csvContent).toContain('Video')
+    expect(csvContent).not.toContain(',Image,0,0,0,0,')
 
     window.URL.createObjectURL = originalCreateObjectURL
     window.URL.revokeObjectURL = originalRevokeObjectURL

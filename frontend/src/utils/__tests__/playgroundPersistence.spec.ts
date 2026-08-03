@@ -5,6 +5,8 @@ import { toCloneablePlaygroundState } from '../playgroundPersistence'
 describe('playground persistence', () => {
   it('converts nested Vue proxies into an IndexedDB-cloneable value', () => {
     const state = reactive({
+      keySourceMode: 'manual',
+      manualApiKey: 'shared-api-key',
       selectedModelsByMode: { image: 'gemini-3-pro-image-preview' },
       threads: [{
         pendingAttachments: [{
@@ -22,6 +24,8 @@ describe('playground persistence', () => {
     const cloneable = toCloneablePlaygroundState(state)
 
     expect(cloneable).toEqual({
+      keySourceMode: 'manual',
+      manualApiKey: 'shared-api-key',
       selectedModelsByMode: { image: 'gemini-3-pro-image-preview' },
       threads: [{
         pendingAttachments: [{

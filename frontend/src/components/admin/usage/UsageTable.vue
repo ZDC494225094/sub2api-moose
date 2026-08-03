@@ -126,8 +126,13 @@
         </template>
 
         <template #cell-tokens="{ row }">
+          <div v-if="isVideoUsage(row)" data-testid="video-usage-summary" class="flex items-center gap-1.5">
+            <Icon name="play" size="sm" class="text-amber-500" />
+            <span class="font-medium text-gray-900 dark:text-white">{{ row.video_count }}{{ t('usage.videoUnit') }}</span>
+            <span class="text-gray-400">({{ formatVideoDuration(row.video_duration_seconds) }} · {{ row.video_resolution || '-' }})</span>
+          </div>
           <!-- 图片生成请求（仅按次计费时显示图片格式） -->
-          <div v-if="isImageUsage(row)" class="flex items-center gap-1.5">
+          <div v-else-if="isImageUsage(row)" class="flex items-center gap-1.5">
             <svg class="h-4 w-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
@@ -368,8 +373,30 @@
               <span class="text-gray-400">{{ t('usage.imageOutputCost') }}</span>
               <span class="font-medium text-pink-300">${{ tooltipData.image_output_cost.toFixed(6) }}</span>
             </div>
+            <template v-if="tooltipData && isVideoUsage(tooltipData)">
+              <div class="flex items-center justify-between gap-4">
+                <span class="text-gray-400">{{ t('usage.videoCount') }}</span>
+                <span class="font-medium text-white">{{ tooltipData.video_count }}{{ t('usage.videoUnit') }}</span>
+              </div>
+              <div class="flex items-center justify-between gap-4">
+                <span class="text-gray-400">{{ t('usage.videoDuration') }}</span>
+                <span class="font-medium text-white">{{ formatVideoDuration(tooltipData.video_duration_seconds) }}</span>
+              </div>
+              <div class="flex items-center justify-between gap-4">
+                <span class="text-gray-400">{{ t('usage.videoResolution') }}</span>
+                <span class="font-medium text-white">{{ tooltipData.video_resolution || '-' }}</span>
+              </div>
+              <div class="flex items-center justify-between gap-4">
+                <span class="text-gray-400">{{ t('usage.videoUnitPrice') }}</span>
+                <span class="font-medium text-sky-300">${{ videoUnitPrice(tooltipData).toFixed(6) }}</span>
+              </div>
+              <div class="flex items-center justify-between gap-4">
+                <span class="text-gray-400">{{ t('usage.videoTotalPrice') }}</span>
+                <span class="font-medium text-white">${{ tooltipData.total_cost?.toFixed(6) || '0.000000' }}</span>
+              </div>
+            </template>
             <!-- Token billing: show unit prices per 1M tokens -->
-            <template v-if="tooltipData && !isImageUsage(tooltipData) && (!tooltipData.billing_mode || tooltipData.billing_mode === BILLING_MODE_TOKEN)">
+            <template v-else-if="tooltipData && !isImageUsage(tooltipData) && (!tooltipData.billing_mode || tooltipData.billing_mode === BILLING_MODE_TOKEN)">
               <div v-if="tooltipData && textInputTokens(tooltipData) > 0" class="flex items-center justify-between gap-4">
                 <span class="text-gray-400">{{ t('usage.inputTokenPrice') }}</span>
                 <span class="font-medium text-sky-300">{{ formatTokenPricePerMillion(tooltipData.input_cost, textInputTokens(tooltipData)) }} {{ t('usage.perMillionTokens') }}</span>
@@ -496,8 +523,10 @@ import {
   getBillingModeLabel,
   getBillingModeBadgeClass,
   isImageUsage,
+  isVideoUsage,
   getDisplayBillingMode,
   imageUnitPrice,
+  videoUnitPrice,
 } from '@/utils/billingMode'
 import {
   formatImageBillingSize,
@@ -518,6 +547,10 @@ function accountBilled(row: { total_cost?: number | null; account_stats_cost?: n
   const base = row.account_stats_cost != null ? row.account_stats_cost : (row.total_cost ?? 0)
   const result = base * (row.account_rate_multiplier ?? 1)
   return Number.isNaN(result) ? 0 : result
+}
+
+function formatVideoDuration(seconds: number | null | undefined): string {
+  return seconds && seconds > 0 ? `${seconds}${t('usage.videoSeconds')}` : '-'
 }
 
 

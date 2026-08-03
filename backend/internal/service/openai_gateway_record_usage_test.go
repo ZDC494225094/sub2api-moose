@@ -2079,6 +2079,60 @@ func TestGrokVideoBillingUsesSeparateVideoRateMultiplier(t *testing.T) {
 	require.Equal(t, 1, *usageRepo.lastLog.VideoDurationSeconds)
 }
 
+func TestOpenAIGatewayServiceRecordUsage_ChannelVideoPricingUsesResolutionTierPerSecond(t *testing.T) {
+	groupID := int64(12601)
+	defaultPrice := 0.05
+	price720P := 0.07
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	cache := newEmptyChannelCache()
+	cache.pricingByGroupModel[channelModelKey{groupID: groupID, model: "vendor-video"}] = &ChannelModelPricing{
+		BillingMode:     BillingModeVideo,
+		PerRequestPrice: &defaultPrice,
+		Intervals: []PricingInterval{{
+			TierLabel:       VideoBillingResolution720P,
+			PerRequestPrice: &price720P,
+		}},
+	}
+	cache.channelByGroupID[groupID] = &Channel{ID: groupID, Status: StatusActive}
+	cache.loadedAt = time.Now()
+	channelService := &ChannelService{}
+	channelService.cache.Store(cache)
+	svc.resolver = NewModelPricingResolver(channelService, NewBillingService(&config.Config{}, nil))
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:            "vendor-video-per-second",
+			Model:                "vendor-video",
+			BillingModel:         "vendor-video",
+			ImageCount:           1,
+			VideoCount:           1,
+			VideoResolution:      VideoBillingResolution720P,
+			VideoDurationSeconds: 30,
+			Duration:             time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      1012601,
+			GroupID: i64p(groupID),
+			Group:   &Group{ID: groupID, RateMultiplier: 1},
+		},
+		User:    &User{ID: 2012601},
+		Account: &Account{ID: 3012601},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.InDelta(t, price720P*30, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, price720P*30, usageRepo.lastLog.ActualCost, 1e-12)
+	require.NotNil(t, usageRepo.lastLog.BillingMode)
+	require.Equal(t, string(BillingModeVideo), *usageRepo.lastLog.BillingMode)
+	require.Equal(t, 1, usageRepo.lastLog.VideoCount)
+	require.NotNil(t, usageRepo.lastLog.VideoResolution)
+	require.Equal(t, VideoBillingResolution720P, *usageRepo.lastLog.VideoResolution)
+	require.NotNil(t, usageRepo.lastLog.VideoDurationSeconds)
+	require.Equal(t, 30, *usageRepo.lastLog.VideoDurationSeconds)
+}
+
 func TestOpenAIGatewayServiceRecordUsage_GrokVideoUsesDefaultRateCard(t *testing.T) {
 	groupID := int64(1261)
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
