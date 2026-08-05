@@ -2166,6 +2166,12 @@ type ComposerPanel = 'model' | 'image' | 'video'
 type PlaygroundKeySource = 'saved' | 'manual'
 type PlaygroundRestorableRunRequest = Omit<PlaygroundRunRequest, 'apiKey'>
 
+interface PlaygroundKeyState {
+  selectedKeyId: string
+  keySourceMode: PlaygroundKeySource
+  manualApiKey: string
+}
+
 interface DoodlePoint {
   x: number
   y: number
@@ -2246,6 +2252,7 @@ interface PlaygroundPersistedPayload {
   selectedKeyId: string
   keySourceMode?: PlaygroundKeySource
   manualApiKey?: string
+  keySelectionsByMode?: Partial<Record<PlaygroundMode, PlaygroundKeyState>>
   selectedModel: string
   selectedModelsByMode?: Partial<Record<PlaygroundMode, string>>
   systemPrompt: string
@@ -2447,10 +2454,26 @@ marked.setOptions({
   gfm: true
 })
 
+const mode = ref<PlaygroundMode>('chat')
 const apiKeys = ref<ApiKey[]>([])
-const selectedKeyId = ref('')
-const manualApiKey = ref('')
-const keySourceMode = ref<PlaygroundKeySource>('saved')
+const playgroundKeyStates = ref<Record<PlaygroundMode, PlaygroundKeyState>>({
+  chat: { selectedKeyId: '', keySourceMode: 'saved', manualApiKey: '' },
+  image: { selectedKeyId: '', keySourceMode: 'saved', manualApiKey: '' },
+  video: { selectedKeyId: '', keySourceMode: 'saved', manualApiKey: '' },
+  audio: { selectedKeyId: '', keySourceMode: 'saved', manualApiKey: '' }
+})
+const selectedKeyId = computed({
+  get: () => playgroundKeyStates.value[mode.value].selectedKeyId,
+  set: (value: string) => { playgroundKeyStates.value[mode.value].selectedKeyId = value }
+})
+const manualApiKey = computed({
+  get: () => playgroundKeyStates.value[mode.value].manualApiKey,
+  set: (value: string) => { playgroundKeyStates.value[mode.value].manualApiKey = value }
+})
+const keySourceMode = computed({
+  get: () => playgroundKeyStates.value[mode.value].keySourceMode,
+  set: (value: PlaygroundKeySource) => { playgroundKeyStates.value[mode.value].keySourceMode = value }
+})
 const loadingKeys = ref(true)
 const loadingModels = ref(false)
 const showSettings = ref(false)
@@ -2465,7 +2488,6 @@ const composerInputResizing = ref(false)
 const composerDragActive = ref(false)
 const showImageSizeModal = ref(false)
 const showPromptOptimizerModal = ref(false)
-const mode = ref<PlaygroundMode>('chat')
 const imageWorkspaceMode = ref<ImageWorkspaceMode>('chat')
 const models = ref<PlaygroundModel[]>([])
 const selectedModel = ref('')
@@ -4290,6 +4312,12 @@ function buildPlaygroundPayload(): PlaygroundPersistedPayload {
     selectedKeyId: selectedKeyId.value,
     keySourceMode: keySourceMode.value,
     manualApiKey: manualApiKey.value.trim(),
+    keySelectionsByMode: {
+      chat: { ...playgroundKeyStates.value.chat },
+      image: { ...playgroundKeyStates.value.image },
+      video: { ...playgroundKeyStates.value.video },
+      audio: { ...playgroundKeyStates.value.audio }
+    },
     selectedModel: selectedModel.value,
     selectedModelsByMode: selectedModelsByMode.value,
     systemPrompt: systemPrompt.value,
@@ -4403,14 +4431,34 @@ function applyPlaygroundPayload(payload: Record<string, unknown>) {
     mode.value = activeThread.value?.mode || (typeof payload.mode === 'string' ? payload.mode as PlaygroundMode : 'chat')
   }
 
-  selectedKeyId.value = typeof payload.selectedKeyId === 'string' ? payload.selectedKeyId : selectedKeyId.value
-  manualApiKey.value = typeof payload.manualApiKey === 'string' ? payload.manualApiKey.trim() : ''
-  if (payload.keySourceMode === 'manual') {
-    keySourceMode.value = 'manual'
-  } else if (payload.keySourceMode === 'saved' && activeKeys.value.length > 0) {
-    keySourceMode.value = 'saved'
+  const savedKeySelections = payload.keySelectionsByMode && typeof payload.keySelectionsByMode === 'object'
+    ? payload.keySelectionsByMode as Partial<Record<PlaygroundMode, Partial<PlaygroundKeyState>>>
+    : null
+  if (savedKeySelections) {
+    for (const targetMode of ['chat', 'image', 'video', 'audio'] as PlaygroundMode[]) {
+      const savedState = savedKeySelections[targetMode]
+      if (!savedState || typeof savedState !== 'object') continue
+      const state = playgroundKeyStates.value[targetMode]
+      state.selectedKeyId = typeof savedState.selectedKeyId === 'string' ? savedState.selectedKeyId : state.selectedKeyId
+      state.manualApiKey = typeof savedState.manualApiKey === 'string' ? savedState.manualApiKey.trim() : state.manualApiKey
+      state.keySourceMode = savedState.keySourceMode === 'manual' ? 'manual' : 'saved'
+    }
   } else {
-    keySourceMode.value = activeKeys.value.length > 0 ? 'saved' : 'manual'
+    // Migrate the previous single-key snapshot to each mode. Later changes are
+    // stored independently and no longer leak between chat, image, and video.
+    const legacyState: PlaygroundKeyState = {
+      selectedKeyId: typeof payload.selectedKeyId === 'string' ? payload.selectedKeyId : '',
+      manualApiKey: typeof payload.manualApiKey === 'string' ? payload.manualApiKey.trim() : '',
+      keySourceMode: payload.keySourceMode === 'manual' ? 'manual' : 'saved'
+    }
+    for (const targetMode of ['chat', 'image', 'video', 'audio'] as PlaygroundMode[]) {
+      playgroundKeyStates.value[targetMode] = { ...legacyState }
+    }
+  }
+  if (activeKeys.value.length === 0) {
+    for (const targetMode of ['chat', 'image', 'video', 'audio'] as PlaygroundMode[]) {
+      playgroundKeyStates.value[targetMode].keySourceMode = 'manual'
+    }
   }
   selectedModel.value = typeof payload.selectedModel === 'string' ? payload.selectedModel : selectedModel.value
   if (payload.selectedModelsByMode && typeof payload.selectedModelsByMode === 'object') {
@@ -4510,8 +4558,11 @@ async function persistCompletedImageMessage(thread: PlaygroundThread, assistantM
   return queuePlaygroundPersistence(async () => {
     try {
       const imageRecords = await persistImageMessageAssets(assistantMessage)
-      const currentPayload = await loadPlaygroundStateFromDB().catch(() => null)
-      const basePayload = currentPayload || buildPlaygroundPayload()
+      // Use the current in-memory state as the source of truth. Reading an older
+      // IndexedDB snapshot here can overwrite threads/messages created while an
+      // image or video result was being hydrated, which is especially visible
+      // when the user switches between saved and manual API keys.
+      const basePayload = buildPlaygroundPayload()
       const persistedMessage = serializeMessageForPersistence(assistantMessage)
       let foundThread = false
       const nextPayload: PlaygroundPersistedPayload = {
@@ -6683,9 +6734,13 @@ function handleComposerInputResizePointerUp(event: PointerEvent) {
 }
 
 function ensureActiveKeySelection() {
-  const selectedKeyIsActive = activeKeys.value.some((key) => String(key.id) === selectedKeyId.value)
-  if (!selectedKeyIsActive) {
-    selectedKeyId.value = activeKeys.value.length > 0 ? String(activeKeys.value[0].id) : ''
+  for (const targetMode of ['chat', 'image', 'video', 'audio'] as PlaygroundMode[]) {
+    const state = playgroundKeyStates.value[targetMode]
+    if (state.keySourceMode !== 'saved') continue
+    const selectedKeyIsActive = activeKeys.value.some((key) => String(key.id) === state.selectedKeyId)
+    if (!selectedKeyIsActive) {
+      state.selectedKeyId = activeKeys.value.length > 0 ? String(activeKeys.value[0].id) : ''
+    }
   }
   const promptOptimizerKeyWasSelected = Boolean(promptOptimizerKeyId.value)
   const promptOptimizerKeyIsActive = activeKeys.value.some((key) => String(key.id) === promptOptimizerKeyId.value)
@@ -6703,7 +6758,11 @@ async function loadKeys() {
     const response = await keysAPI.list(1, 1000)
     apiKeys.value = response.items
     ensureActiveKeySelection()
-    if (activeKeys.value.length === 0) keySourceMode.value = 'manual'
+    if (activeKeys.value.length === 0) {
+      for (const targetMode of ['chat', 'image', 'video', 'audio'] as PlaygroundMode[]) {
+        playgroundKeyStates.value[targetMode].keySourceMode = 'manual'
+      }
+    }
   } catch (error) {
     appStore.showError((error as Error)?.message || t('playground.loadKeysFailed'))
   } finally {
@@ -6715,7 +6774,9 @@ function resetModelsForKeyChange() {
   modelAbortController?.abort()
   models.value = []
   selectedModel.value = ''
-  selectedModelsByMode.value = {}
+  const nextSelectedModels = { ...selectedModelsByMode.value }
+  delete nextSelectedModels[mode.value]
+  selectedModelsByMode.value = nextSelectedModels
   modelLoadError.value = ''
   lastRunError.value = ''
   composerModelSearch.value = ''
@@ -6874,10 +6935,12 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 function apiKeyForRunMessage(message: PlaygroundMessage): string {
+  const messageThread = threads.value.find((thread) => thread.messages.some((item) => item.id === message.id))
+  const messageKeyState = playgroundKeyStates.value[messageThread?.mode || mode.value]
   // A blank ID marks the persisted manual-key source. It must never fall back
   // to a saved key while restoring a run.
-  if (message.runKeyId === '') return manualApiKey.value.trim()
-  const keyId = message.runKeyId ?? selectedKeyId.value
+  if (message.runKeyId === '') return messageKeyState.manualApiKey.trim()
+  const keyId = message.runKeyId ?? messageKeyState.selectedKeyId
   const key = activeKeys.value.find((item) => String(item.id) === keyId)
   return key?.key || ''
 }
@@ -8212,13 +8275,15 @@ async function copyText(value: string) {
   }
 }
 
-watch(selectedKeyId, () => {
+watch([mode, selectedKeyId], ([nextMode], [previousMode]) => {
+  if (nextMode !== previousMode) return
   if (restoringState || keySourceMode.value !== 'saved') return
   resetModelsForKeyChange()
   void loadModels()
 })
 
-watch(keySourceMode, () => {
+watch([mode, keySourceMode], ([nextMode], [previousMode]) => {
+  if (nextMode !== previousMode) return
   if (manualKeyModelLoadTimer !== undefined) {
     window.clearTimeout(manualKeyModelLoadTimer)
     manualKeyModelLoadTimer = undefined
@@ -8228,7 +8293,8 @@ watch(keySourceMode, () => {
   if (effectiveApiKey.value) void loadModels()
 })
 
-watch(manualApiKey, () => {
+watch([mode, manualApiKey], ([nextMode, nextManualApiKey], [previousMode]) => {
+  if (nextMode !== previousMode) return
   if (restoringState || keySourceMode.value !== 'manual') return
   if (manualKeyModelLoadTimer !== undefined) {
     window.clearTimeout(manualKeyModelLoadTimer)
@@ -8236,7 +8302,7 @@ watch(manualApiKey, () => {
   }
   resetModelsForKeyChange()
 
-  if (effectiveApiKey.value) {
+  if (nextManualApiKey.trim()) {
     manualKeyModelLoadTimer = window.setTimeout(() => {
       manualKeyModelLoadTimer = undefined
       void loadModels({ silent: true })
@@ -8244,11 +8310,18 @@ watch(manualApiKey, () => {
   }
 })
 
-watch(mode, (nextMode) => {
+watch(mode, (nextMode, previousMode) => {
   if (activeComposerPanel.value === 'image' || activeComposerPanel.value === 'video') {
     closeComposerPanel()
   }
   if (nextMode !== 'image') showImageSizeModal.value = false
+  if (!restoringState && nextMode !== previousMode) {
+    modelAbortController?.abort()
+    models.value = []
+    selectedModel.value = ''
+    modelLoadError.value = ''
+    if (effectiveApiKey.value) void loadModels({ silent: true })
+  }
   selectDefaultModel()
 })
 

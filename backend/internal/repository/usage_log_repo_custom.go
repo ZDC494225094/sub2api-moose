@@ -58,6 +58,9 @@ const adminMergedUsageSelectColumns = `
 	image_output_size,
 	image_size_source,
 	image_size_breakdown,
+	video_count,
+	video_resolution,
+	video_duration_seconds,
 	service_tier,
 	reasoning_effort,
 	inbound_endpoint,
@@ -942,6 +945,9 @@ func (r *usageLogRepository) adminUsageMergedCTE() string {
 		ul.image_output_size,
 		ul.image_size_source,
 		ul.image_size_breakdown,
+		ul.video_count,
+		ul.video_resolution,
+		ul.video_duration_seconds,
 		ul.service_tier,
 		ul.reasoning_effort,
 		ul.inbound_endpoint,
@@ -1007,6 +1013,9 @@ func (r *usageLogRepository) adminUsageMergedCTE() string {
 		NULL::text AS image_output_size,
 		NULL::text AS image_size_source,
 		NULL::jsonb AS image_size_breakdown,
+		0 AS video_count,
+		NULL::text AS video_resolution,
+		NULL::integer AS video_duration_seconds,
 		NULL::text AS service_tier,
 		NULL::text AS reasoning_effort,
 		NULLIF(o.inbound_endpoint, '') AS inbound_endpoint,
@@ -1113,6 +1122,9 @@ func scanAdminMergedUsageLog(scanner interface{ Scan(...any) error }) (*service.
 		imageOutputSize       sql.NullString
 		imageSizeSource       sql.NullString
 		imageSizeBreakdown    sql.NullString
+		videoCount            int
+		videoResolution       sql.NullString
+		videoDurationSeconds  sql.NullInt64
 		serviceTier           sql.NullString
 		reasoningEffort       sql.NullString
 		inboundEndpoint       sql.NullString
@@ -1173,6 +1185,9 @@ func scanAdminMergedUsageLog(scanner interface{ Scan(...any) error }) (*service.
 		&imageOutputSize,
 		&imageSizeSource,
 		&imageSizeBreakdown,
+		&videoCount,
+		&videoResolution,
+		&videoDurationSeconds,
 		&serviceTier,
 		&reasoningEffort,
 		&inboundEndpoint,
@@ -1218,6 +1233,7 @@ func scanAdminMergedUsageLog(scanner interface{ Scan(...any) error }) (*service.
 		BillingType:           int8(billingType),
 		RequestType:           service.RequestTypeFromInt16(requestTypeRaw),
 		ImageCount:            imageCount,
+		VideoCount:            videoCount,
 		CacheTTLOverridden:    cacheTTLOverridden,
 		CreatedAt:             createdAt,
 		StatusCode:            nullIntPtr(statusCode),
@@ -1275,6 +1291,13 @@ func scanAdminMergedUsageLog(scanner interface{ Scan(...any) error }) (*service.
 		if err := json.Unmarshal([]byte(imageSizeBreakdown.String), &breakdown); err == nil {
 			log.ImageSizeBreakdown = breakdown
 		}
+	}
+	if videoResolution.Valid {
+		log.VideoResolution = strPtr(videoResolution.String)
+	}
+	if videoDurationSeconds.Valid {
+		value := int(videoDurationSeconds.Int64)
+		log.VideoDurationSeconds = &value
 	}
 	if serviceTier.Valid {
 		log.ServiceTier = strPtr(serviceTier.String)

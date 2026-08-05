@@ -128,7 +128,7 @@
         <template #cell-tokens="{ row }">
           <div v-if="isVideoUsage(row)" data-testid="video-usage-summary" class="flex items-center gap-1.5">
             <Icon name="play" size="sm" class="text-amber-500" />
-            <span class="font-medium text-gray-900 dark:text-white">{{ row.video_count }}{{ t('usage.videoUnit') }}</span>
+            <span class="font-medium text-gray-900 dark:text-white">{{ videoCount(row) }}{{ t('usage.videoUnit') }}</span>
             <span class="text-gray-400">({{ formatVideoDuration(row.video_duration_seconds) }} · {{ row.video_resolution || '-' }})</span>
           </div>
           <!-- 图片生成请求（仅按次计费时显示图片格式） -->
@@ -376,7 +376,7 @@
             <template v-if="tooltipData && isVideoUsage(tooltipData)">
               <div class="flex items-center justify-between gap-4">
                 <span class="text-gray-400">{{ t('usage.videoCount') }}</span>
-                <span class="font-medium text-white">{{ tooltipData.video_count }}{{ t('usage.videoUnit') }}</span>
+                <span class="font-medium text-white">{{ videoCount(tooltipData) }}{{ t('usage.videoUnit') }}</span>
               </div>
               <div class="flex items-center justify-between gap-4">
                 <span class="text-gray-400">{{ t('usage.videoDuration') }}</span>
@@ -524,6 +524,7 @@ import {
   getBillingModeBadgeClass,
   isImageUsage,
   isVideoUsage,
+  videoCount,
   getDisplayBillingMode,
   imageUnitPrice,
   videoUnitPrice,

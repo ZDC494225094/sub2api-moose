@@ -416,6 +416,38 @@ describe('admin UsageTable tooltip', () => {
     expect(text).toContain('Per-second price')
     expect(text).toContain('$0.070000')
   })
+
+  it('keeps video formatting when legacy rows omit video_count', async () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{
+          ...baseImageRow,
+          request_id: 'req-admin-video-legacy',
+          model: 'grok-video-r',
+          billing_mode: 'video',
+          video_count: 0,
+          video_duration_seconds: 30,
+          video_resolution: '720p',
+          total_cost: 2.1,
+          actual_cost: 2.1,
+        }],
+        loading: false,
+        columns: [],
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="video-usage-summary"]').text()).toContain('1 video(s)')
+  })
 })
 
 describe('admin UsageTable IP geolocation batch toolbar', () => {
