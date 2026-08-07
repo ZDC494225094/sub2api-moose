@@ -43,6 +43,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/redeemcodebatchusage"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
@@ -120,6 +121,8 @@ type Client struct {
 	Proxy *ProxyClient
 	// RedeemCode is the client for interacting with the RedeemCode builders.
 	RedeemCode *RedeemCodeClient
+	// RedeemCodeBatchUsage is the client for interacting with the RedeemCodeBatchUsage builders.
+	RedeemCodeBatchUsage *RedeemCodeBatchUsageClient
 	// SecuritySecret is the client for interacting with the SecuritySecret builders.
 	SecuritySecret *SecuritySecretClient
 	// Setting is the client for interacting with the Setting builders.
@@ -183,6 +186,7 @@ func (c *Client) init() {
 	c.PromoCodeUsage = NewPromoCodeUsageClient(c.config)
 	c.Proxy = NewProxyClient(c.config)
 	c.RedeemCode = NewRedeemCodeClient(c.config)
+	c.RedeemCodeBatchUsage = NewRedeemCodeBatchUsageClient(c.config)
 	c.SecuritySecret = NewSecuritySecretClient(c.config)
 	c.Setting = NewSettingClient(c.config)
 	c.SubscriptionPlan = NewSubscriptionPlanClient(c.config)
@@ -270,7 +274,7 @@ func Open(driverName, dataSourceName string, options ...Option) (*Client, error)
 }
 
 // ErrTxStarted is returned when trying to start a new transaction from a transactional client.
-var ErrTxStarted = errors.New("enttmp: cannot start a transaction within a transaction")
+var ErrTxStarted = errors.New("ent: cannot start a transaction within a transaction")
 
 // Tx returns a new transactional client. The provided context
 // is used until the transaction is committed or rolled back.
@@ -280,7 +284,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	}
 	tx, err := newTx(ctx, c.driver)
 	if err != nil {
-		return nil, fmt.Errorf("enttmp: starting a transaction: %w", err)
+		return nil, fmt.Errorf("ent: starting a transaction: %w", err)
 	}
 	cfg := c.config
 	cfg.driver = tx
@@ -315,6 +319,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		PromoCodeUsage:                NewPromoCodeUsageClient(cfg),
 		Proxy:                         NewProxyClient(cfg),
 		RedeemCode:                    NewRedeemCodeClient(cfg),
+		RedeemCodeBatchUsage:          NewRedeemCodeBatchUsageClient(cfg),
 		SecuritySecret:                NewSecuritySecretClient(cfg),
 		Setting:                       NewSettingClient(cfg),
 		SubscriptionPlan:              NewSubscriptionPlanClient(cfg),
@@ -374,6 +379,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		PromoCodeUsage:                NewPromoCodeUsageClient(cfg),
 		Proxy:                         NewProxyClient(cfg),
 		RedeemCode:                    NewRedeemCodeClient(cfg),
+		RedeemCodeBatchUsage:          NewRedeemCodeBatchUsageClient(cfg),
 		SecuritySecret:                NewSecuritySecretClient(cfg),
 		Setting:                       NewSettingClient(cfg),
 		SubscriptionPlan:              NewSubscriptionPlanClient(cfg),
@@ -422,10 +428,11 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ChannelMonitorRequestTemplate, c.CompositeModelRoute, c.ErrorPassthroughRule,
 		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
 		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserPlatformQuota, c.UserSubscription,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.RedeemCodeBatchUsage,
+		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile,
+		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
+		c.UserAttributeDefinition, c.UserAttributeValue, c.UserPlatformQuota,
+		c.UserSubscription,
 	} {
 		n.Use(hooks...)
 	}
@@ -442,10 +449,11 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ChannelMonitorRequestTemplate, c.CompositeModelRoute, c.ErrorPassthroughRule,
 		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
 		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserPlatformQuota, c.UserSubscription,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.RedeemCodeBatchUsage,
+		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile,
+		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
+		c.UserAttributeDefinition, c.UserAttributeValue, c.UserPlatformQuota,
+		c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -510,6 +518,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Proxy.mutate(ctx, m)
 	case *RedeemCodeMutation:
 		return c.RedeemCode.mutate(ctx, m)
+	case *RedeemCodeBatchUsageMutation:
+		return c.RedeemCodeBatchUsage.mutate(ctx, m)
 	case *SecuritySecretMutation:
 		return c.SecuritySecret.mutate(ctx, m)
 	case *SettingMutation:
@@ -535,7 +545,7 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	case *UserSubscriptionMutation:
 		return c.UserSubscription.mutate(ctx, m)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown mutation type %T", m)
+		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
 	}
 }
 
@@ -718,7 +728,7 @@ func (c *APIKeyClient) mutate(ctx context.Context, m *APIKeyMutation) (Value, er
 	case OpDelete, OpDeleteOne:
 		return (&APIKeyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown APIKey mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown APIKey mutation op: %q", m.Op())
 	}
 }
 
@@ -965,7 +975,7 @@ func (c *AccountClient) mutate(ctx context.Context, m *AccountMutation) (Value, 
 	case OpDelete, OpDeleteOne:
 		return (&AccountDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown Account mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown Account mutation op: %q", m.Op())
 	}
 }
 
@@ -1081,7 +1091,7 @@ func (c *AccountGroupClient) mutate(ctx context.Context, m *AccountGroupMutation
 	case OpDelete, OpDeleteOne:
 		return (&AccountGroupDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown AccountGroup mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown AccountGroup mutation op: %q", m.Op())
 	}
 }
 
@@ -1230,7 +1240,7 @@ func (c *AccountUpstreamGroupClient) mutate(ctx context.Context, m *AccountUpstr
 	case OpDelete, OpDeleteOne:
 		return (&AccountUpstreamGroupDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown AccountUpstreamGroup mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown AccountUpstreamGroup mutation op: %q", m.Op())
 	}
 }
 
@@ -1379,7 +1389,7 @@ func (c *AnnouncementClient) mutate(ctx context.Context, m *AnnouncementMutation
 	case OpDelete, OpDeleteOne:
 		return (&AnnouncementDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown Announcement mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown Announcement mutation op: %q", m.Op())
 	}
 }
 
@@ -1544,7 +1554,7 @@ func (c *AnnouncementReadClient) mutate(ctx context.Context, m *AnnouncementRead
 	case OpDelete, OpDeleteOne:
 		return (&AnnouncementReadDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown AnnouncementRead mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown AnnouncementRead mutation op: %q", m.Op())
 	}
 }
 
@@ -1725,7 +1735,7 @@ func (c *AuthIdentityClient) mutate(ctx context.Context, m *AuthIdentityMutation
 	case OpDelete, OpDeleteOne:
 		return (&AuthIdentityDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown AuthIdentity mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown AuthIdentity mutation op: %q", m.Op())
 	}
 }
 
@@ -1874,7 +1884,7 @@ func (c *AuthIdentityChannelClient) mutate(ctx context.Context, m *AuthIdentityC
 	case OpDelete, OpDeleteOne:
 		return (&AuthIdentityChannelDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown AuthIdentityChannel mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown AuthIdentityChannel mutation op: %q", m.Op())
 	}
 }
 
@@ -2007,7 +2017,7 @@ func (c *BatchImageEventClient) mutate(ctx context.Context, m *BatchImageEventMu
 	case OpDelete, OpDeleteOne:
 		return (&BatchImageEventDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown BatchImageEvent mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown BatchImageEvent mutation op: %q", m.Op())
 	}
 }
 
@@ -2140,7 +2150,7 @@ func (c *BatchImageItemClient) mutate(ctx context.Context, m *BatchImageItemMuta
 	case OpDelete, OpDeleteOne:
 		return (&BatchImageItemDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown BatchImageItem mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown BatchImageItem mutation op: %q", m.Op())
 	}
 }
 
@@ -2273,7 +2283,7 @@ func (c *BatchImageJobClient) mutate(ctx context.Context, m *BatchImageJobMutati
 	case OpDelete, OpDeleteOne:
 		return (&BatchImageJobDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown BatchImageJob mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown BatchImageJob mutation op: %q", m.Op())
 	}
 }
 
@@ -2454,7 +2464,7 @@ func (c *ChannelMonitorClient) mutate(ctx context.Context, m *ChannelMonitorMuta
 	case OpDelete, OpDeleteOne:
 		return (&ChannelMonitorDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown ChannelMonitor mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown ChannelMonitor mutation op: %q", m.Op())
 	}
 }
 
@@ -2603,7 +2613,7 @@ func (c *ChannelMonitorDailyRollupClient) mutate(ctx context.Context, m *Channel
 	case OpDelete, OpDeleteOne:
 		return (&ChannelMonitorDailyRollupDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown ChannelMonitorDailyRollup mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown ChannelMonitorDailyRollup mutation op: %q", m.Op())
 	}
 }
 
@@ -2752,7 +2762,7 @@ func (c *ChannelMonitorHistoryClient) mutate(ctx context.Context, m *ChannelMoni
 	case OpDelete, OpDeleteOne:
 		return (&ChannelMonitorHistoryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown ChannelMonitorHistory mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown ChannelMonitorHistory mutation op: %q", m.Op())
 	}
 }
 
@@ -2901,7 +2911,7 @@ func (c *ChannelMonitorRequestTemplateClient) mutate(ctx context.Context, m *Cha
 	case OpDelete, OpDeleteOne:
 		return (&ChannelMonitorRequestTemplateDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown ChannelMonitorRequestTemplate mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown ChannelMonitorRequestTemplate mutation op: %q", m.Op())
 	}
 }
 
@@ -3052,7 +3062,7 @@ func (c *CompositeModelRouteClient) mutate(ctx context.Context, m *CompositeMode
 	case OpDelete, OpDeleteOne:
 		return (&CompositeModelRouteDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown CompositeModelRoute mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown CompositeModelRoute mutation op: %q", m.Op())
 	}
 }
 
@@ -3185,7 +3195,7 @@ func (c *ErrorPassthroughRuleClient) mutate(ctx context.Context, m *ErrorPassthr
 	case OpDelete, OpDeleteOne:
 		return (&ErrorPassthroughRuleDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown ErrorPassthroughRule mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown ErrorPassthroughRule mutation op: %q", m.Op())
 	}
 }
 
@@ -3448,7 +3458,7 @@ func (c *GroupClient) mutate(ctx context.Context, m *GroupMutation) (Value, erro
 	case OpDelete, OpDeleteOne:
 		return (&GroupDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown Group mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown Group mutation op: %q", m.Op())
 	}
 }
 
@@ -3581,7 +3591,7 @@ func (c *IdempotencyRecordClient) mutate(ctx context.Context, m *IdempotencyReco
 	case OpDelete, OpDeleteOne:
 		return (&IdempotencyRecordDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown IdempotencyRecord mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown IdempotencyRecord mutation op: %q", m.Op())
 	}
 }
 
@@ -3746,7 +3756,7 @@ func (c *IdentityAdoptionDecisionClient) mutate(ctx context.Context, m *Identity
 	case OpDelete, OpDeleteOne:
 		return (&IdentityAdoptionDecisionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown IdentityAdoptionDecision mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown IdentityAdoptionDecision mutation op: %q", m.Op())
 	}
 }
 
@@ -3879,7 +3889,7 @@ func (c *PaymentAuditLogClient) mutate(ctx context.Context, m *PaymentAuditLogMu
 	case OpDelete, OpDeleteOne:
 		return (&PaymentAuditLogDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown PaymentAuditLog mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown PaymentAuditLog mutation op: %q", m.Op())
 	}
 }
 
@@ -4028,7 +4038,7 @@ func (c *PaymentOrderClient) mutate(ctx context.Context, m *PaymentOrderMutation
 	case OpDelete, OpDeleteOne:
 		return (&PaymentOrderDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown PaymentOrder mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown PaymentOrder mutation op: %q", m.Op())
 	}
 }
 
@@ -4161,7 +4171,7 @@ func (c *PaymentProviderInstanceClient) mutate(ctx context.Context, m *PaymentPr
 	case OpDelete, OpDeleteOne:
 		return (&PaymentProviderInstanceDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown PaymentProviderInstance mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown PaymentProviderInstance mutation op: %q", m.Op())
 	}
 }
 
@@ -4326,7 +4336,7 @@ func (c *PendingAuthSessionClient) mutate(ctx context.Context, m *PendingAuthSes
 	case OpDelete, OpDeleteOne:
 		return (&PendingAuthSessionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown PendingAuthSession mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown PendingAuthSession mutation op: %q", m.Op())
 	}
 }
 
@@ -4475,7 +4485,7 @@ func (c *PromoCodeClient) mutate(ctx context.Context, m *PromoCodeMutation) (Val
 	case OpDelete, OpDeleteOne:
 		return (&PromoCodeDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown PromoCode mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown PromoCode mutation op: %q", m.Op())
 	}
 }
 
@@ -4640,7 +4650,7 @@ func (c *PromoCodeUsageClient) mutate(ctx context.Context, m *PromoCodeUsageMuta
 	case OpDelete, OpDeleteOne:
 		return (&PromoCodeUsageDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown PromoCodeUsage mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown PromoCodeUsage mutation op: %q", m.Op())
 	}
 }
 
@@ -4807,7 +4817,7 @@ func (c *ProxyClient) mutate(ctx context.Context, m *ProxyMutation) (Value, erro
 	case OpDelete, OpDeleteOne:
 		return (&ProxyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown Proxy mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown Proxy mutation op: %q", m.Op())
 	}
 }
 
@@ -4972,7 +4982,140 @@ func (c *RedeemCodeClient) mutate(ctx context.Context, m *RedeemCodeMutation) (V
 	case OpDelete, OpDeleteOne:
 		return (&RedeemCodeDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown RedeemCode mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown RedeemCode mutation op: %q", m.Op())
+	}
+}
+
+// RedeemCodeBatchUsageClient is a client for the RedeemCodeBatchUsage schema.
+type RedeemCodeBatchUsageClient struct {
+	config
+}
+
+// NewRedeemCodeBatchUsageClient returns a client for the RedeemCodeBatchUsage from the given config.
+func NewRedeemCodeBatchUsageClient(c config) *RedeemCodeBatchUsageClient {
+	return &RedeemCodeBatchUsageClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `redeemcodebatchusage.Hooks(f(g(h())))`.
+func (c *RedeemCodeBatchUsageClient) Use(hooks ...Hook) {
+	c.hooks.RedeemCodeBatchUsage = append(c.hooks.RedeemCodeBatchUsage, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `redeemcodebatchusage.Intercept(f(g(h())))`.
+func (c *RedeemCodeBatchUsageClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RedeemCodeBatchUsage = append(c.inters.RedeemCodeBatchUsage, interceptors...)
+}
+
+// Create returns a builder for creating a RedeemCodeBatchUsage entity.
+func (c *RedeemCodeBatchUsageClient) Create() *RedeemCodeBatchUsageCreate {
+	mutation := newRedeemCodeBatchUsageMutation(c.config, OpCreate)
+	return &RedeemCodeBatchUsageCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RedeemCodeBatchUsage entities.
+func (c *RedeemCodeBatchUsageClient) CreateBulk(builders ...*RedeemCodeBatchUsageCreate) *RedeemCodeBatchUsageCreateBulk {
+	return &RedeemCodeBatchUsageCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RedeemCodeBatchUsageClient) MapCreateBulk(slice any, setFunc func(*RedeemCodeBatchUsageCreate, int)) *RedeemCodeBatchUsageCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RedeemCodeBatchUsageCreateBulk{err: fmt.Errorf("calling to RedeemCodeBatchUsageClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RedeemCodeBatchUsageCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RedeemCodeBatchUsageCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RedeemCodeBatchUsage.
+func (c *RedeemCodeBatchUsageClient) Update() *RedeemCodeBatchUsageUpdate {
+	mutation := newRedeemCodeBatchUsageMutation(c.config, OpUpdate)
+	return &RedeemCodeBatchUsageUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RedeemCodeBatchUsageClient) UpdateOne(_m *RedeemCodeBatchUsage) *RedeemCodeBatchUsageUpdateOne {
+	mutation := newRedeemCodeBatchUsageMutation(c.config, OpUpdateOne, withRedeemCodeBatchUsage(_m))
+	return &RedeemCodeBatchUsageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RedeemCodeBatchUsageClient) UpdateOneID(id int64) *RedeemCodeBatchUsageUpdateOne {
+	mutation := newRedeemCodeBatchUsageMutation(c.config, OpUpdateOne, withRedeemCodeBatchUsageID(id))
+	return &RedeemCodeBatchUsageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RedeemCodeBatchUsage.
+func (c *RedeemCodeBatchUsageClient) Delete() *RedeemCodeBatchUsageDelete {
+	mutation := newRedeemCodeBatchUsageMutation(c.config, OpDelete)
+	return &RedeemCodeBatchUsageDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RedeemCodeBatchUsageClient) DeleteOne(_m *RedeemCodeBatchUsage) *RedeemCodeBatchUsageDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RedeemCodeBatchUsageClient) DeleteOneID(id int64) *RedeemCodeBatchUsageDeleteOne {
+	builder := c.Delete().Where(redeemcodebatchusage.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RedeemCodeBatchUsageDeleteOne{builder}
+}
+
+// Query returns a query builder for RedeemCodeBatchUsage.
+func (c *RedeemCodeBatchUsageClient) Query() *RedeemCodeBatchUsageQuery {
+	return &RedeemCodeBatchUsageQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRedeemCodeBatchUsage},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RedeemCodeBatchUsage entity by its id.
+func (c *RedeemCodeBatchUsageClient) Get(ctx context.Context, id int64) (*RedeemCodeBatchUsage, error) {
+	return c.Query().Where(redeemcodebatchusage.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RedeemCodeBatchUsageClient) GetX(ctx context.Context, id int64) *RedeemCodeBatchUsage {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *RedeemCodeBatchUsageClient) Hooks() []Hook {
+	return c.hooks.RedeemCodeBatchUsage
+}
+
+// Interceptors returns the client interceptors.
+func (c *RedeemCodeBatchUsageClient) Interceptors() []Interceptor {
+	return c.inters.RedeemCodeBatchUsage
+}
+
+func (c *RedeemCodeBatchUsageClient) mutate(ctx context.Context, m *RedeemCodeBatchUsageMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RedeemCodeBatchUsageCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RedeemCodeBatchUsageUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RedeemCodeBatchUsageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RedeemCodeBatchUsageDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RedeemCodeBatchUsage mutation op: %q", m.Op())
 	}
 }
 
@@ -5105,7 +5248,7 @@ func (c *SecuritySecretClient) mutate(ctx context.Context, m *SecuritySecretMuta
 	case OpDelete, OpDeleteOne:
 		return (&SecuritySecretDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown SecuritySecret mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown SecuritySecret mutation op: %q", m.Op())
 	}
 }
 
@@ -5238,7 +5381,7 @@ func (c *SettingClient) mutate(ctx context.Context, m *SettingMutation) (Value, 
 	case OpDelete, OpDeleteOne:
 		return (&SettingDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown Setting mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown Setting mutation op: %q", m.Op())
 	}
 }
 
@@ -5371,7 +5514,7 @@ func (c *SubscriptionPlanClient) mutate(ctx context.Context, m *SubscriptionPlan
 	case OpDelete, OpDeleteOne:
 		return (&SubscriptionPlanDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown SubscriptionPlan mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown SubscriptionPlan mutation op: %q", m.Op())
 	}
 }
 
@@ -5504,7 +5647,7 @@ func (c *TLSFingerprintProfileClient) mutate(ctx context.Context, m *TLSFingerpr
 	case OpDelete, OpDeleteOne:
 		return (&TLSFingerprintProfileDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown TLSFingerprintProfile mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown TLSFingerprintProfile mutation op: %q", m.Op())
 	}
 }
 
@@ -5637,7 +5780,7 @@ func (c *UsageCleanupTaskClient) mutate(ctx context.Context, m *UsageCleanupTask
 	case OpDelete, OpDeleteOne:
 		return (&UsageCleanupTaskDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown UsageCleanupTask mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown UsageCleanupTask mutation op: %q", m.Op())
 	}
 }
 
@@ -5850,7 +5993,7 @@ func (c *UsageLogClient) mutate(ctx context.Context, m *UsageLogMutation) (Value
 	case OpDelete, OpDeleteOne:
 		return (&UsageLogDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown UsageLog mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown UsageLog mutation op: %q", m.Op())
 	}
 }
 
@@ -6209,7 +6352,7 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 	case OpDelete, OpDeleteOne:
 		return (&UserDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown User mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown User mutation op: %q", m.Op())
 	}
 }
 
@@ -6325,7 +6468,7 @@ func (c *UserAllowedGroupClient) mutate(ctx context.Context, m *UserAllowedGroup
 	case OpDelete, OpDeleteOne:
 		return (&UserAllowedGroupDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown UserAllowedGroup mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown UserAllowedGroup mutation op: %q", m.Op())
 	}
 }
 
@@ -6476,7 +6619,7 @@ func (c *UserAttributeDefinitionClient) mutate(ctx context.Context, m *UserAttri
 	case OpDelete, OpDeleteOne:
 		return (&UserAttributeDefinitionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown UserAttributeDefinition mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown UserAttributeDefinition mutation op: %q", m.Op())
 	}
 }
 
@@ -6641,7 +6784,7 @@ func (c *UserAttributeValueClient) mutate(ctx context.Context, m *UserAttributeV
 	case OpDelete, OpDeleteOne:
 		return (&UserAttributeValueDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown UserAttributeValue mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown UserAttributeValue mutation op: %q", m.Op())
 	}
 }
 
@@ -6792,7 +6935,7 @@ func (c *UserPlatformQuotaClient) mutate(ctx context.Context, m *UserPlatformQuo
 	case OpDelete, OpDeleteOne:
 		return (&UserPlatformQuotaDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown UserPlatformQuota mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown UserPlatformQuota mutation op: %q", m.Op())
 	}
 }
 
@@ -6991,7 +7134,7 @@ func (c *UserSubscriptionClient) mutate(ctx context.Context, m *UserSubscription
 	case OpDelete, OpDeleteOne:
 		return (&UserSubscriptionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("enttmp: unknown UserSubscription mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown UserSubscription mutation op: %q", m.Op())
 	}
 }
 
@@ -7004,10 +7147,10 @@ type (
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,
 		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
 		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-		UserPlatformQuota, UserSubscription []ent.Hook
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, RedeemCodeBatchUsage,
+		SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
+		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
+		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, AccountUpstreamGroup, Announcement,
@@ -7016,10 +7159,10 @@ type (
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,
 		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
 		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-		UserPlatformQuota, UserSubscription []ent.Interceptor
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, RedeemCodeBatchUsage,
+		SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
+		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
+		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Interceptor
 	}
 )
 

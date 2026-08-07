@@ -35,7 +35,7 @@ func NewRedeemHandler(adminService service.AdminService, redeemService *service.
 // GenerateRedeemCodesRequest represents generate redeem codes request
 type GenerateRedeemCodesRequest struct {
 	Count         int        `json:"count" binding:"required,min=1,max=100"`
-	Type          string     `json:"type" binding:"required,oneof=balance concurrency subscription invitation"`
+	Type          string     `json:"type" binding:"required,oneof=balance marketing concurrency subscription invitation"`
 	Value         float64    `json:"value"`
 	GroupID       *int64     `json:"group_id"`      // 订阅类型必填
 	ValidityDays  int        `json:"validity_days"` // 订阅类型使用，正数增加/负数退款扣减
@@ -382,6 +382,7 @@ func (h *RedeemHandler) GetStats(c *gin.Context) {
 		"total_value_distributed": 0.0,
 		"by_type": gin.H{
 			"balance":     0,
+			"marketing":   0,
 			"concurrency": 0,
 			"trial":       0,
 		},
@@ -412,7 +413,7 @@ func (h *RedeemHandler) Export(c *gin.Context) {
 	writer := csv.NewWriter(&buf)
 
 	// Write header
-	if err := writer.Write([]string{"id", "code", "type", "value", "status", "used_by", "used_by_email", "used_at", "expires_at", "created_at"}); err != nil {
+	if err := writer.Write([]string{"id", "code", "type", "batch_id", "value", "status", "used_by", "used_by_email", "used_at", "expires_at", "created_at"}); err != nil {
 		response.InternalError(c, "Failed to export redeem codes: "+err.Error())
 		return
 	}
@@ -435,10 +436,15 @@ func (h *RedeemHandler) Export(c *gin.Context) {
 		if code.ExpiresAt != nil {
 			expiresAt = code.ExpiresAt.Format("2006-01-02 15:04:05")
 		}
+		batchID := ""
+		if code.BatchID != nil {
+			batchID = *code.BatchID
+		}
 		if err := writer.Write([]string{
 			fmt.Sprintf("%d", code.ID),
 			code.Code,
 			code.Type,
+			batchID,
 			fmt.Sprintf("%.2f", code.Value),
 			code.Status,
 			usedBy,

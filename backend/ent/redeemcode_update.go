@@ -58,6 +58,26 @@ func (_u *RedeemCodeUpdate) SetNillableType(v *string) *RedeemCodeUpdate {
 	return _u
 }
 
+// SetBatchID sets the "batch_id" field.
+func (_u *RedeemCodeUpdate) SetBatchID(v string) *RedeemCodeUpdate {
+	_u.mutation.SetBatchID(v)
+	return _u
+}
+
+// SetNillableBatchID sets the "batch_id" field if the given value is not nil.
+func (_u *RedeemCodeUpdate) SetNillableBatchID(v *string) *RedeemCodeUpdate {
+	if v != nil {
+		_u.SetBatchID(*v)
+	}
+	return _u
+}
+
+// ClearBatchID clears the value of the "batch_id" field.
+func (_u *RedeemCodeUpdate) ClearBatchID() *RedeemCodeUpdate {
+	_u.mutation.ClearBatchID()
+	return _u
+}
+
 // SetValue sets the "value" field.
 func (_u *RedeemCodeUpdate) SetValue(v float64) *RedeemCodeUpdate {
 	_u.mutation.ResetValue()
@@ -286,17 +306,22 @@ func (_u *RedeemCodeUpdate) ExecX(ctx context.Context) {
 func (_u *RedeemCodeUpdate) check() error {
 	if v, ok := _u.mutation.Code(); ok {
 		if err := redeemcode.CodeValidator(v); err != nil {
-			return &ValidationError{Name: "code", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.code": %w`, err)}
+			return &ValidationError{Name: "code", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.code": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.GetType(); ok {
 		if err := redeemcode.TypeValidator(v); err != nil {
-			return &ValidationError{Name: "type", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.type": %w`, err)}
+			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.type": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.BatchID(); ok {
+		if err := redeemcode.BatchIDValidator(v); err != nil {
+			return &ValidationError{Name: "batch_id", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.batch_id": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := redeemcode.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.status": %w`, err)}
 		}
 	}
 	return nil
@@ -319,6 +344,12 @@ func (_u *RedeemCodeUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 	}
 	if value, ok := _u.mutation.GetType(); ok {
 		_spec.SetField(redeemcode.FieldType, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.BatchID(); ok {
+		_spec.SetField(redeemcode.FieldBatchID, field.TypeString, value)
+	}
+	if _u.mutation.BatchIDCleared() {
+		_spec.ClearField(redeemcode.FieldBatchID, field.TypeString)
 	}
 	if value, ok := _u.mutation.Value(); ok {
 		_spec.SetField(redeemcode.FieldValue, field.TypeFloat64, value)
@@ -456,6 +487,26 @@ func (_u *RedeemCodeUpdateOne) SetNillableType(v *string) *RedeemCodeUpdateOne {
 	if v != nil {
 		_u.SetType(*v)
 	}
+	return _u
+}
+
+// SetBatchID sets the "batch_id" field.
+func (_u *RedeemCodeUpdateOne) SetBatchID(v string) *RedeemCodeUpdateOne {
+	_u.mutation.SetBatchID(v)
+	return _u
+}
+
+// SetNillableBatchID sets the "batch_id" field if the given value is not nil.
+func (_u *RedeemCodeUpdateOne) SetNillableBatchID(v *string) *RedeemCodeUpdateOne {
+	if v != nil {
+		_u.SetBatchID(*v)
+	}
+	return _u
+}
+
+// ClearBatchID clears the value of the "batch_id" field.
+func (_u *RedeemCodeUpdateOne) ClearBatchID() *RedeemCodeUpdateOne {
+	_u.mutation.ClearBatchID()
 	return _u
 }
 
@@ -700,17 +751,22 @@ func (_u *RedeemCodeUpdateOne) ExecX(ctx context.Context) {
 func (_u *RedeemCodeUpdateOne) check() error {
 	if v, ok := _u.mutation.Code(); ok {
 		if err := redeemcode.CodeValidator(v); err != nil {
-			return &ValidationError{Name: "code", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.code": %w`, err)}
+			return &ValidationError{Name: "code", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.code": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.GetType(); ok {
 		if err := redeemcode.TypeValidator(v); err != nil {
-			return &ValidationError{Name: "type", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.type": %w`, err)}
+			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.type": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.BatchID(); ok {
+		if err := redeemcode.BatchIDValidator(v); err != nil {
+			return &ValidationError{Name: "batch_id", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.batch_id": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := redeemcode.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.status": %w`, err)}
 		}
 	}
 	return nil
@@ -723,7 +779,7 @@ func (_u *RedeemCodeUpdateOne) sqlSave(ctx context.Context) (_node *RedeemCode, 
 	_spec := sqlgraph.NewUpdateSpec(redeemcode.Table, redeemcode.Columns, sqlgraph.NewFieldSpec(redeemcode.FieldID, field.TypeInt64))
 	id, ok := _u.mutation.ID()
 	if !ok {
-		return nil, &ValidationError{Name: "id", err: errors.New(`enttmp: missing "RedeemCode.id" for update`)}
+		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "RedeemCode.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
 	if fields := _u.fields; len(fields) > 0 {
@@ -731,7 +787,7 @@ func (_u *RedeemCodeUpdateOne) sqlSave(ctx context.Context) (_node *RedeemCode, 
 		_spec.Node.Columns = append(_spec.Node.Columns, redeemcode.FieldID)
 		for _, f := range fields {
 			if !redeemcode.ValidColumn(f) {
-				return nil, &ValidationError{Name: f, err: fmt.Errorf("enttmp: invalid field %q for query", f)}
+				return nil, &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 			}
 			if f != redeemcode.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, f)
@@ -750,6 +806,12 @@ func (_u *RedeemCodeUpdateOne) sqlSave(ctx context.Context) (_node *RedeemCode, 
 	}
 	if value, ok := _u.mutation.GetType(); ok {
 		_spec.SetField(redeemcode.FieldType, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.BatchID(); ok {
+		_spec.SetField(redeemcode.FieldBatchID, field.TypeString, value)
+	}
+	if _u.mutation.BatchIDCleared() {
+		_spec.ClearField(redeemcode.FieldBatchID, field.TypeString)
 	}
 	if value, ok := _u.mutation.Value(); ok {
 		_spec.SetField(redeemcode.FieldValue, field.TypeFloat64, value)

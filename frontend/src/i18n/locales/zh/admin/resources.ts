@@ -254,6 +254,7 @@ export default {
       },
       types: {
         balance: '余额',
+        marketing: '营销兑换码',
         concurrency: '并发数',
         subscription: '订阅',
         invitation: '邀请码',
@@ -263,10 +264,12 @@ export default {
       },
       // 用于选择器和筛选器的直接键
       balance: '余额',
+      marketing: '营销兑换码',
       concurrency: '并发数',
       subscription: '订阅',
       invitation: '邀请码',
       invitationHint: '邀请码用于限制用户注册，使用后自动标记为已使用。',
+      marketingHint: '营销兑换码仅支持余额。每批次每个用户只能成功兑换一次。',
       allTypes: '全部类型',
       allStatus: '全部状态',
       unused: '未使用',
@@ -296,6 +299,7 @@ export default {
       generateCodesTitle: '生成兑换码',
       generatedSuccessfully: '生成成功',
       codesCreated: '已创建 {count} 个兑换码',
+      batchId: '批次 ID',
       codeType: '类型',
       amount: '金额 ($)',
       value: '面值',

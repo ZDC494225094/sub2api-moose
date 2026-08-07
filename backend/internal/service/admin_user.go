@@ -16,6 +16,7 @@ import (
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/google/uuid"
 )
 
 // User management implementations
@@ -1245,8 +1246,17 @@ func (s *adminServiceImpl) GetRedeemCode(ctx context.Context, id int64) (*Redeem
 }
 
 func (s *adminServiceImpl) GenerateRedeemCodes(ctx context.Context, input *GenerateRedeemCodesInput) ([]RedeemCode, error) {
+	if input == nil {
+		return nil, errors.New("generate redeem codes input is required")
+	}
+	if input.Count <= 0 {
+		return nil, errors.New("count must be greater than 0")
+	}
 	if input.ExpiresAt != nil && !input.ExpiresAt.After(time.Now()) {
 		return nil, ErrRedeemCodeExpired
+	}
+	if input.Type == RedeemTypeMarketing && input.Value <= 0 {
+		return nil, errors.New("marketing redeem code value must be greater than 0")
 	}
 
 	// 如果是订阅类型，验证必须有 GroupID
@@ -1264,6 +1274,12 @@ func (s *adminServiceImpl) GenerateRedeemCodes(ctx context.Context, input *Gener
 		}
 	}
 
+	var batchID *string
+	if input.Type == RedeemTypeMarketing {
+		id := uuid.NewString()
+		batchID = &id
+	}
+
 	codes := make([]RedeemCode, 0, input.Count)
 	for i := 0; i < input.Count; i++ {
 		codeValue, err := GenerateRedeemCode()
@@ -1273,6 +1289,7 @@ func (s *adminServiceImpl) GenerateRedeemCodes(ctx context.Context, input *Gener
 		code := RedeemCode{
 			Code:      codeValue,
 			Type:      input.Type,
+			BatchID:   batchID,
 			Value:     input.Value,
 			Status:    StatusUnused,
 			ExpiresAt: input.ExpiresAt,

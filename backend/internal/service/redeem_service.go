@@ -13,11 +13,13 @@ import (
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/google/uuid"
 )
 
 var (
 	ErrRedeemCodeNotFound  = infraerrors.NotFound("REDEEM_CODE_NOT_FOUND", "redeem code not found")
 	ErrRedeemCodeUsed      = infraerrors.Conflict("REDEEM_CODE_USED", "redeem code already used")
+	ErrMarketingBatchUsed  = infraerrors.Conflict("MARKETING_REDEEM_BATCH_USED", "marketing redeem code batch already used by this user")
 	ErrRedeemCodeExpired   = infraerrors.Conflict("REDEEM_CODE_EXPIRED", "redeem code expired")
 	ErrInsufficientBalance = infraerrors.BadRequest("INSUFFICIENT_BALANCE", "insufficient balance")
 	ErrRedeemRateLimited   = infraerrors.TooManyRequests("REDEEM_RATE_LIMITED", "too many failed attempts, please try again later")
@@ -66,6 +68,14 @@ type RedeemCodeRepository interface {
 	ListByUserPaginated(ctx context.Context, userID int64, params pagination.PaginationParams, codeType string) ([]RedeemCode, *pagination.PaginationResult, error)
 	// SumPositiveBalanceByUser returns the total recharged amount (sum of positive balance values) for a user.
 	SumPositiveBalanceByUser(ctx context.Context, userID int64) (float64, error)
+}
+
+// MarketingRedeemBatchUsageRepository persists the per-user redemption guard
+// for marketing-code batches. It is kept separate so existing repository
+// test doubles and integrations do not need to implement marketing behavior.
+type MarketingRedeemBatchUsageRepository interface {
+	HasMarketingBatchUsage(ctx context.Context, batchID string, userID int64) (bool, error)
+	CreateMarketingBatchUsage(ctx context.Context, batchID string, userID, redeemCodeID int64) error
 }
 
 // GenerateCodesRequest 生成兑换码请求
@@ -134,6 +144,7 @@ type RedeemCodeBatchUpdateResult struct {
 // RedeemService 兑换码服务
 type RedeemService struct {
 	redeemRepo           RedeemCodeRepository
+	marketingBatchRepo   MarketingRedeemBatchUsageRepository
 	userRepo             UserRepository
 	redeemUserRepo       RedeemUserAdjustmentRepository
 	subscriptionService  *SubscriptionService
@@ -156,8 +167,10 @@ func NewRedeemService(
 	affiliateService *AffiliateService,
 ) *RedeemService {
 	redeemUserRepo, _ := userRepo.(RedeemUserAdjustmentRepository)
+	marketingBatchRepo, _ := redeemRepo.(MarketingRedeemBatchUsageRepository)
 	return &RedeemService{
 		redeemRepo:           redeemRepo,
+		marketingBatchRepo:   marketingBatchRepo,
 		userRepo:             userRepo,
 		redeemUserRepo:       redeemUserRepo,
 		subscriptionService:  subscriptionService,
@@ -208,6 +221,15 @@ func (s *RedeemService) GenerateCodes(ctx context.Context, req GenerateCodesRequ
 	if codeType == RedeemTypeInvitation {
 		value = 0
 	}
+	if codeType == RedeemTypeMarketing && value <= 0 {
+		return nil, errors.New("marketing redeem code value must be greater than 0")
+	}
+
+	var batchID *string
+	if codeType == RedeemTypeMarketing {
+		id := uuid.NewString()
+		batchID = &id
+	}
 
 	codes := make([]RedeemCode, 0, req.Count)
 	for i := 0; i < req.Count; i++ {
@@ -217,10 +239,11 @@ func (s *RedeemService) GenerateCodes(ctx context.Context, req GenerateCodesRequ
 		}
 
 		codes = append(codes, RedeemCode{
-			Code:   code,
-			Type:   codeType,
-			Value:  value,
-			Status: StatusUnused,
+			Code:    code,
+			Type:    codeType,
+			BatchID: batchID,
+			Value:   value,
+			Status:  StatusUnused,
 		})
 	}
 
@@ -245,6 +268,9 @@ func (s *RedeemService) CreateCode(ctx context.Context, code *RedeemCode) error 
 	}
 	if code.Type == "" {
 		code.Type = RedeemTypeBalance
+	}
+	if code.Type == RedeemTypeMarketing {
+		return errors.New("marketing redeem codes must be generated in batch")
 	}
 	if code.Type != RedeemTypeInvitation && code.Value == 0 {
 		return errors.New("value must not be zero")
@@ -411,7 +437,10 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 
 	// 验证兑换码类型的前置条件。邀请码属于注册流程，不能通过普通兑换接口使用。
 	switch redeemCode.Type {
-	case RedeemTypeBalance, RedeemTypeConcurrency:
+	case RedeemTypeBalance, RedeemTypeMarketing, RedeemTypeConcurrency:
+		if redeemCode.Type == RedeemTypeMarketing && (redeemCode.BatchID == nil || strings.TrimSpace(*redeemCode.BatchID) == "") {
+			return nil, infraerrors.BadRequest("REDEEM_CODE_INVALID", "invalid marketing redeem code: missing batch_id")
+		}
 	case RedeemTypeSubscription:
 		if redeemCode.GroupID == nil {
 			return nil, infraerrors.BadRequest("REDEEM_CODE_INVALID", "invalid subscription redeem code: missing group_id")
@@ -436,6 +465,19 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 	// 将事务放入 context，使 repository 方法能够使用同一事务
 	txCtx := dbent.NewTxContext(ctx, tx)
 
+	if redeemCode.Type == RedeemTypeMarketing {
+		if s.marketingBatchRepo == nil {
+			return nil, errors.New("marketing redeem batch repository not configured")
+		}
+		used, err := s.marketingBatchRepo.HasMarketingBatchUsage(txCtx, strings.TrimSpace(*redeemCode.BatchID), userID)
+		if err != nil {
+			return nil, fmt.Errorf("check marketing redeem batch usage: %w", err)
+		}
+		if used {
+			return nil, ErrMarketingBatchUsed
+		}
+	}
+
 	// 【关键】先标记兑换码为已使用，确保并发安全
 	// 利用数据库乐观锁（WHERE status = 'unused'）保证原子性
 	if err := s.redeemRepo.Use(txCtx, redeemCode.ID, userID); err != nil {
@@ -444,10 +486,18 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 		}
 		return nil, fmt.Errorf("mark code as used: %w", err)
 	}
+	if redeemCode.Type == RedeemTypeMarketing {
+		if err := s.marketingBatchRepo.CreateMarketingBatchUsage(txCtx, strings.TrimSpace(*redeemCode.BatchID), userID, redeemCode.ID); err != nil {
+			if errors.Is(err, ErrMarketingBatchUsed) {
+				return nil, ErrMarketingBatchUsed
+			}
+			return nil, fmt.Errorf("record marketing redeem batch usage: %w", err)
+		}
+	}
 
 	// 执行兑换逻辑（兑换码已被锁定，此时可安全操作）
 	switch redeemCode.Type {
-	case RedeemTypeBalance:
+	case RedeemTypeBalance, RedeemTypeMarketing:
 		amount := redeemCode.Value
 		if amount < 0 {
 			if s.redeemUserRepo == nil {
@@ -525,7 +575,7 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 // invalidateRedeemCaches 失效兑换相关的缓存
 func (s *RedeemService) invalidateRedeemCaches(ctx context.Context, userID int64, redeemCode *RedeemCode) {
 	switch redeemCode.Type {
-	case RedeemTypeBalance:
+	case RedeemTypeBalance, RedeemTypeMarketing:
 		if s.authCacheInvalidator != nil {
 			s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, userID)
 		}

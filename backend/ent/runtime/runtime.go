@@ -5,7 +5,6 @@ package runtime
 import (
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/ent/schema"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
 	"github.com/Wei-Shaw/sub2api/ent/accountupstreamgroup"
@@ -34,6 +33,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/redeemcodebatchusage"
+	"github.com/Wei-Shaw/sub2api/ent/schema"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
@@ -1801,24 +1802,52 @@ func init() {
 	redeemcode.DefaultType = redeemcodeDescType.Default.(string)
 	// redeemcode.TypeValidator is a validator for the "type" field. It is called by the builders before save.
 	redeemcode.TypeValidator = redeemcodeDescType.Validators[0].(func(string) error)
+	// redeemcodeDescBatchID is the schema descriptor for batch_id field.
+	redeemcodeDescBatchID := redeemcodeFields[2].Descriptor()
+	// redeemcode.BatchIDValidator is a validator for the "batch_id" field. It is called by the builders before save.
+	redeemcode.BatchIDValidator = redeemcodeDescBatchID.Validators[0].(func(string) error)
 	// redeemcodeDescValue is the schema descriptor for value field.
-	redeemcodeDescValue := redeemcodeFields[2].Descriptor()
+	redeemcodeDescValue := redeemcodeFields[3].Descriptor()
 	// redeemcode.DefaultValue holds the default value on creation for the value field.
 	redeemcode.DefaultValue = redeemcodeDescValue.Default.(float64)
 	// redeemcodeDescStatus is the schema descriptor for status field.
-	redeemcodeDescStatus := redeemcodeFields[3].Descriptor()
+	redeemcodeDescStatus := redeemcodeFields[4].Descriptor()
 	// redeemcode.DefaultStatus holds the default value on creation for the status field.
 	redeemcode.DefaultStatus = redeemcodeDescStatus.Default.(string)
 	// redeemcode.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	redeemcode.StatusValidator = redeemcodeDescStatus.Validators[0].(func(string) error)
 	// redeemcodeDescCreatedAt is the schema descriptor for created_at field.
-	redeemcodeDescCreatedAt := redeemcodeFields[7].Descriptor()
+	redeemcodeDescCreatedAt := redeemcodeFields[8].Descriptor()
 	// redeemcode.DefaultCreatedAt holds the default value on creation for the created_at field.
 	redeemcode.DefaultCreatedAt = redeemcodeDescCreatedAt.Default.(func() time.Time)
 	// redeemcodeDescValidityDays is the schema descriptor for validity_days field.
-	redeemcodeDescValidityDays := redeemcodeFields[10].Descriptor()
+	redeemcodeDescValidityDays := redeemcodeFields[11].Descriptor()
 	// redeemcode.DefaultValidityDays holds the default value on creation for the validity_days field.
 	redeemcode.DefaultValidityDays = redeemcodeDescValidityDays.Default.(int)
+	redeemcodebatchusageFields := schema.RedeemCodeBatchUsage{}.Fields()
+	_ = redeemcodebatchusageFields
+	// redeemcodebatchusageDescBatchID is the schema descriptor for batch_id field.
+	redeemcodebatchusageDescBatchID := redeemcodebatchusageFields[0].Descriptor()
+	// redeemcodebatchusage.BatchIDValidator is a validator for the "batch_id" field. It is called by the builders before save.
+	redeemcodebatchusage.BatchIDValidator = func() func(string) error {
+		validators := redeemcodebatchusageDescBatchID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(batch_id string) error {
+			for _, fn := range fns {
+				if err := fn(batch_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// redeemcodebatchusageDescUsedAt is the schema descriptor for used_at field.
+	redeemcodebatchusageDescUsedAt := redeemcodebatchusageFields[3].Descriptor()
+	// redeemcodebatchusage.DefaultUsedAt holds the default value on creation for the used_at field.
+	redeemcodebatchusage.DefaultUsedAt = redeemcodebatchusageDescUsedAt.Default.(func() time.Time)
 	securitysecretMixin := schema.SecuritySecret{}.Mixin()
 	securitysecretMixinFields0 := securitysecretMixin[0].Fields()
 	_ = securitysecretMixinFields0

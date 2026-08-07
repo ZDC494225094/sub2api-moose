@@ -44,6 +44,20 @@ func (_c *RedeemCodeCreate) SetNillableType(v *string) *RedeemCodeCreate {
 	return _c
 }
 
+// SetBatchID sets the "batch_id" field.
+func (_c *RedeemCodeCreate) SetBatchID(v string) *RedeemCodeCreate {
+	_c.mutation.SetBatchID(v)
+	return _c
+}
+
+// SetNillableBatchID sets the "batch_id" field if the given value is not nil.
+func (_c *RedeemCodeCreate) SetNillableBatchID(v *string) *RedeemCodeCreate {
+	if v != nil {
+		_c.SetBatchID(*v)
+	}
+	return _c
+}
+
 // SetValue sets the "value" field.
 func (_c *RedeemCodeCreate) SetValue(v float64) *RedeemCodeCreate {
 	_c.mutation.SetValue(v)
@@ -254,37 +268,42 @@ func (_c *RedeemCodeCreate) defaults() {
 // check runs all checks and user-defined validators on the builder.
 func (_c *RedeemCodeCreate) check() error {
 	if _, ok := _c.mutation.Code(); !ok {
-		return &ValidationError{Name: "code", err: errors.New(`enttmp: missing required field "RedeemCode.code"`)}
+		return &ValidationError{Name: "code", err: errors.New(`ent: missing required field "RedeemCode.code"`)}
 	}
 	if v, ok := _c.mutation.Code(); ok {
 		if err := redeemcode.CodeValidator(v); err != nil {
-			return &ValidationError{Name: "code", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.code": %w`, err)}
+			return &ValidationError{Name: "code", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.code": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.GetType(); !ok {
-		return &ValidationError{Name: "type", err: errors.New(`enttmp: missing required field "RedeemCode.type"`)}
+		return &ValidationError{Name: "type", err: errors.New(`ent: missing required field "RedeemCode.type"`)}
 	}
 	if v, ok := _c.mutation.GetType(); ok {
 		if err := redeemcode.TypeValidator(v); err != nil {
-			return &ValidationError{Name: "type", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.type": %w`, err)}
+			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.type": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.BatchID(); ok {
+		if err := redeemcode.BatchIDValidator(v); err != nil {
+			return &ValidationError{Name: "batch_id", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.batch_id": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Value(); !ok {
-		return &ValidationError{Name: "value", err: errors.New(`enttmp: missing required field "RedeemCode.value"`)}
+		return &ValidationError{Name: "value", err: errors.New(`ent: missing required field "RedeemCode.value"`)}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
-		return &ValidationError{Name: "status", err: errors.New(`enttmp: missing required field "RedeemCode.status"`)}
+		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "RedeemCode.status"`)}
 	}
 	if v, ok := _c.mutation.Status(); ok {
 		if err := redeemcode.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "RedeemCode.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.status": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
-		return &ValidationError{Name: "created_at", err: errors.New(`enttmp: missing required field "RedeemCode.created_at"`)}
+		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "RedeemCode.created_at"`)}
 	}
 	if _, ok := _c.mutation.ValidityDays(); !ok {
-		return &ValidationError{Name: "validity_days", err: errors.New(`enttmp: missing required field "RedeemCode.validity_days"`)}
+		return &ValidationError{Name: "validity_days", err: errors.New(`ent: missing required field "RedeemCode.validity_days"`)}
 	}
 	return nil
 }
@@ -320,6 +339,10 @@ func (_c *RedeemCodeCreate) createSpec() (*RedeemCode, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.GetType(); ok {
 		_spec.SetField(redeemcode.FieldType, field.TypeString, value)
 		_node.Type = value
+	}
+	if value, ok := _c.mutation.BatchID(); ok {
+		_spec.SetField(redeemcode.FieldBatchID, field.TypeString, value)
+		_node.BatchID = &value
 	}
 	if value, ok := _c.mutation.Value(); ok {
 		_spec.SetField(redeemcode.FieldValue, field.TypeFloat64, value)
@@ -456,6 +479,24 @@ func (u *RedeemCodeUpsert) SetType(v string) *RedeemCodeUpsert {
 // UpdateType sets the "type" field to the value that was provided on create.
 func (u *RedeemCodeUpsert) UpdateType() *RedeemCodeUpsert {
 	u.SetExcluded(redeemcode.FieldType)
+	return u
+}
+
+// SetBatchID sets the "batch_id" field.
+func (u *RedeemCodeUpsert) SetBatchID(v string) *RedeemCodeUpsert {
+	u.Set(redeemcode.FieldBatchID, v)
+	return u
+}
+
+// UpdateBatchID sets the "batch_id" field to the value that was provided on create.
+func (u *RedeemCodeUpsert) UpdateBatchID() *RedeemCodeUpsert {
+	u.SetExcluded(redeemcode.FieldBatchID)
+	return u
+}
+
+// ClearBatchID clears the value of the "batch_id" field.
+func (u *RedeemCodeUpsert) ClearBatchID() *RedeemCodeUpsert {
+	u.SetNull(redeemcode.FieldBatchID)
 	return u
 }
 
@@ -670,6 +711,27 @@ func (u *RedeemCodeUpsertOne) UpdateType() *RedeemCodeUpsertOne {
 	})
 }
 
+// SetBatchID sets the "batch_id" field.
+func (u *RedeemCodeUpsertOne) SetBatchID(v string) *RedeemCodeUpsertOne {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.SetBatchID(v)
+	})
+}
+
+// UpdateBatchID sets the "batch_id" field to the value that was provided on create.
+func (u *RedeemCodeUpsertOne) UpdateBatchID() *RedeemCodeUpsertOne {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.UpdateBatchID()
+	})
+}
+
+// ClearBatchID clears the value of the "batch_id" field.
+func (u *RedeemCodeUpsertOne) ClearBatchID() *RedeemCodeUpsertOne {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.ClearBatchID()
+	})
+}
+
 // SetValue sets the "value" field.
 func (u *RedeemCodeUpsertOne) SetValue(v float64) *RedeemCodeUpsertOne {
 	return u.Update(func(s *RedeemCodeUpsert) {
@@ -834,7 +896,7 @@ func (u *RedeemCodeUpsertOne) UpdateValidityDays() *RedeemCodeUpsertOne {
 // Exec executes the query.
 func (u *RedeemCodeUpsertOne) Exec(ctx context.Context) error {
 	if len(u.create.conflict) == 0 {
-		return errors.New("enttmp: missing options for RedeemCodeCreate.OnConflict")
+		return errors.New("ent: missing options for RedeemCodeCreate.OnConflict")
 	}
 	return u.create.Exec(ctx)
 }
@@ -1070,6 +1132,27 @@ func (u *RedeemCodeUpsertBulk) UpdateType() *RedeemCodeUpsertBulk {
 	})
 }
 
+// SetBatchID sets the "batch_id" field.
+func (u *RedeemCodeUpsertBulk) SetBatchID(v string) *RedeemCodeUpsertBulk {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.SetBatchID(v)
+	})
+}
+
+// UpdateBatchID sets the "batch_id" field to the value that was provided on create.
+func (u *RedeemCodeUpsertBulk) UpdateBatchID() *RedeemCodeUpsertBulk {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.UpdateBatchID()
+	})
+}
+
+// ClearBatchID clears the value of the "batch_id" field.
+func (u *RedeemCodeUpsertBulk) ClearBatchID() *RedeemCodeUpsertBulk {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.ClearBatchID()
+	})
+}
+
 // SetValue sets the "value" field.
 func (u *RedeemCodeUpsertBulk) SetValue(v float64) *RedeemCodeUpsertBulk {
 	return u.Update(func(s *RedeemCodeUpsert) {
@@ -1238,11 +1321,11 @@ func (u *RedeemCodeUpsertBulk) Exec(ctx context.Context) error {
 	}
 	for i, b := range u.create.builders {
 		if len(b.conflict) != 0 {
-			return fmt.Errorf("enttmp: OnConflict was set for builder %d. Set it on the RedeemCodeCreateBulk instead", i)
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the RedeemCodeCreateBulk instead", i)
 		}
 	}
 	if len(u.create.conflict) == 0 {
-		return errors.New("enttmp: missing options for RedeemCodeCreateBulk.OnConflict")
+		return errors.New("ent: missing options for RedeemCodeCreateBulk.OnConflict")
 	}
 	return u.create.Exec(ctx)
 }

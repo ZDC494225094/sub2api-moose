@@ -41,6 +41,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/redeemcodebatchusage"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
@@ -93,6 +94,7 @@ const (
 	TypePromoCodeUsage                = "PromoCodeUsage"
 	TypeProxy                         = "Proxy"
 	TypeRedeemCode                    = "RedeemCode"
+	TypeRedeemCodeBatchUsage          = "RedeemCodeBatchUsage"
 	TypeSecuritySecret                = "SecuritySecret"
 	TypeSetting                       = "Setting"
 	TypeSubscriptionPlan              = "SubscriptionPlan"
@@ -224,7 +226,7 @@ func (m APIKeyMutation) Client() *Client {
 // it returns an error otherwise.
 func (m APIKeyMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -2606,7 +2608,7 @@ func (m AccountMutation) Client() *Client {
 // it returns an error otherwise.
 func (m AccountMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -5607,7 +5609,7 @@ func (m AccountGroupMutation) Client() *Client {
 // it returns an error otherwise.
 func (m AccountGroupMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -6127,7 +6129,7 @@ func (m AccountUpstreamGroupMutation) Client() *Client {
 // it returns an error otherwise.
 func (m AccountUpstreamGroupMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -6805,7 +6807,7 @@ func (m AnnouncementMutation) Client() *Client {
 // it returns an error otherwise.
 func (m AnnouncementMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -7923,7 +7925,7 @@ func (m AnnouncementReadMutation) Client() *Client {
 // it returns an error otherwise.
 func (m AnnouncementReadMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -8524,7 +8526,7 @@ func (m AuthIdentityMutation) Client() *Client {
 // it returns an error otherwise.
 func (m AuthIdentityMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -9542,7 +9544,7 @@ func (m AuthIdentityChannelMutation) Client() *Client {
 // it returns an error otherwise.
 func (m AuthIdentityChannelMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -10352,7 +10354,7 @@ func (m BatchImageEventMutation) Client() *Client {
 // it returns an error otherwise.
 func (m BatchImageEventMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -10952,7 +10954,7 @@ func (m BatchImageItemMutation) Client() *Client {
 // it returns an error otherwise.
 func (m BatchImageItemMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -12575,7 +12577,7 @@ func (m BatchImageJobMutation) Client() *Client {
 // it returns an error otherwise.
 func (m BatchImageJobMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -15847,7 +15849,7 @@ func (m ChannelMonitorMutation) Client() *Client {
 // it returns an error otherwise.
 func (m ChannelMonitorMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -17572,7 +17574,7 @@ func (m ChannelMonitorDailyRollupMutation) Client() *Client {
 // it returns an error otherwise.
 func (m ChannelMonitorDailyRollupMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -18972,7 +18974,7 @@ func (m ChannelMonitorHistoryMutation) Client() *Client {
 // it returns an error otherwise.
 func (m ChannelMonitorHistoryMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -19809,7 +19811,7 @@ func (m ChannelMonitorRequestTemplateMutation) Client() *Client {
 // it returns an error otherwise.
 func (m ChannelMonitorRequestTemplateMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -20703,7 +20705,7 @@ func (m CompositeModelRouteMutation) Client() *Client {
 // it returns an error otherwise.
 func (m CompositeModelRouteMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -21760,7 +21762,7 @@ func (m ErrorPassthroughRuleMutation) Client() *Client {
 // it returns an error otherwise.
 func (m ErrorPassthroughRuleMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -23162,7 +23164,7 @@ func (m GroupMutation) Client() *Client {
 // it returns an error otherwise.
 func (m GroupMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -28129,7 +28131,7 @@ func (m IdempotencyRecordMutation) Client() *Client {
 // it returns an error otherwise.
 func (m IdempotencyRecordMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -29108,7 +29110,7 @@ func (m IdentityAdoptionDecisionMutation) Client() *Client {
 // it returns an error otherwise.
 func (m IdentityAdoptionDecisionMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -29879,7 +29881,7 @@ func (m PaymentAuditLogMutation) Client() *Client {
 // it returns an error otherwise.
 func (m PaymentAuditLogMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -30465,7 +30467,7 @@ func (m PaymentOrderMutation) Client() *Client {
 // it returns an error otherwise.
 func (m PaymentOrderMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -33588,7 +33590,7 @@ func (m PaymentProviderInstanceMutation) Client() *Client {
 // it returns an error otherwise.
 func (m PaymentProviderInstanceMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -34555,7 +34557,7 @@ func (m PendingAuthSessionMutation) Client() *Client {
 // it returns an error otherwise.
 func (m PendingAuthSessionMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -36185,7 +36187,7 @@ func (m PromoCodeMutation) Client() *Client {
 // it returns an error otherwise.
 func (m PromoCodeMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -37171,7 +37173,7 @@ func (m PromoCodeUsageMutation) Client() *Client {
 // it returns an error otherwise.
 func (m PromoCodeUsageMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -37808,7 +37810,7 @@ func (m ProxyMutation) Client() *Client {
 // it returns an error otherwise.
 func (m ProxyMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -39055,6 +39057,7 @@ type RedeemCodeMutation struct {
 	id               *int64
 	code             *string
 	_type            *string
+	batch_id         *string
 	value            *float64
 	addvalue         *float64
 	status           *string
@@ -39137,7 +39140,7 @@ func (m RedeemCodeMutation) Client() *Client {
 // it returns an error otherwise.
 func (m RedeemCodeMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -39242,6 +39245,55 @@ func (m *RedeemCodeMutation) OldType(ctx context.Context) (v string, err error) 
 // ResetType resets all changes to the "type" field.
 func (m *RedeemCodeMutation) ResetType() {
 	m._type = nil
+}
+
+// SetBatchID sets the "batch_id" field.
+func (m *RedeemCodeMutation) SetBatchID(s string) {
+	m.batch_id = &s
+}
+
+// BatchID returns the value of the "batch_id" field in the mutation.
+func (m *RedeemCodeMutation) BatchID() (r string, exists bool) {
+	v := m.batch_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBatchID returns the old "batch_id" field's value of the RedeemCode entity.
+// If the RedeemCode object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RedeemCodeMutation) OldBatchID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBatchID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBatchID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBatchID: %w", err)
+	}
+	return oldValue.BatchID, nil
+}
+
+// ClearBatchID clears the value of the "batch_id" field.
+func (m *RedeemCodeMutation) ClearBatchID() {
+	m.batch_id = nil
+	m.clearedFields[redeemcode.FieldBatchID] = struct{}{}
+}
+
+// BatchIDCleared returns if the "batch_id" field was cleared in this mutation.
+func (m *RedeemCodeMutation) BatchIDCleared() bool {
+	_, ok := m.clearedFields[redeemcode.FieldBatchID]
+	return ok
+}
+
+// ResetBatchID resets all changes to the "batch_id" field.
+func (m *RedeemCodeMutation) ResetBatchID() {
+	m.batch_id = nil
+	delete(m.clearedFields, redeemcode.FieldBatchID)
 }
 
 // SetValue sets the "value" field.
@@ -39774,12 +39826,15 @@ func (m *RedeemCodeMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *RedeemCodeMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 12)
 	if m.code != nil {
 		fields = append(fields, redeemcode.FieldCode)
 	}
 	if m._type != nil {
 		fields = append(fields, redeemcode.FieldType)
+	}
+	if m.batch_id != nil {
+		fields = append(fields, redeemcode.FieldBatchID)
 	}
 	if m.value != nil {
 		fields = append(fields, redeemcode.FieldValue)
@@ -39820,6 +39875,8 @@ func (m *RedeemCodeMutation) Field(name string) (ent.Value, bool) {
 		return m.Code()
 	case redeemcode.FieldType:
 		return m.GetType()
+	case redeemcode.FieldBatchID:
+		return m.BatchID()
 	case redeemcode.FieldValue:
 		return m.Value()
 	case redeemcode.FieldStatus:
@@ -39851,6 +39908,8 @@ func (m *RedeemCodeMutation) OldField(ctx context.Context, name string) (ent.Val
 		return m.OldCode(ctx)
 	case redeemcode.FieldType:
 		return m.OldType(ctx)
+	case redeemcode.FieldBatchID:
+		return m.OldBatchID(ctx)
 	case redeemcode.FieldValue:
 		return m.OldValue(ctx)
 	case redeemcode.FieldStatus:
@@ -39891,6 +39950,13 @@ func (m *RedeemCodeMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetType(v)
+		return nil
+	case redeemcode.FieldBatchID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBatchID(v)
 		return nil
 	case redeemcode.FieldValue:
 		v, ok := value.(float64)
@@ -40012,6 +40078,9 @@ func (m *RedeemCodeMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *RedeemCodeMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(redeemcode.FieldBatchID) {
+		fields = append(fields, redeemcode.FieldBatchID)
+	}
 	if m.FieldCleared(redeemcode.FieldUsedBy) {
 		fields = append(fields, redeemcode.FieldUsedBy)
 	}
@@ -40041,6 +40110,9 @@ func (m *RedeemCodeMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *RedeemCodeMutation) ClearField(name string) error {
 	switch name {
+	case redeemcode.FieldBatchID:
+		m.ClearBatchID()
+		return nil
 	case redeemcode.FieldUsedBy:
 		m.ClearUsedBy()
 		return nil
@@ -40069,6 +40141,9 @@ func (m *RedeemCodeMutation) ResetField(name string) error {
 		return nil
 	case redeemcode.FieldType:
 		m.ResetType()
+		return nil
+	case redeemcode.FieldBatchID:
+		m.ResetBatchID()
 		return nil
 	case redeemcode.FieldValue:
 		m.ResetValue()
@@ -40193,6 +40268,563 @@ func (m *RedeemCodeMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown RedeemCode edge %s", name)
 }
 
+// RedeemCodeBatchUsageMutation represents an operation that mutates the RedeemCodeBatchUsage nodes in the graph.
+type RedeemCodeBatchUsageMutation struct {
+	config
+	op                Op
+	typ               string
+	id                *int64
+	batch_id          *string
+	user_id           *int64
+	adduser_id        *int64
+	redeem_code_id    *int64
+	addredeem_code_id *int64
+	used_at           *time.Time
+	clearedFields     map[string]struct{}
+	done              bool
+	oldValue          func(context.Context) (*RedeemCodeBatchUsage, error)
+	predicates        []predicate.RedeemCodeBatchUsage
+}
+
+var _ ent.Mutation = (*RedeemCodeBatchUsageMutation)(nil)
+
+// redeemcodebatchusageOption allows management of the mutation configuration using functional options.
+type redeemcodebatchusageOption func(*RedeemCodeBatchUsageMutation)
+
+// newRedeemCodeBatchUsageMutation creates new mutation for the RedeemCodeBatchUsage entity.
+func newRedeemCodeBatchUsageMutation(c config, op Op, opts ...redeemcodebatchusageOption) *RedeemCodeBatchUsageMutation {
+	m := &RedeemCodeBatchUsageMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeRedeemCodeBatchUsage,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withRedeemCodeBatchUsageID sets the ID field of the mutation.
+func withRedeemCodeBatchUsageID(id int64) redeemcodebatchusageOption {
+	return func(m *RedeemCodeBatchUsageMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *RedeemCodeBatchUsage
+		)
+		m.oldValue = func(ctx context.Context) (*RedeemCodeBatchUsage, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().RedeemCodeBatchUsage.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withRedeemCodeBatchUsage sets the old RedeemCodeBatchUsage of the mutation.
+func withRedeemCodeBatchUsage(node *RedeemCodeBatchUsage) redeemcodebatchusageOption {
+	return func(m *RedeemCodeBatchUsageMutation) {
+		m.oldValue = func(context.Context) (*RedeemCodeBatchUsage, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m RedeemCodeBatchUsageMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m RedeemCodeBatchUsageMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *RedeemCodeBatchUsageMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *RedeemCodeBatchUsageMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().RedeemCodeBatchUsage.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetBatchID sets the "batch_id" field.
+func (m *RedeemCodeBatchUsageMutation) SetBatchID(s string) {
+	m.batch_id = &s
+}
+
+// BatchID returns the value of the "batch_id" field in the mutation.
+func (m *RedeemCodeBatchUsageMutation) BatchID() (r string, exists bool) {
+	v := m.batch_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBatchID returns the old "batch_id" field's value of the RedeemCodeBatchUsage entity.
+// If the RedeemCodeBatchUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RedeemCodeBatchUsageMutation) OldBatchID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBatchID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBatchID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBatchID: %w", err)
+	}
+	return oldValue.BatchID, nil
+}
+
+// ResetBatchID resets all changes to the "batch_id" field.
+func (m *RedeemCodeBatchUsageMutation) ResetBatchID() {
+	m.batch_id = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *RedeemCodeBatchUsageMutation) SetUserID(i int64) {
+	m.user_id = &i
+	m.adduser_id = nil
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *RedeemCodeBatchUsageMutation) UserID() (r int64, exists bool) {
+	v := m.user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the RedeemCodeBatchUsage entity.
+// If the RedeemCodeBatchUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RedeemCodeBatchUsageMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// AddUserID adds i to the "user_id" field.
+func (m *RedeemCodeBatchUsageMutation) AddUserID(i int64) {
+	if m.adduser_id != nil {
+		*m.adduser_id += i
+	} else {
+		m.adduser_id = &i
+	}
+}
+
+// AddedUserID returns the value that was added to the "user_id" field in this mutation.
+func (m *RedeemCodeBatchUsageMutation) AddedUserID() (r int64, exists bool) {
+	v := m.adduser_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *RedeemCodeBatchUsageMutation) ResetUserID() {
+	m.user_id = nil
+	m.adduser_id = nil
+}
+
+// SetRedeemCodeID sets the "redeem_code_id" field.
+func (m *RedeemCodeBatchUsageMutation) SetRedeemCodeID(i int64) {
+	m.redeem_code_id = &i
+	m.addredeem_code_id = nil
+}
+
+// RedeemCodeID returns the value of the "redeem_code_id" field in the mutation.
+func (m *RedeemCodeBatchUsageMutation) RedeemCodeID() (r int64, exists bool) {
+	v := m.redeem_code_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRedeemCodeID returns the old "redeem_code_id" field's value of the RedeemCodeBatchUsage entity.
+// If the RedeemCodeBatchUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RedeemCodeBatchUsageMutation) OldRedeemCodeID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRedeemCodeID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRedeemCodeID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRedeemCodeID: %w", err)
+	}
+	return oldValue.RedeemCodeID, nil
+}
+
+// AddRedeemCodeID adds i to the "redeem_code_id" field.
+func (m *RedeemCodeBatchUsageMutation) AddRedeemCodeID(i int64) {
+	if m.addredeem_code_id != nil {
+		*m.addredeem_code_id += i
+	} else {
+		m.addredeem_code_id = &i
+	}
+}
+
+// AddedRedeemCodeID returns the value that was added to the "redeem_code_id" field in this mutation.
+func (m *RedeemCodeBatchUsageMutation) AddedRedeemCodeID() (r int64, exists bool) {
+	v := m.addredeem_code_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRedeemCodeID resets all changes to the "redeem_code_id" field.
+func (m *RedeemCodeBatchUsageMutation) ResetRedeemCodeID() {
+	m.redeem_code_id = nil
+	m.addredeem_code_id = nil
+}
+
+// SetUsedAt sets the "used_at" field.
+func (m *RedeemCodeBatchUsageMutation) SetUsedAt(t time.Time) {
+	m.used_at = &t
+}
+
+// UsedAt returns the value of the "used_at" field in the mutation.
+func (m *RedeemCodeBatchUsageMutation) UsedAt() (r time.Time, exists bool) {
+	v := m.used_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUsedAt returns the old "used_at" field's value of the RedeemCodeBatchUsage entity.
+// If the RedeemCodeBatchUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RedeemCodeBatchUsageMutation) OldUsedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUsedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUsedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUsedAt: %w", err)
+	}
+	return oldValue.UsedAt, nil
+}
+
+// ResetUsedAt resets all changes to the "used_at" field.
+func (m *RedeemCodeBatchUsageMutation) ResetUsedAt() {
+	m.used_at = nil
+}
+
+// Where appends a list predicates to the RedeemCodeBatchUsageMutation builder.
+func (m *RedeemCodeBatchUsageMutation) Where(ps ...predicate.RedeemCodeBatchUsage) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the RedeemCodeBatchUsageMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *RedeemCodeBatchUsageMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.RedeemCodeBatchUsage, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *RedeemCodeBatchUsageMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *RedeemCodeBatchUsageMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (RedeemCodeBatchUsage).
+func (m *RedeemCodeBatchUsageMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *RedeemCodeBatchUsageMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.batch_id != nil {
+		fields = append(fields, redeemcodebatchusage.FieldBatchID)
+	}
+	if m.user_id != nil {
+		fields = append(fields, redeemcodebatchusage.FieldUserID)
+	}
+	if m.redeem_code_id != nil {
+		fields = append(fields, redeemcodebatchusage.FieldRedeemCodeID)
+	}
+	if m.used_at != nil {
+		fields = append(fields, redeemcodebatchusage.FieldUsedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *RedeemCodeBatchUsageMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case redeemcodebatchusage.FieldBatchID:
+		return m.BatchID()
+	case redeemcodebatchusage.FieldUserID:
+		return m.UserID()
+	case redeemcodebatchusage.FieldRedeemCodeID:
+		return m.RedeemCodeID()
+	case redeemcodebatchusage.FieldUsedAt:
+		return m.UsedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *RedeemCodeBatchUsageMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case redeemcodebatchusage.FieldBatchID:
+		return m.OldBatchID(ctx)
+	case redeemcodebatchusage.FieldUserID:
+		return m.OldUserID(ctx)
+	case redeemcodebatchusage.FieldRedeemCodeID:
+		return m.OldRedeemCodeID(ctx)
+	case redeemcodebatchusage.FieldUsedAt:
+		return m.OldUsedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown RedeemCodeBatchUsage field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RedeemCodeBatchUsageMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case redeemcodebatchusage.FieldBatchID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBatchID(v)
+		return nil
+	case redeemcodebatchusage.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case redeemcodebatchusage.FieldRedeemCodeID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRedeemCodeID(v)
+		return nil
+	case redeemcodebatchusage.FieldUsedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUsedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown RedeemCodeBatchUsage field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *RedeemCodeBatchUsageMutation) AddedFields() []string {
+	var fields []string
+	if m.adduser_id != nil {
+		fields = append(fields, redeemcodebatchusage.FieldUserID)
+	}
+	if m.addredeem_code_id != nil {
+		fields = append(fields, redeemcodebatchusage.FieldRedeemCodeID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *RedeemCodeBatchUsageMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case redeemcodebatchusage.FieldUserID:
+		return m.AddedUserID()
+	case redeemcodebatchusage.FieldRedeemCodeID:
+		return m.AddedRedeemCodeID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RedeemCodeBatchUsageMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case redeemcodebatchusage.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddUserID(v)
+		return nil
+	case redeemcodebatchusage.FieldRedeemCodeID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRedeemCodeID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown RedeemCodeBatchUsage numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *RedeemCodeBatchUsageMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *RedeemCodeBatchUsageMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *RedeemCodeBatchUsageMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown RedeemCodeBatchUsage nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *RedeemCodeBatchUsageMutation) ResetField(name string) error {
+	switch name {
+	case redeemcodebatchusage.FieldBatchID:
+		m.ResetBatchID()
+		return nil
+	case redeemcodebatchusage.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case redeemcodebatchusage.FieldRedeemCodeID:
+		m.ResetRedeemCodeID()
+		return nil
+	case redeemcodebatchusage.FieldUsedAt:
+		m.ResetUsedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown RedeemCodeBatchUsage field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *RedeemCodeBatchUsageMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *RedeemCodeBatchUsageMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *RedeemCodeBatchUsageMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *RedeemCodeBatchUsageMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *RedeemCodeBatchUsageMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *RedeemCodeBatchUsageMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *RedeemCodeBatchUsageMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown RedeemCodeBatchUsage unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *RedeemCodeBatchUsageMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown RedeemCodeBatchUsage edge %s", name)
+}
+
 // SecuritySecretMutation represents an operation that mutates the SecuritySecret nodes in the graph.
 type SecuritySecretMutation struct {
 	config
@@ -40272,7 +40904,7 @@ func (m SecuritySecretMutation) Client() *Client {
 // it returns an error otherwise.
 func (m SecuritySecretMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -40759,7 +41391,7 @@ func (m SettingMutation) Client() *Client {
 // it returns an error otherwise.
 func (m SettingMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -41211,7 +41843,7 @@ func (m SubscriptionPlanMutation) Client() *Client {
 // it returns an error otherwise.
 func (m SubscriptionPlanMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -42519,7 +43151,7 @@ func (m TLSFingerprintProfileMutation) Client() *Client {
 // it returns an error otherwise.
 func (m TLSFingerprintProfileMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -43885,7 +44517,7 @@ func (m UsageCleanupTaskMutation) Client() *Client {
 // it returns an error otherwise.
 func (m UsageCleanupTaskMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -45024,7 +45656,7 @@ func (m UsageLogMutation) Client() *Client {
 // it returns an error otherwise.
 func (m UsageLogMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -49046,7 +49678,7 @@ func (m UserMutation) Client() *Client {
 // it returns an error otherwise.
 func (m UserMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -51925,7 +52557,7 @@ func (m UserAllowedGroupMutation) Client() *Client {
 // it returns an error otherwise.
 func (m UserAllowedGroupMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -52388,7 +53020,7 @@ func (m UserAttributeDefinitionMutation) Client() *Client {
 // it returns an error otherwise.
 func (m UserAttributeDefinitionMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -53518,7 +54150,7 @@ func (m UserAttributeValueMutation) Client() *Client {
 // it returns an error otherwise.
 func (m UserAttributeValueMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -54190,7 +54822,7 @@ func (m UserPlatformQuotaMutation) Client() *Client {
 // it returns an error otherwise.
 func (m UserPlatformQuotaMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()
@@ -55617,7 +56249,7 @@ func (m UserSubscriptionMutation) Client() *Client {
 // it returns an error otherwise.
 func (m UserSubscriptionMutation) Tx() (*Tx, error) {
 	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("enttmp: mutation is not running in a transaction")
+		return nil, errors.New("ent: mutation is not running in a transaction")
 	}
 	tx := &Tx{config: m.config}
 	tx.init()

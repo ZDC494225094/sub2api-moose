@@ -117,7 +117,7 @@
             <span
               :class="[
                 'badge',
-                value === 'balance'
+                value === 'balance' || value === 'marketing'
                   ? 'badge-success'
                   : value === 'subscription'
                     ? 'badge-warning'
@@ -130,7 +130,7 @@
 
           <template #cell-value="{ value, row }">
             <span class="text-sm font-medium text-gray-900 dark:text-white">
-              <template v-if="row.type === 'balance'">${{ value.toFixed(2) }}</template>
+              <template v-if="row.type === 'balance' || row.type === 'marketing'">${{ value.toFixed(2) }}</template>
               <template v-else-if="row.type === 'subscription'">
                 {{ row.validity_days || 30 }} {{ t('admin.redeem.days') }}
                 <span v-if="row.group" class="ml-1 text-xs text-gray-500 dark:text-gray-400"
@@ -287,11 +287,17 @@
               <label class="input-label">{{ t('admin.redeem.codeType') }}</label>
               <Select v-model="generateForm.type" :options="typeOptions" />
             </div>
-            <!-- 余额/并发类型：显示数值输入 -->
+            <div
+              v-if="generateForm.type === 'marketing'"
+              class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+            >
+              {{ t('admin.redeem.marketingHint') }}
+            </div>
+            <!-- 余额/并发/营销类型：显示数值输入 -->
             <div v-if="generateForm.type !== 'subscription' && generateForm.type !== 'invitation'">
               <label class="input-label">
                 {{
-                  generateForm.type === 'balance'
+                  generateForm.type === 'balance' || generateForm.type === 'marketing'
                     ? t('admin.redeem.amount')
                     : t('admin.redeem.columns.value')
                 }}
@@ -299,8 +305,8 @@
               <input
                 v-model.number="generateForm.value"
                 type="number"
-                :step="generateForm.type === 'balance' ? '0.01' : '1'"
-                :min="generateForm.type === 'balance' ? '0.01' : '1'"
+                :step="generateForm.type === 'balance' || generateForm.type === 'marketing' ? '0.01' : '1'"
+                :min="generateForm.type === 'balance' || generateForm.type === 'marketing' ? '0.01' : '1'"
                 required
                 class="input"
               />
@@ -565,6 +571,13 @@
           </div>
           <!-- Content -->
           <div class="p-5">
+            <div
+              v-if="generatedBatchId"
+              class="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+            >
+              {{ t('admin.redeem.batchId') }}:
+              <code class="ml-1 font-mono">{{ generatedBatchId }}</code>
+            </div>
             <div class="relative">
               <textarea
                 readonly
@@ -676,6 +689,8 @@ const generatedCodesText = computed(() => {
   return generatedCodes.value.map((code) => code.code).join('\n')
 })
 
+const generatedBatchId = computed(() => generatedCodes.value[0]?.batch_id || null)
+
 const textareaHeight = computed(() => {
   const lineCount = generatedCodes.value.length
   const lineHeight = 24 // approximate line height in px
@@ -733,6 +748,7 @@ const columns = computed<Column[]>(() => [
 
 const typeOptions = computed(() => [
   { value: 'balance', label: t('admin.redeem.balance') },
+  { value: 'marketing', label: t('admin.redeem.marketing') },
   { value: 'concurrency', label: t('admin.redeem.concurrency') },
   { value: 'subscription', label: t('admin.redeem.subscription') },
   { value: 'invitation', label: t('admin.redeem.invitation') }
@@ -741,6 +757,7 @@ const typeOptions = computed(() => [
 const filterTypeOptions = computed(() => [
   { value: '', label: t('admin.redeem.allTypes') },
   { value: 'balance', label: t('admin.redeem.balance') },
+  { value: 'marketing', label: t('admin.redeem.marketing') },
   { value: 'concurrency', label: t('admin.redeem.concurrency') },
   { value: 'subscription', label: t('admin.redeem.subscription') },
   { value: 'invitation', label: t('admin.redeem.invitation') }

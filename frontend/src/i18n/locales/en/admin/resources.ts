@@ -247,10 +247,12 @@ export default {
       allTypes: 'All Types',
       allStatus: 'All Status',
       balance: 'Balance',
+      marketing: 'Marketing',
       concurrency: 'Concurrency',
       subscription: 'Subscription',
       invitation: 'Invitation',
       invitationHint: 'Invitation codes are used to restrict user registration. They are automatically marked as used after use.',
+      marketingHint: 'Marketing codes only support balance rewards. Each user can redeem a batch only once.',
       unused: 'Unused',
       used: 'Used',
       columns: {
@@ -292,6 +294,7 @@ export default {
       generateCodesTitle: 'Generate Redeem Codes',
       generatedSuccessfully: 'Generated Successfully',
       codesCreated: '{count} redeem code(s) created',
+      batchId: 'Batch ID',
       codeType: 'Code Type',
       amount: 'Amount ($)',
       value: 'Value',
@@ -313,6 +316,7 @@ export default {
       failedToCopy: 'Failed to copy codes',
       types: {
         balance: 'Balance',
+        marketing: 'Marketing',
         concurrency: 'Concurrency',
         subscription: 'Subscription',
         invitation: 'Invitation',

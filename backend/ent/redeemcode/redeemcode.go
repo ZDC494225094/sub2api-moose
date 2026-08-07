@@ -18,6 +18,8 @@ const (
 	FieldCode = "code"
 	// FieldType holds the string denoting the type field in the database.
 	FieldType = "type"
+	// FieldBatchID holds the string denoting the batch_id field in the database.
+	FieldBatchID = "batch_id"
 	// FieldValue holds the string denoting the value field in the database.
 	FieldValue = "value"
 	// FieldStatus holds the string denoting the status field in the database.
@@ -63,6 +65,7 @@ var Columns = []string{
 	FieldID,
 	FieldCode,
 	FieldType,
+	FieldBatchID,
 	FieldValue,
 	FieldStatus,
 	FieldUsedBy,
@@ -91,6 +94,8 @@ var (
 	DefaultType string
 	// TypeValidator is a validator for the "type" field. It is called by the builders before save.
 	TypeValidator func(string) error
+	// BatchIDValidator is a validator for the "batch_id" field. It is called by the builders before save.
+	BatchIDValidator func(string) error
 	// DefaultValue holds the default value on creation for the "value" field.
 	DefaultValue float64
 	// DefaultStatus holds the default value on creation for the "status" field.
@@ -119,6 +124,11 @@ func ByCode(opts ...sql.OrderTermOption) OrderOption {
 // ByType orders the results by the type field.
 func ByType(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldType, opts...).ToFunc()
+}
+
+// ByBatchID orders the results by the batch_id field.
+func ByBatchID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBatchID, opts...).ToFunc()
 }
 
 // ByValue orders the results by the value field.

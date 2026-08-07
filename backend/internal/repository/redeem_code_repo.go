@@ -7,6 +7,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/redeemcodebatchusage"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -26,6 +27,7 @@ func (r *redeemCodeRepository) Create(ctx context.Context, code *service.RedeemC
 	created, err := r.client.RedeemCode.Create().
 		SetCode(code.Code).
 		SetType(code.Type).
+		SetNillableBatchID(code.BatchID).
 		SetValue(code.Value).
 		SetStatus(code.Status).
 		SetNotes(code.Notes).
@@ -53,6 +55,7 @@ func (r *redeemCodeRepository) CreateBatch(ctx context.Context, codes []service.
 		b := r.client.RedeemCode.Create().
 			SetCode(c.Code).
 			SetType(c.Type).
+			SetNillableBatchID(c.BatchID).
 			SetValue(c.Value).
 			SetStatus(c.Status).
 			SetNotes(c.Notes).
@@ -199,6 +202,7 @@ func (r *redeemCodeRepository) Update(ctx context.Context, code *service.RedeemC
 	up := r.client.RedeemCode.UpdateOneID(code.ID).
 		SetCode(code.Code).
 		SetType(code.Type).
+		SetNillableBatchID(code.BatchID).
 		SetValue(code.Value).
 		SetStatus(code.Status).
 		SetNotes(code.Notes).
@@ -339,6 +343,34 @@ func (r *redeemCodeRepository) Use(ctx context.Context, id, userID int64) error 
 	return nil
 }
 
+func (r *redeemCodeRepository) HasMarketingBatchUsage(ctx context.Context, batchID string, userID int64) (bool, error) {
+	_, err := clientFromContext(ctx, r.client).RedeemCodeBatchUsage.Query().
+		Where(
+			redeemcodebatchusage.BatchIDEQ(batchID),
+			redeemcodebatchusage.UserIDEQ(userID),
+		).
+		Only(ctx)
+	if err == nil {
+		return true, nil
+	}
+	if dbent.IsNotFound(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func (r *redeemCodeRepository) CreateMarketingBatchUsage(ctx context.Context, batchID string, userID, redeemCodeID int64) error {
+	_, err := clientFromContext(ctx, r.client).RedeemCodeBatchUsage.Create().
+		SetBatchID(batchID).
+		SetUserID(userID).
+		SetRedeemCodeID(redeemCodeID).
+		Save(ctx)
+	if err != nil && isUniqueConstraintViolation(err) {
+		return service.ErrMarketingBatchUsed
+	}
+	return err
+}
+
 func (r *redeemCodeRepository) ListByUser(ctx context.Context, userID int64, limit int) ([]service.RedeemCode, error) {
 	if limit <= 0 {
 		limit = 10
@@ -395,7 +427,7 @@ func (r *redeemCodeRepository) SumPositiveBalanceByUser(ctx context.Context, use
 		Where(
 			redeemcode.UsedByEQ(userID),
 			redeemcode.ValueGT(0),
-			redeemcode.TypeIn("balance", "admin_balance"),
+			redeemcode.TypeIn("balance", "marketing", "admin_balance"),
 		).
 		Aggregate(dbent.As(dbent.Sum(redeemcode.FieldValue), "sum")).
 		Scan(ctx, &result)
@@ -416,6 +448,7 @@ func redeemCodeEntityToService(m *dbent.RedeemCode) *service.RedeemCode {
 		ID:           m.ID,
 		Code:         m.Code,
 		Type:         m.Type,
+		BatchID:      m.BatchID,
 		Value:        m.Value,
 		Status:       m.Status,
 		UsedBy:       m.UsedBy,

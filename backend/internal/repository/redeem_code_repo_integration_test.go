@@ -397,6 +397,45 @@ func (s *RedeemCodeRepoSuite) TestUse_AlreadyUsed() {
 	s.Require().ErrorIs(err, service.ErrRedeemCodeUsed)
 }
 
+func (s *RedeemCodeRepoSuite) TestMarketingBatchUsage_IsUniquePerUser() {
+	userA := s.createUser(uniqueTestValue(s.T(), "marketing-a") + "@example.com")
+	userB := s.createUser(uniqueTestValue(s.T(), "marketing-b") + "@example.com")
+	batchID := "marketing-batch-unique"
+	codeA := &service.RedeemCode{
+		Code:    uniqueTestValue(s.T(), "marketing-code-a"),
+		Type:    service.RedeemTypeMarketing,
+		BatchID: &batchID,
+		Value:   5,
+		Status:  service.StatusUnused,
+	}
+	codeB := &service.RedeemCode{
+		Code:    uniqueTestValue(s.T(), "marketing-code-b"),
+		Type:    service.RedeemTypeMarketing,
+		BatchID: &batchID,
+		Value:   5,
+		Status:  service.StatusUnused,
+	}
+	s.Require().NoError(s.repo.Create(s.ctx, codeA))
+	s.Require().NoError(s.repo.Create(s.ctx, codeB))
+
+	used, err := s.repo.HasMarketingBatchUsage(s.ctx, batchID, userA.ID)
+	s.Require().NoError(err)
+	s.Require().False(used)
+
+	s.Require().NoError(s.repo.CreateMarketingBatchUsage(s.ctx, batchID, userA.ID, codeA.ID))
+	used, err = s.repo.HasMarketingBatchUsage(s.ctx, batchID, userA.ID)
+	s.Require().NoError(err)
+	s.Require().True(used)
+
+	err = s.repo.CreateMarketingBatchUsage(s.ctx, batchID, userA.ID, codeB.ID)
+	s.Require().ErrorIs(err, service.ErrMarketingBatchUsed)
+
+	used, err = s.repo.HasMarketingBatchUsage(s.ctx, batchID, userB.ID)
+	s.Require().NoError(err)
+	s.Require().False(used)
+	s.Require().NoError(s.repo.CreateMarketingBatchUsage(s.ctx, batchID, userB.ID, codeB.ID))
+}
+
 // --- ListByUser ---
 
 func (s *RedeemCodeRepoSuite) TestListByUser() {
