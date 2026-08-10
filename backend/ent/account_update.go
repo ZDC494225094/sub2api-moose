@@ -828,7 +828,7 @@ func (_u *AccountUpdate) ExecX(ctx context.Context) {
 func (_u *AccountUpdate) defaults() error {
 	if _, ok := _u.mutation.UpdatedAt(); !ok {
 		if account.UpdateDefaultUpdatedAt == nil {
-			return fmt.Errorf("enttmp: uninitialized account.UpdateDefaultUpdatedAt (forgotten import enttmp/runtime?)")
+			return fmt.Errorf("ent: uninitialized account.UpdateDefaultUpdatedAt (forgotten import ent/runtime?)")
 		}
 		v := account.UpdateDefaultUpdatedAt()
 		_u.mutation.SetUpdatedAt(v)
@@ -840,37 +840,37 @@ func (_u *AccountUpdate) defaults() error {
 func (_u *AccountUpdate) check() error {
 	if v, ok := _u.mutation.Name(); ok {
 		if err := account.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`enttmp: validator failed for field "Account.name": %w`, err)}
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Account.name": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Platform(); ok {
 		if err := account.PlatformValidator(v); err != nil {
-			return &ValidationError{Name: "platform", err: fmt.Errorf(`enttmp: validator failed for field "Account.platform": %w`, err)}
+			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "Account.platform": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.GetType(); ok {
 		if err := account.TypeValidator(v); err != nil {
-			return &ValidationError{Name: "type", err: fmt.Errorf(`enttmp: validator failed for field "Account.type": %w`, err)}
+			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "Account.type": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.UpstreamGroup(); ok {
 		if err := account.UpstreamGroupValidator(v); err != nil {
-			return &ValidationError{Name: "upstream_group", err: fmt.Errorf(`enttmp: validator failed for field "Account.upstream_group": %w`, err)}
+			return &ValidationError{Name: "upstream_group", err: fmt.Errorf(`ent: validator failed for field "Account.upstream_group": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := account.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "Account.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Account.status": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.SessionWindowStatus(); ok {
 		if err := account.SessionWindowStatusValidator(v); err != nil {
-			return &ValidationError{Name: "session_window_status", err: fmt.Errorf(`enttmp: validator failed for field "Account.session_window_status": %w`, err)}
+			return &ValidationError{Name: "session_window_status", err: fmt.Errorf(`ent: validator failed for field "Account.session_window_status": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.QuotaDimension(); ok {
 		if err := account.QuotaDimensionValidator(v); err != nil {
-			return &ValidationError{Name: "quota_dimension", err: fmt.Errorf(`enttmp: validator failed for field "Account.quota_dimension": %w`, err)}
+			return &ValidationError{Name: "quota_dimension", err: fmt.Errorf(`ent: validator failed for field "Account.quota_dimension": %w`, err)}
 		}
 	}
 	return nil
@@ -2104,7 +2104,7 @@ func (_u *AccountUpdateOne) ExecX(ctx context.Context) {
 func (_u *AccountUpdateOne) defaults() error {
 	if _, ok := _u.mutation.UpdatedAt(); !ok {
 		if account.UpdateDefaultUpdatedAt == nil {
-			return fmt.Errorf("enttmp: uninitialized account.UpdateDefaultUpdatedAt (forgotten import enttmp/runtime?)")
+			return fmt.Errorf("ent: uninitialized account.UpdateDefaultUpdatedAt (forgotten import ent/runtime?)")
 		}
 		v := account.UpdateDefaultUpdatedAt()
 		_u.mutation.SetUpdatedAt(v)
@@ -2116,37 +2116,37 @@ func (_u *AccountUpdateOne) defaults() error {
 func (_u *AccountUpdateOne) check() error {
 	if v, ok := _u.mutation.Name(); ok {
 		if err := account.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`enttmp: validator failed for field "Account.name": %w`, err)}
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Account.name": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Platform(); ok {
 		if err := account.PlatformValidator(v); err != nil {
-			return &ValidationError{Name: "platform", err: fmt.Errorf(`enttmp: validator failed for field "Account.platform": %w`, err)}
+			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "Account.platform": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.GetType(); ok {
 		if err := account.TypeValidator(v); err != nil {
-			return &ValidationError{Name: "type", err: fmt.Errorf(`enttmp: validator failed for field "Account.type": %w`, err)}
+			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "Account.type": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.UpstreamGroup(); ok {
 		if err := account.UpstreamGroupValidator(v); err != nil {
-			return &ValidationError{Name: "upstream_group", err: fmt.Errorf(`enttmp: validator failed for field "Account.upstream_group": %w`, err)}
+			return &ValidationError{Name: "upstream_group", err: fmt.Errorf(`ent: validator failed for field "Account.upstream_group": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := account.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "Account.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Account.status": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.SessionWindowStatus(); ok {
 		if err := account.SessionWindowStatusValidator(v); err != nil {
-			return &ValidationError{Name: "session_window_status", err: fmt.Errorf(`enttmp: validator failed for field "Account.session_window_status": %w`, err)}
+			return &ValidationError{Name: "session_window_status", err: fmt.Errorf(`ent: validator failed for field "Account.session_window_status": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.QuotaDimension(); ok {
 		if err := account.QuotaDimensionValidator(v); err != nil {
-			return &ValidationError{Name: "quota_dimension", err: fmt.Errorf(`enttmp: validator failed for field "Account.quota_dimension": %w`, err)}
+			return &ValidationError{Name: "quota_dimension", err: fmt.Errorf(`ent: validator failed for field "Account.quota_dimension": %w`, err)}
 		}
 	}
 	return nil
@@ -2159,7 +2159,7 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	_spec := sqlgraph.NewUpdateSpec(account.Table, account.Columns, sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64))
 	id, ok := _u.mutation.ID()
 	if !ok {
-		return nil, &ValidationError{Name: "id", err: errors.New(`enttmp: missing "Account.id" for update`)}
+		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "Account.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
 	if fields := _u.fields; len(fields) > 0 {
@@ -2167,7 +2167,7 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 		_spec.Node.Columns = append(_spec.Node.Columns, account.FieldID)
 		for _, f := range fields {
 			if !account.ValidColumn(f) {
-				return nil, &ValidationError{Name: f, err: fmt.Errorf("enttmp: invalid field %q for query", f)}
+				return nil, &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 			}
 			if f != account.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, f)

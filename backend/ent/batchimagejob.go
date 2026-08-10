@@ -423,7 +423,7 @@ func (_m *BatchImageJob) Update() *BatchImageJobUpdateOne {
 func (_m *BatchImageJob) Unwrap() *BatchImageJob {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("enttmp: BatchImageJob is not a transactional entity")
+		panic("ent: BatchImageJob is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

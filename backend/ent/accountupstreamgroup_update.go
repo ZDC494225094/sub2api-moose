@@ -165,12 +165,12 @@ func (_u *AccountUpstreamGroupUpdate) defaults() {
 func (_u *AccountUpstreamGroupUpdate) check() error {
 	if v, ok := _u.mutation.Name(); ok {
 		if err := accountupstreamgroup.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`enttmp: validator failed for field "AccountUpstreamGroup.name": %w`, err)}
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "AccountUpstreamGroup.name": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.NormalizedName(); ok {
 		if err := accountupstreamgroup.NormalizedNameValidator(v); err != nil {
-			return &ValidationError{Name: "normalized_name", err: fmt.Errorf(`enttmp: validator failed for field "AccountUpstreamGroup.normalized_name": %w`, err)}
+			return &ValidationError{Name: "normalized_name", err: fmt.Errorf(`ent: validator failed for field "AccountUpstreamGroup.normalized_name": %w`, err)}
 		}
 	}
 	return nil
@@ -417,12 +417,12 @@ func (_u *AccountUpstreamGroupUpdateOne) defaults() {
 func (_u *AccountUpstreamGroupUpdateOne) check() error {
 	if v, ok := _u.mutation.Name(); ok {
 		if err := accountupstreamgroup.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`enttmp: validator failed for field "AccountUpstreamGroup.name": %w`, err)}
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "AccountUpstreamGroup.name": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.NormalizedName(); ok {
 		if err := accountupstreamgroup.NormalizedNameValidator(v); err != nil {
-			return &ValidationError{Name: "normalized_name", err: fmt.Errorf(`enttmp: validator failed for field "AccountUpstreamGroup.normalized_name": %w`, err)}
+			return &ValidationError{Name: "normalized_name", err: fmt.Errorf(`ent: validator failed for field "AccountUpstreamGroup.normalized_name": %w`, err)}
 		}
 	}
 	return nil
@@ -435,7 +435,7 @@ func (_u *AccountUpstreamGroupUpdateOne) sqlSave(ctx context.Context) (_node *Ac
 	_spec := sqlgraph.NewUpdateSpec(accountupstreamgroup.Table, accountupstreamgroup.Columns, sqlgraph.NewFieldSpec(accountupstreamgroup.FieldID, field.TypeInt64))
 	id, ok := _u.mutation.ID()
 	if !ok {
-		return nil, &ValidationError{Name: "id", err: errors.New(`enttmp: missing "AccountUpstreamGroup.id" for update`)}
+		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "AccountUpstreamGroup.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
 	if fields := _u.fields; len(fields) > 0 {
@@ -443,7 +443,7 @@ func (_u *AccountUpstreamGroupUpdateOne) sqlSave(ctx context.Context) (_node *Ac
 		_spec.Node.Columns = append(_spec.Node.Columns, accountupstreamgroup.FieldID)
 		for _, f := range fields {
 			if !accountupstreamgroup.ValidColumn(f) {
-				return nil, &ValidationError{Name: f, err: fmt.Errorf("enttmp: invalid field %q for query", f)}
+				return nil, &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 			}
 			if f != accountupstreamgroup.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, f)

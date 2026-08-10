@@ -4,14 +4,15 @@ package ent
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"time"
+
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"errors"
-	"fmt"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcodebatchusage"
-	"time"
 )
 
 // RedeemCodeBatchUsageUpdate is the builder for updating RedeemCodeBatchUsage entities.

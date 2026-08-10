@@ -581,7 +581,7 @@ func (_u *APIKeyUpdate) ExecX(ctx context.Context) {
 func (_u *APIKeyUpdate) defaults() error {
 	if _, ok := _u.mutation.UpdatedAt(); !ok {
 		if apikey.UpdateDefaultUpdatedAt == nil {
-			return fmt.Errorf("enttmp: uninitialized apikey.UpdateDefaultUpdatedAt (forgotten import enttmp/runtime?)")
+			return fmt.Errorf("ent: uninitialized apikey.UpdateDefaultUpdatedAt (forgotten import ent/runtime?)")
 		}
 		v := apikey.UpdateDefaultUpdatedAt()
 		_u.mutation.SetUpdatedAt(v)
@@ -593,31 +593,31 @@ func (_u *APIKeyUpdate) defaults() error {
 func (_u *APIKeyUpdate) check() error {
 	if v, ok := _u.mutation.Key(); ok {
 		if err := apikey.KeyValidator(v); err != nil {
-			return &ValidationError{Name: "key", err: fmt.Errorf(`enttmp: validator failed for field "APIKey.key": %w`, err)}
+			return &ValidationError{Name: "key", err: fmt.Errorf(`ent: validator failed for field "APIKey.key": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Name(); ok {
 		if err := apikey.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`enttmp: validator failed for field "APIKey.name": %w`, err)}
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "APIKey.name": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Platform(); ok {
 		if err := apikey.PlatformValidator(v); err != nil {
-			return &ValidationError{Name: "platform", err: fmt.Errorf(`enttmp: validator failed for field "APIKey.platform": %w`, err)}
+			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "APIKey.platform": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.BillingPriority(); ok {
 		if err := apikey.BillingPriorityValidator(v); err != nil {
-			return &ValidationError{Name: "billing_priority", err: fmt.Errorf(`enttmp: validator failed for field "APIKey.billing_priority": %w`, err)}
+			return &ValidationError{Name: "billing_priority", err: fmt.Errorf(`ent: validator failed for field "APIKey.billing_priority": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := apikey.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "APIKey.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
 		}
 	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
-		return errors.New(`enttmp: clearing a required unique edge "APIKey.user"`)
+		return errors.New(`ent: clearing a required unique edge "APIKey.user"`)
 	}
 	return nil
 }
@@ -1454,7 +1454,7 @@ func (_u *APIKeyUpdateOne) ExecX(ctx context.Context) {
 func (_u *APIKeyUpdateOne) defaults() error {
 	if _, ok := _u.mutation.UpdatedAt(); !ok {
 		if apikey.UpdateDefaultUpdatedAt == nil {
-			return fmt.Errorf("enttmp: uninitialized apikey.UpdateDefaultUpdatedAt (forgotten import enttmp/runtime?)")
+			return fmt.Errorf("ent: uninitialized apikey.UpdateDefaultUpdatedAt (forgotten import ent/runtime?)")
 		}
 		v := apikey.UpdateDefaultUpdatedAt()
 		_u.mutation.SetUpdatedAt(v)
@@ -1466,31 +1466,31 @@ func (_u *APIKeyUpdateOne) defaults() error {
 func (_u *APIKeyUpdateOne) check() error {
 	if v, ok := _u.mutation.Key(); ok {
 		if err := apikey.KeyValidator(v); err != nil {
-			return &ValidationError{Name: "key", err: fmt.Errorf(`enttmp: validator failed for field "APIKey.key": %w`, err)}
+			return &ValidationError{Name: "key", err: fmt.Errorf(`ent: validator failed for field "APIKey.key": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Name(); ok {
 		if err := apikey.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`enttmp: validator failed for field "APIKey.name": %w`, err)}
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "APIKey.name": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Platform(); ok {
 		if err := apikey.PlatformValidator(v); err != nil {
-			return &ValidationError{Name: "platform", err: fmt.Errorf(`enttmp: validator failed for field "APIKey.platform": %w`, err)}
+			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "APIKey.platform": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.BillingPriority(); ok {
 		if err := apikey.BillingPriorityValidator(v); err != nil {
-			return &ValidationError{Name: "billing_priority", err: fmt.Errorf(`enttmp: validator failed for field "APIKey.billing_priority": %w`, err)}
+			return &ValidationError{Name: "billing_priority", err: fmt.Errorf(`ent: validator failed for field "APIKey.billing_priority": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := apikey.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "APIKey.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
 		}
 	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
-		return errors.New(`enttmp: clearing a required unique edge "APIKey.user"`)
+		return errors.New(`ent: clearing a required unique edge "APIKey.user"`)
 	}
 	return nil
 }
@@ -1502,7 +1502,7 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 	_spec := sqlgraph.NewUpdateSpec(apikey.Table, apikey.Columns, sqlgraph.NewFieldSpec(apikey.FieldID, field.TypeInt64))
 	id, ok := _u.mutation.ID()
 	if !ok {
-		return nil, &ValidationError{Name: "id", err: errors.New(`enttmp: missing "APIKey.id" for update`)}
+		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "APIKey.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
 	if fields := _u.fields; len(fields) > 0 {
@@ -1510,7 +1510,7 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 		_spec.Node.Columns = append(_spec.Node.Columns, apikey.FieldID)
 		for _, f := range fields {
 			if !apikey.ValidColumn(f) {
-				return nil, &ValidationError{Name: f, err: fmt.Errorf("enttmp: invalid field %q for query", f)}
+				return nil, &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 			}
 			if f != apikey.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, f)

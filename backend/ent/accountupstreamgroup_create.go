@@ -144,29 +144,29 @@ func (_c *AccountUpstreamGroupCreate) defaults() {
 // check runs all checks and user-defined validators on the builder.
 func (_c *AccountUpstreamGroupCreate) check() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
-		return &ValidationError{Name: "created_at", err: errors.New(`enttmp: missing required field "AccountUpstreamGroup.created_at"`)}
+		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "AccountUpstreamGroup.created_at"`)}
 	}
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
-		return &ValidationError{Name: "updated_at", err: errors.New(`enttmp: missing required field "AccountUpstreamGroup.updated_at"`)}
+		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "AccountUpstreamGroup.updated_at"`)}
 	}
 	if _, ok := _c.mutation.Name(); !ok {
-		return &ValidationError{Name: "name", err: errors.New(`enttmp: missing required field "AccountUpstreamGroup.name"`)}
+		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "AccountUpstreamGroup.name"`)}
 	}
 	if v, ok := _c.mutation.Name(); ok {
 		if err := accountupstreamgroup.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`enttmp: validator failed for field "AccountUpstreamGroup.name": %w`, err)}
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "AccountUpstreamGroup.name": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.NormalizedName(); !ok {
-		return &ValidationError{Name: "normalized_name", err: errors.New(`enttmp: missing required field "AccountUpstreamGroup.normalized_name"`)}
+		return &ValidationError{Name: "normalized_name", err: errors.New(`ent: missing required field "AccountUpstreamGroup.normalized_name"`)}
 	}
 	if v, ok := _c.mutation.NormalizedName(); ok {
 		if err := accountupstreamgroup.NormalizedNameValidator(v); err != nil {
-			return &ValidationError{Name: "normalized_name", err: fmt.Errorf(`enttmp: validator failed for field "AccountUpstreamGroup.normalized_name": %w`, err)}
+			return &ValidationError{Name: "normalized_name", err: fmt.Errorf(`ent: validator failed for field "AccountUpstreamGroup.normalized_name": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.SortOrder(); !ok {
-		return &ValidationError{Name: "sort_order", err: errors.New(`enttmp: missing required field "AccountUpstreamGroup.sort_order"`)}
+		return &ValidationError{Name: "sort_order", err: errors.New(`ent: missing required field "AccountUpstreamGroup.sort_order"`)}
 	}
 	return nil
 }
@@ -448,7 +448,7 @@ func (u *AccountUpstreamGroupUpsertOne) UpdateSortOrder() *AccountUpstreamGroupU
 // Exec executes the query.
 func (u *AccountUpstreamGroupUpsertOne) Exec(ctx context.Context) error {
 	if len(u.create.conflict) == 0 {
-		return errors.New("enttmp: missing options for AccountUpstreamGroupCreate.OnConflict")
+		return errors.New("ent: missing options for AccountUpstreamGroupCreate.OnConflict")
 	}
 	return u.create.Exec(ctx)
 }
@@ -726,11 +726,11 @@ func (u *AccountUpstreamGroupUpsertBulk) Exec(ctx context.Context) error {
 	}
 	for i, b := range u.create.builders {
 		if len(b.conflict) != 0 {
-			return fmt.Errorf("enttmp: OnConflict was set for builder %d. Set it on the AccountUpstreamGroupCreateBulk instead", i)
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the AccountUpstreamGroupCreateBulk instead", i)
 		}
 	}
 	if len(u.create.conflict) == 0 {
-		return errors.New("enttmp: missing options for AccountUpstreamGroupCreateBulk.OnConflict")
+		return errors.New("ent: missing options for AccountUpstreamGroupCreateBulk.OnConflict")
 	}
 	return u.create.Exec(ctx)
 }

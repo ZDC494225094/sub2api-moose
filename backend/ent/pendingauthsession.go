@@ -306,7 +306,7 @@ func (_m *PendingAuthSession) Update() *PendingAuthSessionUpdateOne {
 func (_m *PendingAuthSession) Unwrap() *PendingAuthSession {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("enttmp: PendingAuthSession is not a transactional entity")
+		panic("ent: PendingAuthSession is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

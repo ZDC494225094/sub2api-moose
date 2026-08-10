@@ -146,3 +146,6 @@ aicodex
 output/
 /.codex-cache-test
 /.codex-tools
+
+# Vitest / Vite cache at repo root
+.vite/

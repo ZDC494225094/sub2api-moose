@@ -169,7 +169,7 @@ func (_m *IdempotencyRecord) Update() *IdempotencyRecordUpdateOne {
 func (_m *IdempotencyRecord) Unwrap() *IdempotencyRecord {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("enttmp: IdempotencyRecord is not a transactional entity")
+		panic("ent: IdempotencyRecord is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

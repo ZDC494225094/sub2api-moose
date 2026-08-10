@@ -337,7 +337,7 @@ func (_u *UserPlatformQuotaUpdate) ExecX(ctx context.Context) {
 func (_u *UserPlatformQuotaUpdate) defaults() error {
 	if _, ok := _u.mutation.UpdatedAt(); !ok {
 		if userplatformquota.UpdateDefaultUpdatedAt == nil {
-			return fmt.Errorf("enttmp: uninitialized userplatformquota.UpdateDefaultUpdatedAt (forgotten import enttmp/runtime?)")
+			return fmt.Errorf("ent: uninitialized userplatformquota.UpdateDefaultUpdatedAt (forgotten import ent/runtime?)")
 		}
 		v := userplatformquota.UpdateDefaultUpdatedAt()
 		_u.mutation.SetUpdatedAt(v)
@@ -349,11 +349,11 @@ func (_u *UserPlatformQuotaUpdate) defaults() error {
 func (_u *UserPlatformQuotaUpdate) check() error {
 	if v, ok := _u.mutation.Platform(); ok {
 		if err := userplatformquota.PlatformValidator(v); err != nil {
-			return &ValidationError{Name: "platform", err: fmt.Errorf(`enttmp: validator failed for field "UserPlatformQuota.platform": %w`, err)}
+			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "UserPlatformQuota.platform": %w`, err)}
 		}
 	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
-		return errors.New(`enttmp: clearing a required unique edge "UserPlatformQuota.user"`)
+		return errors.New(`ent: clearing a required unique edge "UserPlatformQuota.user"`)
 	}
 	return nil
 }
@@ -815,7 +815,7 @@ func (_u *UserPlatformQuotaUpdateOne) ExecX(ctx context.Context) {
 func (_u *UserPlatformQuotaUpdateOne) defaults() error {
 	if _, ok := _u.mutation.UpdatedAt(); !ok {
 		if userplatformquota.UpdateDefaultUpdatedAt == nil {
-			return fmt.Errorf("enttmp: uninitialized userplatformquota.UpdateDefaultUpdatedAt (forgotten import enttmp/runtime?)")
+			return fmt.Errorf("ent: uninitialized userplatformquota.UpdateDefaultUpdatedAt (forgotten import ent/runtime?)")
 		}
 		v := userplatformquota.UpdateDefaultUpdatedAt()
 		_u.mutation.SetUpdatedAt(v)
@@ -827,11 +827,11 @@ func (_u *UserPlatformQuotaUpdateOne) defaults() error {
 func (_u *UserPlatformQuotaUpdateOne) check() error {
 	if v, ok := _u.mutation.Platform(); ok {
 		if err := userplatformquota.PlatformValidator(v); err != nil {
-			return &ValidationError{Name: "platform", err: fmt.Errorf(`enttmp: validator failed for field "UserPlatformQuota.platform": %w`, err)}
+			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "UserPlatformQuota.platform": %w`, err)}
 		}
 	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
-		return errors.New(`enttmp: clearing a required unique edge "UserPlatformQuota.user"`)
+		return errors.New(`ent: clearing a required unique edge "UserPlatformQuota.user"`)
 	}
 	return nil
 }
@@ -843,7 +843,7 @@ func (_u *UserPlatformQuotaUpdateOne) sqlSave(ctx context.Context) (_node *UserP
 	_spec := sqlgraph.NewUpdateSpec(userplatformquota.Table, userplatformquota.Columns, sqlgraph.NewFieldSpec(userplatformquota.FieldID, field.TypeInt64))
 	id, ok := _u.mutation.ID()
 	if !ok {
-		return nil, &ValidationError{Name: "id", err: errors.New(`enttmp: missing "UserPlatformQuota.id" for update`)}
+		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "UserPlatformQuota.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
 	if fields := _u.fields; len(fields) > 0 {
@@ -851,7 +851,7 @@ func (_u *UserPlatformQuotaUpdateOne) sqlSave(ctx context.Context) (_node *UserP
 		_spec.Node.Columns = append(_spec.Node.Columns, userplatformquota.FieldID)
 		for _, f := range fields {
 			if !userplatformquota.ValidColumn(f) {
-				return nil, &ValidationError{Name: f, err: fmt.Errorf("enttmp: invalid field %q for query", f)}
+				return nil, &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 			}
 			if f != userplatformquota.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, f)

@@ -101,7 +101,7 @@ func (_m *Setting) Update() *SettingUpdateOne {
 func (_m *Setting) Unwrap() *Setting {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("enttmp: Setting is not a transactional entity")
+		panic("ent: Setting is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

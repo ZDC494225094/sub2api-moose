@@ -513,7 +513,7 @@ func (_m *User) Update() *UserUpdateOne {
 func (_m *User) Unwrap() *User {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("enttmp: User is not a transactional entity")
+		panic("ent: User is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

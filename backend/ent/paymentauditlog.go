@@ -117,7 +117,7 @@ func (_m *PaymentAuditLog) Update() *PaymentAuditLogUpdateOne {
 func (_m *PaymentAuditLog) Unwrap() *PaymentAuditLog {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("enttmp: PaymentAuditLog is not a transactional entity")
+		panic("ent: PaymentAuditLog is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

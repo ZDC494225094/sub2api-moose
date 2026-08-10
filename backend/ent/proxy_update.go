@@ -333,7 +333,7 @@ func (_u *ProxyUpdate) ExecX(ctx context.Context) {
 func (_u *ProxyUpdate) defaults() error {
 	if _, ok := _u.mutation.UpdatedAt(); !ok {
 		if proxy.UpdateDefaultUpdatedAt == nil {
-			return fmt.Errorf("enttmp: uninitialized proxy.UpdateDefaultUpdatedAt (forgotten import enttmp/runtime?)")
+			return fmt.Errorf("ent: uninitialized proxy.UpdateDefaultUpdatedAt (forgotten import ent/runtime?)")
 		}
 		v := proxy.UpdateDefaultUpdatedAt()
 		_u.mutation.SetUpdatedAt(v)
@@ -345,37 +345,37 @@ func (_u *ProxyUpdate) defaults() error {
 func (_u *ProxyUpdate) check() error {
 	if v, ok := _u.mutation.Name(); ok {
 		if err := proxy.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.name": %w`, err)}
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Proxy.name": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Protocol(); ok {
 		if err := proxy.ProtocolValidator(v); err != nil {
-			return &ValidationError{Name: "protocol", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.protocol": %w`, err)}
+			return &ValidationError{Name: "protocol", err: fmt.Errorf(`ent: validator failed for field "Proxy.protocol": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Host(); ok {
 		if err := proxy.HostValidator(v); err != nil {
-			return &ValidationError{Name: "host", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.host": %w`, err)}
+			return &ValidationError{Name: "host", err: fmt.Errorf(`ent: validator failed for field "Proxy.host": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Username(); ok {
 		if err := proxy.UsernameValidator(v); err != nil {
-			return &ValidationError{Name: "username", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.username": %w`, err)}
+			return &ValidationError{Name: "username", err: fmt.Errorf(`ent: validator failed for field "Proxy.username": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Password(); ok {
 		if err := proxy.PasswordValidator(v); err != nil {
-			return &ValidationError{Name: "password", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.password": %w`, err)}
+			return &ValidationError{Name: "password", err: fmt.Errorf(`ent: validator failed for field "Proxy.password": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := proxy.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Proxy.status": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.FallbackMode(); ok {
 		if err := proxy.FallbackModeValidator(v); err != nil {
-			return &ValidationError{Name: "fallback_mode", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.fallback_mode": %w`, err)}
+			return &ValidationError{Name: "fallback_mode", err: fmt.Errorf(`ent: validator failed for field "Proxy.fallback_mode": %w`, err)}
 		}
 	}
 	return nil
@@ -858,7 +858,7 @@ func (_u *ProxyUpdateOne) ExecX(ctx context.Context) {
 func (_u *ProxyUpdateOne) defaults() error {
 	if _, ok := _u.mutation.UpdatedAt(); !ok {
 		if proxy.UpdateDefaultUpdatedAt == nil {
-			return fmt.Errorf("enttmp: uninitialized proxy.UpdateDefaultUpdatedAt (forgotten import enttmp/runtime?)")
+			return fmt.Errorf("ent: uninitialized proxy.UpdateDefaultUpdatedAt (forgotten import ent/runtime?)")
 		}
 		v := proxy.UpdateDefaultUpdatedAt()
 		_u.mutation.SetUpdatedAt(v)
@@ -870,37 +870,37 @@ func (_u *ProxyUpdateOne) defaults() error {
 func (_u *ProxyUpdateOne) check() error {
 	if v, ok := _u.mutation.Name(); ok {
 		if err := proxy.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.name": %w`, err)}
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Proxy.name": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Protocol(); ok {
 		if err := proxy.ProtocolValidator(v); err != nil {
-			return &ValidationError{Name: "protocol", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.protocol": %w`, err)}
+			return &ValidationError{Name: "protocol", err: fmt.Errorf(`ent: validator failed for field "Proxy.protocol": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Host(); ok {
 		if err := proxy.HostValidator(v); err != nil {
-			return &ValidationError{Name: "host", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.host": %w`, err)}
+			return &ValidationError{Name: "host", err: fmt.Errorf(`ent: validator failed for field "Proxy.host": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Username(); ok {
 		if err := proxy.UsernameValidator(v); err != nil {
-			return &ValidationError{Name: "username", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.username": %w`, err)}
+			return &ValidationError{Name: "username", err: fmt.Errorf(`ent: validator failed for field "Proxy.username": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Password(); ok {
 		if err := proxy.PasswordValidator(v); err != nil {
-			return &ValidationError{Name: "password", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.password": %w`, err)}
+			return &ValidationError{Name: "password", err: fmt.Errorf(`ent: validator failed for field "Proxy.password": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := proxy.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Proxy.status": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.FallbackMode(); ok {
 		if err := proxy.FallbackModeValidator(v); err != nil {
-			return &ValidationError{Name: "fallback_mode", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.fallback_mode": %w`, err)}
+			return &ValidationError{Name: "fallback_mode", err: fmt.Errorf(`ent: validator failed for field "Proxy.fallback_mode": %w`, err)}
 		}
 	}
 	return nil
@@ -913,7 +913,7 @@ func (_u *ProxyUpdateOne) sqlSave(ctx context.Context) (_node *Proxy, err error)
 	_spec := sqlgraph.NewUpdateSpec(proxy.Table, proxy.Columns, sqlgraph.NewFieldSpec(proxy.FieldID, field.TypeInt64))
 	id, ok := _u.mutation.ID()
 	if !ok {
-		return nil, &ValidationError{Name: "id", err: errors.New(`enttmp: missing "Proxy.id" for update`)}
+		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "Proxy.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
 	if fields := _u.fields; len(fields) > 0 {
@@ -921,7 +921,7 @@ func (_u *ProxyUpdateOne) sqlSave(ctx context.Context) (_node *Proxy, err error)
 		_spec.Node.Columns = append(_spec.Node.Columns, proxy.FieldID)
 		for _, f := range fields {
 			if !proxy.ValidColumn(f) {
-				return nil, &ValidationError{Name: f, err: fmt.Errorf("enttmp: invalid field %q for query", f)}
+				return nil, &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 			}
 			if f != proxy.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, f)

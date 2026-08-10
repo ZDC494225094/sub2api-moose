@@ -142,6 +142,46 @@ func (_u *UsageLogUpdate) ClearUpstreamModel() *UsageLogUpdate {
 	return _u
 }
 
+// SetUpstreamResponseModel sets the "upstream_response_model" field.
+func (_u *UsageLogUpdate) SetUpstreamResponseModel(v string) *UsageLogUpdate {
+	_u.mutation.SetUpstreamResponseModel(v)
+	return _u
+}
+
+// SetNillableUpstreamResponseModel sets the "upstream_response_model" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableUpstreamResponseModel(v *string) *UsageLogUpdate {
+	if v != nil {
+		_u.SetUpstreamResponseModel(*v)
+	}
+	return _u
+}
+
+// ClearUpstreamResponseModel clears the value of the "upstream_response_model" field.
+func (_u *UsageLogUpdate) ClearUpstreamResponseModel() *UsageLogUpdate {
+	_u.mutation.ClearUpstreamResponseModel()
+	return _u
+}
+
+// SetUpstreamModelMismatch sets the "upstream_model_mismatch" field.
+func (_u *UsageLogUpdate) SetUpstreamModelMismatch(v bool) *UsageLogUpdate {
+	_u.mutation.SetUpstreamModelMismatch(v)
+	return _u
+}
+
+// SetNillableUpstreamModelMismatch sets the "upstream_model_mismatch" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableUpstreamModelMismatch(v *bool) *UsageLogUpdate {
+	if v != nil {
+		_u.SetUpstreamModelMismatch(*v)
+	}
+	return _u
+}
+
+// ClearUpstreamModelMismatch clears the value of the "upstream_model_mismatch" field.
+func (_u *UsageLogUpdate) ClearUpstreamModelMismatch() *UsageLogUpdate {
+	_u.mutation.ClearUpstreamModelMismatch()
+	return _u
+}
+
 // SetChannelID sets the "channel_id" field.
 func (_u *UsageLogUpdate) SetChannelID(v int64) *UsageLogUpdate {
 	_u.mutation.ResetChannelID()
@@ -998,82 +1038,87 @@ func (_u *UsageLogUpdate) ExecX(ctx context.Context) {
 func (_u *UsageLogUpdate) check() error {
 	if v, ok := _u.mutation.RequestID(); ok {
 		if err := usagelog.RequestIDValidator(v); err != nil {
-			return &ValidationError{Name: "request_id", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.request_id": %w`, err)}
+			return &ValidationError{Name: "request_id", err: fmt.Errorf(`ent: validator failed for field "UsageLog.request_id": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Model(); ok {
 		if err := usagelog.ModelValidator(v); err != nil {
-			return &ValidationError{Name: "model", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.model": %w`, err)}
+			return &ValidationError{Name: "model", err: fmt.Errorf(`ent: validator failed for field "UsageLog.model": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.RequestedModel(); ok {
 		if err := usagelog.RequestedModelValidator(v); err != nil {
-			return &ValidationError{Name: "requested_model", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.requested_model": %w`, err)}
+			return &ValidationError{Name: "requested_model", err: fmt.Errorf(`ent: validator failed for field "UsageLog.requested_model": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.UpstreamModel(); ok {
 		if err := usagelog.UpstreamModelValidator(v); err != nil {
-			return &ValidationError{Name: "upstream_model", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.upstream_model": %w`, err)}
+			return &ValidationError{Name: "upstream_model", err: fmt.Errorf(`ent: validator failed for field "UsageLog.upstream_model": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.UpstreamResponseModel(); ok {
+		if err := usagelog.UpstreamResponseModelValidator(v); err != nil {
+			return &ValidationError{Name: "upstream_response_model", err: fmt.Errorf(`ent: validator failed for field "UsageLog.upstream_response_model": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.ModelMappingChain(); ok {
 		if err := usagelog.ModelMappingChainValidator(v); err != nil {
-			return &ValidationError{Name: "model_mapping_chain", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.model_mapping_chain": %w`, err)}
+			return &ValidationError{Name: "model_mapping_chain", err: fmt.Errorf(`ent: validator failed for field "UsageLog.model_mapping_chain": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.BillingTier(); ok {
 		if err := usagelog.BillingTierValidator(v); err != nil {
-			return &ValidationError{Name: "billing_tier", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.billing_tier": %w`, err)}
+			return &ValidationError{Name: "billing_tier", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_tier": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.BillingMode(); ok {
 		if err := usagelog.BillingModeValidator(v); err != nil {
-			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.billing_mode": %w`, err)}
+			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.UserAgent(); ok {
 		if err := usagelog.UserAgentValidator(v); err != nil {
-			return &ValidationError{Name: "user_agent", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.user_agent": %w`, err)}
+			return &ValidationError{Name: "user_agent", err: fmt.Errorf(`ent: validator failed for field "UsageLog.user_agent": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.IPAddress(); ok {
 		if err := usagelog.IPAddressValidator(v); err != nil {
-			return &ValidationError{Name: "ip_address", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.ip_address": %w`, err)}
+			return &ValidationError{Name: "ip_address", err: fmt.Errorf(`ent: validator failed for field "UsageLog.ip_address": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.ImageSize(); ok {
 		if err := usagelog.ImageSizeValidator(v); err != nil {
-			return &ValidationError{Name: "image_size", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.image_size": %w`, err)}
+			return &ValidationError{Name: "image_size", err: fmt.Errorf(`ent: validator failed for field "UsageLog.image_size": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.ImageInputSize(); ok {
 		if err := usagelog.ImageInputSizeValidator(v); err != nil {
-			return &ValidationError{Name: "image_input_size", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.image_input_size": %w`, err)}
+			return &ValidationError{Name: "image_input_size", err: fmt.Errorf(`ent: validator failed for field "UsageLog.image_input_size": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.ImageOutputSize(); ok {
 		if err := usagelog.ImageOutputSizeValidator(v); err != nil {
-			return &ValidationError{Name: "image_output_size", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.image_output_size": %w`, err)}
+			return &ValidationError{Name: "image_output_size", err: fmt.Errorf(`ent: validator failed for field "UsageLog.image_output_size": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.ImageSizeSource(); ok {
 		if err := usagelog.ImageSizeSourceValidator(v); err != nil {
-			return &ValidationError{Name: "image_size_source", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.image_size_source": %w`, err)}
+			return &ValidationError{Name: "image_size_source", err: fmt.Errorf(`ent: validator failed for field "UsageLog.image_size_source": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.VideoResolution(); ok {
 		if err := usagelog.VideoResolutionValidator(v); err != nil {
-			return &ValidationError{Name: "video_resolution", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.video_resolution": %w`, err)}
+			return &ValidationError{Name: "video_resolution", err: fmt.Errorf(`ent: validator failed for field "UsageLog.video_resolution": %w`, err)}
 		}
 	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
-		return errors.New(`enttmp: clearing a required unique edge "UsageLog.user"`)
+		return errors.New(`ent: clearing a required unique edge "UsageLog.user"`)
 	}
 	if _u.mutation.APIKeyCleared() && len(_u.mutation.APIKeyIDs()) > 0 {
-		return errors.New(`enttmp: clearing a required unique edge "UsageLog.api_key"`)
+		return errors.New(`ent: clearing a required unique edge "UsageLog.api_key"`)
 	}
 	if _u.mutation.AccountCleared() && len(_u.mutation.AccountIDs()) > 0 {
-		return errors.New(`enttmp: clearing a required unique edge "UsageLog.account"`)
+		return errors.New(`ent: clearing a required unique edge "UsageLog.account"`)
 	}
 	return nil
 }
@@ -1107,6 +1152,18 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.UpstreamModelCleared() {
 		_spec.ClearField(usagelog.FieldUpstreamModel, field.TypeString)
+	}
+	if value, ok := _u.mutation.UpstreamResponseModel(); ok {
+		_spec.SetField(usagelog.FieldUpstreamResponseModel, field.TypeString, value)
+	}
+	if _u.mutation.UpstreamResponseModelCleared() {
+		_spec.ClearField(usagelog.FieldUpstreamResponseModel, field.TypeString)
+	}
+	if value, ok := _u.mutation.UpstreamModelMismatch(); ok {
+		_spec.SetField(usagelog.FieldUpstreamModelMismatch, field.TypeBool, value)
+	}
+	if _u.mutation.UpstreamModelMismatchCleared() {
+		_spec.ClearField(usagelog.FieldUpstreamModelMismatch, field.TypeBool)
 	}
 	if value, ok := _u.mutation.ChannelID(); ok {
 		_spec.SetField(usagelog.FieldChannelID, field.TypeInt64, value)
@@ -1596,6 +1653,46 @@ func (_u *UsageLogUpdateOne) SetNillableUpstreamModel(v *string) *UsageLogUpdate
 // ClearUpstreamModel clears the value of the "upstream_model" field.
 func (_u *UsageLogUpdateOne) ClearUpstreamModel() *UsageLogUpdateOne {
 	_u.mutation.ClearUpstreamModel()
+	return _u
+}
+
+// SetUpstreamResponseModel sets the "upstream_response_model" field.
+func (_u *UsageLogUpdateOne) SetUpstreamResponseModel(v string) *UsageLogUpdateOne {
+	_u.mutation.SetUpstreamResponseModel(v)
+	return _u
+}
+
+// SetNillableUpstreamResponseModel sets the "upstream_response_model" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableUpstreamResponseModel(v *string) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetUpstreamResponseModel(*v)
+	}
+	return _u
+}
+
+// ClearUpstreamResponseModel clears the value of the "upstream_response_model" field.
+func (_u *UsageLogUpdateOne) ClearUpstreamResponseModel() *UsageLogUpdateOne {
+	_u.mutation.ClearUpstreamResponseModel()
+	return _u
+}
+
+// SetUpstreamModelMismatch sets the "upstream_model_mismatch" field.
+func (_u *UsageLogUpdateOne) SetUpstreamModelMismatch(v bool) *UsageLogUpdateOne {
+	_u.mutation.SetUpstreamModelMismatch(v)
+	return _u
+}
+
+// SetNillableUpstreamModelMismatch sets the "upstream_model_mismatch" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableUpstreamModelMismatch(v *bool) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetUpstreamModelMismatch(*v)
+	}
+	return _u
+}
+
+// ClearUpstreamModelMismatch clears the value of the "upstream_model_mismatch" field.
+func (_u *UsageLogUpdateOne) ClearUpstreamModelMismatch() *UsageLogUpdateOne {
+	_u.mutation.ClearUpstreamModelMismatch()
 	return _u
 }
 
@@ -2468,82 +2565,87 @@ func (_u *UsageLogUpdateOne) ExecX(ctx context.Context) {
 func (_u *UsageLogUpdateOne) check() error {
 	if v, ok := _u.mutation.RequestID(); ok {
 		if err := usagelog.RequestIDValidator(v); err != nil {
-			return &ValidationError{Name: "request_id", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.request_id": %w`, err)}
+			return &ValidationError{Name: "request_id", err: fmt.Errorf(`ent: validator failed for field "UsageLog.request_id": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Model(); ok {
 		if err := usagelog.ModelValidator(v); err != nil {
-			return &ValidationError{Name: "model", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.model": %w`, err)}
+			return &ValidationError{Name: "model", err: fmt.Errorf(`ent: validator failed for field "UsageLog.model": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.RequestedModel(); ok {
 		if err := usagelog.RequestedModelValidator(v); err != nil {
-			return &ValidationError{Name: "requested_model", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.requested_model": %w`, err)}
+			return &ValidationError{Name: "requested_model", err: fmt.Errorf(`ent: validator failed for field "UsageLog.requested_model": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.UpstreamModel(); ok {
 		if err := usagelog.UpstreamModelValidator(v); err != nil {
-			return &ValidationError{Name: "upstream_model", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.upstream_model": %w`, err)}
+			return &ValidationError{Name: "upstream_model", err: fmt.Errorf(`ent: validator failed for field "UsageLog.upstream_model": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.UpstreamResponseModel(); ok {
+		if err := usagelog.UpstreamResponseModelValidator(v); err != nil {
+			return &ValidationError{Name: "upstream_response_model", err: fmt.Errorf(`ent: validator failed for field "UsageLog.upstream_response_model": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.ModelMappingChain(); ok {
 		if err := usagelog.ModelMappingChainValidator(v); err != nil {
-			return &ValidationError{Name: "model_mapping_chain", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.model_mapping_chain": %w`, err)}
+			return &ValidationError{Name: "model_mapping_chain", err: fmt.Errorf(`ent: validator failed for field "UsageLog.model_mapping_chain": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.BillingTier(); ok {
 		if err := usagelog.BillingTierValidator(v); err != nil {
-			return &ValidationError{Name: "billing_tier", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.billing_tier": %w`, err)}
+			return &ValidationError{Name: "billing_tier", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_tier": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.BillingMode(); ok {
 		if err := usagelog.BillingModeValidator(v); err != nil {
-			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.billing_mode": %w`, err)}
+			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.UserAgent(); ok {
 		if err := usagelog.UserAgentValidator(v); err != nil {
-			return &ValidationError{Name: "user_agent", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.user_agent": %w`, err)}
+			return &ValidationError{Name: "user_agent", err: fmt.Errorf(`ent: validator failed for field "UsageLog.user_agent": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.IPAddress(); ok {
 		if err := usagelog.IPAddressValidator(v); err != nil {
-			return &ValidationError{Name: "ip_address", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.ip_address": %w`, err)}
+			return &ValidationError{Name: "ip_address", err: fmt.Errorf(`ent: validator failed for field "UsageLog.ip_address": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.ImageSize(); ok {
 		if err := usagelog.ImageSizeValidator(v); err != nil {
-			return &ValidationError{Name: "image_size", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.image_size": %w`, err)}
+			return &ValidationError{Name: "image_size", err: fmt.Errorf(`ent: validator failed for field "UsageLog.image_size": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.ImageInputSize(); ok {
 		if err := usagelog.ImageInputSizeValidator(v); err != nil {
-			return &ValidationError{Name: "image_input_size", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.image_input_size": %w`, err)}
+			return &ValidationError{Name: "image_input_size", err: fmt.Errorf(`ent: validator failed for field "UsageLog.image_input_size": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.ImageOutputSize(); ok {
 		if err := usagelog.ImageOutputSizeValidator(v); err != nil {
-			return &ValidationError{Name: "image_output_size", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.image_output_size": %w`, err)}
+			return &ValidationError{Name: "image_output_size", err: fmt.Errorf(`ent: validator failed for field "UsageLog.image_output_size": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.ImageSizeSource(); ok {
 		if err := usagelog.ImageSizeSourceValidator(v); err != nil {
-			return &ValidationError{Name: "image_size_source", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.image_size_source": %w`, err)}
+			return &ValidationError{Name: "image_size_source", err: fmt.Errorf(`ent: validator failed for field "UsageLog.image_size_source": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.VideoResolution(); ok {
 		if err := usagelog.VideoResolutionValidator(v); err != nil {
-			return &ValidationError{Name: "video_resolution", err: fmt.Errorf(`enttmp: validator failed for field "UsageLog.video_resolution": %w`, err)}
+			return &ValidationError{Name: "video_resolution", err: fmt.Errorf(`ent: validator failed for field "UsageLog.video_resolution": %w`, err)}
 		}
 	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
-		return errors.New(`enttmp: clearing a required unique edge "UsageLog.user"`)
+		return errors.New(`ent: clearing a required unique edge "UsageLog.user"`)
 	}
 	if _u.mutation.APIKeyCleared() && len(_u.mutation.APIKeyIDs()) > 0 {
-		return errors.New(`enttmp: clearing a required unique edge "UsageLog.api_key"`)
+		return errors.New(`ent: clearing a required unique edge "UsageLog.api_key"`)
 	}
 	if _u.mutation.AccountCleared() && len(_u.mutation.AccountIDs()) > 0 {
-		return errors.New(`enttmp: clearing a required unique edge "UsageLog.account"`)
+		return errors.New(`ent: clearing a required unique edge "UsageLog.account"`)
 	}
 	return nil
 }
@@ -2555,7 +2657,7 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	_spec := sqlgraph.NewUpdateSpec(usagelog.Table, usagelog.Columns, sqlgraph.NewFieldSpec(usagelog.FieldID, field.TypeInt64))
 	id, ok := _u.mutation.ID()
 	if !ok {
-		return nil, &ValidationError{Name: "id", err: errors.New(`enttmp: missing "UsageLog.id" for update`)}
+		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "UsageLog.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
 	if fields := _u.fields; len(fields) > 0 {
@@ -2563,7 +2665,7 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 		_spec.Node.Columns = append(_spec.Node.Columns, usagelog.FieldID)
 		for _, f := range fields {
 			if !usagelog.ValidColumn(f) {
-				return nil, &ValidationError{Name: f, err: fmt.Errorf("enttmp: invalid field %q for query", f)}
+				return nil, &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 			}
 			if f != usagelog.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, f)
@@ -2594,6 +2696,18 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	}
 	if _u.mutation.UpstreamModelCleared() {
 		_spec.ClearField(usagelog.FieldUpstreamModel, field.TypeString)
+	}
+	if value, ok := _u.mutation.UpstreamResponseModel(); ok {
+		_spec.SetField(usagelog.FieldUpstreamResponseModel, field.TypeString, value)
+	}
+	if _u.mutation.UpstreamResponseModelCleared() {
+		_spec.ClearField(usagelog.FieldUpstreamResponseModel, field.TypeString)
+	}
+	if value, ok := _u.mutation.UpstreamModelMismatch(); ok {
+		_spec.SetField(usagelog.FieldUpstreamModelMismatch, field.TypeBool, value)
+	}
+	if _u.mutation.UpstreamModelMismatchCleared() {
+		_spec.ClearField(usagelog.FieldUpstreamModelMismatch, field.TypeBool)
 	}
 	if value, ok := _u.mutation.ChannelID(); ok {
 		_spec.SetField(usagelog.FieldChannelID, field.TypeInt64, value)

@@ -155,7 +155,7 @@ func (_m *AnnouncementRead) Update() *AnnouncementReadUpdateOne {
 func (_m *AnnouncementRead) Unwrap() *AnnouncementRead {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("enttmp: AnnouncementRead is not a transactional entity")
+		panic("ent: AnnouncementRead is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

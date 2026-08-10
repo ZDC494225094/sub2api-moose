@@ -405,14 +405,14 @@ func (_c *APIKeyCreate) ExecX(ctx context.Context) {
 func (_c *APIKeyCreate) defaults() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if apikey.DefaultCreatedAt == nil {
-			return fmt.Errorf("enttmp: uninitialized apikey.DefaultCreatedAt (forgotten import enttmp/runtime?)")
+			return fmt.Errorf("ent: uninitialized apikey.DefaultCreatedAt (forgotten import ent/runtime?)")
 		}
 		v := apikey.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
 	}
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
 		if apikey.DefaultUpdatedAt == nil {
-			return fmt.Errorf("enttmp: uninitialized apikey.DefaultUpdatedAt (forgotten import enttmp/runtime?)")
+			return fmt.Errorf("ent: uninitialized apikey.DefaultUpdatedAt (forgotten import ent/runtime?)")
 		}
 		v := apikey.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
@@ -467,80 +467,80 @@ func (_c *APIKeyCreate) defaults() error {
 // check runs all checks and user-defined validators on the builder.
 func (_c *APIKeyCreate) check() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
-		return &ValidationError{Name: "created_at", err: errors.New(`enttmp: missing required field "APIKey.created_at"`)}
+		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "APIKey.created_at"`)}
 	}
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
-		return &ValidationError{Name: "updated_at", err: errors.New(`enttmp: missing required field "APIKey.updated_at"`)}
+		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "APIKey.updated_at"`)}
 	}
 	if _, ok := _c.mutation.UserID(); !ok {
-		return &ValidationError{Name: "user_id", err: errors.New(`enttmp: missing required field "APIKey.user_id"`)}
+		return &ValidationError{Name: "user_id", err: errors.New(`ent: missing required field "APIKey.user_id"`)}
 	}
 	if _, ok := _c.mutation.Key(); !ok {
-		return &ValidationError{Name: "key", err: errors.New(`enttmp: missing required field "APIKey.key"`)}
+		return &ValidationError{Name: "key", err: errors.New(`ent: missing required field "APIKey.key"`)}
 	}
 	if v, ok := _c.mutation.Key(); ok {
 		if err := apikey.KeyValidator(v); err != nil {
-			return &ValidationError{Name: "key", err: fmt.Errorf(`enttmp: validator failed for field "APIKey.key": %w`, err)}
+			return &ValidationError{Name: "key", err: fmt.Errorf(`ent: validator failed for field "APIKey.key": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Name(); !ok {
-		return &ValidationError{Name: "name", err: errors.New(`enttmp: missing required field "APIKey.name"`)}
+		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "APIKey.name"`)}
 	}
 	if v, ok := _c.mutation.Name(); ok {
 		if err := apikey.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`enttmp: validator failed for field "APIKey.name": %w`, err)}
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "APIKey.name": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Platform(); !ok {
-		return &ValidationError{Name: "platform", err: errors.New(`enttmp: missing required field "APIKey.platform"`)}
+		return &ValidationError{Name: "platform", err: errors.New(`ent: missing required field "APIKey.platform"`)}
 	}
 	if v, ok := _c.mutation.Platform(); ok {
 		if err := apikey.PlatformValidator(v); err != nil {
-			return &ValidationError{Name: "platform", err: fmt.Errorf(`enttmp: validator failed for field "APIKey.platform": %w`, err)}
+			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "APIKey.platform": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.BillingPriority(); !ok {
-		return &ValidationError{Name: "billing_priority", err: errors.New(`enttmp: missing required field "APIKey.billing_priority"`)}
+		return &ValidationError{Name: "billing_priority", err: errors.New(`ent: missing required field "APIKey.billing_priority"`)}
 	}
 	if v, ok := _c.mutation.BillingPriority(); ok {
 		if err := apikey.BillingPriorityValidator(v); err != nil {
-			return &ValidationError{Name: "billing_priority", err: fmt.Errorf(`enttmp: validator failed for field "APIKey.billing_priority": %w`, err)}
+			return &ValidationError{Name: "billing_priority", err: fmt.Errorf(`ent: validator failed for field "APIKey.billing_priority": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
-		return &ValidationError{Name: "status", err: errors.New(`enttmp: missing required field "APIKey.status"`)}
+		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "APIKey.status"`)}
 	}
 	if v, ok := _c.mutation.Status(); ok {
 		if err := apikey.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "APIKey.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Quota(); !ok {
-		return &ValidationError{Name: "quota", err: errors.New(`enttmp: missing required field "APIKey.quota"`)}
+		return &ValidationError{Name: "quota", err: errors.New(`ent: missing required field "APIKey.quota"`)}
 	}
 	if _, ok := _c.mutation.QuotaUsed(); !ok {
-		return &ValidationError{Name: "quota_used", err: errors.New(`enttmp: missing required field "APIKey.quota_used"`)}
+		return &ValidationError{Name: "quota_used", err: errors.New(`ent: missing required field "APIKey.quota_used"`)}
 	}
 	if _, ok := _c.mutation.RateLimit5h(); !ok {
-		return &ValidationError{Name: "rate_limit_5h", err: errors.New(`enttmp: missing required field "APIKey.rate_limit_5h"`)}
+		return &ValidationError{Name: "rate_limit_5h", err: errors.New(`ent: missing required field "APIKey.rate_limit_5h"`)}
 	}
 	if _, ok := _c.mutation.RateLimit1d(); !ok {
-		return &ValidationError{Name: "rate_limit_1d", err: errors.New(`enttmp: missing required field "APIKey.rate_limit_1d"`)}
+		return &ValidationError{Name: "rate_limit_1d", err: errors.New(`ent: missing required field "APIKey.rate_limit_1d"`)}
 	}
 	if _, ok := _c.mutation.RateLimit7d(); !ok {
-		return &ValidationError{Name: "rate_limit_7d", err: errors.New(`enttmp: missing required field "APIKey.rate_limit_7d"`)}
+		return &ValidationError{Name: "rate_limit_7d", err: errors.New(`ent: missing required field "APIKey.rate_limit_7d"`)}
 	}
 	if _, ok := _c.mutation.Usage5h(); !ok {
-		return &ValidationError{Name: "usage_5h", err: errors.New(`enttmp: missing required field "APIKey.usage_5h"`)}
+		return &ValidationError{Name: "usage_5h", err: errors.New(`ent: missing required field "APIKey.usage_5h"`)}
 	}
 	if _, ok := _c.mutation.Usage1d(); !ok {
-		return &ValidationError{Name: "usage_1d", err: errors.New(`enttmp: missing required field "APIKey.usage_1d"`)}
+		return &ValidationError{Name: "usage_1d", err: errors.New(`ent: missing required field "APIKey.usage_1d"`)}
 	}
 	if _, ok := _c.mutation.Usage7d(); !ok {
-		return &ValidationError{Name: "usage_7d", err: errors.New(`enttmp: missing required field "APIKey.usage_7d"`)}
+		return &ValidationError{Name: "usage_7d", err: errors.New(`ent: missing required field "APIKey.usage_7d"`)}
 	}
 	if len(_c.mutation.UserIDs()) == 0 {
-		return &ValidationError{Name: "user", err: errors.New(`enttmp: missing required edge "APIKey.user"`)}
+		return &ValidationError{Name: "user", err: errors.New(`ent: missing required edge "APIKey.user"`)}
 	}
 	return nil
 }
@@ -1699,7 +1699,7 @@ func (u *APIKeyUpsertOne) ClearWindow7dStart() *APIKeyUpsertOne {
 // Exec executes the query.
 func (u *APIKeyUpsertOne) Exec(ctx context.Context) error {
 	if len(u.create.conflict) == 0 {
-		return errors.New("enttmp: missing options for APIKeyCreate.OnConflict")
+		return errors.New("ent: missing options for APIKeyCreate.OnConflict")
 	}
 	return u.create.Exec(ctx)
 }
@@ -2390,11 +2390,11 @@ func (u *APIKeyUpsertBulk) Exec(ctx context.Context) error {
 	}
 	for i, b := range u.create.builders {
 		if len(b.conflict) != 0 {
-			return fmt.Errorf("enttmp: OnConflict was set for builder %d. Set it on the APIKeyCreateBulk instead", i)
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the APIKeyCreateBulk instead", i)
 		}
 	}
 	if len(u.create.conflict) == 0 {
-		return errors.New("enttmp: missing options for APIKeyCreateBulk.OnConflict")
+		return errors.New("ent: missing options for APIKeyCreateBulk.OnConflict")
 	}
 	return u.create.Exec(ctx)
 }

@@ -246,14 +246,14 @@ func (_c *ProxyCreate) ExecX(ctx context.Context) {
 func (_c *ProxyCreate) defaults() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if proxy.DefaultCreatedAt == nil {
-			return fmt.Errorf("enttmp: uninitialized proxy.DefaultCreatedAt (forgotten import enttmp/runtime?)")
+			return fmt.Errorf("ent: uninitialized proxy.DefaultCreatedAt (forgotten import ent/runtime?)")
 		}
 		v := proxy.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
 	}
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
 		if proxy.DefaultUpdatedAt == nil {
-			return fmt.Errorf("enttmp: uninitialized proxy.DefaultUpdatedAt (forgotten import enttmp/runtime?)")
+			return fmt.Errorf("ent: uninitialized proxy.DefaultUpdatedAt (forgotten import ent/runtime?)")
 		}
 		v := proxy.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
@@ -276,66 +276,66 @@ func (_c *ProxyCreate) defaults() error {
 // check runs all checks and user-defined validators on the builder.
 func (_c *ProxyCreate) check() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
-		return &ValidationError{Name: "created_at", err: errors.New(`enttmp: missing required field "Proxy.created_at"`)}
+		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Proxy.created_at"`)}
 	}
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
-		return &ValidationError{Name: "updated_at", err: errors.New(`enttmp: missing required field "Proxy.updated_at"`)}
+		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "Proxy.updated_at"`)}
 	}
 	if _, ok := _c.mutation.Name(); !ok {
-		return &ValidationError{Name: "name", err: errors.New(`enttmp: missing required field "Proxy.name"`)}
+		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "Proxy.name"`)}
 	}
 	if v, ok := _c.mutation.Name(); ok {
 		if err := proxy.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.name": %w`, err)}
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Proxy.name": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Protocol(); !ok {
-		return &ValidationError{Name: "protocol", err: errors.New(`enttmp: missing required field "Proxy.protocol"`)}
+		return &ValidationError{Name: "protocol", err: errors.New(`ent: missing required field "Proxy.protocol"`)}
 	}
 	if v, ok := _c.mutation.Protocol(); ok {
 		if err := proxy.ProtocolValidator(v); err != nil {
-			return &ValidationError{Name: "protocol", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.protocol": %w`, err)}
+			return &ValidationError{Name: "protocol", err: fmt.Errorf(`ent: validator failed for field "Proxy.protocol": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Host(); !ok {
-		return &ValidationError{Name: "host", err: errors.New(`enttmp: missing required field "Proxy.host"`)}
+		return &ValidationError{Name: "host", err: errors.New(`ent: missing required field "Proxy.host"`)}
 	}
 	if v, ok := _c.mutation.Host(); ok {
 		if err := proxy.HostValidator(v); err != nil {
-			return &ValidationError{Name: "host", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.host": %w`, err)}
+			return &ValidationError{Name: "host", err: fmt.Errorf(`ent: validator failed for field "Proxy.host": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Port(); !ok {
-		return &ValidationError{Name: "port", err: errors.New(`enttmp: missing required field "Proxy.port"`)}
+		return &ValidationError{Name: "port", err: errors.New(`ent: missing required field "Proxy.port"`)}
 	}
 	if v, ok := _c.mutation.Username(); ok {
 		if err := proxy.UsernameValidator(v); err != nil {
-			return &ValidationError{Name: "username", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.username": %w`, err)}
+			return &ValidationError{Name: "username", err: fmt.Errorf(`ent: validator failed for field "Proxy.username": %w`, err)}
 		}
 	}
 	if v, ok := _c.mutation.Password(); ok {
 		if err := proxy.PasswordValidator(v); err != nil {
-			return &ValidationError{Name: "password", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.password": %w`, err)}
+			return &ValidationError{Name: "password", err: fmt.Errorf(`ent: validator failed for field "Proxy.password": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
-		return &ValidationError{Name: "status", err: errors.New(`enttmp: missing required field "Proxy.status"`)}
+		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Proxy.status"`)}
 	}
 	if v, ok := _c.mutation.Status(); ok {
 		if err := proxy.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.status": %w`, err)}
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Proxy.status": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.FallbackMode(); !ok {
-		return &ValidationError{Name: "fallback_mode", err: errors.New(`enttmp: missing required field "Proxy.fallback_mode"`)}
+		return &ValidationError{Name: "fallback_mode", err: errors.New(`ent: missing required field "Proxy.fallback_mode"`)}
 	}
 	if v, ok := _c.mutation.FallbackMode(); ok {
 		if err := proxy.FallbackModeValidator(v); err != nil {
-			return &ValidationError{Name: "fallback_mode", err: fmt.Errorf(`enttmp: validator failed for field "Proxy.fallback_mode": %w`, err)}
+			return &ValidationError{Name: "fallback_mode", err: fmt.Errorf(`ent: validator failed for field "Proxy.fallback_mode": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.ExpiryWarnDays(); !ok {
-		return &ValidationError{Name: "expiry_warn_days", err: errors.New(`enttmp: missing required field "Proxy.expiry_warn_days"`)}
+		return &ValidationError{Name: "expiry_warn_days", err: errors.New(`ent: missing required field "Proxy.expiry_warn_days"`)}
 	}
 	return nil
 }
@@ -978,7 +978,7 @@ func (u *ProxyUpsertOne) UpdateExpiryWarnDays() *ProxyUpsertOne {
 // Exec executes the query.
 func (u *ProxyUpsertOne) Exec(ctx context.Context) error {
 	if len(u.create.conflict) == 0 {
-		return errors.New("enttmp: missing options for ProxyCreate.OnConflict")
+		return errors.New("ent: missing options for ProxyCreate.OnConflict")
 	}
 	return u.create.Exec(ctx)
 }
@@ -1424,11 +1424,11 @@ func (u *ProxyUpsertBulk) Exec(ctx context.Context) error {
 	}
 	for i, b := range u.create.builders {
 		if len(b.conflict) != 0 {
-			return fmt.Errorf("enttmp: OnConflict was set for builder %d. Set it on the ProxyCreateBulk instead", i)
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the ProxyCreateBulk instead", i)
 		}
 	}
 	if len(u.create.conflict) == 0 {
-		return errors.New("enttmp: missing options for ProxyCreateBulk.OnConflict")
+		return errors.New("ent: missing options for ProxyCreateBulk.OnConflict")
 	}
 	return u.create.Exec(ctx)
 }

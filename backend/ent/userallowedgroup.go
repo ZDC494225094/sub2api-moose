@@ -139,7 +139,7 @@ func (_m *UserAllowedGroup) Update() *UserAllowedGroupUpdateOne {
 func (_m *UserAllowedGroup) Unwrap() *UserAllowedGroup {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("enttmp: UserAllowedGroup is not a transactional entity")
+		panic("ent: UserAllowedGroup is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

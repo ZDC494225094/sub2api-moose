@@ -273,7 +273,7 @@ func (_q *IdentityAdoptionDecisionQuery) Exist(ctx context.Context) (bool, error
 	case IsNotFound(err):
 		return false, nil
 	case err != nil:
-		return false, fmt.Errorf("enttmp: check existence: %w", err)
+		return false, fmt.Errorf("ent: check existence: %w", err)
 	default:
 		return true, nil
 	}
@@ -381,7 +381,7 @@ func (_q *IdentityAdoptionDecisionQuery) Aggregate(fns ...AggregateFunc) *Identi
 func (_q *IdentityAdoptionDecisionQuery) prepareQuery(ctx context.Context) error {
 	for _, inter := range _q.inters {
 		if inter == nil {
-			return fmt.Errorf("enttmp: uninitialized interceptor (forgotten import enttmp/runtime?)")
+			return fmt.Errorf("ent: uninitialized interceptor (forgotten import ent/runtime?)")
 		}
 		if trv, ok := inter.(Traverser); ok {
 			if err := trv.Traverse(ctx, _q); err != nil {
@@ -391,7 +391,7 @@ func (_q *IdentityAdoptionDecisionQuery) prepareQuery(ctx context.Context) error
 	}
 	for _, f := range _q.ctx.Fields {
 		if !identityadoptiondecision.ValidColumn(f) {
-			return &ValidationError{Name: f, err: fmt.Errorf("enttmp: invalid field %q for query", f)}
+			return &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 		}
 	}
 	if _q.path != nil {

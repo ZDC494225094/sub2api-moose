@@ -175,7 +175,7 @@ func (_m *UsageCleanupTask) Update() *UsageCleanupTaskUpdateOne {
 func (_m *UsageCleanupTask) Unwrap() *UsageCleanupTask {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("enttmp: UsageCleanupTask is not a transactional entity")
+		panic("ent: UsageCleanupTask is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

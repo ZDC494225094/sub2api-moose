@@ -109,7 +109,7 @@ func (_m *SecuritySecret) Update() *SecuritySecretUpdateOne {
 func (_m *SecuritySecret) Unwrap() *SecuritySecret {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("enttmp: SecuritySecret is not a transactional entity")
+		panic("ent: SecuritySecret is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

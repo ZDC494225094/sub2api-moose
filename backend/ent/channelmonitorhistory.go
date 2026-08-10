@@ -164,7 +164,7 @@ func (_m *ChannelMonitorHistory) Update() *ChannelMonitorHistoryUpdateOne {
 func (_m *ChannelMonitorHistory) Unwrap() *ChannelMonitorHistory {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("enttmp: ChannelMonitorHistory is not a transactional entity")
+		panic("ent: ChannelMonitorHistory is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m

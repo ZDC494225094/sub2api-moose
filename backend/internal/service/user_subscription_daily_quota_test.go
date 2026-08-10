@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/stretchr/testify/require"
 )
 
@@ -71,7 +72,7 @@ func TestAssignOrExtendSubscription_ExpiredDailyCardCreatesIndependentOneTimeQuo
 	require.True(t, renewed.StartsAt.After(oldStart), "重新购买过期订阅时应重置当前周期 StartsAt")
 	require.False(t, renewed.ExpiresAt.After(renewed.StartsAt.AddDate(0, 0, 1)))
 	require.NotNil(t, renewed.DailyWindowStart)
-	require.Equal(t, renewed.StartsAt, *renewed.DailyWindowStart)
+	require.Equal(t, timezone.StartOfDay(renewed.StartsAt), *renewed.DailyWindowStart, "续期后日窗口应锚定当天 0 点")
 	require.Equal(t, 0.0, renewed.DailyUsageUSD)
 	require.Equal(t, 0.0, renewed.WeeklyUsageUSD)
 	require.Equal(t, 0.0, renewed.MonthlyUsageUSD)
@@ -143,8 +144,8 @@ func TestUserSubscriptionNeedsDailyReset_MultiDaySubscriptionStillRefreshes(t *t
 	}
 
 	require.False(t, sub.HasOneTimeDailyQuota())
-	require.False(t, sub.NeedsDailyResetAt(dailyWindowStart.Add(24*time.Hour)), "旧窗口起点为0点时不应在次日0点提前刷新")
-	require.True(t, sub.NeedsDailyResetAt(start.Add(24*time.Hour)), "多日订阅应按购买/分配时间满24小时刷新")
+	require.True(t, sub.NeedsDailyResetAt(dailyWindowStart.Add(24*time.Hour)), "multi-day subscriptions reset at the next calendar-day boundary")
+	require.True(t, sub.NeedsDailyResetAt(start.Add(24*time.Hour)))
 }
 
 func TestUserSubscriptionDailyResetTime_DailyCardReturnsExpiry(t *testing.T) {
@@ -176,7 +177,7 @@ func TestUserSubscriptionNeedsMonthlyReset_ThirtyDayPlanUsesExactStartTime(t *te
 	require.Equal(t, start.Add(30*24*time.Hour).Add(time.Minute), *sub.MonthlyResetTime())
 }
 
-func TestUserSubscriptionResetTime_UsesStartsAtWhenStoredWindowStartIsMidnight(t *testing.T) {
+func TestUserSubscriptionResetTime_DailyUsesCalendarBoundaryAndPeriodicUsesStartsAt(t *testing.T) {
 	start := time.Date(2026, 6, 1, 15, 30, 45, 0, time.UTC)
 	midnight := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
 	sub := &UserSubscription{
@@ -188,10 +189,10 @@ func TestUserSubscriptionResetTime_UsesStartsAtWhenStoredWindowStartIsMidnight(t
 		MonthlyWindowStart: &midnight,
 	}
 
-	require.Equal(t, start.Add(24*time.Hour), *sub.DailyResetTime())
+	require.Equal(t, midnight.AddDate(0, 0, 1), *sub.DailyResetTime())
 	require.Equal(t, start.Add(7*24*time.Hour), *sub.WeeklyResetTime())
 	require.Equal(t, start.Add(30*24*time.Hour), *sub.MonthlyResetTime())
-	require.False(t, sub.NeedsDailyResetAt(time.Date(2026, 6, 2, 0, 0, 0, 0, time.UTC)), "旧窗口起点为0点时也不应在次日0点提前重置")
+	require.True(t, sub.NeedsDailyResetAt(time.Date(2026, 6, 2, 0, 0, 0, 0, time.UTC)))
 }
 
 func TestUserSubscriptionNeedsReset_ExpiredSubscriptionKeepsUsageWindows(t *testing.T) {

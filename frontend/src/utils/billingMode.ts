@@ -44,8 +44,11 @@ export function isImageUsage(row: Pick<MediaBillingRow, 'image_count' | 'video_c
 }
 
 export function getDisplayBillingMode(row: Pick<MediaBillingRow, 'billing_mode' | 'image_count' | 'video_count' | 'video_duration_seconds'> | null | undefined): string | null | undefined {
-  if (isVideoUsage(row)) {
+  if (row?.billing_mode === BILLING_MODE_VIDEO || isVideoUsage(row)) {
     return BILLING_MODE_VIDEO
+  }
+  if (row?.billing_mode === BILLING_MODE_TOKEN) {
+    return BILLING_MODE_TOKEN
   }
   if ((row?.image_count ?? 0) > 0 && !row?.billing_mode) {
     return BILLING_MODE_IMAGE
