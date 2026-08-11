@@ -158,27 +158,27 @@ type SystemSettings struct {
 	GoogleOAuthRedirectURL            string `json:"google_oauth_redirect_url"`
 	GoogleOAuthFrontendRedirectURL    string `json:"google_oauth_frontend_redirect_url"`
 
-	SiteName                    string           `json:"site_name"`
-	SiteLogo                    string           `json:"site_logo"`
-	SiteSubtitle                string           `json:"site_subtitle"`
-	APIBaseURL                  string           `json:"api_base_url"`
-	ContactInfo                 string           `json:"contact_info"`
-	AfterSalesGroup             string           `json:"after_sales_group"`
-	CustomerServiceLink         string           `json:"customer_service_link"`
-	DocURL                      string           `json:"doc_url"`
-	HomeContent                 string           `json:"home_content"`
-	HomePricingCompareEnabled   bool             `json:"home_pricing_compare_enabled"`
-	HomeDocsEnabled             bool             `json:"home_docs_enabled"`
-	FooterContent               string           `json:"footer_content"`
+	SiteName                    string             `json:"site_name"`
+	SiteLogo                    string             `json:"site_logo"`
+	SiteSubtitle                string             `json:"site_subtitle"`
+	APIBaseURL                  string             `json:"api_base_url"`
+	ContactInfo                 string             `json:"contact_info"`
+	AfterSalesGroup             string             `json:"after_sales_group"`
+	CustomerServiceLink         string             `json:"customer_service_link"`
+	DocURL                      string             `json:"doc_url"`
+	HomeContent                 string             `json:"home_content"`
+	HomePricingCompareEnabled   bool               `json:"home_pricing_compare_enabled"`
+	HomeDocsEnabled             bool               `json:"home_docs_enabled"`
+	FooterContent               string             `json:"footer_content"`
 	FooterFriendLinks           []FooterFriendLink `json:"footer_friend_links"`
-	CompactHomeEnabled          bool             `json:"compact_home_enabled"`
-	HideCcsImportButton         bool             `json:"hide_ccs_import_button"`
-	PurchaseSubscriptionEnabled bool             `json:"purchase_subscription_enabled"`
-	PurchaseSubscriptionURL     string           `json:"purchase_subscription_url"`
-	TableDefaultPageSize        int              `json:"table_default_page_size"`
-	TablePageSizeOptions        []int            `json:"table_page_size_options"`
-	CustomMenuItems             []CustomMenuItem `json:"custom_menu_items"`
-	CustomEndpoints             []CustomEndpoint `json:"custom_endpoints"`
+	CompactHomeEnabled          bool               `json:"compact_home_enabled"`
+	HideCcsImportButton         bool               `json:"hide_ccs_import_button"`
+	PurchaseSubscriptionEnabled bool               `json:"purchase_subscription_enabled"`
+	PurchaseSubscriptionURL     string             `json:"purchase_subscription_url"`
+	TableDefaultPageSize        int                `json:"table_default_page_size"`
+	TablePageSizeOptions        []int              `json:"table_page_size_options"`
+	CustomMenuItems             []CustomMenuItem   `json:"custom_menu_items"`
+	CustomEndpoints             []CustomEndpoint   `json:"custom_endpoints"`
 
 	DefaultConcurrency           int                          `json:"default_concurrency"`
 	DefaultBalance               float64                      `json:"default_balance"`
@@ -334,6 +334,7 @@ type SystemSettings struct {
 	ModelPlazaEnabled     bool   `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth bool   `json:"model_plaza_require_auth"`
 	ModelPlazaDescription string `json:"model_plaza_description"`
+	InfiniteCanvasEnabled bool   `json:"infinite_canvas_enabled"`
 
 	// 风控中心功能开关
 	RiskControlEnabled bool `json:"risk_control_enabled"`
@@ -442,6 +443,7 @@ type PublicSettings struct {
 
 	ModelPlazaEnabled     bool `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth bool `json:"model_plaza_require_auth"`
+	InfiniteCanvasEnabled bool `json:"infinite_canvas_enabled"`
 
 	AffiliateEnabled bool `json:"affiliate_enabled"`
 

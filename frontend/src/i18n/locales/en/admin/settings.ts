@@ -49,6 +49,12 @@ export default {
           priceDescription: 'Pricing notes (Markdown)',
           priceDescriptionHint: 'Rendered at the top of the plaza page. Use it for billing rules, exchange rates, promotions, etc.',
         },
+        infiniteCanvas: {
+          title: 'Infinite Canvas',
+          description: 'Provides users with a standalone infinite-canvas workspace.',
+          enabled: 'Enable Infinite Canvas',
+          enabledHint: 'When off, the sidebar entry is hidden and /canvas/ is unavailable.',
+        },
         riskControl: {
           title: 'Risk Control',
           description: 'Enable the content moderation menu and gateway audit entry point. Disabled by default.',

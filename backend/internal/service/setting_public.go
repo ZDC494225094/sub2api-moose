@@ -241,6 +241,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyAvailableChannelsEnabled,
 		SettingKeyModelPlazaEnabled,
 		SettingKeyModelPlazaRequireAuth,
+		SettingKeyInfiniteCanvasEnabled,
 		SettingKeyAffiliateEnabled,
 		SettingKeyRiskControlEnabled,
 		SettingKeyAllowUserViewErrorRequests,
@@ -374,6 +375,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		ModelPlazaEnabled:     settings[SettingKeyModelPlazaEnabled] == "true",
 		ModelPlazaRequireAuth: settings[SettingKeyModelPlazaRequireAuth] == "true",
+		InfiniteCanvasEnabled: !isFalseSettingValue(settings[SettingKeyInfiniteCanvasEnabled]),
 
 		AffiliateEnabled: settings[SettingKeyAffiliateEnabled] == "true",
 
@@ -630,6 +632,7 @@ type PublicSettingsInjectionPayload struct {
 	AvailableChannelsEnabled     bool `json:"available_channels_enabled"`
 	ModelPlazaEnabled            bool `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth        bool `json:"model_plaza_require_auth"`
+	InfiniteCanvasEnabled        bool `json:"infinite_canvas_enabled"`
 	AffiliateEnabled             bool `json:"affiliate_enabled"`
 	RiskControlEnabled           bool `json:"risk_control_enabled"`
 	AllowUserViewErrorRequests   bool `json:"allow_user_view_error_requests"`
@@ -716,6 +719,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		AvailableChannelsEnabled:             settings.AvailableChannelsEnabled,
 		ModelPlazaEnabled:                    settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:                settings.ModelPlazaRequireAuth,
+		InfiniteCanvasEnabled:                settings.InfiniteCanvasEnabled,
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		RiskControlEnabled:                   settings.RiskControlEnabled,
 		AllowUserViewErrorRequests:           settings.AllowUserViewErrorRequests,

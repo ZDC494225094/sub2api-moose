@@ -49,6 +49,12 @@ export default {
           priceDescription: '价格说明（Markdown）',
           priceDescriptionHint: '展示在模型广场页面顶部，可用于说明计费规则、汇率、优惠活动等。',
         },
+        infiniteCanvas: {
+          title: '无限画布',
+          description: '为用户提供独立的无限画布创作页面。',
+          enabled: '启用无限画布',
+          enabledHint: '关闭后用户端侧边栏入口隐藏，/canvas/ 页面不可访问。',
+        },
         riskControl: {
           title: '风控中心',
           description: '启用内容审计菜单和全端点请求审核入口。默认关闭。',

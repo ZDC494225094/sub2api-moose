@@ -119,6 +119,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 
 		ModelPlazaEnabled:     settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth: settings.ModelPlazaRequireAuth,
+		InfiniteCanvasEnabled: settings.InfiniteCanvasEnabled,
 
 		AffiliateEnabled: settings.AffiliateEnabled,
 

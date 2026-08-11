@@ -105,9 +105,14 @@ export const FeatureFlags = {
     label: 'Available Channels',
   }),
   modelPlaza: defineFlag({
-    key: 'model_plaza_enabled',
-    mode: 'opt-in',
-    label: 'Model Plaza',
+	key: 'model_plaza_enabled',
+	mode: 'opt-in',
+	label: 'Model Plaza',
+  }),
+  infiniteCanvas: defineFlag({
+    key: 'infinite_canvas_enabled',
+    mode: 'opt-out',
+    label: 'Infinite Canvas',
   }),
   payment: defineFlag({
     key: 'payment_enabled',

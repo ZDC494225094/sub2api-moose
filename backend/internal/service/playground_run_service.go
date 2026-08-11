@@ -263,7 +263,9 @@ func (s *PlaygroundRunService) Start(userID int64, request PlaygroundRunRequest,
 		s.mu.Unlock()
 		return out, nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
+	// Canvas jobs can legitimately outlive a browser session or a fixed proxy
+	// timeout. They are canceled only by the user through Cancel.
+	ctx, cancel := context.WithCancel(context.Background())
 	run.cancel = cancel
 	s.runs[key] = run
 	out := clonePlaygroundRunForClient(run)

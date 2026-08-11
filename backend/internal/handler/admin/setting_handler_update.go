@@ -353,6 +353,7 @@ type UpdateSettingsRequest struct {
 	ModelPlazaEnabled     *bool   `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth *bool   `json:"model_plaza_require_auth"`
 	ModelPlazaDescription *string `json:"model_plaza_description"`
+	InfiniteCanvasEnabled *bool   `json:"infinite_canvas_enabled"`
 
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled *bool `json:"affiliate_enabled"`
@@ -786,7 +787,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 				response.ErrorFrom(c, err)
 				return
 			}
-	}
+		}
 	}
 
 	// TOTP 双因素认证参数验证
@@ -2015,6 +2016,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.ModelPlazaEnabled
 		}(),
+		InfiniteCanvasEnabled: func() bool {
+			if req.InfiniteCanvasEnabled != nil {
+				return *req.InfiniteCanvasEnabled
+			}
+			return previousSettings.InfiniteCanvasEnabled
+		}(),
 		ModelPlazaRequireAuth: func() bool {
 			if req.ModelPlazaRequireAuth != nil {
 				return *req.ModelPlazaRequireAuth
@@ -2456,6 +2463,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ModelPlazaEnabled:     updatedSettings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth: updatedSettings.ModelPlazaRequireAuth,
 		ModelPlazaDescription: updatedSettings.ModelPlazaDescription,
+		InfiniteCanvasEnabled: updatedSettings.InfiniteCanvasEnabled,
 
 		AffiliateEnabled: updatedSettings.AffiliateEnabled,
 

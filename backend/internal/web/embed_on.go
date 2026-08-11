@@ -98,6 +98,10 @@ func (s *FrontendServer) Middleware() gin.HandlerFunc {
 		if cleanPath == "" {
 			cleanPath = "index.html"
 		}
+		if isCanvasPath(path) && !s.isCanvasEnabled(c.Request.Context()) {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
 		if isCanvasPath(path) && !s.fileExists(cleanPath) {
 			s.serveCanvasIndexHTML(c)
 			return
@@ -123,6 +127,25 @@ func (s *FrontendServer) Middleware() gin.HandlerFunc {
 
 func (s *FrontendServer) serveCanvasIndexHTML(c *gin.Context) {
 	serveEmbeddedHTML(c, s.distFS, "canvas/index.html")
+}
+
+func (s *FrontendServer) isCanvasEnabled(ctx context.Context) bool {
+	settings, err := s.settings.GetPublicSettingsForInjection(ctx)
+	if err != nil {
+		return true
+	}
+
+	data, err := json.Marshal(settings)
+	if err != nil {
+		return true
+	}
+	var flags struct {
+		InfiniteCanvasEnabled *bool `json:"infinite_canvas_enabled"`
+	}
+	if err := json.Unmarshal(data, &flags); err != nil || flags.InfiniteCanvasEnabled == nil {
+		return true
+	}
+	return *flags.InfiniteCanvasEnabled
 }
 
 func (s *FrontendServer) fileExists(path string) bool {

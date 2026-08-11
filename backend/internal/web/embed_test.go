@@ -689,6 +689,23 @@ func TestEmbeddedFrontendBypassesBareVideoAPIRoutes(t *testing.T) {
 	}
 }
 
+func TestFrontendServerIsCanvasEnabled(t *testing.T) {
+	t.Run("defaults to enabled when the setting is absent", func(t *testing.T) {
+		server, err := NewFrontendServer(&mockSettingsProvider{settings: map[string]any{}})
+		require.NoError(t, err)
+		assert.True(t, server.isCanvasEnabled(context.Background()))
+	})
+
+	t.Run("honors an explicit disabled setting", func(t *testing.T) {
+		enabled := false
+		server, err := NewFrontendServer(&mockSettingsProvider{settings: map[string]any{
+			"infinite_canvas_enabled": enabled,
+		}})
+		require.NoError(t, err)
+		assert.False(t, server.isCanvasEnabled(context.Background()))
+	})
+}
+
 func TestNewFrontendServer(t *testing.T) {
 	t.Run("creates_server_successfully", func(t *testing.T) {
 		provider := &mockSettingsProvider{
