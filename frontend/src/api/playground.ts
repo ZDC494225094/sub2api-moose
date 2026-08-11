@@ -596,8 +596,7 @@ export interface PlaygroundVideoResponse {
 export async function generateVideo(request: PlaygroundVideoRequest): Promise<PlaygroundVideoResponse> {
   const payload: Record<string, unknown> = {
     model: request.model,
-    prompt: request.prompt,
-    n: request.n || 1
+    prompt: request.prompt
   }
 
   if (request.duration) {

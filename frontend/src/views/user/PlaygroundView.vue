@@ -2137,6 +2137,7 @@ import { firstActualImageSize, firstImageDescription, gptImage2SizeFor, isGptIma
 import { toCloneablePlaygroundState } from '@/utils/playgroundPersistence'
 import {
   normalizePlaygroundVideoDuration,
+  playgroundVideoModelKind,
   playgroundVideoModelRule,
   validateGeminiOmniPrompt,
   type PlaygroundVideoResolution
@@ -3360,11 +3361,13 @@ function messagePlatform(message: PlaygroundMessage): GroupPlatform | undefined 
 }
 
 function isImageModel(model: string): boolean {
-  return /(^|[-_])(image|dall-e|flux|sd|midjourney)(?:$|[-_])/i.test(model) || /^gpt-image-/i.test(model)
+  return !isVideoModel(model) && (/(^|[-_])(image|dall-e|flux|sd|midjourney)(?:$|[-_])/i.test(model) || /^gpt-image-/i.test(model))
 }
 
 function isVideoModel(model: string): boolean {
-  return /(^|[-_])(video|sora|gen-|veo-|seedance|doubao|kling|keling)/i.test(model) || /grok-imagine-video|gemini-omni-flash/i.test(model)
+  return playgroundVideoModelKind(model) !== 'default'
+    || /(^|[-_])(video|sora|gen-|veo-|seedance|doubao|kling|keling)/i.test(model)
+    || /grok-imagine-video|gemini-omni-flash/i.test(model)
 }
 
 function isAudioModel(model: string): boolean {
@@ -7839,7 +7842,6 @@ async function runVideoGeneration(
     platform: context.platform,
     model: context.model,
     prompt,
-    n: 1,
     images: buildVideoImageInputs(attachments, context.model),
     referenceVideo: buildVideoReferenceInput(attachments),
     duration: context.videoDuration,

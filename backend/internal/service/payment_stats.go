@@ -18,28 +18,7 @@ import (
 
 func (s *PaymentService) GetDashboardStats(ctx context.Context, days int, startDate, endDate string) (*DashboardStats, error) {
 	now := time.Now()
-	var since, until time.Time
-
-	if startDate != "" && endDate != "" {
-		var err error
-		since, err = time.ParseInLocation("2006-01-02", startDate, now.Location())
-		if err != nil {
-			since = time.Time{}
-		}
-		endDay, err := time.ParseInLocation("2006-01-02", endDate, now.Location())
-		if err != nil {
-			until = now
-		} else {
-			until = endDay.AddDate(0, 0, 1)
-		}
-		days = int(until.Sub(since).Hours()/24) + 1
-	} else {
-		if days <= 0 {
-			days = 30
-		}
-		since = now.AddDate(0, 0, -days)
-		until = now.AddDate(0, 0, 1)
-	}
+	since, until, days := dashboardDateRange(now, days, startDate, endDate)
 
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
@@ -102,6 +81,29 @@ func (s *PaymentService) GetDashboardStats(ctx context.Context, days int, startD
 	st.TopUsers = buildTopUsers(orders)
 
 	return st, nil
+}
+
+func dashboardDateRange(now time.Time, days int, startDate, endDate string) (since, until time.Time, dateCount int) {
+	if startDate != "" && endDate != "" {
+		parsedSince, sinceErr := time.ParseInLocation("2006-01-02", startDate, now.Location())
+		parsedEnd, endErr := time.ParseInLocation("2006-01-02", endDate, now.Location())
+		if sinceErr == nil && endErr == nil {
+			since = parsedSince
+			until = parsedEnd.AddDate(0, 0, 1)
+			dateCount = int(until.Sub(since).Hours() / 24)
+			if dateCount > 0 {
+				return since, until, dateCount
+			}
+		}
+	}
+
+	if days <= 0 {
+		days = 30
+	}
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	since = todayStart.AddDate(0, 0, -days+1)
+	until = todayStart.AddDate(0, 0, 1)
+	return since, until, days
 }
 
 func computeBasicStats(st *DashboardStats, orders []*dbent.PaymentOrder, todayStart time.Time) {
@@ -177,7 +179,7 @@ func buildDailySeries(orders []*dbent.PaymentOrder, since time.Time, days int, f
 
 	series := make([]DailyStats, 0, days)
 	for i := 0; i < days; i++ {
-		date := since.AddDate(0, 0, i+1).Format("2006-01-02")
+		date := since.AddDate(0, 0, i).Format("2006-01-02")
 		if ds, ok := dailyMap[date]; ok {
 			roundCurrencyAmounts(ds.Amount)
 			roundCurrencyAmounts(ds.BalanceAmount)

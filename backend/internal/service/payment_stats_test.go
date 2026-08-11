@@ -49,7 +49,7 @@ func TestPaymentDashboardBreakdownsGroupAmountsAndRankingsByCurrency(t *testing.
 	orders[3].PaymentType = "alipay"
 
 	firstPayMap := map[int64]time.Time{1: firstDay, 2: firstDay}
-	daily := buildDailySeries(orders, firstDay.AddDate(0, 0, -1), 2, firstPayMap)
+	daily := buildDailySeries(orders, firstDay, 2, firstPayMap)
 	require.Equal(t, []DailyStats{
 		{
 			Date: "2026-07-24", Amount: CurrencyAmounts{"CNY": 15.56}, Count: 2,
@@ -82,6 +82,32 @@ func TestPaymentDashboardBreakdownsGroupAmountsAndRankingsByCurrency(t *testing.
 			{UserID: 2, Email: "bob@example.com", Amount: 10},
 		},
 	}, users)
+}
+
+func TestDashboardDateRangeIncludesBothExplicitEndpoints(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.August, 10, 15, 30, 0, 0, time.FixedZone("CST", 8*60*60))
+	since, until, days := dashboardDateRange(now, 30, "2026-07-01", "2026-07-31")
+
+	require.Equal(t, time.Date(2026, time.July, 1, 0, 0, 0, 0, now.Location()), since)
+	require.Equal(t, time.Date(2026, time.August, 1, 0, 0, 0, 0, now.Location()), until)
+	require.Equal(t, 31, days)
+}
+
+func TestBuildDailySeriesStartsAtSince(t *testing.T) {
+	t.Parallel()
+
+	firstDay := time.Date(2026, time.July, 1, 12, 0, 0, 0, time.UTC)
+	orders := []*dbent.PaymentOrder{
+		paymentStatsTestOrder(1, "alice@example.com", "CNY", 10, &firstDay),
+	}
+
+	daily := buildDailySeries(orders, firstDay, 31, map[int64]time.Time{1: firstDay})
+	require.Len(t, daily, 31)
+	require.Equal(t, "2026-07-01", daily[0].Date)
+	require.Equal(t, 1, daily[0].Count)
+	require.Equal(t, "2026-07-31", daily[30].Date)
 }
 
 func paymentStatsTestOrder(userID int64, email, currency string, amount float64, paidAt *time.Time) *dbent.PaymentOrder {

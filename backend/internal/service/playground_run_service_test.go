@@ -929,6 +929,9 @@ func TestPlaygroundVideoGenerationPayloadMapsConfigByProvider(t *testing.T) {
 		if got := payload["aspect_ratio"]; got != "9:16" {
 			t.Fatalf("aspect_ratio = %#v, want 9:16", got)
 		}
+		if _, exists := payload["n"]; exists {
+			t.Fatalf("OpenAI-compatible video payload must not contain n: %#v", payload)
+		}
 	})
 
 	t.Run("Gemini image to video", func(t *testing.T) {
@@ -1085,6 +1088,22 @@ func TestNormalizePlaygroundVideoRequestAppliesNamedModelRules(t *testing.T) {
 		request.Duration = 30
 		if err := normalizePlaygroundVideoRequest(&request); err != nil {
 			t.Fatal(err)
+		}
+	})
+
+	t.Run("sd aliases use Seedance 2.x duration limits", func(t *testing.T) {
+		request := PlaygroundRunRequest{Model: "sd-2-5", Duration: 30}
+		if err := normalizePlaygroundVideoRequest(&request); err != nil {
+			t.Fatal(err)
+		}
+		request.Model = "sd-2-0"
+		request.Duration = 15
+		if err := normalizePlaygroundVideoRequest(&request); err != nil {
+			t.Fatal(err)
+		}
+		request.Duration = 16
+		if err := normalizePlaygroundVideoRequest(&request); err == nil {
+			t.Fatal("expected sd-2-0 duration validation error")
 		}
 	})
 

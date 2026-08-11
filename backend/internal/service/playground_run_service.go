@@ -769,8 +769,8 @@ var (
 	geminiOmniPromptRatioPattern      = regexp.MustCompile(`(?i)(16[[:space:]]*[:：./比][[:space:]]*9|9[[:space:]]*[:：./比][[:space:]]*16)`)
 	geminiOmniPromptDurationPattern   = regexp.MustCompile(`(?i)([0-9]+([.][0-9]+)?[[:space:]]*(s|sec|secs|second|seconds)\b|[0-9]+([.][0-9]+)?[[:space:]]*(秒|秒钟))`)
 	geminiOmniPromptStoryboardPattern = regexp.MustCompile(`(?i)(故事板|故事版|分镜|story[[:space:]]*board|storyboard|(shot|scene)[[:space:]]*[0-9]+)`)
-	seedance20ModelPattern            = regexp.MustCompile(`(?i)(^|/)(doubao-)?seedance[-_:]?2(?:[._-]?0)(?:$|[-_:])`)
-	seedance25ModelPattern            = regexp.MustCompile(`(?i)(^|/)(doubao-)?seedance[-_:]?2(?:[._-]?5)(?:$|[-_:])`)
+	seedance20ModelPattern            = regexp.MustCompile(`(?i)(^|/)((doubao-)?seedance|sd)[-_:]?2(?:[._-]?0)(?:$|[-_:])`)
+	seedance25ModelPattern            = regexp.MustCompile(`(?i)(^|/)((doubao-)?seedance|sd)[-_:]?2(?:[._-]?5)(?:$|[-_:])`)
 )
 
 func isPlaygroundVideoModel(model, target string) bool {
@@ -979,7 +979,9 @@ func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo 
 			"parameters": parameters,
 		}, nil
 	}
-	payload := map[string]any{"model": request.Model, "prompt": request.Prompt, "n": 1}
+	// OpenAI-compatible video providers do not share the image API's `n` field;
+	// the Playground always requests one video, so omit it from the wire payload.
+	payload := map[string]any{"model": request.Model, "prompt": request.Prompt}
 	firstFrame := ""
 	lastFrame := ""
 	referenceImages := make([]string, 0, len(images))
