@@ -28,9 +28,11 @@ const (
 	playgroundRunRedisKeyPrefix = "playground:run:"
 	playgroundRunRedisImageKey  = ":image:"
 	playgroundRunRedisVideoKey  = ":video:"
+	playgroundRunRedisAudioKey  = ":audio:"
 	playgroundRunRedisTimeout   = 3 * time.Second
 	playgroundImageMaxBytes     = 128 << 20
 	playgroundVideoMaxBytes     = 512 << 20
+	playgroundAudioMaxBytes     = 128 << 20
 )
 
 type PlaygroundRunStatus string
@@ -69,6 +71,9 @@ type PlaygroundRunRequest struct {
 	FPS              int                        `json:"fps"`
 	AspectRatio      string                     `json:"aspectRatio"`
 	Resolution       string                     `json:"resolution"`
+	Voice            string                     `json:"voice"`
+	Speed            float64                    `json:"speed"`
+	Instructions     string                     `json:"instructions"`
 }
 
 type PlaygroundRunChatMessage struct {
@@ -120,6 +125,15 @@ type PlaygroundRunImageAsset struct {
 
 type PlaygroundRunVideoAsset = PlaygroundRunImageAsset
 
+type PlaygroundRunAudio struct {
+	MimeType   string `json:"mimeType,omitempty"`
+	AssetIndex *int   `json:"assetIndex,omitempty"`
+
+	data []byte
+}
+
+type PlaygroundRunAudioAsset = PlaygroundRunImageAsset
+
 type playgroundImageUpstreamResponse struct {
 	Data []struct {
 		B64JSON       []byte `json:"b64_json"`
@@ -137,6 +151,7 @@ type PlaygroundRun struct {
 	Content     string               `json:"content,omitempty"`
 	Images      []PlaygroundRunImage `json:"images,omitempty"`
 	Videos      []PlaygroundRunVideo `json:"videos,omitempty"`
+	Audios      []PlaygroundRunAudio `json:"audios,omitempty"`
 	Error       string               `json:"error,omitempty"`
 	Raw         json.RawMessage      `json:"raw,omitempty"`
 	CreatedAt   time.Time            `json:"createdAt"`
@@ -355,6 +370,38 @@ func (s *PlaygroundRunService) GetVideo(userID int64, id string, index int) (Pla
 	return s.GetVideoContext(context.Background(), userID, id, index)
 }
 
+func (s *PlaygroundRunService) GetAudio(userID int64, id string, index int) (PlaygroundRunAudioAsset, bool, error) {
+	if s == nil || userID <= 0 || index < 0 {
+		return PlaygroundRunAudioAsset{}, false, nil
+	}
+	id = strings.TrimSpace(id)
+	key := playgroundRunKey(userID, id)
+	s.mu.RLock()
+	run := s.runs[key]
+	var audio PlaygroundRunAudio
+	found := false
+	if run != nil && run.Status == PlaygroundRunSucceeded && index < len(run.Audios) {
+		audio = run.Audios[index]
+		audio.data = append([]byte(nil), audio.data...)
+		found = true
+	}
+	s.mu.RUnlock()
+	if !found {
+		persistedRun, persisted, err := s.loadPersistentRun(userID, id)
+		if err != nil {
+			return PlaygroundRunAudioAsset{}, false, err
+		}
+		if !persisted || persistedRun.Status != PlaygroundRunSucceeded || index >= len(persistedRun.Audios) {
+			return PlaygroundRunAudioAsset{}, false, nil
+		}
+		audio = persistedRun.Audios[index]
+	}
+	if len(audio.data) > 0 {
+		return playgroundRunAudioAsset(audio.data, audio.MimeType), true, nil
+	}
+	return s.loadPersistentAudio(userID, id, index, audio.MimeType)
+}
+
 func (s *PlaygroundRunService) GetVideoContext(ctx context.Context, userID int64, id string, index int) (PlaygroundRunVideoAsset, bool, error) {
 	if s == nil || userID <= 0 || index < 0 {
 		return PlaygroundRunVideoAsset{}, false, nil
@@ -438,6 +485,7 @@ func (s *PlaygroundRunService) Cancel(userID int64, id string) (*PlaygroundRun, 
 		}
 		imageCount := len(run.Images)
 		videoCount := len(run.Videos)
+		audioCount := len(run.Audios)
 		canceled := !isTerminalPlaygroundRunStatus(run.Status)
 		cancelPlaygroundRun(run, time.Now())
 		snapshot := clonePlaygroundRunForPersistence(run)
@@ -449,6 +497,7 @@ func (s *PlaygroundRunService) Cancel(userID int64, id string) (*PlaygroundRun, 
 		if canceled {
 			s.deletePersistentImages(userID, id, imageCount)
 			s.deletePersistentVideos(userID, id, videoCount)
+			s.deletePersistentAudios(userID, id, audioCount)
 		}
 		return out, true
 	}
@@ -460,6 +509,7 @@ func (s *PlaygroundRunService) Cancel(userID int64, id string) (*PlaygroundRun, 
 	}
 	imageCount := len(persistedRun.Images)
 	videoCount := len(persistedRun.Videos)
+	audioCount := len(persistedRun.Audios)
 	canceled := !isTerminalPlaygroundRunStatus(persistedRun.Status)
 	cancelPlaygroundRun(persistedRun, time.Now())
 	if err := s.persistRun(persistedRun); err != nil {
@@ -468,6 +518,7 @@ func (s *PlaygroundRunService) Cancel(userID int64, id string) (*PlaygroundRun, 
 	if canceled {
 		s.deletePersistentImages(userID, id, imageCount)
 		s.deletePersistentVideos(userID, id, videoCount)
+		s.deletePersistentAudios(userID, id, audioCount)
 	}
 	return clonePlaygroundRunForClient(persistedRun), true
 }
@@ -486,6 +537,8 @@ func (s *PlaygroundRunService) execute(ctx context.Context, key string, request 
 		raw, err = s.executeImage(ctx, key, request, baseURL, started)
 	case "video":
 		raw, err = s.executeVideo(ctx, key, request, baseURL, started)
+	case "audio":
+		raw, err = s.executeAudio(ctx, key, request, baseURL)
 	default:
 		raw, err = s.executeChat(ctx, key, request, baseURL)
 	}
@@ -514,7 +567,7 @@ func (s *PlaygroundRunService) execute(ctx context.Context, key string, request 
 			return
 		}
 		run.Status = PlaygroundRunSucceeded
-		if request.Mode == "image" || request.Mode == "video" {
+		if request.Mode == "image" || request.Mode == "video" || request.Mode == "audio" {
 			run.Raw = nil
 		} else {
 			run.Raw = raw
@@ -523,6 +576,92 @@ func (s *PlaygroundRunService) execute(ctx context.Context, key string, request 
 		run.CompletedAt = &completed
 		run.DurationMs = completed.Sub(started).Milliseconds()
 	})
+}
+
+func (s *PlaygroundRunService) executeAudio(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string) (json.RawMessage, error) {
+	prompt := strings.TrimSpace(request.Prompt)
+	if prompt == "" {
+		return nil, errors.New("audio input is required")
+	}
+	endpoint := "/v1/audio/speech"
+	payload := map[string]any{
+		"model": request.Model,
+		"input": prompt,
+	}
+	if request.Platform == PlatformGrok {
+		// xAI Voice uses a distinct TTS protocol. The canvas keeps its OpenAI
+		// voice picker for third-party providers, so use xAI's stable default.
+		endpoint = "/v1/tts"
+		payload = map[string]any{
+			"text":     prompt,
+			"language": playgroundGrokTTSLanguage(prompt),
+			"voice_id": "Ara",
+		}
+	} else {
+		if voice := strings.TrimSpace(request.Voice); voice != "" {
+			payload["voice"] = voice
+		}
+		if format := strings.TrimSpace(request.OutputFormat); format != "" {
+			payload["response_format"] = format
+		}
+		if request.Speed > 0 {
+			payload["speed"] = request.Speed
+		}
+		if instructions := strings.TrimSpace(request.Instructions); instructions != "" {
+			payload["instructions"] = instructions
+		}
+	}
+
+	endpointURL, err := buildPlaygroundRunEndpointURL(baseURL, request.EndpointBase, endpoint)
+	if err != nil {
+		return nil, err
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, endpointURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	httpRequest.Header.Set("Authorization", "Bearer "+request.APIKey)
+	httpRequest.Header.Set("Content-Type", "application/json")
+	response, err := s.httpClient.Do(httpRequest)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return nil, parsePlaygroundUpstreamError(response)
+	}
+	data, err := io.ReadAll(io.LimitReader(response.Body, playgroundAudioMaxBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) == 0 {
+		return nil, errors.New("audio provider returned an empty response")
+	}
+	if len(data) > playgroundAudioMaxBytes {
+		return nil, errors.New("audio provider response exceeds the size limit")
+	}
+	mimeType := strings.TrimSpace(strings.Split(response.Header.Get("Content-Type"), ";")[0])
+	if !strings.HasPrefix(strings.ToLower(mimeType), "audio/") {
+		mimeType = playgroundAudioMimeType(request.OutputFormat)
+	}
+	s.update(key, func(run *PlaygroundRun) {
+		run.Audios = []PlaygroundRunAudio{{MimeType: mimeType, data: data}}
+		run.UpdatedAt = time.Now()
+	})
+	return nil, nil
+}
+
+func playgroundGrokTTSLanguage(text string) string {
+	for _, r := range text {
+		if r >= 0x3400 && r <= 0x9fff {
+			return "zh"
+		}
+	}
+	return "en"
 }
 
 func (s *PlaygroundRunService) executeChat(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string) (json.RawMessage, error) {
@@ -1846,6 +1985,12 @@ func (s *PlaygroundRunService) persistRun(run *PlaygroundRun) error {
 		}
 		pipe.Set(ctx, playgroundRunRedisVideoKeyFor(run.UserID, run.ID, index), video.data, s.ttl)
 	}
+	for index, audio := range run.Audios {
+		if len(audio.data) == 0 {
+			continue
+		}
+		pipe.Set(ctx, playgroundRunRedisAudioKeyFor(run.UserID, run.ID, index), audio.data, s.ttl)
+	}
 	_, err = pipe.Exec(ctx)
 	return err
 }
@@ -1904,6 +2049,22 @@ func (s *PlaygroundRunService) loadPersistentVideo(userID int64, id string, inde
 	return asset, true, err
 }
 
+func (s *PlaygroundRunService) loadPersistentAudio(userID int64, id string, index int, mimeType string) (PlaygroundRunAudioAsset, bool, error) {
+	if s.rdb == nil || userID <= 0 || index < 0 {
+		return PlaygroundRunAudioAsset{}, false, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), playgroundRunRedisTimeout)
+	defer cancel()
+	data, err := s.rdb.Get(ctx, playgroundRunRedisAudioKeyFor(userID, id, index)).Bytes()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return PlaygroundRunAudioAsset{}, false, nil
+		}
+		return PlaygroundRunAudioAsset{}, false, err
+	}
+	return playgroundRunAudioAsset(data, mimeType), true, nil
+}
+
 func (s *PlaygroundRunService) deletePersistentImages(userID int64, id string, imageCount int) {
 	if s.rdb == nil || imageCount <= 0 {
 		return
@@ -1931,6 +2092,21 @@ func (s *PlaygroundRunService) deletePersistentVideos(userID int64, id string, v
 	defer cancel()
 	if err := s.rdb.Del(ctx, keys...).Err(); err != nil {
 		log.Printf("playground run video cleanup failed for user %d run %s: %v", userID, id, err)
+	}
+}
+
+func (s *PlaygroundRunService) deletePersistentAudios(userID int64, id string, audioCount int) {
+	if s.rdb == nil || audioCount <= 0 {
+		return
+	}
+	keys := make([]string, 0, audioCount)
+	for index := 0; index < audioCount; index++ {
+		keys = append(keys, playgroundRunRedisAudioKeyFor(userID, id, index))
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), playgroundRunRedisTimeout)
+	defer cancel()
+	if err := s.rdb.Del(ctx, keys...).Err(); err != nil {
+		log.Printf("playground run audio cleanup failed for user %d run %s: %v", userID, id, err)
 	}
 }
 
@@ -1964,6 +2140,10 @@ func playgroundRunRedisVideoKeyFor(userID int64, id string, index int) string {
 	return fmt.Sprintf("%s%s%d", playgroundRunRedisKey(userID, id), playgroundRunRedisVideoKey, index)
 }
 
+func playgroundRunRedisAudioKeyFor(userID int64, id string, index int) string {
+	return fmt.Sprintf("%s%s%d", playgroundRunRedisKey(userID, id), playgroundRunRedisAudioKey, index)
+}
+
 func clonePlaygroundRunForClient(run *PlaygroundRun) *PlaygroundRun {
 	if run == nil {
 		return nil
@@ -1988,7 +2168,15 @@ func clonePlaygroundRunForClient(run *PlaygroundRun) *PlaygroundRun {
 		}
 		out.Videos[index].data = nil
 	}
-	if run.Mode == "image" || run.Mode == "video" {
+	out.Audios = append([]PlaygroundRunAudio(nil), run.Audios...)
+	for index := range out.Audios {
+		if len(run.Audios[index].data) > 0 {
+			assetIndex := index
+			out.Audios[index].AssetIndex = &assetIndex
+		}
+		out.Audios[index].data = nil
+	}
+	if run.Mode == "image" || run.Mode == "video" || run.Mode == "audio" {
 		out.Raw = nil
 	} else if run.Raw != nil {
 		out.Raw = append(json.RawMessage(nil), run.Raw...)
@@ -2009,6 +2197,10 @@ func clonePlaygroundRunForPersistence(run *PlaygroundRun) *PlaygroundRun {
 	out.Videos = append([]PlaygroundRunVideo(nil), run.Videos...)
 	for index := range out.Videos {
 		out.Videos[index].data = append([]byte(nil), run.Videos[index].data...)
+	}
+	out.Audios = append([]PlaygroundRunAudio(nil), run.Audios...)
+	for index := range out.Audios {
+		out.Audios[index].data = append([]byte(nil), run.Audios[index].data...)
 	}
 	if run.Raw != nil {
 		out.Raw = append(json.RawMessage(nil), run.Raw...)
@@ -2031,6 +2223,31 @@ func playgroundRunVideoAsset(data []byte, mimeType string) (PlaygroundRunVideoAs
 	return PlaygroundRunVideoAsset{Data: append([]byte(nil), data...), ContentType: mimeType}, nil
 }
 
+func playgroundRunAudioAsset(data []byte, mimeType string) PlaygroundRunAudioAsset {
+	return PlaygroundRunAudioAsset{Data: append([]byte(nil), data...), ContentType: playgroundAudioMimeType(mimeType)}
+}
+
+func playgroundAudioMimeType(value string) string {
+	value = strings.ToLower(strings.TrimSpace(strings.Split(value, ";")[0]))
+	if strings.HasPrefix(value, "audio/") {
+		return value
+	}
+	switch value {
+	case "aac":
+		return "audio/aac"
+	case "flac":
+		return "audio/flac"
+	case "opus":
+		return "audio/ogg"
+	case "pcm":
+		return "audio/pcm"
+	case "wav":
+		return "audio/wav"
+	default:
+		return "audio/mpeg"
+	}
+}
+
 func cancelPlaygroundRun(run *PlaygroundRun, now time.Time) {
 	if run == nil || isTerminalPlaygroundRunStatus(run.Status) {
 		return
@@ -2039,6 +2256,7 @@ func cancelPlaygroundRun(run *PlaygroundRun, now time.Time) {
 	run.Error = "request canceled"
 	run.Images = nil
 	run.Videos = nil
+	run.Audios = nil
 	run.Raw = nil
 	run.UpdatedAt = now
 	run.CompletedAt = &now

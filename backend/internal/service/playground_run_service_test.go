@@ -182,6 +182,47 @@ func TestPlaygroundRunServiceExecuteImageUsesGenerationsWithoutUploads(t *testin
 	}
 }
 
+func TestPlaygroundRunServiceExecuteGrokAudioUsesTTSAndStoresAsset(t *testing.T) {
+	var payload map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/tts" {
+			t.Errorf("request = %s %s, want POST /v1/tts", r.Method, r.URL.Path)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer sk-grok" {
+			t.Errorf("authorization = %q", got)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Errorf("decode payload: %v", err)
+		}
+		w.Header().Set("Content-Type", "audio/mpeg")
+		_, _ = w.Write([]byte("audio-bytes"))
+	}))
+	defer server.Close()
+
+	svc := NewPlaygroundRunService()
+	key := "1:grok-audio"
+	svc.runs[key] = &PlaygroundRun{ID: "grok-audio", UserID: 1, Mode: "audio", Status: PlaygroundRunRunning}
+	_, err := svc.executeAudio(context.Background(), key, PlaygroundRunRequest{
+		APIKey: "sk-grok", Platform: PlatformGrok, Model: "grok-voice", Prompt: "你好", Voice: "alloy",
+	}, server.URL)
+	if err != nil {
+		t.Fatalf("execute Grok audio: %v", err)
+	}
+	if got := payload["text"]; got != "你好" {
+		t.Errorf("text = %#v", got)
+	}
+	if got := payload["language"]; got != "zh" {
+		t.Errorf("language = %#v", got)
+	}
+	if got := payload["voice_id"]; got != "Ara" {
+		t.Errorf("voice_id = %#v", got)
+	}
+	asset, found, err := svc.GetAudio(1, "grok-audio", 0)
+	if err != nil || !found || string(asset.Data) != "audio-bytes" || asset.ContentType != "audio/mpeg" {
+		t.Fatalf("audio asset = %#v, found=%v, err=%v", asset, found, err)
+	}
+}
+
 func TestPlaygroundImageRequestSizePassesGPTImage2DimensionsThrough(t *testing.T) {
 	tests := []struct {
 		model string

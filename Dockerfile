@@ -43,6 +43,21 @@ COPY frontend/ ./
 COPY docs/legal/ /app/docs/legal/
 RUN pnpm run build
 
+# Build the standalone infinite-canvas frontend. It is served at /canvas/ by
+# the backend alongside the main Vue application.
+FROM ${NODE_IMAGE} AS canvas-builder
+ARG NPM_CONFIG_REGISTRY
+
+WORKDIR /app/canvas/web
+
+COPY ["无限画布源码/infinite-canvas-main/web/package.json", "无限画布源码/infinite-canvas-main/web/package-lock.json", "./"]
+RUN --mount=type=cache,id=sub2api-canvas-npm-cache,target=/root/.npm \
+	if [ -n "${NPM_CONFIG_REGISTRY}" ]; then npm config set registry "${NPM_CONFIG_REGISTRY}"; fi && \
+	npm ci --legacy-peer-deps --prefer-offline
+
+COPY ["无限画布源码/infinite-canvas-main/", "/app/canvas/"]
+RUN VITE_BASE=/canvas/ npm run build
+
 # -----------------------------------------------------------------------------
 # Stage 2: Backend Builder
 # -----------------------------------------------------------------------------
@@ -82,6 +97,7 @@ COPY backend/ ./
 
 # Copy frontend dist from previous stage (must be after backend copy to avoid being overwritten)
 COPY --from=frontend-builder /app/backend/internal/web/dist ./internal/web/dist
+COPY --from=canvas-builder /app/canvas/web/dist ./internal/web/dist/canvas
 
 # Build the binary (BuildType=release for CI builds, embed frontend)
 # Version precedence: build arg VERSION > exact git tag > cmd/server/VERSION

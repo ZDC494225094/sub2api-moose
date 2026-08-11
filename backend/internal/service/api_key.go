@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +20,19 @@ const (
 	BillingPriorityBalanceFirst      = "balance_first"
 	BillingPrioritySubscriptionFirst = "subscription_first"
 )
+
+// CanvasManagedAPIKeyNamePrefix marks credentials created solely for the
+// authenticated infinite-canvas workflow. They retain a real API key id so the
+// existing gateway billing and usage-log contracts stay intact.
+const CanvasManagedAPIKeyNamePrefix = "__sub2api_canvas_group__:"
+
+func CanvasManagedAPIKeyName(groupID int64) string {
+	return CanvasManagedAPIKeyNamePrefix + strconv.FormatInt(groupID, 10)
+}
+
+func IsCanvasManagedAPIKey(key *APIKey) bool {
+	return key != nil && strings.HasPrefix(key.Name, CanvasManagedAPIKeyNamePrefix)
+}
 
 // Rate limit window durations
 const (

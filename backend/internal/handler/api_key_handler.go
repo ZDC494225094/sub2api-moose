@@ -138,7 +138,7 @@ func (h *APIKeyHandler) GetByID(c *gin.Context) {
 	}
 
 	// 验证所有权
-	if key.UserID != subject.UserID {
+	if key.UserID != subject.UserID || service.IsCanvasManagedAPIKey(key) {
 		response.NotFound(c, "API key not found")
 		return
 	}
@@ -158,6 +158,10 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 	var req CreateAPIKeyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if strings.HasPrefix(req.Name, service.CanvasManagedAPIKeyNamePrefix) {
+		response.BadRequest(c, "Invalid API key name")
 		return
 	}
 
@@ -217,6 +221,10 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 	var req UpdateAPIKeyRequest
 	if err := c.ShouldBindBodyWith(&req, binding.JSON); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if req.Name != "" && strings.HasPrefix(req.Name, service.CanvasManagedAPIKeyNamePrefix) {
+		response.BadRequest(c, "Invalid API key name")
 		return
 	}
 

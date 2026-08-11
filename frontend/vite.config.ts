@@ -1,6 +1,66 @@
 import { defineConfig, loadEnv, Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { resolve } from 'path'
+import { createReadStream, existsSync, statSync } from 'node:fs'
+import { extname, isAbsolute, relative, resolve } from 'path'
+
+const canvasDistDir = resolve(__dirname, '../无限画布源码/infinite-canvas-main/web/dist')
+const canvasMimeTypes: Record<string, string> = {
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.ico': 'image/x-icon',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2'
+}
+
+function canvasDevServer(): Plugin {
+  return {
+    name: 'serve-infinite-canvas',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/canvas', (req, res, next) => {
+        if (req.method !== 'GET' && req.method !== 'HEAD') return next()
+
+        let requestPath: string
+        try {
+          requestPath = decodeURIComponent(new URL(req.url || '/', 'http://localhost').pathname).replace(/^[/\\]+/, '')
+        } catch {
+          return next()
+        }
+        const candidate = resolve(canvasDistDir, requestPath || 'index.html')
+        const relativePath = relative(canvasDistDir, candidate)
+        const insideCanvas = relativePath === '' || (!relativePath.startsWith('..') && !isAbsolute(relativePath))
+        const exists = insideCanvas && existsSync(candidate) && !statSync(candidate).isDirectory()
+        const filePath = exists ? candidate : resolve(canvasDistDir, 'index.html')
+
+        if (!exists && extname(requestPath)) {
+          res.statusCode = 404
+          res.end()
+          return
+        }
+        if (!existsSync(filePath)) {
+          res.statusCode = 503
+          res.end('Canvas assets are missing. Run pnpm run build:canvas first.')
+          return
+        }
+
+        res.setHeader('Content-Type', canvasMimeTypes[extname(filePath).toLowerCase()] || 'application/octet-stream')
+        res.setHeader('Cache-Control', 'no-cache')
+        if (req.method === 'HEAD') {
+          res.end()
+          return
+        }
+        createReadStream(filePath).on('error', next).pipe(res)
+      })
+    }
+  }
+}
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({
@@ -125,7 +185,7 @@ export default defineConfig(async ({ mode }) => {
   const devPort = Number(env.VITE_DEV_PORT || 5173)
   const enableChecker = env.VITE_ENABLE_CHECKER === 'true'
 
-  const plugins: Plugin[] = [vue()]
+  const plugins: Plugin[] = [vue(), canvasDevServer()]
   if (enableChecker) {
     const { default: checker } = await import('vite-plugin-checker')
     plugins.push(checker({ vueTsc: true }))

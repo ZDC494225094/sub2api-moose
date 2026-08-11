@@ -455,7 +455,7 @@ func (r *apiKeyRepository) deleteWithTombstone(ctx context.Context, exec *dbent.
 }
 
 func (r *apiKeyRepository) apiKeyListByUserIDQuery(userID int64, filters service.APIKeyListFilters) *dbent.APIKeyQuery {
-	q := r.activeQuery().Where(apikey.UserIDEQ(userID))
+	q := r.activeQuery().Where(apikey.UserIDEQ(userID), apikey.Not(apikey.NameHasPrefix(service.CanvasManagedAPIKeyNamePrefix)))
 
 	if filters.Search != "" {
 		q = q.Where(apikey.Or(
@@ -480,6 +480,25 @@ func (r *apiKeyRepository) apiKeyListByUserIDQuery(userID int64, filters service
 	}
 
 	return q
+}
+
+// FindCanvasManagedKey bypasses user-facing key list filters. The credential is
+// used only by the canvas handler and is never serialized to the browser.
+func (r *apiKeyRepository) FindCanvasManagedKey(ctx context.Context, userID, groupID int64) (*service.APIKey, error) {
+	entity, err := r.activeQuery().
+		Where(
+			apikey.UserIDEQ(userID),
+			apikey.NameEQ(service.CanvasManagedAPIKeyName(groupID)),
+			apikey.GroupIDEQ(groupID),
+		).
+		Only(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, service.ErrAPIKeyNotFound
+		}
+		return nil, err
+	}
+	return apiKeyEntityToService(entity), nil
 }
 
 func (r *apiKeyRepository) ListByUserID(ctx context.Context, userID int64, params pagination.PaginationParams, filters service.APIKeyListFilters) ([]service.APIKey, *pagination.PaginationResult, error) {
@@ -720,7 +739,7 @@ func apiKeyListOrder(params pagination.PaginationParams) []func(*entsql.Selector
 
 // SearchAPIKeys searches API keys by user ID and/or keyword (name)
 func (r *apiKeyRepository) SearchAPIKeys(ctx context.Context, userID int64, keyword string, limit int) ([]service.APIKey, error) {
-	q := r.activeQuery()
+	q := r.activeQuery().Where(apikey.Not(apikey.NameHasPrefix(service.CanvasManagedAPIKeyNamePrefix)))
 	if userID > 0 {
 		q = q.Where(apikey.UserIDEQ(userID))
 	}

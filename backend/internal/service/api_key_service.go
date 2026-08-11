@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"html"
 	"sort"
@@ -128,6 +129,10 @@ type APIKeyRepository interface {
 
 type apiKeyAllByUserIDLister interface {
 	ListAllByUserID(ctx context.Context, userID int64, filters APIKeyListFilters) ([]APIKey, error)
+}
+
+type canvasManagedAPIKeyFinder interface {
+	FindCanvasManagedKey(ctx context.Context, userID, groupID int64) (*APIKey, error)
 }
 
 // APIKeyRateLimitData holds rate limit usage and window state for an API key.
@@ -296,6 +301,7 @@ type APIKeyService struct {
 	authInvalidationFailures  atomic.Uint64
 	lastUsedTouchL1           sync.Map // keyID -> nextAllowedAt(time.Time)
 	lastUsedTouchSF           singleflight.Group
+	canvasKeyCreateSF         singleflight.Group
 }
 
 type APIKeyAuthLookupMetrics struct {
@@ -778,6 +784,9 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	if apiKey.UserID != userID {
 		return nil, ErrInsufficientPerms
 	}
+	if IsCanvasManagedAPIKey(apiKey) {
+		return nil, ErrAPIKeyNotFound
+	}
 
 	// 验证 IP 白名单格式
 	if req.IPWhitelist != nil && len(*req.IPWhitelist) > 0 {
@@ -948,6 +957,13 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 
 // Delete 删除API Key
 func (s *APIKeyService) Delete(ctx context.Context, id int64, userID int64) error {
+	apiKey, err := s.apiKeyRepo.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("get api key: %w", err)
+	}
+	if IsCanvasManagedAPIKey(apiKey) {
+		return ErrAPIKeyNotFound
+	}
 	key, ownerID, err := s.apiKeyRepo.GetKeyAndOwnerID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("get api key: %w", err)
@@ -1084,6 +1100,55 @@ func (s *APIKeyService) GetAvailableGroups(ctx context.Context, userID int64) ([
 	}
 
 	return availableGroups, nil
+}
+
+// GetOrCreateCanvasManagedKey creates a server-only credential for one user
+// and selected group. Reusing the existing credential type preserves account
+// routing, subscription or balance settlement, and usage-log integrity.
+func (s *APIKeyService) GetOrCreateCanvasManagedKey(ctx context.Context, userID, groupID int64) (*APIKey, error) {
+	if userID <= 0 || groupID <= 0 {
+		return nil, ErrGroupNotAllowed
+	}
+
+	groups, err := s.GetAvailableGroups(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	var selected *Group
+	for i := range groups {
+		if groups[i].ID == groupID {
+			selected = &groups[i]
+			break
+		}
+	}
+	if selected == nil {
+		return nil, ErrGroupNotAllowed
+	}
+
+	lookupKey := strconv.FormatInt(userID, 10) + ":" + strconv.FormatInt(groupID, 10)
+	value, err, _ := s.canvasKeyCreateSF.Do(lookupKey, func() (any, error) {
+		finder, ok := s.apiKeyRepo.(canvasManagedAPIKeyFinder)
+		if !ok {
+			return nil, fmt.Errorf("canvas managed api key repository is not available")
+		}
+		existing, findErr := finder.FindCanvasManagedKey(ctx, userID, groupID)
+		if findErr == nil && existing != nil {
+			return existing, nil
+		}
+		if findErr != nil && !errors.Is(findErr, ErrAPIKeyNotFound) {
+			return nil, fmt.Errorf("find canvas managed api key: %w", findErr)
+		}
+
+		return s.Create(ctx, userID, CreateAPIKeyRequest{
+			Name:     CanvasManagedAPIKeyName(groupID),
+			Platform: selected.Platform,
+			GroupID:  &groupID,
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return value.(*APIKey), nil
 }
 
 // canUserBindGroupInternal 内部方法，检查用户是否可以绑定分组（使用预加载的订阅数据）

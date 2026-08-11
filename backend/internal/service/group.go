@@ -316,9 +316,15 @@ func (g *Group) peakRateAt(now time.Time) (float64, bool) {
 	return 1.0, false
 }
 
+// PeakRateAt 返回当前时刻是否处于高峰，以及高峰时配置的最终 token 倍率。
+// 画布等登录态入口用它展示与网关计费一致的当前倍率。
+func (g *Group) PeakRateAt(now time.Time) (float64, bool) {
+	return g.peakRateAt(now)
+}
+
 // PeakMultiplierAt 返回高峰时配置的最终倍率；非高峰或配置非法时返回 1.0。
 func (g *Group) PeakMultiplierAt(now time.Time) float64 {
-	rate, _ := g.peakRateAt(now)
+	rate, _ := g.PeakRateAt(now)
 	return rate
 }
 

@@ -98,6 +98,10 @@ func (s *FrontendServer) Middleware() gin.HandlerFunc {
 		if cleanPath == "" {
 			cleanPath = "index.html"
 		}
+		if isCanvasPath(path) && !s.fileExists(cleanPath) {
+			s.serveCanvasIndexHTML(c)
+			return
+		}
 
 		// For index.html or SPA routes, serve with injected settings
 		if cleanPath == "index.html" || !s.fileExists(cleanPath) {
@@ -115,6 +119,10 @@ func (s *FrontendServer) Middleware() gin.HandlerFunc {
 		s.fileServer.ServeHTTP(c.Writer, c.Request)
 		c.Abort()
 	}
+}
+
+func (s *FrontendServer) serveCanvasIndexHTML(c *gin.Context) {
+	serveEmbeddedHTML(c, s.distFS, "canvas/index.html")
 }
 
 func (s *FrontendServer) fileExists(path string) bool {
@@ -320,6 +328,10 @@ func ServeEmbeddedFrontend() gin.HandlerFunc {
 		if cleanPath == "" {
 			cleanPath = "index.html"
 		}
+		if isCanvasPath(path) && !fileExists(distFS, cleanPath) {
+			serveEmbeddedHTML(c, distFS, "canvas/index.html")
+			return
+		}
 
 		if file, err := distFS.Open(cleanPath); err == nil {
 			_ = file.Close()
@@ -369,8 +381,26 @@ func shouldBypassEmbeddedFrontend(path string) bool {
 		strings.HasPrefix(trimmed, "/videos/")
 }
 
+func isCanvasPath(path string) bool {
+	path = strings.TrimSpace(path)
+	return path == "/canvas" || strings.HasPrefix(path, "/canvas/")
+}
+
+func fileExists(fsys fs.FS, path string) bool {
+	file, err := fsys.Open(path)
+	if err != nil {
+		return false
+	}
+	_ = file.Close()
+	return true
+}
+
 func serveIndexHTML(c *gin.Context, fsys fs.FS) {
-	file, err := fsys.Open("index.html")
+	serveEmbeddedHTML(c, fsys, "index.html")
+}
+
+func serveEmbeddedHTML(c *gin.Context, fsys fs.FS, path string) {
+	file, err := fsys.Open(path)
 	if err != nil {
 		c.String(http.StatusNotFound, "Frontend not found")
 		c.Abort()

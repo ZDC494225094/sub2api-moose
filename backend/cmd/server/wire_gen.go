@@ -311,7 +311,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	availableChannelHandler := handler.NewAvailableChannelHandler(channelService, apiKeyService, settingService)
 	playgroundVideoAssetRepository := repository.NewPlaygroundVideoAssetRepository(db)
 	playgroundRunService := service.ProvidePlaygroundRunService(redisClient, playgroundVideoAssetRepository)
-	playgroundHandler := handler.NewPlaygroundHandler(playgroundRunService)
+	playgroundHandler := handler.NewPlaygroundHandler(playgroundRunService, apiKeyService, gatewayService)
 	modelPlazaHandler := handler.NewModelPlazaHandler(channelService, apiKeyService, settingService)
 	imageTaskStore := repository.NewImageTaskStore(redisClient)
 	imageTaskService := service.ProvideImageTaskService(imageTaskStore, imageStorageSettingService)
