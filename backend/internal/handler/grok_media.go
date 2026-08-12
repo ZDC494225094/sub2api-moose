@@ -444,8 +444,8 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 					zap.Error(err),
 				)
 			}
-			// Defer billing until status polling observes video.url. Persist create-time
-			// model/duration/resolution so status can still price if upstream omits them.
+			// Defer asynchronous billing until a status or content response proves
+			// completion. Persist create-time model/duration/resolution for pricing.
 			// Retry once: missing pending causes silent underpricing (status omits resolution).
 			pending := service.GrokVideoPendingBilling{
 				Model:                requestModel,
@@ -474,9 +474,20 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 				}
 			}
 		}
-		// Status poll OR content download can observe official done+video.url.
-		// Both paths share the same claim key so the customer is charged once.
-		if endpoint == service.GrokMediaEndpointVideoStatus || endpoint == service.GrokMediaEndpointVideoContent {
+		// A compatible relay may block on the create request and return a completed
+		// video directly. It shares the same claim key with later status/content
+		// lookups, so either response can charge the task exactly once.
+		if isGrokVideoCreateEndpoint(endpoint) && result.VideoCount > 0 {
+			taskID := strings.TrimSpace(result.ResponseID)
+			if taskID == "" {
+				// A fully synchronous relay may return only the final asset. There is
+				// no future lookup to deduplicate, so account for this POST exactly as
+				// other immediate API-key generations are accounted for.
+				recordGrokMediaUsage(c, h, reqLog, apiKey, subject, subscription, account, result, requestModel, body, "")
+			} else if billResult := prepareGrokVideoCompletionBilling(requestCtx, h, reqLog, apiKey, subject, taskID, result); billResult != nil {
+				recordGrokMediaUsage(c, h, reqLog, apiKey, subject, subscription, account, billResult, billResult.Model, body, taskID)
+			}
+		} else if endpoint == service.GrokMediaEndpointVideoStatus || endpoint == service.GrokMediaEndpointVideoContent {
 			taskID := strings.TrimSpace(requestID)
 			if billResult := prepareGrokVideoCompletionBilling(requestCtx, h, reqLog, apiKey, subject, taskID, result); billResult != nil {
 				recordGrokMediaUsage(c, h, reqLog, apiKey, subject, subscription, account, billResult, billResult.Model, body, taskID)
@@ -559,9 +570,9 @@ func shouldRecordGrokMediaUsage(endpoint service.GrokMediaEndpoint, requestModel
 	return result.ImageCount > 0
 }
 
-// prepareGrokVideoCompletionBilling claims one-shot billing for official done+video.url
-// observations (status poll or content download). Duration/model prefer status body;
-// resolution uses create-time request (status response does not document resolution).
+// prepareGrokVideoCompletionBilling claims one-shot billing for a completed
+// video observation (create response, status poll, or content download).
+// Duration/model prefer the response; resolution uses the create-time request.
 func prepareGrokVideoCompletionBilling(
 	ctx context.Context,
 	h *OpenAIGatewayHandler,
@@ -574,7 +585,7 @@ func prepareGrokVideoCompletionBilling(
 	if h == nil || h.gatewayService == nil || apiKey == nil || statusResult == nil {
 		return nil
 	}
-	// Forward already set VideoCount only when status=done && video.url (official).
+	// Forward sets VideoCount only after recognizing a completed video output.
 	if statusResult.VideoCount <= 0 {
 		return nil
 	}

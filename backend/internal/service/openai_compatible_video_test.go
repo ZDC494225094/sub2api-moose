@@ -2,7 +2,9 @@ package service
 
 import (
 	"encoding/json"
+	"net/http"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/tidwall/gjson"
@@ -80,6 +82,27 @@ func TestNormalizeArkVideoGenerationAndStatus(t *testing.T) {
 	}
 	if got := gjson.GetBytes(normalized, "video.url").String(); got != "https://cdn.example.test/video.mp4" {
 		t.Fatalf("video URL = %q", got)
+	}
+	usage := openAICompatibleVideoUsageFromResponse(GrokMediaEndpointVideoStatus, GrokMediaRequestInfo{}, normalized)
+	if usage.ResponseID != "task-1" || usage.VideoCount != 1 {
+		t.Fatalf("normalized Ark status must be billable, response_id=%q video_count=%d", usage.ResponseID, usage.VideoCount)
+	}
+}
+
+func TestOpenAICompatibleVideoContentResultIsBillable(t *testing.T) {
+	headers := http.Header{"Content-Type": []string{"video/mp4"}}
+	result := openAICompatibleVideoContentResult("seedance-task", "upstream-request", headers, 5*time.Minute)
+	if result.ResponseID != "seedance-task" || result.RequestID != "upstream-request" {
+		t.Fatalf("unexpected ids: response=%q request=%q", result.ResponseID, result.RequestID)
+	}
+	if result.VideoCount != 1 {
+		t.Fatalf("video count = %d, want 1", result.VideoCount)
+	}
+	if result.Duration != 5*time.Minute {
+		t.Fatalf("duration = %s", result.Duration)
+	}
+	if result.ResponseHeaders.Get("Content-Type") != "video/mp4" {
+		t.Fatalf("content type = %q", result.ResponseHeaders.Get("Content-Type"))
 	}
 }
 

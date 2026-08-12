@@ -515,21 +515,90 @@ func StableGrokVideoBillingRequestID(taskRequestID string) string {
 // Request may include resolution ("480p"|"720p"|"1080p"); completed status does not
 // document a resolution field — bill resolution from the create-time request snapshot.
 
-// IsGrokVideoStatusBillable matches official success: status == "done" AND non-empty video.url.
-// pending / expired / failed, or done without a video URL, are not billable.
+// IsGrokVideoStatusBillable matches official xAI success: status == "done" AND
+// non-empty video.url. OpenAI-compatible providers use their dedicated helper
+// below because their normalized success state is "completed".
 func IsGrokVideoStatusBillable(statusBody []byte) bool {
+	return isVideoStatusBillable(statusBody, false)
+}
+
+// IsOpenAICompatibleVideoStatusBillable recognizes the completed states used
+// by OpenAI-compatible video providers. Native Ark/Seedance task responses are
+// normalized to status=completed; compatible relays may return succeeded or
+// finished directly.
+func IsOpenAICompatibleVideoStatusBillable(statusBody []byte) bool {
+	return isVideoStatusBillable(statusBody, true)
+}
+
+func isVideoStatusBillable(statusBody []byte, allowCompleted bool) bool {
 	if len(statusBody) == 0 || !gjson.ValidBytes(statusBody) {
 		return false
 	}
-	if !isOfficialGrokVideoStatusDone(statusBody) {
+	status := strings.ToLower(strings.TrimSpace(gjson.GetBytes(statusBody, "status").String()))
+	if allowCompleted {
+		status = extractOpenAICompatibleVideoStatus(statusBody)
+	}
+	if status != "done" && (!allowCompleted || !isOpenAICompatibleVideoStatusSuccess(status)) {
 		return false
+	}
+	if allowCompleted {
+		return extractOpenAICompatibleVideoURL(statusBody) != ""
 	}
 	return strings.TrimSpace(gjson.GetBytes(statusBody, "video.url").String()) != ""
 }
 
-func isOfficialGrokVideoStatusDone(statusBody []byte) bool {
-	// Official enum: pending | done | expired | failed.
-	return strings.EqualFold(strings.TrimSpace(gjson.GetBytes(statusBody, "status").String()), "done")
+func extractOpenAICompatibleVideoStatus(statusBody []byte) string {
+	for _, path := range []string{"status", "state", "data.status", "data.state", "result.status", "result.state"} {
+		if status := strings.ToLower(strings.TrimSpace(gjson.GetBytes(statusBody, path).String())); status != "" {
+			return status
+		}
+	}
+	return ""
+}
+
+// extractOpenAICompatibleVideoURL covers the response shapes commonly exposed
+// by OpenAI-compatible video relays. Native xAI billing remains strict to
+// video.url through IsGrokVideoStatusBillable.
+func extractOpenAICompatibleVideoURL(statusBody []byte) string {
+	if len(statusBody) == 0 || !gjson.ValidBytes(statusBody) {
+		return ""
+	}
+	for _, path := range []string{
+		"video.url",
+		"video.video_url",
+		"video_url",
+		"content.video_url",
+		"content.video.url",
+		"content.url",
+		"data.video_url",
+		"data.video.url",
+		"data.url",
+		"data.0.video_url",
+		"data.0.video.url",
+		"data.0.url",
+		"result.video_url",
+		"result.video.url",
+		"result.url",
+		"output.video_url",
+		"output.video.url",
+		"output.url",
+		"videos.0.video_url",
+		"videos.0.url",
+	} {
+		if videoURL := strings.TrimSpace(gjson.GetBytes(statusBody, path).String()); videoURL != "" {
+			return videoURL
+		}
+	}
+	return ""
+}
+
+func isOpenAICompatibleVideoStatusSuccess(status string) bool {
+	switch status {
+	case "completed", "complete", "succeeded", "success", "finished":
+		return true
+	default:
+		return false
+	}
 }
 
 // ExtractGrokVideoBillingFromStatusBody builds usage units from an official done status.
@@ -538,7 +607,21 @@ func isOfficialGrokVideoStatusDone(statusBody []byte) bool {
 //   - model: top-level model
 //   - resolution: not in status response → create-time pending snapshot → default 480p
 func ExtractGrokVideoBillingFromStatusBody(statusBody []byte, pending *GrokVideoPendingBilling, requestID string) *OpenAIForwardResult {
-	if !IsGrokVideoStatusBillable(statusBody) {
+	return extractVideoBillingFromStatusBody(statusBody, pending, requestID, false, "grok-imagine-video")
+}
+
+// ExtractOpenAICompatibleVideoBillingFromStatusBody extracts billable units
+// from an OpenAI-compatible video status response. It accepts the normalized
+// completed state used by native Ark/Seedance tasks.
+func ExtractOpenAICompatibleVideoBillingFromStatusBody(statusBody []byte, pending *GrokVideoPendingBilling, requestID string) *OpenAIForwardResult {
+	// A normalized Ark status does not include model details. Keep it empty here
+	// so the handler can restore the model selected at task creation from the
+	// pending billing snapshot instead of incorrectly pricing it as Grok.
+	return extractVideoBillingFromStatusBody(statusBody, pending, requestID, true, "")
+}
+
+func extractVideoBillingFromStatusBody(statusBody []byte, pending *GrokVideoPendingBilling, requestID string, allowCompleted bool, defaultModel string) *OpenAIForwardResult {
+	if !isVideoStatusBillable(statusBody, allowCompleted) {
 		return nil
 	}
 	model := ""
@@ -550,14 +633,7 @@ func ExtractGrokVideoBillingFromStatusBody(statusBody []byte, pending *GrokVideo
 	if gjson.ValidBytes(statusBody) {
 		// Official: top-level model.
 		model = strings.TrimSpace(gjson.GetBytes(statusBody, "model").String())
-		// Official: video.duration (number of seconds).
-		if v := gjson.GetBytes(statusBody, "video.duration"); v.Exists() && v.Type == gjson.Number {
-			durationSeconds = int(v.Int())
-			if durationSeconds == 0 && v.Float() > 0 {
-				// Sub-second values are unexpected for this API; still accept truncated int path above.
-				durationSeconds = int(v.Float())
-			}
-		}
+		durationSeconds = extractVideoStatusDurationSeconds(statusBody, allowCompleted)
 	}
 	if pending != nil {
 		if model == "" {
@@ -575,9 +651,9 @@ func ExtractGrokVideoBillingFromStatusBody(statusBody []byte, pending *GrokVideo
 			durationSeconds = pending.VideoDurationSeconds
 		}
 	}
-	if model == "" {
+	if model == "" && defaultModel != "" {
 		// Official default video model family when status omits model.
-		model = "grok-imagine-video"
+		model = defaultModel
 	}
 	if billingModel == "" {
 		billingModel = model
@@ -602,6 +678,46 @@ func ExtractGrokVideoBillingFromStatusBody(statusBody []byte, pending *GrokVideo
 		VideoResolution:      resolution,
 		VideoDurationSeconds: durationSeconds,
 	}
+}
+
+func extractVideoStatusDurationSeconds(statusBody []byte, allowCompatiblePaths bool) int {
+	paths := []string{"video.duration"}
+	if allowCompatiblePaths {
+		paths = append(paths,
+			"duration",
+			"content.duration",
+			"content.video.duration",
+			"data.duration",
+			"data.video.duration",
+			"data.0.duration",
+			"data.0.video.duration",
+			"result.duration",
+			"result.video.duration",
+			"output.duration",
+			"output.video.duration",
+			"videos.0.duration",
+		)
+	}
+	for _, path := range paths {
+		value := gjson.GetBytes(statusBody, path)
+		if !value.Exists() {
+			continue
+		}
+		seconds := 0
+		switch value.Type {
+		case gjson.Number:
+			seconds = int(value.Float())
+		case gjson.String:
+			parsed, err := strconv.ParseFloat(strings.TrimSpace(value.String()), 64)
+			if err == nil {
+				seconds = int(parsed)
+			}
+		}
+		if seconds > 0 {
+			return seconds
+		}
+	}
+	return 0
 }
 
 func (s *OpenAIGatewayService) ForwardGrokMedia(
@@ -1373,6 +1489,14 @@ type grokMediaUsageMetadata struct {
 }
 
 func grokMediaUsageFromResponse(endpoint GrokMediaEndpoint, requestInfo GrokMediaRequestInfo, responseBody []byte) grokMediaUsageMetadata {
+	return mediaUsageFromResponse(endpoint, requestInfo, responseBody, false)
+}
+
+func openAICompatibleVideoUsageFromResponse(endpoint GrokMediaEndpoint, requestInfo GrokMediaRequestInfo, responseBody []byte) grokMediaUsageMetadata {
+	return mediaUsageFromResponse(endpoint, requestInfo, responseBody, true)
+}
+
+func mediaUsageFromResponse(endpoint GrokMediaEndpoint, requestInfo GrokMediaRequestInfo, responseBody []byte, allowCompletedVideoStatus bool) grokMediaUsageMetadata {
 	usage, _ := extractOpenAIUsageFromJSONBytes(responseBody)
 	meta := grokMediaUsageMetadata{Usage: usage}
 	switch endpoint {
@@ -1383,15 +1507,31 @@ func grokMediaUsageFromResponse(endpoint GrokMediaEndpoint, requestInfo GrokMedi
 		meta.ImageOutputSizes = collectOpenAIResponseImageOutputSizesFromJSONBytes(responseBody)
 	case GrokMediaEndpointVideosGenerations, GrokMediaEndpointVideosEdits, GrokMediaEndpointVideosExtensions:
 		// Async video: capture request_id + create-time pricing params only.
-		// Billable VideoCount is set later when status polling observes video.url.
+		// Billable VideoCount is normally set later when status polling observes
+		// a completed output. Some compatible relays block until generation is
+		// complete and return that same completed output directly from POST.
 		meta.ResponseID = extractGrokMediaVideoRequestID(responseBody)
 		meta.VideoResolution = requestInfo.Resolution
 		meta.VideoDurationSeconds = requestInfo.DurationSeconds
+		if allowCompletedVideoStatus && extractOpenAICompatibleVideoURL(responseBody) != "" {
+			// A successful generation POST that already contains the final asset is
+			// synchronous, even when the relay omits a separate status field.
+			meta.VideoCount = 1
+			if durationSeconds := extractVideoStatusDurationSeconds(responseBody, true); durationSeconds > 0 {
+				meta.VideoDurationSeconds = durationSeconds
+			}
+		}
 	case GrokMediaEndpointVideoStatus:
 		// Prefer status-body URL success + upstream duration/resolution when present.
-		if IsGrokVideoStatusBillable(responseBody) {
+		if isVideoStatusBillable(responseBody, allowCompletedVideoStatus) {
 			// provisional units; handler merges with pending snapshot before RecordUsage.
-			if billed := ExtractGrokVideoBillingFromStatusBody(responseBody, nil, ""); billed != nil {
+			defaultModel := "grok-imagine-video"
+			if allowCompletedVideoStatus {
+				// Native Ark status normalization keeps its task output but has no
+				// model field. The handler fills it from the create-time snapshot.
+				defaultModel = ""
+			}
+			if billed := extractVideoBillingFromStatusBody(responseBody, nil, "", allowCompletedVideoStatus, defaultModel); billed != nil {
 				meta.ResponseID = billed.ResponseID
 				meta.Model = billed.Model
 				meta.BillingModel = billed.BillingModel

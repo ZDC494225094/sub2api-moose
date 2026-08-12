@@ -49,8 +49,17 @@ func TestIsGrokVideoStatusBillable(t *testing.T) {
 	// URL alone (legacy/non-official shapes) is not enough
 	require.False(t, IsGrokVideoStatusBillable([]byte(`{"url":"https://example.com/v.mp4"}`)))
 	require.False(t, IsGrokVideoStatusBillable([]byte(`{"download_url":"/v1/videos/task/content"}`)))
-	// "completed" is not the official enum value
+	// "completed" is not the official xAI enum value.
 	require.False(t, IsGrokVideoStatusBillable([]byte(`{"status":"completed","video":{"url":"https://vidgen.x.ai/x.mp4"}}`)))
+	// Native Ark/Seedance normalizes a successful task to completed.
+	require.True(t, IsOpenAICompatibleVideoStatusBillable([]byte(`{"status":"completed","video":{"url":"https://vidgen.x.ai/x.mp4"}}`)))
+	// Other OpenAI-compatible Seedance relays can expose the terminal status directly.
+	require.True(t, IsOpenAICompatibleVideoStatusBillable([]byte(`{"status":"succeeded","video":{"url":"https://vidgen.x.ai/x.mp4"}}`)))
+	// Relays are not required to normalize their result into video.url.
+	require.True(t, IsOpenAICompatibleVideoStatusBillable([]byte(`{"status":"succeeded","content":{"video_url":"https://cdn.example.test/seedance.mp4"}}`)))
+	require.True(t, IsOpenAICompatibleVideoStatusBillable([]byte(`{"status":"finished","data":[{"url":"https://cdn.example.test/seedance.mp4"}]}`)))
+	require.True(t, IsOpenAICompatibleVideoStatusBillable([]byte(`{"data":{"status":"succeeded","video_url":"https://cdn.example.test/seedance.mp4"}}`)))
+	require.False(t, IsOpenAICompatibleVideoStatusBillable([]byte(`{"status":"succeeded","content":{}}`)))
 }
 
 func TestExtractGrokVideoBillingFromStatusBodyPrefersUpstreamParams(t *testing.T) {
@@ -108,6 +117,58 @@ func TestExtractGrokVideoBillingRejectsNonDoneStatus(t *testing.T) {
 		[]byte(`{"status":"completed","video":{"url":"https://vidgen.x.ai/x.mp4","duration":8}}`),
 		pending, "req",
 	))
+	compatible := ExtractOpenAICompatibleVideoBillingFromStatusBody(
+		[]byte(`{"id":"seedance-task","status":"completed","video":{"url":"https://vidgen.x.ai/x.mp4","duration":8}}`),
+		pending, "req",
+	)
+	require.NotNil(t, compatible)
+	require.Equal(t, "seedance-task", compatible.ResponseID)
+	require.Equal(t, 1, compatible.VideoCount)
+	require.Equal(t, 8, compatible.VideoDurationSeconds)
+	// Missing status models must be restored from the create-time snapshot,
+	// never defaulted to the unrelated Grok video family.
+	require.Equal(t, "m", compatible.Model)
+	require.Equal(t, "m", compatible.BillingModel)
+	withoutPending := ExtractOpenAICompatibleVideoBillingFromStatusBody(
+		[]byte(`{"id":"seedance-task","status":"completed","video":{"url":"https://vidgen.x.ai/x.mp4","duration":8}}`),
+		nil, "req",
+	)
+	require.NotNil(t, withoutPending)
+	require.Empty(t, withoutPending.Model)
+}
+
+func TestExtractOpenAICompatibleVideoBillingSupportsRelayResponseShapes(t *testing.T) {
+	t.Parallel()
+	pending := &GrokVideoPendingBilling{
+		Model:                "doubao-seedance-2-0-fast-260128",
+		BillingModel:         "doubao-seedance-2-0-fast-260128",
+		UpstreamModel:        "doubao-seedance-2-0-fast-260128",
+		VideoResolution:      VideoBillingResolution1080P,
+		VideoDurationSeconds: 10,
+	}
+
+	contentResult := ExtractOpenAICompatibleVideoBillingFromStatusBody([]byte(`{
+		"id":"seedance-content-task",
+		"status":"succeeded",
+		"content":{"video_url":"https://cdn.example.test/content.mp4","duration":12}
+	}`), pending, "")
+	require.NotNil(t, contentResult)
+	require.Equal(t, "seedance-content-task", contentResult.ResponseID)
+	require.Equal(t, 1, contentResult.VideoCount)
+	require.Equal(t, "doubao-seedance-2-0-fast-260128", contentResult.Model)
+	require.Equal(t, VideoBillingResolution1080P, contentResult.VideoResolution)
+	require.Equal(t, 12, contentResult.VideoDurationSeconds)
+
+	dataResult := ExtractOpenAICompatibleVideoBillingFromStatusBody([]byte(`{
+		"task_id":"seedance-data-task",
+		"status":"finished",
+		"data":[{"url":"https://cdn.example.test/data.mp4"}]
+	}`), pending, "")
+	require.NotNil(t, dataResult)
+	require.Equal(t, "seedance-data-task", dataResult.ResponseID)
+	require.Equal(t, 1, dataResult.VideoCount)
+	// The relay omitted duration, so normal API-key billing reuses the create-time snapshot.
+	require.Equal(t, 10, dataResult.VideoDurationSeconds)
 }
 
 func TestGrokMediaUsageFromResponseVideoCreateDoesNotBill(t *testing.T) {
@@ -118,6 +179,27 @@ func TestGrokMediaUsageFromResponseVideoCreateDoesNotBill(t *testing.T) {
 	require.Equal(t, 0, meta.VideoCount)
 	require.Equal(t, 10, meta.VideoDurationSeconds)
 	require.Equal(t, VideoBillingResolution720P, meta.VideoResolution)
+}
+
+func TestOpenAICompatibleVideoUsageFromResponseBillsCompletedGeneration(t *testing.T) {
+	t.Parallel()
+	info := GrokMediaRequestInfo{
+		Model:           "doubao-seedance-2-0-fast-260128",
+		Resolution:      VideoBillingResolution1080P,
+		DurationSeconds: 10,
+	}
+	meta := openAICompatibleVideoUsageFromResponse(
+		GrokMediaEndpointVideosGenerations,
+		info,
+		[]byte(`{
+			"id":"sync-seedance-task",
+			"content":{"video_url":"https://cdn.example.test/sync.mp4","duration":12}
+		}`),
+	)
+	require.Equal(t, "sync-seedance-task", meta.ResponseID)
+	require.Equal(t, 1, meta.VideoCount)
+	require.Equal(t, VideoBillingResolution1080P, meta.VideoResolution)
+	require.Equal(t, 12, meta.VideoDurationSeconds)
 }
 
 func TestGrokMediaUsageFromResponseVideoStatusBillsOnOfficialDone(t *testing.T) {
@@ -139,11 +221,31 @@ func TestGrokMediaUsageFromResponseVideoStatusBillsOnOfficialDone(t *testing.T) 
 	)
 	require.Equal(t, 0, pendingOnly.VideoCount)
 
-	// completed is not official done.
+	// completed is not official xAI done.
 	completed := grokMediaUsageFromResponse(
 		GrokMediaEndpointVideoStatus,
 		GrokMediaRequestInfo{},
 		[]byte(`{"status":"completed","video":{"url":"https://vidgen.x.ai/a.mp4","duration":9}}`),
 	)
 	require.Equal(t, 0, completed.VideoCount)
+
+	compatibleCompleted := openAICompatibleVideoUsageFromResponse(
+		GrokMediaEndpointVideoStatus,
+		GrokMediaRequestInfo{},
+		[]byte(`{"id":"seedance-task","status":"completed","video":{"url":"https://vidgen.x.ai/a.mp4","duration":9}}`),
+	)
+	require.Equal(t, "seedance-task", compatibleCompleted.ResponseID)
+	require.Equal(t, 1, compatibleCompleted.VideoCount)
+	require.Equal(t, 9, compatibleCompleted.VideoDurationSeconds)
+	require.Empty(t, compatibleCompleted.Model)
+
+	relayCompleted := openAICompatibleVideoUsageFromResponse(
+		GrokMediaEndpointVideoStatus,
+		GrokMediaRequestInfo{},
+		[]byte(`{"id":"relay-task","status":"succeeded","content":{"video_url":"https://cdn.example.test/a.mp4","duration":"11"}}`),
+	)
+	require.Equal(t, "relay-task", relayCompleted.ResponseID)
+	require.Equal(t, 1, relayCompleted.VideoCount)
+	require.Equal(t, 11, relayCompleted.VideoDurationSeconds)
+	require.Empty(t, relayCompleted.Model)
 }

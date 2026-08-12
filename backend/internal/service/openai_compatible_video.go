@@ -121,7 +121,7 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 		if err := writeGrokMediaContentResponse(c, resp); err != nil {
 			return nil, err
 		}
-		return &OpenAIForwardResult{RequestID: requestIDHeader, ResponseHeaders: resp.Header.Clone(), Duration: time.Since(started)}, nil
+		return openAICompatibleVideoContentResult(requestID, requestIDHeader, resp.Header, time.Since(started)), nil
 	}
 
 	respBody, err := ReadUpstreamResponseBody(resp.Body, s.cfg, c, openAITooLargeError)
@@ -132,7 +132,12 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 		respBody = normalizeArkVideoStatusResponse(respBody)
 	}
 	writeGrokMediaResponse(c, resp, respBody, s.responseHeaderFilter)
-	usage := grokMediaUsageFromResponse(endpoint, requestInfo, respBody)
+	usage := openAICompatibleVideoUsageFromResponse(endpoint, requestInfo, respBody)
+	if usage.VideoCount > 0 && strings.TrimSpace(usage.ResponseID) == "" {
+		// Synchronous relays may return only the final asset. Use their request
+		// header as the stable one-shot billing key when no task id is present.
+		usage.ResponseID = requestIDHeader
+	}
 	return &OpenAIForwardResult{
 		RequestID:            requestIDHeader,
 		ResponseID:           usage.ResponseID,
@@ -147,6 +152,19 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 		VideoResolution:      usage.VideoResolution,
 		VideoDurationSeconds: usage.VideoDurationSeconds,
 	}, nil
+}
+
+func openAICompatibleVideoContentResult(requestID, requestIDHeader string, headers http.Header, duration time.Duration) *OpenAIForwardResult {
+	return &OpenAIForwardResult{
+		RequestID:       strings.TrimSpace(requestIDHeader),
+		ResponseID:      strings.TrimSpace(requestID),
+		ResponseHeaders: headers.Clone(),
+		Duration:        duration,
+		// A successful content response proves the asynchronous task produced a
+		// video. The handler merges the create-time model/pricing snapshot and
+		// claims this task id once, so repeated/range downloads cannot double bill.
+		VideoCount: 1,
+	}
 }
 
 func (s *OpenAIGatewayService) openAICompatibleVideoURL(account *Account, endpoint GrokMediaEndpoint, requestID string) (string, bool, error) {

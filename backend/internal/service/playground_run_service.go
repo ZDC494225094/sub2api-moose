@@ -952,6 +952,13 @@ func normalizePlaygroundVideoRequest(request *PlaygroundRunRequest) error {
 	hasReferenceVideo := request.ReferenceVideo != nil && strings.TrimSpace(request.ReferenceVideo.DataURL) != ""
 
 	switch {
+	case isPlaygroundVideoModel(request.Model, "grok-imagine-video"):
+		// Grok Imagine only accepts landscape or portrait output. Older canvas
+		// projects stored image dimensions (or 1:1) in this field, so normalize
+		// them here as well as exposing an explicit picker in the canvas UI.
+		if !playgroundStringAllowed(request.AspectRatio, "16:9", "9:16") {
+			request.AspectRatio = "16:9"
+		}
 	case isPlaygroundVideoModel(request.Model, "grok-video-10"):
 		if hasReferenceVideo {
 			return errors.New("grok-video-10 does not support reference videos")

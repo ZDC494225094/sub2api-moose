@@ -1067,6 +1067,23 @@ func TestPlaygroundVideoGenerationPayloadMapsConfigByProvider(t *testing.T) {
 }
 
 func TestNormalizePlaygroundVideoRequestAppliesNamedModelRules(t *testing.T) {
+	t.Run("grok imagine defaults unsupported legacy ratios to landscape", func(t *testing.T) {
+		request := PlaygroundRunRequest{Model: "grok-imagine-video", AspectRatio: "1:1"}
+		if err := normalizePlaygroundVideoRequest(&request); err != nil {
+			t.Fatal(err)
+		}
+		if request.AspectRatio != "16:9" {
+			t.Fatalf("aspect ratio = %q, want 16:9", request.AspectRatio)
+		}
+		request.AspectRatio = "9:16"
+		if err := normalizePlaygroundVideoRequest(&request); err != nil {
+			t.Fatal(err)
+		}
+		if request.AspectRatio != "9:16" {
+			t.Fatalf("aspect ratio = %q, want 9:16", request.AspectRatio)
+		}
+	})
+
 	t.Run("grok-video-10 downgrades multi-reference duration", func(t *testing.T) {
 		request := PlaygroundRunRequest{
 			Model:      "grok-video-10",
