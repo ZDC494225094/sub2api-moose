@@ -50,12 +50,13 @@ ARG NPM_CONFIG_REGISTRY
 
 WORKDIR /app/canvas/web
 
-COPY ["无限画布源码/infinite-canvas-main/web/package.json", "无限画布源码/infinite-canvas-main/web/package-lock.json", "./"]
+COPY canvas/web/package.json canvas/web/package-lock.json ./
 RUN --mount=type=cache,id=sub2api-canvas-npm-cache,target=/root/.npm \
 	if [ -n "${NPM_CONFIG_REGISTRY}" ]; then npm config set registry "${NPM_CONFIG_REGISTRY}"; fi && \
 	npm ci --legacy-peer-deps --prefer-offline
 
-COPY ["无限画布源码/infinite-canvas-main/", "/app/canvas/"]
+COPY canvas/VERSION canvas/CHANGELOG.md /app/canvas/
+COPY canvas/web/ /app/canvas/web/
 RUN VITE_BASE=/canvas/ npm run build
 
 # -----------------------------------------------------------------------------

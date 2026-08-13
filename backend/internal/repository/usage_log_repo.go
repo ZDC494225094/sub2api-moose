@@ -102,6 +102,32 @@ func appendUsageLogBillingModeQueryFilter(query string, args []any, billingMode 
 	return query + " AND " + conditions[0], args
 }
 
+func appendUsageLogCanvasManagedWhereCondition(conditions []string, args []any, canvasManaged *bool, alias string) ([]string, []any) {
+	if canvasManaged == nil {
+		return conditions, args
+	}
+	column := "api_key_id"
+	if alias != "" {
+		column = alias + ".api_key_id"
+	}
+	prefixArg := fmt.Sprintf("$%d", len(args)+1)
+	exists := fmt.Sprintf("EXISTS (SELECT 1 FROM api_keys canvas_key WHERE canvas_key.id = %s AND LEFT(canvas_key.name, LENGTH(%s)) = %s)", column, prefixArg, prefixArg)
+	if !*canvasManaged {
+		exists = "NOT " + exists
+	}
+	conditions = append(conditions, exists)
+	args = append(args, service.CanvasManagedAPIKeyNamePrefix)
+	return conditions, args
+}
+
+func appendUsageLogCanvasManagedQueryFilter(query string, args []any, canvasManaged *bool, alias string) (string, []any) {
+	conditions, args := appendUsageLogCanvasManagedWhereCondition(nil, args, canvasManaged, alias)
+	if len(conditions) == 0 {
+		return query, args
+	}
+	return query + " AND " + conditions[0], args
+}
+
 func appendUsageLogModelWhereCondition(conditions []string, args []any, model string, source string) ([]string, []any) {
 	if strings.TrimSpace(source) == "" {
 		return appendRawUsageLogModelWhereCondition(conditions, args, model)

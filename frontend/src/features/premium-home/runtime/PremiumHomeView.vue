@@ -17,6 +17,18 @@
           <a :class="{ active: activeHomeSection === 'top' }" href="#top" @click="setActiveHomeSection('top')">首页</a>
           <!-- <a :class="{ active: activeHomeSection === 'pricing' }" href="#pricing" @click="setActiveHomeSection('pricing')">充值与定价</a> -->
           <a :class="{ active: activeHomeSection === 'plans' }" href="#plans" @click="setActiveHomeSection('plans')">套餐服务</a>
+          <a
+            v-if="modelPlazaHomeEnabled"
+            :class="{ active: activeHomeSection === 'model-plaza' }"
+            href="#model-plaza"
+            @click="setActiveHomeSection('model-plaza')"
+          >模型广场</a>
+          <a
+            v-if="infiniteCanvasHomeEnabled"
+            href="/canvas/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >无限画布</a>
           <RouterLink v-if="homeDocsEnabled" to="/docs">文档中心</RouterLink>
         </div>
 
@@ -108,6 +120,19 @@
         <a :class="{ active: activeHomeSection === 'top' }" href="#top" @click="handleHomeNavClick('top')">首页</a>
         <a v-if="homePricingCompareEnabled" :class="{ active: activeHomeSection === 'pricing' }" href="#pricing" @click="handleHomeNavClick('pricing')">充值与定价</a>
         <a :class="{ active: activeHomeSection === 'plans' }" href="#plans" @click="handleHomeNavClick('plans')">套餐服务</a>
+        <a
+          v-if="modelPlazaHomeEnabled"
+          :class="{ active: activeHomeSection === 'model-plaza' }"
+          href="#model-plaza"
+          @click="handleHomeNavClick('model-plaza')"
+        >模型广场</a>
+        <a
+          v-if="infiniteCanvasHomeEnabled"
+          href="/canvas/"
+          target="_blank"
+          rel="noopener noreferrer"
+          @click="menuOpen = false"
+        >无限画布</a>
         <RouterLink v-if="homeDocsEnabled" to="/docs" @click="menuOpen = false">文档中心</RouterLink>
         <button class="mobile-menu-entry" type="button" @click="openNoticePanelFromMenu">
           公告
@@ -321,7 +346,33 @@
         <div v-else class="loading-card">暂无可购买订阅套餐</div>
       </section>
 
-      <section id="models" class="section models-section">
+      <section
+        v-if="modelPlazaHomeEnabled"
+        id="model-plaza"
+        class="section model-plaza-home-section"
+        aria-labelledby="model-plaza-home-title"
+      >
+        <div class="section-head">
+          <div class="section-title">
+            <h2 id="model-plaza-home-title">模型广场</h2>
+            <span class="soft-badge">按分组查看模型与价格</span>
+          </div>
+          <RouterLink class="all-link" to="/model-plaza">独立查看</RouterLink>
+        </div>
+        <div v-if="modelPlazaRequiresAuth && !isAuthenticated" class="loading-card">
+          <span>登录后查看模型与价格</span>
+          <RouterLink class="all-link" to="/login">去登录</RouterLink>
+        </div>
+        <ModelPlazaContent
+          v-else
+          :response="modelPlazaResponse"
+          :loading="modelPlazaLoading"
+          :error="modelPlazaLoadFailed"
+          embedded
+        />
+      </section>
+
+      <section v-else id="models" class="section models-section">
         <div class="section-head">
           <div class="section-title">
             <h2>模型广场</h2>
@@ -370,6 +421,13 @@
             <a href="#top" @click="setActiveHomeSection('top')">首页</a>
             <a v-if="homePricingCompareEnabled" href="#pricing" @click="setActiveHomeSection('pricing')">充值与定价</a>
             <a href="#plans" @click="setActiveHomeSection('plans')">套餐服务</a>
+            <a v-if="modelPlazaHomeEnabled" href="#model-plaza" @click="setActiveHomeSection('model-plaza')">模型广场</a>
+            <a
+              v-if="infiniteCanvasHomeEnabled"
+              href="/canvas/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >无限画布</a>
             <RouterLink v-if="homeDocsEnabled" to="/docs">文档中心</RouterLink>
           </div>
           <div class="footer-column">
@@ -413,6 +471,8 @@ import type { SubscriptionPlan } from '@/types/payment'
 import type { UserAnnouncement } from '@/types'
 import { getPublicAnnouncements, getPublicPlans } from './api'
 import { mountPremiumHomeGlobe } from './premium-home-globe'
+import ModelPlazaContent from '@/components/modelPlaza/ModelPlazaContent.vue'
+import { getModelPlaza, type ModelPlazaResponse } from '@/api/modelPlaza'
 import googleLogo from './assets/google-logo.png'
 import './premium-home.css'
 
@@ -454,10 +514,13 @@ const announcementPanel = ref<{
 } | null>(null)
 const plans = ref<SubscriptionPlan[]>([])
 const announcements = ref<UserAnnouncement[]>([])
+const modelPlazaResponse = ref<ModelPlazaResponse | null>(null)
+const modelPlazaLoading = ref(false)
+const modelPlazaLoadFailed = ref(false)
 const plansLoading = ref(true)
 const activePlanTab = ref('openai')
 const virtualPurchaseCounts = ref<Record<number, number>>({})
-type HomeSection = 'top' | 'pricing' | 'plans'
+type HomeSection = 'top' | 'pricing' | 'plans' | 'model-plaza'
 const activeHomeSection = ref<HomeSection>('top')
 let systemThemeQuery: MediaQueryList | null = null
 let globeCleanup: (() => void) | null = null
@@ -472,6 +535,20 @@ const siteSubtitle = computed(() =>
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
 const homePricingCompareEnabled = computed(() => appStore.cachedPublicSettings?.home_pricing_compare_enabled !== false)
 const homeDocsEnabled = computed(() => appStore.cachedPublicSettings?.home_docs_enabled !== false)
+const modelPlazaHomeEnabled = computed(() =>
+  appStore.cachedPublicSettings?.model_plaza_enabled === true &&
+  appStore.cachedPublicSettings?.model_plaza_home_enabled === true
+)
+const modelPlazaRequiresAuth = computed(() =>
+  appStore.cachedPublicSettings?.model_plaza_require_auth === true
+)
+const canLoadHomeModelPlaza = computed(() =>
+  modelPlazaHomeEnabled.value && (!modelPlazaRequiresAuth.value || isAuthenticated.value)
+)
+const infiniteCanvasHomeEnabled = computed(() =>
+  appStore.cachedPublicSettings?.infinite_canvas_enabled === true &&
+  appStore.cachedPublicSettings?.infinite_canvas_home_enabled === true
+)
 const contactInfo = computed(() => appStore.cachedPublicSettings?.contact_info || appStore.contactInfo || '')
 const footerContent = computed(() => appStore.cachedPublicSettings?.footer_content?.trim() || siteSubtitle.value)
 const footerFriendLinks = computed(() => {
@@ -835,6 +912,10 @@ function setActiveHomeSection(section: HomeSection) {
     activeHomeSection.value = 'top'
     return
   }
+  if (section === 'model-plaza' && !modelPlazaHomeEnabled.value) {
+    activeHomeSection.value = 'top'
+    return
+  }
   activeHomeSection.value = section
 }
 
@@ -844,6 +925,10 @@ function handleHomeNavClick(section: HomeSection) {
 }
 
 function syncActiveSectionFromHash() {
+  if (window.location.hash === '#model-plaza' && modelPlazaHomeEnabled.value) {
+    activeHomeSection.value = 'model-plaza'
+    return
+  }
   if (window.location.hash === '#plans') {
     activeHomeSection.value = 'plans'
     return
@@ -859,6 +944,30 @@ watch(homePricingCompareEnabled, (enabled) => {
   if (!enabled && activeHomeSection.value === 'pricing') {
     activeHomeSection.value = 'top'
   }
+})
+
+watch(modelPlazaHomeEnabled, (enabled) => {
+  if (!enabled && activeHomeSection.value === 'model-plaza') {
+    activeHomeSection.value = 'top'
+  }
+})
+
+async function loadModelPlaza() {
+  if (!canLoadHomeModelPlaza.value || modelPlazaResponse.value || modelPlazaLoading.value) return
+  modelPlazaLoading.value = true
+  modelPlazaLoadFailed.value = false
+  try {
+    modelPlazaResponse.value = await getModelPlaza()
+  } catch (error) {
+    console.warn('Premium home model plaza fallback:', error)
+    modelPlazaLoadFailed.value = true
+  } finally {
+    modelPlazaLoading.value = false
+  }
+}
+
+watch(canLoadHomeModelPlaza, (enabled) => {
+  if (enabled) void loadModelPlaza()
 })
 
 watch(visiblePlanTabs, (tabs) => {
@@ -882,9 +991,10 @@ onMounted(async () => {
   })
 
   if (!appStore.publicSettingsLoaded) {
-    appStore.fetchPublicSettings().catch(() => {})
+    await appStore.fetchPublicSettings().catch(() => null)
   }
   authStore.checkAuth()
+  void loadModelPlaza()
 
   try {
     const [publicPlans, publicAnnouncements] = await Promise.all([

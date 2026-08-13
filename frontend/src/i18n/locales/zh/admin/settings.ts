@@ -44,6 +44,8 @@ export default {
           description: '以分组为单位向访客展示可用模型与价格的公开页面。默认关闭。',
           enabled: '启用模型广场',
           enabledHint: '开启后顶栏显示入口，页面可通过 /model-plaza 独立访问。',
+          homeEnabled: '首页显示',
+          homeEnabledHint: '开启后首页顶部显示模型广场菜单，并在首页框架内展示。',
           requireAuth: '需要登录才可访问',
           requireAuthHint: '开启后未登录访问将跳转登录页；关闭则公开可见，匿名访客仅展示非专属分组。',
           priceDescription: '价格说明（Markdown）',
@@ -54,6 +56,8 @@ export default {
           description: '为用户提供独立的无限画布创作页面。',
           enabled: '启用无限画布',
           enabledHint: '关闭后用户端侧边栏入口隐藏，/canvas/ 页面不可访问。',
+          homeEnabled: '首页显示',
+          homeEnabledHint: '开启后首页顶部显示无限画布菜单，点击后在新标签页打开。',
         },
         riskControl: {
           title: '风控中心',

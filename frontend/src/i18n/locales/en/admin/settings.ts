@@ -44,6 +44,8 @@ export default {
           description: 'A public page showcasing available models and pricing by group. Disabled by default.',
           enabled: 'Enable Model Plaza',
           enabledHint: 'When enabled, an entry appears in the header and the page is reachable at /model-plaza.',
+          homeEnabled: 'Show on home',
+          homeEnabledHint: 'Add a Model Plaza menu to the home header and render it inside the home frame.',
           requireAuth: 'Require sign-in to access',
           requireAuthHint: 'When on, anonymous visitors are redirected to the login page; when off, the page is public and anonymous visitors only see non-exclusive groups.',
           priceDescription: 'Pricing notes (Markdown)',
@@ -54,6 +56,8 @@ export default {
           description: 'Provides users with a standalone infinite-canvas workspace.',
           enabled: 'Enable Infinite Canvas',
           enabledHint: 'When off, the sidebar entry is hidden and /canvas/ is unavailable.',
+          homeEnabled: 'Show on home',
+          homeEnabledHint: 'Add an Infinite Canvas menu to the home header and open it in a new tab.',
         },
         riskControl: {
           title: 'Risk Control',

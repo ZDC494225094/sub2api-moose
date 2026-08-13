@@ -144,6 +144,11 @@
           <Select v-model="filters.upstream_model_mismatch" :options="upstreamModelMismatchOptions" @change="emitChange" />
         </div>
 
+        <div v-if="mode === 'usage'" class="w-full sm:w-auto sm:min-w-[220px]">
+          <label class="input-label">{{ t('admin.usage.canvasManaged') }}</label>
+          <Select v-model="filters.canvas_managed" :options="canvasManagedOptions" @change="emitChange" />
+        </div>
+
         <!-- Error Phase Filter (errors only) -->
         <div v-if="mode === 'errors'" class="w-full sm:w-auto sm:min-w-[180px]">
           <label class="input-label">{{ t('admin.ops.errorLog.type') }}</label>
@@ -316,6 +321,12 @@ const upstreamModelMismatchOptions = ref<SelectOption[]>([
   { value: null, label: t('admin.usage.allUpstreamModelAudit') },
   { value: true, label: t('admin.usage.upstreamModelMismatchOnly') },
   { value: false, label: t('admin.usage.upstreamModelMatchedOnly') }
+])
+
+const canvasManagedOptions = ref<SelectOption[]>([
+  { value: null, label: t('admin.usage.allCanvasSources') },
+  { value: true, label: t('admin.usage.canvasOnly') },
+  { value: false, label: t('admin.usage.nonCanvasOnly') }
 ])
 
 const emitChange = () => emit('change')

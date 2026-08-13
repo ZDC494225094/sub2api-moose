@@ -95,22 +95,22 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: 无限画布源码/infinite-canvas-main/web/package-lock.json
+          cache-dependency-path: canvas/web/package-lock.json
 
       - name: Install canvas dependencies
         run: npm ci --legacy-peer-deps
-        working-directory: 无限画布源码/infinite-canvas-main/web
+        working-directory: canvas/web
 
       - name: Build infinite canvas
         run: npm run build
-        working-directory: 无限画布源码/infinite-canvas-main/web
+        working-directory: canvas/web
         env:
           VITE_BASE: /canvas/
 
       - name: Prepare canvas artifact
         run: |
           mkdir -p backend/internal/web/dist/canvas
-          cp -R 无限画布源码/infinite-canvas-main/web/dist/. backend/internal/web/dist/canvas/
+          cp -R canvas/web/dist/. backend/internal/web/dist/canvas/
 
       - name: Upload canvas artifact
         uses: actions/upload-artifact@v7
@@ -119,8 +119,50 @@ jobs:
           path: backend/internal/web/dist/canvas/
           retention-days: 1
 
+  publish-canvas-agent:
+    runs-on: ubuntu-latest
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: canvas/canvas-agent/package-lock.json
+          registry-url: https://registry.npmjs.org
+
+      - name: Install Canvas Agent dependencies
+        run: npm ci
+        working-directory: canvas/canvas-agent
+
+      - name: Check Canvas Agent publication
+        id: canvas_agent
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if npm view "@basketikun/canvas-agent@${VERSION}" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
+            echo "@basketikun/canvas-agent@${VERSION} is already published"
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "published=false" >> "$GITHUB_OUTPUT"
+        working-directory: canvas/canvas-agent
+
+      - name: Publish Canvas Agent
+        if: ${{ steps.canvas_agent.outputs.published != 'true' }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "NPM_TOKEN must be configured to publish @basketikun/canvas-agent."
+            exit 1
+          fi
+          npm publish --access public
+        working-directory: canvas/canvas-agent
+
   release:
-    needs: [update-version, build-frontend, build-canvas]
+    needs: [update-version, build-frontend, build-canvas, publish-canvas-agent]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

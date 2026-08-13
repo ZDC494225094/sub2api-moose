@@ -7472,6 +7472,18 @@
               <Toggle v-model="form.model_plaza_require_auth" />
             </div>
 
+            <div v-if="form.model_plaza_enabled" class="flex items-center justify-between">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.features.modelPlaza.homeEnabled') }}
+                </label>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.modelPlaza.homeEnabledHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.model_plaza_home_enabled" />
+            </div>
+
             <div v-if="form.model_plaza_enabled">
               <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {{ t('admin.settings.features.modelPlaza.priceDescription') }}
@@ -7508,6 +7520,17 @@
                 </p>
               </div>
               <Toggle v-model="form.infinite_canvas_enabled" />
+            </div>
+            <div v-if="form.infinite_canvas_enabled" class="flex items-center justify-between gap-6">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.features.infiniteCanvas.homeEnabled') }}
+                </label>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.infiniteCanvas.homeEnabledHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.infinite_canvas_home_enabled" />
             </div>
           </div>
         </div>
@@ -10125,7 +10148,9 @@ const form = reactive<SettingsForm>({
   model_plaza_enabled: false,
   model_plaza_require_auth: false,
   model_plaza_description: '',
+  model_plaza_home_enabled: false,
   infinite_canvas_enabled: true,
+  infinite_canvas_home_enabled: false,
   // Affiliate (邀请返利) feature switch
   affiliate_enabled: false,
   // Allow user view error requests
@@ -11854,7 +11879,9 @@ async function saveSettings() {
       model_plaza_enabled: form.model_plaza_enabled,
       model_plaza_require_auth: form.model_plaza_require_auth,
       model_plaza_description: form.model_plaza_description,
+      model_plaza_home_enabled: form.model_plaza_home_enabled,
       infinite_canvas_enabled: form.infinite_canvas_enabled,
+      infinite_canvas_home_enabled: form.infinite_canvas_home_enabled,
       // Affiliate (邀请返利) feature switch
       affiliate_enabled: form.affiliate_enabled,
       allow_user_view_error_requests: form.allow_user_view_error_requests,

@@ -24,7 +24,7 @@
           <th colspan="3" class="pz-bg pt-2 text-center">
             <div class="pz-title border-b pb-2 font-semibold">
               {{ t('modelPlaza.table.paidPrice') }}
-              <span class="pz-unit ml-1 normal-case font-normal">{{ t('modelPlaza.table.unitPerMillion') }}</span>
+              <span class="pz-unit ml-1 normal-case font-normal">{{ paidUnitLabel }}</span>
             </div>
           </th>
           <th
@@ -187,12 +187,12 @@
             <span v-else class="text-gray-400 dark:text-dark-500">-</span>
           </td>
 
-          <!-- 折扣倍率(生图独立倍率行展示独立倍率;专属倍率划线展示原倍率) -->
+          <!-- 折扣倍率(图片/视频独立倍率行展示独立倍率;专属倍率划线展示原倍率) -->
           <td
             class="border-l border-gray-100 py-2.5 pl-3 pr-5 text-right align-middle font-mono text-xs dark:border-dark-700/60"
           >
             <span
-              v-if="usesIndependentImageRate(m)"
+              v-if="usesIndependentImageRate(m) || usesIndependentVideoRate(m)"
               class="font-bold text-gray-700 dark:text-gray-300"
               >{{ requestRate(m) }}x</span
             >
@@ -216,6 +216,7 @@ import { platformAccentColor, platformBadgeLightClass, platformLabel } from '@/u
 import {
   BILLING_MODE_TOKEN,
   BILLING_MODE_IMAGE,
+  BILLING_MODE_VIDEO,
   type BillingMode
 } from '@/constants/channel'
 import type { PlazaModel } from '@/api/modelPlaza'
@@ -232,6 +233,9 @@ const props = defineProps<{
   /** 生图独立倍率:true 时图片计费模型的实付倍率取 imageRateMultiplier,不取分组/专属倍率。 */
   imageRateIndependent?: boolean
   imageRateMultiplier?: number | null
+  /** 视频独立倍率：true 时视频计费模型的实付倍率取 videoRateMultiplier。 */
+  videoRateIndependent?: boolean
+  videoRateMultiplier?: number | null
 }>()
 
 const { t } = useI18n()
@@ -266,14 +270,24 @@ const hasCustomRate = computed(
   () => props.userRateMultiplier != null && props.userRateMultiplier !== props.rateMultiplier
 )
 
+const paidUnitLabel = computed(() => {
+  const modes = new Set(sortedModels.value.map((m) => billingMode(m)))
+  if (modes.size === 1) {
+    if (modes.has(BILLING_MODE_VIDEO)) return t('modelPlaza.table.perUnitVideo')
+    if (modes.has(BILLING_MODE_IMAGE)) return t('modelPlaza.table.perUnitImage')
+    if (modes.has('per_request')) return t('modelPlaza.table.perUnitRequest')
+  }
+  return t('modelPlaza.table.unitPerMillion')
+})
+
 function billingMode(m: PlazaModel): BillingMode {
   return (m.pricing?.billing_mode || BILLING_MODE_TOKEN) as BillingMode
 }
 
 function billingModeLabel(m: PlazaModel): string {
-  return billingMode(m) === BILLING_MODE_IMAGE
-    ? t('modelPlaza.table.perImage')
-    : t('modelPlaza.table.perRequest')
+  if (billingMode(m) === BILLING_MODE_IMAGE) return t('modelPlaza.table.perImage')
+  if (billingMode(m) === BILLING_MODE_VIDEO) return t('modelPlaza.table.perVideo')
+	return t('modelPlaza.table.perRequest')
 }
 
 /** 价格统一保底 2 位小数,更长的有效小数原样保留。 */
@@ -290,9 +304,15 @@ function usesIndependentImageRate(m: PlazaModel): boolean {
   return billingMode(m) === BILLING_MODE_IMAGE && props.imageRateIndependent === true
 }
 
+function usesIndependentVideoRate(m: PlazaModel): boolean {
+  return billingMode(m) === BILLING_MODE_VIDEO && props.videoRateIndependent === true
+}
+
 /** 按次/按图片行的生效倍率。 */
 function requestRate(m: PlazaModel): number {
-  return usesIndependentImageRate(m) ? (props.imageRateMultiplier ?? 1) : effectiveRate.value
+	if (usesIndependentImageRate(m)) return props.imageRateMultiplier ?? 1
+	if (usesIndependentVideoRate(m)) return props.videoRateMultiplier ?? 1
+	return effectiveRate.value
 }
 
 /** 按次 / 按图片单价(乘该行生效倍率,不换算 1M)。 */
@@ -309,9 +329,9 @@ function official(value: number | null | undefined): string {
 
 /** 非 token 计费的单位后缀:按图片 → “/ 张”,按次 → “/ 次”。 */
 function perUnitSuffix(m: PlazaModel): string {
-  return billingMode(m) === BILLING_MODE_IMAGE
-    ? t('modelPlaza.table.perUnitImage')
-    : t('modelPlaza.table.perUnitRequest')
+	if (billingMode(m) === BILLING_MODE_IMAGE) return t('modelPlaza.table.perUnitImage')
+	if (billingMode(m) === BILLING_MODE_VIDEO) return t('modelPlaza.table.perUnitVideo')
+	return t('modelPlaza.table.perUnitRequest')
 }
 
 function hasCachePricing(m: PlazaModel): boolean {

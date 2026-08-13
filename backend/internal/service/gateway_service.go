@@ -1414,6 +1414,60 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 	return cloneStringSlice(models)
 }
 
+// AvailableModel describes a model mapping together with the concrete
+// provider that owns the schedulable account. This is needed by composite
+// groups, where one group can contain accounts from several platforms.
+type AvailableModel struct {
+	Name     string
+	Platform string
+}
+
+// GetAvailableModelDetails returns configured model mappings and their
+// provider platform. It intentionally follows GetAvailableModels' mapping
+// semantics: accounts without a model_mapping are left to the normal gateway
+// defaults and therefore do not produce an explicit canvas model list.
+func (s *GatewayService) GetAvailableModelDetails(ctx context.Context, groupID *int64, platform string) []AvailableModel {
+	var accounts []Account
+	var err error
+	if groupID != nil {
+		accounts, err = s.accountRepo.ListSchedulableByGroupID(ctx, *groupID)
+	} else {
+		accounts, err = s.accountRepo.ListSchedulable(ctx)
+	}
+	if err != nil || len(accounts) == 0 {
+		return nil
+	}
+
+	requestedPlatform := strings.TrimSpace(platform)
+	seen := make(map[string]struct{})
+	models := make([]AvailableModel, 0)
+	for _, account := range accounts {
+		accountPlatform := strings.TrimSpace(account.Platform)
+		if requestedPlatform != "" && accountPlatform != requestedPlatform {
+			continue
+		}
+		for model := range account.GetModelMapping() {
+			name := strings.TrimSpace(model)
+			if name == "" {
+				continue
+			}
+			key := accountPlatform + "\x00" + name
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			models = append(models, AvailableModel{Name: name, Platform: accountPlatform})
+		}
+	}
+	sort.Slice(models, func(i, j int) bool {
+		if models[i].Platform == models[j].Platform {
+			return models[i].Name < models[j].Name
+		}
+		return models[i].Platform < models[j].Platform
+	})
+	return models
+}
+
 // GetSchedulablePlatforms returns the concrete platforms that currently have
 // schedulable accounts in the target group.
 func (s *GatewayService) GetSchedulablePlatforms(ctx context.Context, groupID *int64) map[string]struct{} {

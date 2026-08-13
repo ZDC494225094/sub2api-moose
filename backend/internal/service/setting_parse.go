@@ -212,7 +212,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyModelPlazaRequireAuth: "false",
 		SettingKeyModelPlazaDescription: "",
 		// Infinite canvas ships enabled; admins can turn off the standalone page.
-		SettingKeyInfiniteCanvasEnabled: "true",
+		SettingKeyInfiniteCanvasEnabled:     "true",
+		SettingKeyModelPlazaHomeEnabled:     "false",
+		SettingKeyInfiniteCanvasHomeEnabled: "false",
 
 		// Affiliate (邀请返利) feature (default disabled; opt-in)
 		SettingKeyAffiliateEnabled:              "false",
@@ -835,6 +837,8 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.ModelPlazaRequireAuth = settings[SettingKeyModelPlazaRequireAuth] == "true"
 	result.ModelPlazaDescription = settings[SettingKeyModelPlazaDescription]
 	result.InfiniteCanvasEnabled = !isFalseSettingValue(settings[SettingKeyInfiniteCanvasEnabled])
+	result.ModelPlazaHomeEnabled = settings[SettingKeyModelPlazaHomeEnabled] == "true"
+	result.InfiniteCanvasHomeEnabled = settings[SettingKeyInfiniteCanvasHomeEnabled] == "true"
 
 	// Affiliate (邀请返利) feature (default: disabled; strict true)
 	result.AffiliateEnabled = settings[SettingKeyAffiliateEnabled] == "true"

@@ -274,11 +274,14 @@ type UsageLogFilters struct {
 	RequestID string
 	Model     string
 	// ModelFilterSource controls how Model is matched. Empty preserves raw usage_logs.model semantics.
-	ModelFilterSource     string
-	RequestType           *int16
-	Stream                *bool
-	BillingType           *int8
-	BillingMode           string
+	ModelFilterSource string
+	RequestType       *int16
+	Stream            *bool
+	BillingType       *int8
+	BillingMode       string
+	// CanvasManaged filters calls made through the infinite-canvas server-managed key.
+	// nil means no source restriction, true means canvas calls only, false means non-canvas calls only.
+	CanvasManaged         *bool
 	UpstreamModelMismatch *bool
 	StartTime             *time.Time
 	EndTime               *time.Time

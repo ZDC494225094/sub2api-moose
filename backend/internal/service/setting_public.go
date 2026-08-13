@@ -242,6 +242,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyModelPlazaEnabled,
 		SettingKeyModelPlazaRequireAuth,
 		SettingKeyInfiniteCanvasEnabled,
+		SettingKeyModelPlazaHomeEnabled,
+		SettingKeyInfiniteCanvasHomeEnabled,
 		SettingKeyAffiliateEnabled,
 		SettingKeyRiskControlEnabled,
 		SettingKeyAllowUserViewErrorRequests,
@@ -373,9 +375,11 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
 
-		ModelPlazaEnabled:     settings[SettingKeyModelPlazaEnabled] == "true",
-		ModelPlazaRequireAuth: settings[SettingKeyModelPlazaRequireAuth] == "true",
-		InfiniteCanvasEnabled: !isFalseSettingValue(settings[SettingKeyInfiniteCanvasEnabled]),
+		ModelPlazaEnabled:         settings[SettingKeyModelPlazaEnabled] == "true",
+		ModelPlazaRequireAuth:     settings[SettingKeyModelPlazaRequireAuth] == "true",
+		InfiniteCanvasEnabled:     !isFalseSettingValue(settings[SettingKeyInfiniteCanvasEnabled]),
+		ModelPlazaHomeEnabled:     settings[SettingKeyModelPlazaHomeEnabled] == "true",
+		InfiniteCanvasHomeEnabled: settings[SettingKeyInfiniteCanvasHomeEnabled] == "true",
 
 		AffiliateEnabled: settings[SettingKeyAffiliateEnabled] == "true",
 
@@ -633,6 +637,8 @@ type PublicSettingsInjectionPayload struct {
 	ModelPlazaEnabled            bool `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth        bool `json:"model_plaza_require_auth"`
 	InfiniteCanvasEnabled        bool `json:"infinite_canvas_enabled"`
+	ModelPlazaHomeEnabled        bool `json:"model_plaza_home_enabled"`
+	InfiniteCanvasHomeEnabled    bool `json:"infinite_canvas_home_enabled"`
 	AffiliateEnabled             bool `json:"affiliate_enabled"`
 	RiskControlEnabled           bool `json:"risk_control_enabled"`
 	AllowUserViewErrorRequests   bool `json:"allow_user_view_error_requests"`
@@ -720,6 +726,8 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		ModelPlazaEnabled:                    settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:                settings.ModelPlazaRequireAuth,
 		InfiniteCanvasEnabled:                settings.InfiniteCanvasEnabled,
+		ModelPlazaHomeEnabled:                settings.ModelPlazaHomeEnabled,
+		InfiniteCanvasHomeEnabled:            settings.InfiniteCanvasHomeEnabled,
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		RiskControlEnabled:                   settings.RiskControlEnabled,
 		AllowUserViewErrorRequests:           settings.AllowUserViewErrorRequests,

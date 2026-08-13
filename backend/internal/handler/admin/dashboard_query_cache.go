@@ -29,6 +29,7 @@ type dashboardTrendCacheKey struct {
 	RequestType           *int16 `json:"request_type"`
 	Stream                *bool  `json:"stream"`
 	BillingType           *int8  `json:"billing_type"`
+	CanvasManaged         *bool  `json:"canvas_managed"`
 	UpstreamModelMismatch *bool  `json:"upstream_model_mismatch"`
 }
 
@@ -43,6 +44,7 @@ type dashboardModelGroupCacheKey struct {
 	RequestType           *int16 `json:"request_type"`
 	Stream                *bool  `json:"stream"`
 	BillingType           *int8  `json:"billing_type"`
+	CanvasManaged         *bool  `json:"canvas_managed"`
 	UpstreamModelMismatch *bool  `json:"upstream_model_mismatch"`
 }
 
@@ -86,6 +88,7 @@ func (h *DashboardHandler) getUsageTrendCached(
 	requestType *int16,
 	stream *bool,
 	billingType *int8,
+	canvasManaged *bool,
 	upstreamModelMismatch *bool,
 ) ([]usagestats.TrendDataPoint, bool, error) {
 	key := mustMarshalDashboardCacheKey(dashboardTrendCacheKey{
@@ -100,12 +103,13 @@ func (h *DashboardHandler) getUsageTrendCached(
 		RequestType:           requestType,
 		Stream:                stream,
 		BillingType:           billingType,
+		CanvasManaged:         canvasManaged,
 		UpstreamModelMismatch: upstreamModelMismatch,
 	})
 	entry, hit, err := dashboardTrendCache.GetOrLoad(key, func() (any, error) {
 		return h.dashboardService.GetUsageTrendWithUsageFilters(ctx, startTime, endTime, granularity, usagestats.UsageLogFilters{
 			UserID: userID, APIKeyID: apiKeyID, AccountID: accountID, GroupID: groupID,
-			Model: model, RequestType: requestType, Stream: stream, BillingType: billingType,
+			Model: model, RequestType: requestType, Stream: stream, BillingType: billingType, CanvasManaged: canvasManaged,
 			UpstreamModelMismatch: upstreamModelMismatch,
 		})
 	})
@@ -124,6 +128,7 @@ func (h *DashboardHandler) getModelStatsCached(
 	requestType *int16,
 	stream *bool,
 	billingType *int8,
+	canvasManaged *bool,
 	upstreamModelMismatch *bool,
 ) ([]usagestats.ModelStat, bool, error) {
 	key := mustMarshalDashboardCacheKey(dashboardModelGroupCacheKey{
@@ -137,12 +142,13 @@ func (h *DashboardHandler) getModelStatsCached(
 		RequestType:           requestType,
 		Stream:                stream,
 		BillingType:           billingType,
+		CanvasManaged:         canvasManaged,
 		UpstreamModelMismatch: upstreamModelMismatch,
 	})
 	entry, hit, err := dashboardModelStatsCache.GetOrLoad(key, func() (any, error) {
 		return h.dashboardService.GetModelStatsWithUsageFiltersBySource(ctx, startTime, endTime, usagestats.UsageLogFilters{
 			UserID: userID, APIKeyID: apiKeyID, AccountID: accountID, GroupID: groupID,
-			RequestType: requestType, Stream: stream, BillingType: billingType,
+			RequestType: requestType, Stream: stream, BillingType: billingType, CanvasManaged: canvasManaged,
 			UpstreamModelMismatch: upstreamModelMismatch,
 		}, modelSource)
 	})
@@ -160,6 +166,7 @@ func (h *DashboardHandler) getGroupStatsCached(
 	requestType *int16,
 	stream *bool,
 	billingType *int8,
+	canvasManaged *bool,
 	upstreamModelMismatch *bool,
 ) ([]usagestats.GroupStat, bool, error) {
 	key := mustMarshalDashboardCacheKey(dashboardModelGroupCacheKey{
@@ -172,12 +179,13 @@ func (h *DashboardHandler) getGroupStatsCached(
 		RequestType:           requestType,
 		Stream:                stream,
 		BillingType:           billingType,
+		CanvasManaged:         canvasManaged,
 		UpstreamModelMismatch: upstreamModelMismatch,
 	})
 	entry, hit, err := dashboardGroupStatsCache.GetOrLoad(key, func() (any, error) {
 		return h.dashboardService.GetGroupStatsWithUsageFilters(ctx, startTime, endTime, usagestats.UsageLogFilters{
 			UserID: userID, APIKeyID: apiKeyID, AccountID: accountID, GroupID: groupID,
-			RequestType: requestType, Stream: stream, BillingType: billingType,
+			RequestType: requestType, Stream: stream, BillingType: billingType, CanvasManaged: canvasManaged,
 			UpstreamModelMismatch: upstreamModelMismatch,
 		})
 	})

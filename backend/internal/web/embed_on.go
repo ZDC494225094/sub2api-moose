@@ -102,7 +102,7 @@ func (s *FrontendServer) Middleware() gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusNotFound)
 			return
 		}
-		if isCanvasPath(path) && !s.fileExists(cleanPath) {
+		if isCanvasPath(path) && (cleanPath == "canvas" || cleanPath == "canvas/" || !s.fileExists(cleanPath)) {
 			s.serveCanvasIndexHTML(c)
 			return
 		}
@@ -126,7 +126,7 @@ func (s *FrontendServer) Middleware() gin.HandlerFunc {
 }
 
 func (s *FrontendServer) serveCanvasIndexHTML(c *gin.Context) {
-	serveEmbeddedHTML(c, s.distFS, "canvas/index.html")
+	s.serveCanvasEmbeddedHTML(c, "canvas/index.html")
 }
 
 func (s *FrontendServer) isCanvasEnabled(ctx context.Context) bool {
@@ -248,6 +248,40 @@ func (s *FrontendServer) injectSettings(settingsJSON []byte) []byte {
 	return result
 }
 
+func (s *FrontendServer) serveCanvasEmbeddedHTML(c *gin.Context, path string) {
+	file, err := s.distFS.Open(path)
+	if err != nil {
+		c.String(http.StatusNotFound, "Frontend not found")
+		c.Abort()
+		return
+	}
+	defer func() { _ = file.Close() }()
+	content, err := io.ReadAll(file)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Failed to read index.html")
+		c.Abort()
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+	defer cancel()
+	if settings, err := s.settings.GetPublicSettingsForInjection(ctx); err == nil {
+		if settingsJSON, err := json.Marshal(settings); err == nil {
+			content = injectCanvasSettings(content, settingsJSON)
+			content = injectCanvasSiteTitle(content, settingsJSON)
+			content = injectSiteFavicon(content, settingsJSON)
+		}
+	}
+	content = addNonceToInlineScripts(content, middleware.GetNonceFromContext(c))
+	c.Header("Cache-Control", "no-cache")
+	c.Data(http.StatusOK, "text/html; charset=utf-8", content)
+	c.Abort()
+}
+
+func injectCanvasSettings(html, settingsJSON []byte) []byte {
+	script := []byte(`<script>window.__APP_CONFIG__=` + string(settingsJSON) + `;</script>`)
+	return bytes.Replace(html, []byte("</head>"), append(script, []byte("</head>")...), 1)
+}
+
 // injectSiteFavicon replaces the static favicon with a configured, browser-safe image URL.
 func injectSiteFavicon(html, settingsJSON []byte) []byte {
 	var cfg struct {
@@ -317,6 +351,26 @@ func injectSiteTitle(html, settingsJSON []byte) []byte {
 	}
 
 	newTitle := []byte("<title>" + htmlpkg.EscapeString(cfg.SiteName) + " - AI API Gateway</title>")
+	var buf bytes.Buffer
+	buf.Write(html[:titleStart])
+	buf.Write(newTitle)
+	buf.Write(html[titleEnd+len("</title>"):])
+	return buf.Bytes()
+}
+
+func injectCanvasSiteTitle(html, settingsJSON []byte) []byte {
+	var cfg struct {
+		SiteName string `json:"site_name"`
+	}
+	if err := json.Unmarshal(settingsJSON, &cfg); err != nil || strings.TrimSpace(cfg.SiteName) == "" {
+		return html
+	}
+	titleStart := bytes.Index(html, []byte("<title>"))
+	titleEnd := bytes.Index(html, []byte("</title>"))
+	if titleStart == -1 || titleEnd == -1 || titleEnd <= titleStart {
+		return html
+	}
+	newTitle := []byte("<title>" + htmlpkg.EscapeString(strings.TrimSpace(cfg.SiteName)) + "-无限画布</title>")
 	var buf bytes.Buffer
 	buf.Write(html[:titleStart])
 	buf.Write(newTitle)
@@ -438,8 +492,18 @@ func serveEmbeddedHTML(c *gin.Context, fsys fs.FS, path string) {
 		return
 	}
 
+	if strings.HasPrefix(path, "canvas/") {
+		content = addNonceToInlineScripts(content, middleware.GetNonceFromContext(c))
+	}
 	c.Data(http.StatusOK, "text/html; charset=utf-8", content)
 	c.Abort()
+}
+
+func addNonceToInlineScripts(html []byte, nonce string) []byte {
+	if nonce == "" {
+		return html
+	}
+	return bytes.ReplaceAll(html, []byte("<script>"), []byte(`<script nonce="`+nonce+`">`))
 }
 
 func HasEmbeddedFrontend() bool {

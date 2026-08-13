@@ -350,10 +350,12 @@ type UpdateSettingsRequest struct {
 	AvailableChannelsEnabled *bool `json:"available_channels_enabled"`
 
 	// Model Plaza feature switches + description
-	ModelPlazaEnabled     *bool   `json:"model_plaza_enabled"`
-	ModelPlazaRequireAuth *bool   `json:"model_plaza_require_auth"`
-	ModelPlazaDescription *string `json:"model_plaza_description"`
-	InfiniteCanvasEnabled *bool   `json:"infinite_canvas_enabled"`
+	ModelPlazaEnabled         *bool   `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth     *bool   `json:"model_plaza_require_auth"`
+	ModelPlazaDescription     *string `json:"model_plaza_description"`
+	InfiniteCanvasEnabled     *bool   `json:"infinite_canvas_enabled"`
+	ModelPlazaHomeEnabled     *bool   `json:"model_plaza_home_enabled"`
+	InfiniteCanvasHomeEnabled *bool   `json:"infinite_canvas_home_enabled"`
 
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled *bool `json:"affiliate_enabled"`
@@ -2022,6 +2024,18 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.InfiniteCanvasEnabled
 		}(),
+		ModelPlazaHomeEnabled: func() bool {
+			if req.ModelPlazaHomeEnabled != nil {
+				return *req.ModelPlazaHomeEnabled
+			}
+			return previousSettings.ModelPlazaHomeEnabled
+		}(),
+		InfiniteCanvasHomeEnabled: func() bool {
+			if req.InfiniteCanvasHomeEnabled != nil {
+				return *req.InfiniteCanvasHomeEnabled
+			}
+			return previousSettings.InfiniteCanvasHomeEnabled
+		}(),
 		ModelPlazaRequireAuth: func() bool {
 			if req.ModelPlazaRequireAuth != nil {
 				return *req.ModelPlazaRequireAuth
@@ -2460,10 +2474,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 
 		AvailableChannelsEnabled: updatedSettings.AvailableChannelsEnabled,
 
-		ModelPlazaEnabled:     updatedSettings.ModelPlazaEnabled,
-		ModelPlazaRequireAuth: updatedSettings.ModelPlazaRequireAuth,
-		ModelPlazaDescription: updatedSettings.ModelPlazaDescription,
-		InfiniteCanvasEnabled: updatedSettings.InfiniteCanvasEnabled,
+		ModelPlazaEnabled:         updatedSettings.ModelPlazaEnabled,
+		ModelPlazaRequireAuth:     updatedSettings.ModelPlazaRequireAuth,
+		ModelPlazaDescription:     updatedSettings.ModelPlazaDescription,
+		InfiniteCanvasEnabled:     updatedSettings.InfiniteCanvasEnabled,
+		ModelPlazaHomeEnabled:     updatedSettings.ModelPlazaHomeEnabled,
+		InfiniteCanvasHomeEnabled: updatedSettings.InfiniteCanvasHomeEnabled,
 
 		AffiliateEnabled: updatedSettings.AffiliateEnabled,
 

@@ -22,6 +22,9 @@ type dashboardUsageRepoCapture struct {
 	trendMismatch    *bool
 	modelMismatch    *bool
 	groupMismatch    *bool
+	trendCanvas      *bool
+	modelCanvas      *bool
+	groupCanvas      *bool
 	rankingLimit     int
 	ranking          []usagestats.UserSpendingRankingItem
 	rankingTotal     float64
@@ -36,6 +39,7 @@ func (s *dashboardUsageRepoCapture) GetUsageTrendWithUsageFilters(
 	s.trendRequestType = filters.RequestType
 	s.trendStream = filters.Stream
 	s.trendMismatch = filters.UpstreamModelMismatch
+	s.trendCanvas = filters.CanvasManaged
 	return []usagestats.TrendDataPoint{}, nil
 }
 
@@ -63,6 +67,7 @@ func (s *dashboardUsageRepoCapture) GetModelStatsWithUsageFiltersBySource(
 	s.modelRequestType = filters.RequestType
 	s.modelStream = filters.Stream
 	s.modelMismatch = filters.UpstreamModelMismatch
+	s.modelCanvas = filters.CanvasManaged
 	return []usagestats.ModelStat{}, nil
 }
 
@@ -72,6 +77,7 @@ func (s *dashboardUsageRepoCapture) GetGroupStatsWithUsageFilters(
 	filters usagestats.UsageLogFilters,
 ) ([]usagestats.GroupStat, error) {
 	s.groupMismatch = filters.UpstreamModelMismatch
+	s.groupCanvas = filters.CanvasManaged
 	return []usagestats.GroupStat{}, nil
 }
 
@@ -246,6 +252,30 @@ func TestDashboardModelAuditFilterRejectsInvalidBoolean(t *testing.T) {
 		router.ServeHTTP(rec, req)
 		require.Equal(t, http.StatusBadRequest, rec.Code, path)
 	}
+}
+
+func TestDashboardCanvasManagedFilterPropagatesToTrendModelAndGroupQueries(t *testing.T) {
+	resetDashboardReadCachesForTest()
+	repo := &dashboardUsageRepoCapture{}
+	router := newDashboardRequestTypeTestRouter(repo)
+
+	for _, path := range []string{
+		"/admin/dashboard/trend?canvas_managed=true",
+		"/admin/dashboard/models?canvas_managed=true",
+		"/admin/dashboard/groups?canvas_managed=true",
+	} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code, path)
+	}
+
+	require.NotNil(t, repo.trendCanvas)
+	require.True(t, *repo.trendCanvas)
+	require.NotNil(t, repo.modelCanvas)
+	require.True(t, *repo.modelCanvas)
+	require.NotNil(t, repo.groupCanvas)
+	require.True(t, *repo.groupCanvas)
 }
 
 func TestDashboardUsersRankingLimitAndCache(t *testing.T) {

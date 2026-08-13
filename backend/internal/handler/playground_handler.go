@@ -32,11 +32,16 @@ type canvasRunRequest struct {
 }
 
 type canvasGroupConfig struct {
-	ID             int64    `json:"id"`
-	Name           string   `json:"name"`
-	Platform       string   `json:"platform"`
-	RateMultiplier float64  `json:"rateMultiplier"`
-	Models         []string `json:"models"`
+	ID             int64               `json:"id"`
+	Name           string              `json:"name"`
+	Platform       string              `json:"platform"`
+	RateMultiplier float64             `json:"rateMultiplier"`
+	Models         []canvasModelConfig `json:"models"`
+}
+
+type canvasModelConfig struct {
+	Name     string `json:"name"`
+	Platform string `json:"platform,omitempty"`
 }
 
 // GetCanvasConfig exposes only the current user's allowed groups and the
@@ -65,17 +70,16 @@ func (h *PlaygroundHandler) GetCanvasConfig(c *gin.Context) {
 		if platform == service.PlatformComposite {
 			platform = ""
 		}
-		models := make([]string, 0)
+		models := make([]canvasModelConfig, 0)
 		if h.gatewayService != nil {
-			models = h.gatewayService.GetAvailableModels(c.Request.Context(), &group.ID, platform)
-		}
-		if models == nil {
-			models = make([]string, 0)
+			for _, model := range h.gatewayService.GetAvailableModelDetails(c.Request.Context(), &group.ID, platform) {
+				models = append(models, canvasModelConfig{Name: model.Name, Platform: model.Platform})
+			}
 		}
 		result = append(result, canvasGroupConfig{
 			ID:             group.ID,
 			Name:           group.Name,
-			Platform:       group.Platform,
+			Platform:       platform,
 			RateMultiplier: h.canvasGroupRateMultiplier(c.Request.Context(), subject.UserID, group, timezone.Now()),
 			Models:         models,
 		})

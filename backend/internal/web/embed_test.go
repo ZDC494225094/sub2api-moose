@@ -114,6 +114,28 @@ func TestInjectSiteTitle(t *testing.T) {
 	})
 }
 
+func TestInjectCanvasSiteTitle(t *testing.T) {
+	t.Run("replaces_title_with_site_name", func(t *testing.T) {
+		html := []byte(`<html><head><title>Sub2API-无限画布</title></head><body></body></html>`)
+		settingsJSON := []byte(`{"site_name":"LimitX"}`)
+
+		result := injectCanvasSiteTitle(html, settingsJSON)
+
+		assert.Contains(t, string(result), "<title>LimitX-无限画布</title>")
+		assert.NotContains(t, string(result), "Sub2API-无限画布")
+	})
+
+	t.Run("escapes_html_in_site_name", func(t *testing.T) {
+		html := []byte(`<html><head><title>Sub2API-无限画布</title></head><body></body></html>`)
+		settingsJSON := []byte(`{"site_name":"</title><script>alert(1)</script><title>"}`)
+
+		result := injectCanvasSiteTitle(html, settingsJSON)
+
+		assert.NotContains(t, string(result), "<script>")
+		assert.Contains(t, string(result), "&lt;/title&gt;&lt;script&gt;alert(1)&lt;/script&gt;&lt;title&gt;-无限画布")
+	})
+}
+
 func TestInjectSiteFavicon(t *testing.T) {
 	t.Run("replaces_favicon_with_site_logo", func(t *testing.T) {
 		html := []byte(`<html><head><link rel="icon" type="image/png" href="/logo.png" /></head></html>`)

@@ -142,6 +142,15 @@ func (h *UsageHandler) parseUserUsageFilters(c *gin.Context, requireRange bool) 
 		response.BadRequest(c, "Invalid billing_mode")
 		return nil, false
 	}
+	var canvasManaged *bool
+	if raw := strings.TrimSpace(c.Query("canvas_managed")); raw != "" {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			response.BadRequest(c, "Invalid canvas_managed value, use true or false")
+			return nil, false
+		}
+		canvasManaged = &value
+	}
 
 	userTZ := c.Query("timezone")
 	now := timezone.NowInUserLocation(userTZ)
@@ -204,6 +213,7 @@ func (h *UsageHandler) parseUserUsageFilters(c *gin.Context, requireRange bool) 
 			Stream:            stream,
 			BillingType:       billingType,
 			BillingMode:       billingMode,
+			CanvasManaged:     canvasManaged,
 			StartTime:         startPtr,
 			EndTime:           endPtr,
 		},

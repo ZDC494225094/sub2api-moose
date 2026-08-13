@@ -219,10 +219,12 @@ type SystemSettings struct {
 	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
 
 	// Model Plaza feature (public group/model pricing showcase)
-	ModelPlazaEnabled     bool   `json:"model_plaza_enabled"`
-	ModelPlazaRequireAuth bool   `json:"model_plaza_require_auth"`
-	ModelPlazaDescription string `json:"model_plaza_description"`
-	InfiniteCanvasEnabled bool   `json:"infinite_canvas_enabled"`
+	ModelPlazaEnabled         bool   `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth     bool   `json:"model_plaza_require_auth"`
+	ModelPlazaDescription     string `json:"model_plaza_description"`
+	InfiniteCanvasEnabled     bool   `json:"infinite_canvas_enabled"`
+	ModelPlazaHomeEnabled     bool   `json:"model_plaza_home_enabled"`
+	InfiniteCanvasHomeEnabled bool   `json:"infinite_canvas_home_enabled"`
 
 	// Claude Code version check
 	MinClaudeCodeVersion string
@@ -404,9 +406,11 @@ type PublicSettings struct {
 	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
 
 	// Model Plaza feature (public group/model pricing showcase)
-	ModelPlazaEnabled     bool `json:"model_plaza_enabled"`
-	ModelPlazaRequireAuth bool `json:"model_plaza_require_auth"`
-	InfiniteCanvasEnabled bool `json:"infinite_canvas_enabled"`
+	ModelPlazaEnabled         bool `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth     bool `json:"model_plaza_require_auth"`
+	InfiniteCanvasEnabled     bool `json:"infinite_canvas_enabled"`
+	ModelPlazaHomeEnabled     bool `json:"model_plaza_home_enabled"`
+	InfiniteCanvasHomeEnabled bool `json:"infinite_canvas_home_enabled"`
 
 	// Affiliate (邀请返利) feature toggle
 	AffiliateEnabled bool `json:"affiliate_enabled"`

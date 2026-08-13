@@ -392,10 +392,12 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 
 		AvailableChannelsEnabled: settings.AvailableChannelsEnabled,
 
-		ModelPlazaEnabled:     settings.ModelPlazaEnabled,
-		ModelPlazaRequireAuth: settings.ModelPlazaRequireAuth,
-		ModelPlazaDescription: settings.ModelPlazaDescription,
-		InfiniteCanvasEnabled: settings.InfiniteCanvasEnabled,
+		ModelPlazaEnabled:         settings.ModelPlazaEnabled,
+		ModelPlazaRequireAuth:     settings.ModelPlazaRequireAuth,
+		ModelPlazaDescription:     settings.ModelPlazaDescription,
+		InfiniteCanvasEnabled:     settings.InfiniteCanvasEnabled,
+		ModelPlazaHomeEnabled:     settings.ModelPlazaHomeEnabled,
+		InfiniteCanvasHomeEnabled: settings.InfiniteCanvasHomeEnabled,
 
 		AffiliateEnabled: settings.AffiliateEnabled,
 

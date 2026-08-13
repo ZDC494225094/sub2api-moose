@@ -149,4 +149,16 @@ output/
 
 # Vitest / Vite cache at repo root
 .vite/
+
+# Upstream reference checkout; Sub2API builds the tracked integration in /canvas.
 /无限画布源码
+/.codex-go-cache
+/.codex-go-tmp
+/.codex-tmp
+/.pnpm-store
+/.tmp-npm-cache
+/.tmp-go-cache
+/backend/.ent-staging
+/backend/.tmp-go-cache
+/backend/.tmp-go-tmp
+/backend/.codex-go-tmp

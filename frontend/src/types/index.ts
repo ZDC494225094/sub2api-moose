@@ -292,6 +292,8 @@ export interface PublicSettings {
   model_plaza_enabled: boolean
   model_plaza_require_auth: boolean
   infinite_canvas_enabled: boolean
+  model_plaza_home_enabled: boolean
+  infinite_canvas_home_enabled: boolean
   service_quota_enabled: boolean
   affiliate_enabled: boolean
   allow_user_view_error_requests?: boolean
@@ -1729,6 +1731,7 @@ export interface UsageLog {
 
   // 计费模式
   billing_mode?: string | null
+  canvas_managed?: boolean | null
 
   created_at: string
 
@@ -2143,6 +2146,7 @@ export interface UsageQueryParams {
   stream?: boolean
   billing_type?: number | null
   billing_mode?: string | null
+  canvas_managed?: boolean | null
   start_date?: string
   end_date?: string
   timezone?: string

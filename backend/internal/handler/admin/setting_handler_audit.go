@@ -600,6 +600,12 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.InfiniteCanvasEnabled != after.InfiniteCanvasEnabled {
 		changed = append(changed, "infinite_canvas_enabled")
 	}
+	if before.ModelPlazaHomeEnabled != after.ModelPlazaHomeEnabled {
+		changed = append(changed, "model_plaza_home_enabled")
+	}
+	if before.InfiniteCanvasHomeEnabled != after.InfiniteCanvasHomeEnabled {
+		changed = append(changed, "infinite_canvas_home_enabled")
+	}
 	if before.ModelPlazaRequireAuth != after.ModelPlazaRequireAuth {
 		changed = append(changed, "model_plaza_require_auth")
 	}

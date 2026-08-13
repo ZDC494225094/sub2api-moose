@@ -39,6 +39,30 @@ function tokenModel(overrides: Partial<PlazaModel> = {}): PlazaModel {
   }
 }
 
+function videoModel(overrides: Partial<PlazaModel> = {}): PlazaModel {
+  return {
+    name: 'grok-imagine-video-1.5',
+    platform: 'grok',
+    pricing: {
+      billing_mode: 'video',
+      input_price: null,
+      output_price: null,
+      cache_write_price: null,
+      cache_read_price: null,
+      image_input_price: null,
+      image_output_price: null,
+      per_request_price: null,
+      intervals: [
+        { min_tokens: 0, max_tokens: null, tier_label: '480p', input_price: null, output_price: null, cache_write_price: null, cache_read_price: null, per_request_price: 0.05 },
+        { min_tokens: 0, max_tokens: null, tier_label: '720p', input_price: null, output_price: null, cache_write_price: null, cache_read_price: null, per_request_price: 0.07 },
+        { min_tokens: 0, max_tokens: null, tier_label: '1080p', input_price: null, output_price: null, cache_write_price: null, cache_read_price: null, per_request_price: 0.25 }
+      ]
+    },
+    official_pricing: null,
+    ...overrides
+  }
+}
+
 function mountTable(
   models: PlazaModel[],
   rateMultiplier: number,
@@ -222,6 +246,32 @@ describe('PlazaModelPricingTable', () => {
     expect(text).toContain('modelPlaza.table.perRequest')
     // 单位后缀跟在价格后(按次 → / 次)
     expect(text).toContain('modelPlaza.table.perUnitRequest')
+  })
+
+  it('视频模型展示按秒计费类型和分辨率阶梯价格', () => {
+    const wrapper = mountTable([videoModel()], 0.5)
+    const text = wrapper.text()
+
+    expect(text).toContain('modelPlaza.table.perVideo')
+    expect(text).toContain('modelPlaza.table.perUnitVideo')
+    expect(text).toContain('480p')
+    expect(text).toContain('720p')
+    expect(text).toContain('1080p')
+    expect(text).toContain('$0.025')
+    expect(text).toContain('$0.035')
+    expect(text).toContain('$0.125')
+  })
+
+  it('视频独立倍率覆盖分组倍率并在倍率列展示独立倍率', () => {
+    const wrapper = mountTable([videoModel()], 0.5, null, {
+      videoRateIndependent: true,
+      videoRateMultiplier: 0.8
+    })
+    const text = wrapper.text()
+
+    expect(text).toContain('$0.04')
+    expect(text).not.toContain('$0.025')
+    expect(wrapper.findAll('tbody tr td').at(-1)?.text()).toBe('0.8x')
   })
 
   it('token 模型阶梯定价内联进输入/输出列,按倍率折算', () => {

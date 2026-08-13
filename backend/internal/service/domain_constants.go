@@ -459,7 +459,9 @@ const (
 
 	// SettingKeyInfiniteCanvasEnabled is a DB-backed switch for the Infinite Canvas page.
 	// When false: the user sidebar entry is hidden and /canvas/ returns 404.
-	SettingKeyInfiniteCanvasEnabled = "infinite_canvas_enabled"
+	SettingKeyInfiniteCanvasEnabled     = "infinite_canvas_enabled"
+	SettingKeyModelPlazaHomeEnabled     = "model_plaza_home_enabled"
+	SettingKeyInfiniteCanvasHomeEnabled = "infinite_canvas_home_enabled"
 
 	// SettingKeyModelPlazaRequireAuth controls whether the Model Plaza page requires a
 	// logged-in user. When false the page is public and anonymous visitors see only

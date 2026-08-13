@@ -309,6 +309,57 @@ func TestListPlazaGroups_GroupImagePriceIgnoredForNonImageModes(t *testing.T) {
 	require.Nil(t, p.PerRequestPrice)
 }
 
+func TestListPlazaGroups_GroupVideoPriceOverridesChannelPricing(t *testing.T) {
+	channel480 := 0.21
+	channel720 := 0.31
+	channelDefault := 0.11
+	group480 := 0.05
+	group1080 := 0.09
+	model720 := 0.07
+	channels := []Channel{{
+		ID: 1, Name: "video-ch", Status: StatusActive, GroupIDs: []int64{10, 20},
+		ModelPricing: []ChannelModelPricing{{
+			Platform: "grok", Models: []string{"grok-imagine-video-1.5"},
+			BillingMode: BillingModeVideo, PerRequestPrice: &channelDefault,
+			Intervals: []PricingInterval{
+				{TierLabel: VideoBillingResolution480P, PerRequestPrice: &channel480},
+				{TierLabel: VideoBillingResolution720P, PerRequestPrice: &channel720},
+			},
+		}},
+	}}
+	groups := []Group{
+		{ID: 10, Name: "g-video", Platform: "grok", RateMultiplier: 1,
+			VideoRateIndependent: true, VideoRateMultiplier: 0.8,
+			VideoPrice480P: &group480, VideoPrice1080P: &group1080,
+			VideoModelPrices: map[string]map[string]float64{
+				VideoPriceFamilyGrokImagineVideo15: {VideoBillingResolution720P: model720},
+			}},
+		{ID: 20, Name: "g-plain", Platform: "grok", RateMultiplier: 1},
+	}
+	out, err := newPlazaChannelService(channels, groups, nil).ListPlazaGroups(context.Background())
+	require.NoError(t, err)
+	require.Len(t, out, 2)
+	byName := map[string]PlazaGroup{}
+	for _, group := range out {
+		byName[group.Name] = group
+	}
+	media := byName["g-video"]
+	require.True(t, media.VideoRateIndependent)
+	require.InDelta(t, 0.8, media.VideoRateMultiplier, 1e-9)
+	prices := map[string]float64{}
+	for _, iv := range media.Models[0].Pricing.Intervals {
+		prices[iv.TierLabel] = *iv.PerRequestPrice
+	}
+	require.Equal(t, map[string]float64{
+		VideoBillingResolution480P:  group480,
+		VideoBillingResolution720P:  model720,
+		VideoBillingResolution1080P: group1080,
+	}, prices)
+	plain := byName["g-plain"].Models[0].Pricing
+	require.Equal(t, channelDefault, *plain.PerRequestPrice)
+	require.Len(t, plain.Intervals, 2)
+}
+
 func TestListPlazaGroups_RepoErrorsPropagate(t *testing.T) {
 	sentinel := errors.New("boom")
 	repo := &mockChannelRepository{

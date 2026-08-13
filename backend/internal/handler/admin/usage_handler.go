@@ -153,6 +153,16 @@ func (h *UsageHandler) List(c *gin.Context) {
 		upstreamModelMismatch = &value
 	}
 
+	var canvasManaged *bool
+	if raw := strings.TrimSpace(c.Query("canvas_managed")); raw != "" {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			response.BadRequest(c, "Invalid canvas_managed value, use true or false")
+			return
+		}
+		canvasManaged = &value
+	}
+
 	// Parse date range
 	var startTime, endTime *time.Time
 	userTZ := c.Query("timezone") // Get user's timezone from request
@@ -195,6 +205,7 @@ func (h *UsageHandler) List(c *gin.Context) {
 		BillingType:           billingType,
 		BillingMode:           billingMode,
 		UpstreamModelMismatch: upstreamModelMismatch,
+		CanvasManaged:         canvasManaged,
 		StartTime:             startTime,
 		EndTime:               endTime,
 		ExactTotal:            exactTotal,
@@ -297,6 +308,16 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 		upstreamModelMismatch = &value
 	}
 
+	var canvasManaged *bool
+	if raw := strings.TrimSpace(c.Query("canvas_managed")); raw != "" {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			response.BadRequest(c, "Invalid canvas_managed value, use true or false")
+			return
+		}
+		canvasManaged = &value
+	}
+
 	// Parse date range
 	userTZ := c.Query("timezone")
 	now := timezone.NowInUserLocation(userTZ)
@@ -347,6 +368,7 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 		BillingType:           billingType,
 		BillingMode:           billingMode,
 		UpstreamModelMismatch: upstreamModelMismatch,
+		CanvasManaged:         canvasManaged,
 		StartTime:             &startTime,
 		EndTime:               &endTime,
 	}

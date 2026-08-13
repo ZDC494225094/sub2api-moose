@@ -443,6 +443,8 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyModelPlazaRequireAuth] = strconv.FormatBool(settings.ModelPlazaRequireAuth)
 	updates[SettingKeyModelPlazaDescription] = settings.ModelPlazaDescription
 	updates[SettingKeyInfiniteCanvasEnabled] = strconv.FormatBool(settings.InfiniteCanvasEnabled)
+	updates[SettingKeyModelPlazaHomeEnabled] = strconv.FormatBool(settings.ModelPlazaHomeEnabled)
+	updates[SettingKeyInfiniteCanvasHomeEnabled] = strconv.FormatBool(settings.InfiniteCanvasHomeEnabled)
 
 	// Affiliate (邀请返利) feature switch
 	updates[SettingKeyAffiliateEnabled] = strconv.FormatBool(settings.AffiliateEnabled)

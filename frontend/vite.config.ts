@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import { createReadStream, existsSync, statSync } from 'node:fs'
 import { extname, isAbsolute, relative, resolve } from 'path'
 
-const canvasDistDir = resolve(__dirname, '../无限画布源码/infinite-canvas-main/web/dist')
+const canvasDistDir = resolve(__dirname, '../canvas/web/dist')
 const canvasMimeTypes: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',

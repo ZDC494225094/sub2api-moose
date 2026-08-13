@@ -858,6 +858,7 @@ func (r *usageLogRepository) ListAdminWithFilters(ctx context.Context, params pa
 		args = append(args, int16(*filters.BillingType))
 	}
 	conditions, args = appendUsageLogBillingModeWhereCondition(conditions, args, filters.BillingMode)
+	conditions, args = appendUsageLogCanvasManagedWhereCondition(conditions, args, filters.CanvasManaged, "")
 	if filters.StartTime != nil {
 		conditions = append(conditions, fmt.Sprintf("created_at >= $%d", len(args)+1))
 		args = append(args, *filters.StartTime)

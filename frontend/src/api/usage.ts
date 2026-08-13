@@ -66,6 +66,7 @@ export interface TrendParams {
   stream?: boolean
   billing_type?: number | null
   billing_mode?: string | null
+  canvas_managed?: boolean | null
   timezone?: string
 }
 
@@ -287,6 +288,7 @@ export async function getDashboardModels(params?: {
   stream?: boolean
   billing_type?: number | null
   billing_mode?: string | null
+  canvas_managed?: boolean | null
   timezone?: string
 }): Promise<ModelStatsResponse> {
   const { data } = await apiClient.get<ModelStatsResponse>('/usage/dashboard/models', { params })

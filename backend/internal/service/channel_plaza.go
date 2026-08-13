@@ -46,6 +46,8 @@ type PlazaGroup struct {
 	// = 档位价 × ImageRateMultiplier，不乘分组/用户专属倍率（与计费口径一致）。
 	ImageRateIndependent bool
 	ImageRateMultiplier  float64
+	VideoRateIndependent bool
+	VideoRateMultiplier  float64
 	Models               []PlazaModel
 }
 
@@ -95,6 +97,8 @@ func (s *ChannelService) ListPlazaGroups(ctx context.Context) ([]PlazaGroup, err
 			IsExclusive:          g.IsExclusive,
 			ImageRateIndependent: g.ImageRateIndependent,
 			ImageRateMultiplier:  g.ImageRateMultiplier,
+			VideoRateIndependent: g.VideoRateIndependent,
+			VideoRateMultiplier:  g.VideoRateMultiplier,
 		}
 		groupEnt[g.ID] = g
 		order = append(order, g.ID)
@@ -135,6 +139,7 @@ func (s *ChannelService) ListPlazaGroups(ctx context.Context) ([]PlazaGroup, err
 					continue
 				}
 				pricing := plazaImageDisplayPricing(m.Pricing, groupEnt[gid])
+				pricing = plazaVideoDisplayPricing(pricing, groupEnt[gid], m.Name)
 				key := modelKey{platform: m.Platform, name: m.Name}
 				if at, seen := idx[key]; seen {
 					// 先见者胜；仅当已存条目无定价而新条目有定价时升级。
@@ -226,6 +231,49 @@ func plazaImageDisplayPricing(p *ChannelModelPricing, g *Group) *ChannelModelPri
 		})
 	}
 	return &clone
+}
+
+// plazaVideoDisplayPricing 为视频计费模型合成展示定价，使每个分辨率档位的
+// 每秒单价与实收口径一致：分组模型族/平铺视频价 > 渠道同档位价 > 渠道默认按次价。
+// 分组未配置任何视频价，或定价非视频模式时原样返回。返回克隆，不修改入参。
+func plazaVideoDisplayPricing(p *ChannelModelPricing, g *Group, model string) *ChannelModelPricing {
+	if p == nil || g == nil || p.BillingMode != BillingModeVideo || !groupHasVideoPricing(g) {
+		return p
+	}
+	channelTierPrice := func(label string) *float64 {
+		for i := range p.Intervals {
+			if normalized, ok := LookupVideoBillingResolution(p.Intervals[i].TierLabel); ok &&
+				normalized == label && p.Intervals[i].PerRequestPrice != nil {
+				return p.Intervals[i].PerRequestPrice
+			}
+		}
+		return p.PerRequestPrice
+	}
+	tiers := []string{VideoBillingResolution480P, VideoBillingResolution720P, VideoBillingResolution1080P}
+	clone := p.Clone()
+	clone.PerRequestPrice = nil
+	clone.Intervals = make([]PricingInterval, 0, len(tiers))
+	for i, tier := range tiers {
+		price := g.GetVideoPriceForModel(model, tier)
+		if price == nil {
+			price = channelTierPrice(tier)
+		}
+		if price == nil {
+			continue
+		}
+		v := *price
+		clone.Intervals = append(clone.Intervals, PricingInterval{
+			TierLabel:       tier,
+			PerRequestPrice: &v,
+			SortOrder:       i,
+		})
+	}
+	return &clone
+}
+
+func groupHasVideoPricing(g *Group) bool {
+	return g != nil && (g.VideoPrice480P != nil || g.VideoPrice720P != nil ||
+		g.VideoPrice1080P != nil || len(g.VideoModelPrices) > 0)
 }
 
 // lookupOfficialPricing 查询模型的 LiteLLM 官方参考价，带 memo 避免同名模型重复转换。

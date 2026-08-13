@@ -10,6 +10,7 @@
 # Documentation
 *.md
 !deploy/DOCKER.md
+!canvas/CHANGELOG.md
 docs/
 # admin-compliance gate (LegalDocumentView.vue) build-time imports
 # docs/legal/*.md?raw into the frontend bundle; keep that subtree in the
@@ -31,9 +32,16 @@ Thumbs.db
 dist/
 build/
 
+# Upstream reference checkout; the integrated canvas source lives in /canvas.
+/无限画布源码
+
 # Node modules (will be installed in container)
 frontend/node_modules/
 node_modules/
+canvas/web/node_modules/
+canvas/web/dist/
+canvas/canvas-agent/node_modules/
+canvas/canvas-agent/dist/
 
 # Go build cache (will be built in container)
 backend/vendor/

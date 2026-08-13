@@ -6,7 +6,7 @@
   "scripts": {
     "predev": "pnpm run build:canvas",
     "dev": "vite",
-    "build:canvas": "cd /d \"../无限画布源码/infinite-canvas-main/web\" && npm run build -- --base=/canvas/",
+    "build:canvas": "npm --prefix ../canvas/web run build -- --base=/canvas/",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",

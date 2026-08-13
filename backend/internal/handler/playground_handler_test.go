@@ -15,7 +15,7 @@ import (
 )
 
 func TestCanvasGroupConfigEmptyModelsMarshalsAsArray(t *testing.T) {
-	payload, err := json.Marshal(canvasGroupConfig{ID: 1, Name: "No models", RateMultiplier: 1.25, Models: make([]string, 0)})
+	payload, err := json.Marshal(canvasGroupConfig{ID: 1, Name: "No models", RateMultiplier: 1.25, Models: make([]canvasModelConfig, 0)})
 	if err != nil {
 		t.Fatalf("marshal canvas group config: %v", err)
 	}

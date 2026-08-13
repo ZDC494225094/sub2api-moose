@@ -45,6 +45,7 @@ type dashboardSnapshotV2Filters struct {
 	RequestType           *int16
 	Stream                *bool
 	BillingType           *int8
+	CanvasManaged         *bool
 	UpstreamModelMismatch *bool
 }
 
@@ -60,6 +61,7 @@ type dashboardSnapshotV2CacheKey struct {
 	RequestType           *int16 `json:"request_type"`
 	Stream                *bool  `json:"stream"`
 	BillingType           *int8  `json:"billing_type"`
+	CanvasManaged         *bool  `json:"canvas_managed"`
 	UpstreamModelMismatch *bool  `json:"upstream_model_mismatch"`
 	IncludeStats          bool   `json:"include_stats"`
 	IncludeTrend          bool   `json:"include_trend"`
@@ -106,6 +108,7 @@ func (h *DashboardHandler) GetSnapshotV2(c *gin.Context) {
 		RequestType:           filters.RequestType,
 		Stream:                filters.Stream,
 		BillingType:           filters.BillingType,
+		CanvasManaged:         filters.CanvasManaged,
 		UpstreamModelMismatch: filters.UpstreamModelMismatch,
 		IncludeStats:          includeStats,
 		IncludeTrend:          includeTrend,
@@ -187,6 +190,7 @@ func (h *DashboardHandler) buildSnapshotV2Response(
 			filters.RequestType,
 			filters.Stream,
 			filters.BillingType,
+			filters.CanvasManaged,
 			filters.UpstreamModelMismatch,
 		)
 		if err != nil {
@@ -208,6 +212,7 @@ func (h *DashboardHandler) buildSnapshotV2Response(
 			filters.RequestType,
 			filters.Stream,
 			filters.BillingType,
+			filters.CanvasManaged,
 			filters.UpstreamModelMismatch,
 		)
 		if err != nil {
@@ -228,6 +233,7 @@ func (h *DashboardHandler) buildSnapshotV2Response(
 			filters.RequestType,
 			filters.Stream,
 			filters.BillingType,
+			filters.CanvasManaged,
 			filters.UpstreamModelMismatch,
 		)
 		if err != nil {
@@ -303,6 +309,14 @@ func parseDashboardSnapshotV2Filters(c *gin.Context) (*dashboardSnapshotV2Filter
 		}
 		bt := int8(v)
 		filters.BillingType = &bt
+	}
+
+	if canvasManagedStr := strings.TrimSpace(c.Query("canvas_managed")); canvasManagedStr != "" {
+		value, err := strconv.ParseBool(canvasManagedStr)
+		if err != nil {
+			return nil, err
+		}
+		filters.CanvasManaged = &value
 	}
 
 	if mismatchStr := strings.TrimSpace(c.Query("upstream_model_mismatch")); mismatchStr != "" {

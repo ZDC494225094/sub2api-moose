@@ -119,6 +119,10 @@
               <label class="input-label">{{ t('admin.usage.billingMode') }}</label>
               <Select v-model="filters.billing_mode" :options="billingModeOptions" @change="applyFilters" />
             </div>
+            <div class="w-full sm:w-auto sm:min-w-[220px]">
+              <label class="input-label">{{ t('admin.usage.canvasManaged') }}</label>
+              <Select v-model="filters.canvas_managed" :options="canvasManagedOptions" @change="applyFilters" />
+            </div>
           </div>
 
           <div class="flex w-full flex-wrap items-center justify-end gap-3 sm:w-auto">
@@ -357,6 +361,7 @@ const filters = ref<UsageQueryParams>({
   request_type: undefined,
   billing_type: null,
   billing_mode: null,
+  canvas_managed: null,
 })
 
 const pagination = reactive({
@@ -391,6 +396,11 @@ const billingModeOptions = computed<SelectOption[]>(() => [
   { value: 'per_request', label: t('admin.usage.billingModePerRequest') },
   { value: 'image', label: t('admin.usage.billingModeImage') },
   { value: 'video', label: t('admin.usage.billingModeVideo') },
+])
+const canvasManagedOptions = computed<SelectOption[]>(() => [
+  { value: null, label: t('admin.usage.allCanvasSources') },
+  { value: true, label: t('admin.usage.canvasOnly') },
+  { value: false, label: t('admin.usage.nonCanvasOnly') },
 ])
 
 const apiKeys = ref<ApiKey[]>([])
@@ -553,6 +563,7 @@ const resetFilters = () => {
     request_type: undefined,
     billing_type: null,
     billing_mode: null,
+    canvas_managed: null,
   }
   granularity.value = getGranularityForRange(range.start, range.end)
   applyFilters()
