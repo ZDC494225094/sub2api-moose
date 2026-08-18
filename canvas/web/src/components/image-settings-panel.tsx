@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import i18n from "@/i18n";
 import { type CanvasTheme } from "@/lib/canvas-theme";
-import type { AiConfig } from "@/stores/use-config-store";
+import type { AiConfig, CanvasImageResolution } from "@/stores/use-config-store";
 
 const qualityOptions = [
     { value: "auto", labelKey: "auto" },
@@ -13,6 +13,19 @@ const qualityOptions = [
     { value: "low", labelKey: "low" },
 ];
 const DIMENSION_STEP = 16;
+const canvasImageResolutionOptions = [
+    { value: "1k", label: "1K" },
+    { value: "2k", label: "2K" },
+    { value: "4k", label: "4K" },
+] as const;
+const canvasImageAspectOptions = [
+    { value: "21:9", size: "1792x768", width: 21, height: 9 },
+    { value: "16:9", size: "1824x1024", width: 16, height: 9 },
+    { value: "4:3", size: "1360x1024", width: 4, height: 3 },
+    { value: "1:1", size: "1024x1024", width: 1, height: 1 },
+    { value: "3:4", size: "1024x1360", width: 3, height: 4 },
+    { value: "9:16", size: "1024x1824", width: 9, height: 16 },
+] as const;
 
 const aspectOptions = [
     { value: "1:1", label: "1:1", width: 1024, height: 1024, icon: "square" },
@@ -35,15 +48,20 @@ export const imageAspectOptions = aspectOptions.map((item) => ({ value: item.siz
 
 type ImageSettingsPanelProps = {
     config: AiConfig;
-    onConfigChange: (key: "quality" | "size" | "count" | "background", value: string) => void;
+    onConfigChange: (key: "quality" | "size" | "imageResolution" | "count" | "background", value: string) => void;
     theme: CanvasTheme;
     showTitle?: boolean;
     className?: string;
     maxCount?: number;
     quickCount?: number;
+    variant?: "default" | "canvas";
 };
 
-export function ImageSettingsPanel({ config, onConfigChange, theme, showTitle = true, className = "w-[320px] space-y-4 rounded-2xl px-1 py-0.5", maxCount = 15, quickCount = 10 }: ImageSettingsPanelProps) {
+export function ImageSettingsPanel(props: ImageSettingsPanelProps) {
+    return props.variant === "canvas" ? <CanvasImageSettingsPanel {...props} /> : <DefaultImageSettingsPanel {...props} />;
+}
+
+function DefaultImageSettingsPanel({ config, onConfigChange, theme, showTitle = true, className = "w-[320px] space-y-4 rounded-2xl px-1 py-0.5", maxCount = 15, quickCount = 10 }: ImageSettingsPanelProps) {
     const { t } = useTranslation();
     const [snapDimensionToStep, setSnapDimensionToStep] = useState(true);
     const quality = config.quality || "auto";
@@ -148,6 +166,64 @@ export function ImageSettingsPanel({ config, onConfigChange, theme, showTitle = 
     );
 }
 
+function CanvasImageSettingsPanel({ config, onConfigChange, theme, showTitle = true, className = "space-y-4" }: ImageSettingsPanelProps) {
+    const { t } = useTranslation();
+    const quality = config.quality || "auto";
+    const resolution = normalizeCanvasImageResolution(config.imageResolution);
+    const aspect = resolveCanvasImageAspect(config.size);
+
+    return (
+        <ImageSettingsTheme theme={theme}>
+            <div className={className} style={{ color: theme.node.text }} onMouseDown={(event) => event.stopPropagation()}>
+                {showTitle ? <div className="text-lg font-semibold">{t("settingsPanels.image.title")}</div> : null}
+                <div className="space-y-2.5">
+                    <SettingTitle color={theme.node.muted}>{t("settingsPanels.image.quality")}</SettingTitle>
+                    <div className="grid grid-cols-4 gap-1 rounded-xl p-1" style={{ background: theme.node.fill }}>
+                        {qualityOptions.map((option) => {
+                            const selected = option.value === quality;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    aria-pressed={selected}
+                                    className="h-9 min-w-0 rounded-lg px-2 text-sm font-medium transition hover:opacity-80"
+                                    style={{ background: selected ? theme.toolbar.optionActiveBg : "transparent", color: selected ? theme.toolbar.activeText : theme.node.muted, fontWeight: selected ? 700 : 500 }}
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                    onClick={() => onConfigChange("quality", option.value)}
+                                >
+                                    {t(`settingsPanels.common.${option.labelKey}`)}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+                <div className="space-y-2.5">
+                    <SettingTitle color={theme.node.muted}>{t("settingsPanels.image.ratio")}</SettingTitle>
+                    <div className="rounded-xl p-1" style={{ background: theme.node.fill }}>
+                        <div className="grid grid-cols-6 gap-1">
+                            {canvasImageAspectOptions.map((option) => (
+                                <CanvasImageAspectOption key={option.value} option={option} selected={aspect.value === option.value} theme={theme} onClick={() => onConfigChange("size", option.value)} />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+                <div className="space-y-2.5">
+                    <SettingTitle color={theme.node.muted}>{t("settingsPanels.image.resolution")}</SettingTitle>
+                    <CanvasImageResolutionOptions
+                        value={resolution}
+                        theme={theme}
+                        onChange={(value) => {
+                            // Normalize legacy pixel dimensions back to a ratio so the selected resolution is applied.
+                            onConfigChange("size", aspect.value);
+                            onConfigChange("imageResolution", value);
+                        }}
+                    />
+                </div>
+            </div>
+        </ImageSettingsTheme>
+    );
+}
+
 export function ImageSettingsTheme({ theme, children }: { theme: CanvasTheme; children: ReactNode }) {
     return (
         <ConfigProvider
@@ -165,6 +241,14 @@ export function imageQualityLabel(value: string) {
     return (["auto", "high", "medium", "low"].includes(value) ? i18n.t(`settingsPanels.common.${value}`) : value);
 }
 
+export function canvasImageResolutionLabel(value: string | undefined) {
+    return canvasImageResolutionOptions.find((option) => option.value === normalizeCanvasImageResolution(value))?.label || "2K";
+}
+
+export function canvasImageAspectLabel(size: string) {
+    return resolveCanvasImageAspect(size).value;
+}
+
 export function imageSizeLabel(size: string) {
     return aspectOptions.find((item) => (item.size || item.value) === size || item.value === size)?.label || size;
 }
@@ -180,6 +264,51 @@ function OptionPill({ selected, theme, onClick, children }: { selected: boolean;
         >
             {children}
         </button>
+    );
+}
+
+function CanvasImageAspectOption({ option, selected, theme, onClick }: { option: (typeof canvasImageAspectOptions)[number]; selected: boolean; theme: CanvasTheme; onClick: () => void }) {
+    const longSide = Math.max(option.width, option.height);
+    const previewWidth = Math.max(10, Math.round((option.width / longSide) * 26));
+    const previewHeight = Math.max(10, Math.round((option.height / longSide) * 26));
+
+    return (
+        <button
+            type="button"
+            aria-pressed={selected}
+            className="flex h-[84px] min-w-0 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg text-sm transition hover:opacity-80"
+            style={{ background: selected ? theme.toolbar.optionActiveBg : "transparent", color: selected ? theme.toolbar.activeText : theme.node.faint, fontWeight: selected ? 700 : 500 }}
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={onClick}
+        >
+            <span className="grid h-6 place-items-center">
+                <span className="border-2" style={{ width: previewWidth, height: previewHeight, borderColor: selected ? theme.toolbar.activeText : theme.node.faint }} />
+            </span>
+            <span>{option.value}</span>
+        </button>
+    );
+}
+
+function CanvasImageResolutionOptions({ value, theme, onChange }: { value: CanvasImageResolution; theme: CanvasTheme; onChange: (value: CanvasImageResolution) => void }) {
+    return (
+        <div className="grid w-full grid-cols-3 rounded-xl p-1" style={{ background: theme.node.fill }}>
+            {canvasImageResolutionOptions.map((option) => {
+                const selected = option.value === value;
+                return (
+                    <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={selected}
+                        className="h-9 min-w-0 rounded-lg px-2 text-sm font-medium transition hover:opacity-80"
+                        style={{ background: selected ? theme.toolbar.optionActiveBg : "transparent", color: selected ? theme.toolbar.activeText : theme.node.faint, fontWeight: selected ? 700 : 500 }}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onClick={() => onChange(option.value)}
+                    >
+                        {option.label}
+                    </button>
+                );
+            })}
+        </div>
     );
 }
 
@@ -259,4 +388,16 @@ function readSizeDimensions(size: string, fallback: { width: number; height: num
 
 function alignDimension(value: number, enabled: boolean) {
     return enabled ? Math.ceil(value / DIMENSION_STEP) * DIMENSION_STEP : value;
+}
+
+function normalizeCanvasImageResolution(value: string | undefined): CanvasImageResolution {
+    return canvasImageResolutionOptions.some((option) => option.value === value) ? (value as CanvasImageResolution) : "2k";
+}
+
+function resolveCanvasImageAspect(size: string) {
+    const exact = canvasImageAspectOptions.find((option) => option.value === size);
+    if (exact) return exact;
+    const dimensions = readSizeDimensions(size, { width: 1824, height: 1024 });
+    const ratio = dimensions.width / Math.max(dimensions.height, 1);
+    return canvasImageAspectOptions.reduce((closest, option) => Math.abs(option.width / option.height - ratio) < Math.abs(closest.width / closest.height - ratio) ? option : closest, canvasImageAspectOptions[1]);
 }

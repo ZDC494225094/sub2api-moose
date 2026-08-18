@@ -2703,6 +2703,7 @@ function InfiniteCanvasPage() {
                           model: savedImageMetadata.model || effectiveConfig.imageModel || effectiveConfig.model,
                           quality: savedImageMetadata.quality || effectiveConfig.quality,
                           size: savedImageMetadata.size || effectiveConfig.size,
+                          imageResolution: savedImageMetadata.imageResolution || "2k",
                           background: savedImageMetadata.background ?? effectiveConfig.background,
                           count: "1",
                       }
@@ -2807,6 +2808,7 @@ function InfiniteCanvasPage() {
                           model: generationConfig.model,
                           size: generationConfig.size,
                           quality: generationConfig.quality,
+                          imageResolution: generationConfig.imageResolution,
                           ...(generationConfig.background ? { background: generationConfig.background } : {}),
                           count: savedImageMetadata.count || 1,
                           references: savedImageMetadata.references,

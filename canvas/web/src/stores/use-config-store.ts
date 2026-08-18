@@ -9,6 +9,7 @@ import { getBrandingSiteName } from "@/stores/use-branding-store";
 export type ApiCallFormat = "openai" | "gemini" | "ark";
 export type ModelCapability = "image" | "video" | "text" | "audio";
 export type ReasoningEffort = "auto" | "low" | "medium" | "high" | "xhigh";
+export type CanvasImageResolution = "1k" | "2k" | "4k";
 
 export type ChannelModel = {
     name: string;
@@ -53,6 +54,7 @@ export type AiConfig = {
     models: string[];
     quality: string;
     size: string;
+    imageResolution?: CanvasImageResolution;
     background: string;
     count: string;
     canvasImageCount: string;
