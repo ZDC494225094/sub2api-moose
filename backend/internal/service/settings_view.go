@@ -151,27 +151,28 @@ type SystemSettings struct {
 	GoogleOAuthRedirectURL            string
 	GoogleOAuthFrontendRedirectURL    string
 
-	SiteName                    string
-	SiteLogo                    string
-	SiteSubtitle                string
-	APIBaseURL                  string
-	ContactInfo                 string
-	AfterSalesGroup             string
-	CustomerServiceLink         string
-	DocURL                      string
-	HomeContent                 string
-	HomePricingCompareEnabled   bool
-	HomeDocsEnabled             bool
-	FooterContent               string
-	FooterFriendLinks           string // JSON array of footer friend links
-	CompactHomeEnabled          bool
-	HideCcsImportButton         bool
-	PurchaseSubscriptionEnabled bool
-	PurchaseSubscriptionURL     string
-	TableDefaultPageSize        int
-	TablePageSizeOptions        []int
-	CustomMenuItems             string // JSON array of custom menu items
-	CustomEndpoints             string // JSON array of custom endpoints
+	SiteName                              string
+	SiteLogo                              string
+	SiteSubtitle                          string
+	APIBaseURL                            string
+	ContactInfo                           string
+	AfterSalesGroup                       string
+	CustomerServiceLink                   string
+	DocURL                                string
+	HomeContent                           string
+	HomePricingCompareEnabled             bool
+	HomeDocsEnabled                       bool
+	FooterContent                         string
+	FooterFriendLinks                     string // JSON array of footer friend links
+	CompactHomeEnabled                    bool
+	HideCcsImportButton                   bool
+	PurchaseSubscriptionEnabled           bool
+	PurchaseSubscriptionURL               string
+	TableDefaultPageSize                  int
+	TablePageSizeOptions                  []int
+	CustomMenuItems                       string // JSON array of custom menu items
+	CustomEndpoints                       string // JSON array of custom endpoints
+	MainlandChinaAccessRestrictionEnabled bool
 
 	DefaultConcurrency           int
 	DefaultBalance               float64
@@ -365,12 +366,13 @@ type PublicSettings struct {
 	CompactHomeEnabled                  bool
 	HideCcsImportButton                 bool
 
-	PurchaseSubscriptionEnabled bool
-	PurchaseSubscriptionURL     string
-	TableDefaultPageSize        int
-	TablePageSizeOptions        []int
-	CustomMenuItems             string // JSON array of custom menu items
-	CustomEndpoints             string // JSON array of custom endpoints
+	PurchaseSubscriptionEnabled           bool
+	PurchaseSubscriptionURL               string
+	TableDefaultPageSize                  int
+	TablePageSizeOptions                  []int
+	CustomMenuItems                       string // JSON array of custom menu items
+	CustomEndpoints                       string // JSON array of custom endpoints
+	MainlandChinaAccessRestrictionEnabled bool
 
 	LinuxDoOAuthEnabled      bool
 	DingTalkOAuthEnabled     bool

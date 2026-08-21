@@ -155,3 +155,32 @@ func TestSettingHandler_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *
 	require.True(t, resp.Data.WeChatOAuthOpenEnabled)
 	require.True(t, resp.Data.WeChatOAuthMPEnabled)
 }
+
+func TestSettingHandler_GetPublicSettings_ReportsMainlandChinaRestrictionWithoutBlockingAPI(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := NewSettingHandler(service.NewSettingService(&settingHandlerPublicRepoStub{
+		values: map[string]string{
+			service.SettingKeyMainlandChinaAccessRestrictionEnabled: "true",
+		},
+	}, &config.Config{}), "test-version")
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/settings/public", nil)
+	c.Request.Header.Set("X-Forwarded-For", "1.2.4.8")
+
+	h.GetPublicSettings(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var resp struct {
+		Code int `json:"code"`
+		Data struct {
+			Enabled    bool `json:"mainland_china_access_restriction_enabled"`
+			Restricted bool `json:"mainland_china_access_restricted"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.True(t, resp.Data.Enabled)
+	require.True(t, resp.Data.Restricted)
+}

@@ -487,6 +487,7 @@ export interface SystemSettings {
   backend_mode_enabled: boolean;
   custom_menu_items: CustomMenuItem[];
   custom_endpoints: CustomEndpoint[];
+  mainland_china_access_restriction_enabled: boolean;
   // SMTP settings
   smtp_host: string;
   smtp_port: number;
@@ -835,6 +836,7 @@ export interface UpdateSettingsRequest {
   backend_mode_enabled?: boolean;
   custom_menu_items?: CustomMenuItem[];
   custom_endpoints?: CustomEndpoint[];
+  mainland_china_access_restriction_enabled?: boolean;
   smtp_host?: string;
   smtp_port?: number;
   smtp_username?: string;

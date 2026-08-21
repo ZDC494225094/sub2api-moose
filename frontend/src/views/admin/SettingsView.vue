@@ -6655,6 +6655,21 @@
                 </div>
                 <Toggle v-model="form.hide_ccs_import_button" />
               </div>
+
+              <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
+                <div class="flex items-center justify-between gap-4">
+                  <div>
+                    <label class="font-medium text-gray-900 dark:text-white">
+                      {{ localText("中国大陆访问提示", "Mainland China access notice") }}
+                    </label>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      {{ localText("根据访问 IP 对中国大陆访客显示 HTTP 451 提示；仅影响网页界面，不拦截 API 或模型请求。", "Show an HTTP 451 notice to mainland China visitors by IP. This only affects the web interface, not API or model requests.") }}
+                    </p>
+                  </div>
+                  <Toggle v-model="form.mainland_china_access_restriction_enabled" />
+                </div>
+
+              </div>
             </div>
           </div>
 
@@ -9954,6 +9969,7 @@ const form = reactive<SettingsForm>({
     endpoint: string;
     description: string;
   }>,
+  mainland_china_access_restriction_enabled: false,
   frontend_url: "",
   smtp_host: "",
   smtp_port: 587,
@@ -11621,6 +11637,8 @@ async function saveSettings() {
       table_page_size_options: form.table_page_size_options,
       custom_menu_items: normalizedCustomMenuItems,
       custom_endpoints: form.custom_endpoints,
+      mainland_china_access_restriction_enabled:
+        form.mainland_china_access_restriction_enabled,
       frontend_url: form.frontend_url,
       smtp_host: form.smtp_host,
       smtp_port: form.smtp_port,

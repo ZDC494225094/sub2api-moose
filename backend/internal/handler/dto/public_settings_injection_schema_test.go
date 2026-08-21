@@ -33,6 +33,8 @@ func TestPublicSettingsInjectionPayload_SchemaDoesNotDrift(t *testing.T) {
 		"sora_client_enabled": "upstream-only field, not used on this fork",
 		// force_email_on_third_party_signup lives on the DTO but is not injected via SSR.
 		"force_email_on_third_party_signup": "auth-source default, not a feature flag",
+		// The result depends on the current request IP and is only returned by the XHR endpoint.
+		"mainland_china_access_restricted": "request-specific field, not SSR-injected",
 	}
 
 	var missing []string

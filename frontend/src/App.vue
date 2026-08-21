@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterView, useRouter, useRoute } from 'vue-router'
-import { onMounted, onBeforeUnmount, watch } from 'vue'
+import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import Toast from '@/components/common/Toast.vue'
 import NavigationProgress from '@/components/common/NavigationProgress.vue'
 import AdminComplianceDialog from '@/components/admin/AdminComplianceDialog.vue'
@@ -9,6 +9,10 @@ import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
 import { useAppStore, useAuthStore, useSubscriptionStore, useAnnouncementStore, useAdminComplianceStore, useAdminSettingsStore } from '@/stores'
 import { getSetupStatus } from '@/api/setup'
 import { updateFavicon } from '@/utils/branding'
+import {
+  MAINLAND_CHINA_ACCESS_RESTRICTED_PATH,
+  resolveMainlandChinaAccessRestrictionRedirect,
+} from '@/router/mainlandChinaAccessRestriction'
 
 const router = useRouter()
 const route = useRoute()
@@ -18,6 +22,32 @@ const subscriptionStore = useSubscriptionStore()
 const announcementStore = useAnnouncementStore()
 const adminComplianceStore = useAdminComplianceStore()
 const adminSettingsStore = useAdminSettingsStore()
+const mainlandChinaAccessDecisionResolved = ref(false)
+
+function redirectMainlandChinaAccessRestriction(): void {
+  const redirectPath = resolveMainlandChinaAccessRestrictionRedirect(
+    route.path,
+    appStore.cachedPublicSettings,
+    mainlandChinaAccessDecisionResolved.value,
+  )
+
+  if (redirectPath) {
+    router.replace(redirectPath).catch((error: unknown) => {
+      console.error('Failed to reconcile mainland China access restriction route:', error)
+    })
+  }
+}
+
+watch(
+  () => [
+    route.path,
+    appStore.cachedPublicSettings?.mainland_china_access_restriction_enabled,
+    appStore.cachedPublicSettings?.mainland_china_access_restricted,
+    mainlandChinaAccessDecisionResolved.value,
+  ],
+  redirectMainlandChinaAccessRestriction,
+  { immediate: true },
+)
 
 function updateDocumentTitle() {
   const customMenuItems = [
@@ -129,7 +159,10 @@ onMounted(async () => {
   }
 
   // Load public settings into appStore (will be cached for other components)
-  await appStore.fetchPublicSettings()
+  // SSR-injected settings deliberately omit the request-specific IP decision.
+  // Refresh once after mounting so this browser receives its own result.
+  const settings = await appStore.fetchPublicSettings(true)
+  mainlandChinaAccessDecisionResolved.value = settings !== null
 
   // Re-resolve document title now that site settings are available
   updateDocumentTitle()
@@ -137,9 +170,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <NavigationProgress />
+  <NavigationProgress v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
   <RouterView />
-  <Toast />
-  <AnnouncementPopup />
-  <AdminComplianceDialog />
+  <Toast v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
+  <AnnouncementPopup v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
+  <AdminComplianceDialog v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
 </template>

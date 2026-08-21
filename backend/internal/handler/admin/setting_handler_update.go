@@ -155,27 +155,28 @@ type UpdateSettingsRequest struct {
 	GoogleOAuthFrontendRedirectURL string `json:"google_oauth_frontend_redirect_url"`
 
 	// OEM设置
-	SiteName                    string                  `json:"site_name"`
-	SiteLogo                    string                  `json:"site_logo"`
-	SiteSubtitle                string                  `json:"site_subtitle"`
-	APIBaseURL                  string                  `json:"api_base_url"`
-	ContactInfo                 string                  `json:"contact_info"`
-	AfterSalesGroup             string                  `json:"after_sales_group"`
-	CustomerServiceLink         string                  `json:"customer_service_link"`
-	DocURL                      string                  `json:"doc_url"`
-	HomeContent                 string                  `json:"home_content"`
-	HomePricingCompareEnabled   *bool                   `json:"home_pricing_compare_enabled"`
-	HomeDocsEnabled             *bool                   `json:"home_docs_enabled"`
-	FooterContent               string                  `json:"footer_content"`
-	FooterFriendLinks           *[]dto.FooterFriendLink `json:"footer_friend_links"`
-	CompactHomeEnabled          bool                    `json:"compact_home_enabled"`
-	HideCcsImportButton         bool                    `json:"hide_ccs_import_button"`
-	PurchaseSubscriptionEnabled *bool                   `json:"purchase_subscription_enabled"`
-	PurchaseSubscriptionURL     *string                 `json:"purchase_subscription_url"`
-	TableDefaultPageSize        int                     `json:"table_default_page_size"`
-	TablePageSizeOptions        []int                   `json:"table_page_size_options"`
-	CustomMenuItems             *[]dto.CustomMenuItem   `json:"custom_menu_items"`
-	CustomEndpoints             *[]dto.CustomEndpoint   `json:"custom_endpoints"`
+	SiteName                              string                  `json:"site_name"`
+	SiteLogo                              string                  `json:"site_logo"`
+	SiteSubtitle                          string                  `json:"site_subtitle"`
+	APIBaseURL                            string                  `json:"api_base_url"`
+	ContactInfo                           string                  `json:"contact_info"`
+	AfterSalesGroup                       string                  `json:"after_sales_group"`
+	CustomerServiceLink                   string                  `json:"customer_service_link"`
+	DocURL                                string                  `json:"doc_url"`
+	HomeContent                           string                  `json:"home_content"`
+	HomePricingCompareEnabled             *bool                   `json:"home_pricing_compare_enabled"`
+	HomeDocsEnabled                       *bool                   `json:"home_docs_enabled"`
+	FooterContent                         string                  `json:"footer_content"`
+	FooterFriendLinks                     *[]dto.FooterFriendLink `json:"footer_friend_links"`
+	CompactHomeEnabled                    bool                    `json:"compact_home_enabled"`
+	HideCcsImportButton                   bool                    `json:"hide_ccs_import_button"`
+	PurchaseSubscriptionEnabled           *bool                   `json:"purchase_subscription_enabled"`
+	PurchaseSubscriptionURL               *string                 `json:"purchase_subscription_url"`
+	TableDefaultPageSize                  int                     `json:"table_default_page_size"`
+	TablePageSizeOptions                  []int                   `json:"table_page_size_options"`
+	CustomMenuItems                       *[]dto.CustomMenuItem   `json:"custom_menu_items"`
+	CustomEndpoints                       *[]dto.CustomEndpoint   `json:"custom_endpoints"`
+	MainlandChinaAccessRestrictionEnabled bool                    `json:"mainland_china_access_restriction_enabled"`
 
 	// 默认配置
 	DefaultConcurrency                        int                               `json:"default_concurrency"`
@@ -1722,6 +1723,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		TablePageSizeOptions:                   req.TablePageSizeOptions,
 		CustomMenuItems:                        customMenuJSON,
 		CustomEndpoints:                        customEndpointsJSON,
+		MainlandChinaAccessRestrictionEnabled:  req.MainlandChinaAccessRestrictionEnabled,
 		DefaultConcurrency:                     req.DefaultConcurrency,
 		DefaultBalance:                         req.DefaultBalance,
 		AffiliateRebateRate:                    affiliateRebateRate,
@@ -2358,6 +2360,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		TablePageSizeOptions:                                   updatedSettings.TablePageSizeOptions,
 		CustomMenuItems:                                        dto.ParseCustomMenuItems(updatedSettings.CustomMenuItems),
 		CustomEndpoints:                                        dto.ParseCustomEndpoints(updatedSettings.CustomEndpoints),
+		MainlandChinaAccessRestrictionEnabled:                  updatedSettings.MainlandChinaAccessRestrictionEnabled,
 		DefaultConcurrency:                                     updatedSettings.DefaultConcurrency,
 		DefaultBalance:                                         updatedSettings.DefaultBalance,
 		AffiliateRebateRate:                                    updatedSettings.AffiliateRebateRate,
