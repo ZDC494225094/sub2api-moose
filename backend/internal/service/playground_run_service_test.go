@@ -208,6 +208,8 @@ func TestPlaygroundRunServiceExecuteGrokAudioUsesTTSAndStoresAsset(t *testing.T)
 	if err != nil {
 		t.Fatalf("execute Grok audio: %v", err)
 	}
+	// GetAudio intentionally exposes assets only after the task has completed.
+	svc.update(key, func(run *PlaygroundRun) { run.Status = PlaygroundRunSucceeded })
 	if got := payload["text"]; got != "你好" {
 		t.Errorf("text = %#v", got)
 	}

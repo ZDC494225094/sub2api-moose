@@ -97,6 +97,32 @@ func (w *failWriteResponseWriter) WriteString(_ string) (int, error) {
 	return 0, errors.New("client disconnected")
 }
 
+type signalWriteResponseWriter struct {
+	gin.ResponseWriter
+	signal chan<- struct{}
+	match  []byte
+}
+
+func (w *signalWriteResponseWriter) Write(data []byte) (int, error) {
+	w.signalIfMatched(data)
+	return w.ResponseWriter.Write(data)
+}
+
+func (w *signalWriteResponseWriter) WriteString(data string) (int, error) {
+	w.signalIfMatched([]byte(data))
+	return w.ResponseWriter.WriteString(data)
+}
+
+func (w *signalWriteResponseWriter) signalIfMatched(data []byte) {
+	if !bytes.Contains(data, w.match) {
+		return
+	}
+	select {
+	case w.signal <- struct{}{}:
+	default:
+	}
+}
+
 func TestGatewayService_AnthropicAPIKeyPassthrough_ForwardStreamPreservesBodyAndAuthReplacement(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -769,6 +795,32 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_BuildRequestRejectsInvalidBas
 	require.Error(t, err)
 }
 
+func TestGatewayService_AnthropicAPIKeyPassthrough_StripsDeferredToolCacheControl(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	svc := &GatewayService{cfg: &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}}}
+	account := &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey}
+	body := []byte(`{"tools":[{"name":"deferred","custom":{"defer_loading":true},"cache_control":{"type":"ephemeral"}},{"name":"top-level-deferred","defer_loading":true,"cache_control":{"type":"ephemeral"}},{"name":"ordinary","defer_loading":false,"cache_control":{"type":"ephemeral"}},{"name":"malformed","defer_loading":"true","cache_control":{"type":"ephemeral"}}]}`)
+
+	_, wireBody, err := svc.buildUpstreamRequestAnthropicAPIKeyPassthrough(context.Background(), c, account, body, "k")
+	require.NoError(t, err)
+	require.False(t, gjson.GetBytes(wireBody, "tools.0.cache_control").Exists())
+	require.False(t, gjson.GetBytes(wireBody, "tools.1.cache_control").Exists())
+	require.True(t, gjson.GetBytes(wireBody, "tools.2.cache_control").Exists())
+	require.True(t, gjson.GetBytes(wireBody, "tools.3.cache_control").Exists())
+
+	countReq, err := svc.buildCountTokensRequestAnthropicAPIKeyPassthrough(context.Background(), c, account, body, "k")
+	require.NoError(t, err)
+	countBody, err := io.ReadAll(countReq.Body)
+	require.NoError(t, err)
+	require.False(t, gjson.GetBytes(countBody, "tools.0.cache_control").Exists())
+	require.False(t, gjson.GetBytes(countBody, "tools.1.cache_control").Exists())
+	require.True(t, gjson.GetBytes(countBody, "tools.2.cache_control").Exists())
+	require.True(t, gjson.GetBytes(countBody, "tools.3.cache_control").Exists())
+}
+
 func TestGatewayService_AnthropicOAuth_NotAffectedByAPIKeyPassthroughToggle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
@@ -1256,11 +1308,10 @@ func TestExtractAnthropicSSEDataLine(t *testing.T) {
 }
 
 func TestGatewayService_ParseSSEUsagePassthrough_MessageStartFallbacks(t *testing.T) {
-	svc := &GatewayService{}
 	usage := &ClaudeUsage{}
 	data := `{"type":"message_start","message":{"usage":{"input_tokens":12,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cached_tokens":9,"cache_creation":{"ephemeral_5m_input_tokens":3,"ephemeral_1h_input_tokens":4}}}}`
 
-	svc.parseSSEUsagePassthrough(data, usage)
+	parseSSEUsagePassthrough(data, usage)
 
 	require.Equal(t, 12, usage.InputTokens)
 	require.Equal(t, 9, usage.CacheReadInputTokens, "应兼容 cached_tokens 字段")
@@ -1270,7 +1321,6 @@ func TestGatewayService_ParseSSEUsagePassthrough_MessageStartFallbacks(t *testin
 }
 
 func TestGatewayService_ParseSSEUsagePassthrough_MessageDeltaSelectiveOverwrite(t *testing.T) {
-	svc := &GatewayService{}
 	usage := &ClaudeUsage{
 		InputTokens:           10,
 		CacheCreation5mTokens: 2,
@@ -1278,7 +1328,7 @@ func TestGatewayService_ParseSSEUsagePassthrough_MessageDeltaSelectiveOverwrite(
 	}
 	data := `{"type":"message_delta","usage":{"input_tokens":0,"output_tokens":5,"cache_creation_input_tokens":8,"cache_read_input_tokens":0,"cached_tokens":11,"cache_creation":{"ephemeral_5m_input_tokens":1,"ephemeral_1h_input_tokens":0}}}`
 
-	svc.parseSSEUsagePassthrough(data, usage)
+	parseSSEUsagePassthrough(data, usage)
 
 	require.Equal(t, 10, usage.InputTokens, "message_delta 中 0 值不应覆盖已有 input_tokens")
 	require.Equal(t, 5, usage.OutputTokens)
@@ -1289,28 +1339,26 @@ func TestGatewayService_ParseSSEUsagePassthrough_MessageDeltaSelectiveOverwrite(
 }
 
 func TestGatewayService_ParseSSEUsagePassthrough_NoopCases(t *testing.T) {
-	svc := &GatewayService{}
 
 	usage := &ClaudeUsage{InputTokens: 3}
-	svc.parseSSEUsagePassthrough("", usage)
+	parseSSEUsagePassthrough("", usage)
 	require.Equal(t, 3, usage.InputTokens)
 
-	svc.parseSSEUsagePassthrough("[DONE]", usage)
+	parseSSEUsagePassthrough("[DONE]", usage)
 	require.Equal(t, 3, usage.InputTokens)
 
-	svc.parseSSEUsagePassthrough("not-json", usage)
+	parseSSEUsagePassthrough("not-json", usage)
 	require.Equal(t, 3, usage.InputTokens)
 
 	// nil usage 不应 panic
-	svc.parseSSEUsagePassthrough(`{"type":"message_start"}`, nil)
+	parseSSEUsagePassthrough(`{"type":"message_start"}`, nil)
 }
 
 func TestGatewayService_ParseSSEUsagePassthrough_FallbackFromUsageNode(t *testing.T) {
-	svc := &GatewayService{}
 	usage := &ClaudeUsage{}
 	data := `{"type":"content_block_delta","usage":{"cached_tokens":6,"cache_creation":{"ephemeral_5m_input_tokens":2,"ephemeral_1h_input_tokens":1}}}`
 
-	svc.parseSSEUsagePassthrough(data, usage)
+	parseSSEUsagePassthrough(data, usage)
 
 	require.Equal(t, 6, usage.CacheReadInputTokens)
 	require.Equal(t, 3, usage.CacheCreationInputTokens)
@@ -1412,6 +1460,12 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_StreamingSendsKeepaliveDuring
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	pingSent := make(chan struct{}, 1)
+	c.Writer = &signalWriteResponseWriter{
+		ResponseWriter: c.Writer,
+		signal:         pingSent,
+		match:          []byte("event: ping"),
+	}
 
 	svc := &GatewayService{
 		cfg: &config.Config{
@@ -1430,27 +1484,36 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_StreamingSendsKeepaliveDuring
 		Body:       pr,
 	}
 
-	done := make(chan struct{})
+	type streamResultAndError struct {
+		result *streamingResult
+		err    error
+	}
+	done := make(chan streamResultAndError, 1)
 	go func() {
-		defer close(done)
-		time.Sleep(1200 * time.Millisecond)
-		_, _ = pw.Write([]byte(strings.Join([]string{
-			`data: {"type":"message_start","message":{"usage":{"input_tokens":3}}}`,
-			"",
-			`data: {"type":"message_delta","usage":{"output_tokens":2}}`,
-			"",
-			"data: [DONE]",
-			"",
-		}, "\n")))
-		_ = pw.Close()
+		result, err := svc.handleStreamingResponseAnthropicAPIKeyPassthrough(context.Background(), resp, c, &Account{ID: 8}, time.Now(), "claude-3-7-sonnet-20250219")
+		done <- streamResultAndError{result: result, err: err}
 	}()
 
-	result, err := svc.handleStreamingResponseAnthropicAPIKeyPassthrough(context.Background(), resp, c, &Account{ID: 8}, time.Now(), "claude-3-7-sonnet-20250219")
-	_ = pr.Close()
-	<-done
-
+	select {
+	case <-pingSent:
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for stream keepalive")
+	}
+	_, err := pw.Write([]byte(strings.Join([]string{
+		`data: {"type":"message_start","message":{"usage":{"input_tokens":3}}}`,
+		"",
+		`data: {"type":"message_delta","usage":{"output_tokens":2}}`,
+		"",
+		"data: [DONE]",
+		"",
+	}, "\n")))
 	require.NoError(t, err)
-	require.NotNil(t, result)
+	require.NoError(t, pw.Close())
+	streamResult := <-done
+	_ = pr.Close()
+
+	require.NoError(t, streamResult.err)
+	require.NotNil(t, streamResult.result)
 	require.Contains(t, rec.Body.String(), "event: ping\ndata: {\"type\": \"ping\"}\n\n")
 	require.Contains(t, rec.Body.String(), "data: [DONE]")
 }
