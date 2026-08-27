@@ -400,6 +400,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		InfiniteCanvasEnabled:     settings.InfiniteCanvasEnabled,
 		ModelPlazaHomeEnabled:     settings.ModelPlazaHomeEnabled,
 		InfiniteCanvasHomeEnabled: settings.InfiniteCanvasHomeEnabled,
+		PluginManagementEnabled:   settings.PluginManagementEnabled,
 
 		AffiliateEnabled: settings.AffiliateEnabled,
 

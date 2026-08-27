@@ -126,6 +126,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		InfiniteCanvasEnabled:     settings.InfiniteCanvasEnabled,
 		ModelPlazaHomeEnabled:     settings.ModelPlazaHomeEnabled,
 		InfiniteCanvasHomeEnabled: settings.InfiniteCanvasHomeEnabled,
+		PluginManagementEnabled:   settings.PluginManagementEnabled,
 
 		AffiliateEnabled: settings.AffiliateEnabled,
 

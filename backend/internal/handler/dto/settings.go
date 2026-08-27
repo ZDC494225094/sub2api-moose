@@ -339,6 +339,7 @@ type SystemSettings struct {
 	InfiniteCanvasEnabled     bool   `json:"infinite_canvas_enabled"`
 	ModelPlazaHomeEnabled     bool   `json:"model_plaza_home_enabled"`
 	InfiniteCanvasHomeEnabled bool   `json:"infinite_canvas_home_enabled"`
+	PluginManagementEnabled   bool   `json:"plugin_management_enabled"`
 
 	// 风控中心功能开关
 	RiskControlEnabled bool `json:"risk_control_enabled"`
@@ -452,6 +453,7 @@ type PublicSettings struct {
 	InfiniteCanvasEnabled     bool `json:"infinite_canvas_enabled"`
 	ModelPlazaHomeEnabled     bool `json:"model_plaza_home_enabled"`
 	InfiniteCanvasHomeEnabled bool `json:"infinite_canvas_home_enabled"`
+	PluginManagementEnabled   bool `json:"plugin_management_enabled"`
 
 	AffiliateEnabled bool `json:"affiliate_enabled"`
 

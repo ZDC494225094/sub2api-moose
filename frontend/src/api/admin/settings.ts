@@ -740,6 +740,7 @@ export interface SystemSettings {
   infinite_canvas_enabled: boolean;
   model_plaza_home_enabled: boolean;
   infinite_canvas_home_enabled: boolean;
+  plugin_management_enabled: boolean;
 
   // Affiliate (邀请返利) feature switch
   affiliate_enabled: boolean;
@@ -1051,6 +1052,7 @@ export interface UpdateSettingsRequest {
   infinite_canvas_enabled?: boolean;
   model_plaza_home_enabled?: boolean;
   infinite_canvas_home_enabled?: boolean;
+  plugin_management_enabled?: boolean;
 
   // Affiliate (邀请返利) feature switch
   affiliate_enabled?: boolean;

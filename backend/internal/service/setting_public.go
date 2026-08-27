@@ -246,6 +246,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyInfiniteCanvasEnabled,
 		SettingKeyModelPlazaHomeEnabled,
 		SettingKeyInfiniteCanvasHomeEnabled,
+		SettingKeyPluginManagementEnabled,
 		SettingKeyAffiliateEnabled,
 		SettingKeyRiskControlEnabled,
 		SettingKeyAllowUserViewErrorRequests,
@@ -384,6 +385,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		InfiniteCanvasEnabled:     !isFalseSettingValue(settings[SettingKeyInfiniteCanvasEnabled]),
 		ModelPlazaHomeEnabled:     settings[SettingKeyModelPlazaHomeEnabled] == "true",
 		InfiniteCanvasHomeEnabled: settings[SettingKeyInfiniteCanvasHomeEnabled] == "true",
+		PluginManagementEnabled:   settings[SettingKeyPluginManagementEnabled] == "true",
 
 		AffiliateEnabled: settings[SettingKeyAffiliateEnabled] == "true",
 
@@ -653,6 +655,7 @@ type PublicSettingsInjectionPayload struct {
 	InfiniteCanvasEnabled      bool `json:"infinite_canvas_enabled"`
 	ModelPlazaHomeEnabled      bool `json:"model_plaza_home_enabled"`
 	InfiniteCanvasHomeEnabled  bool `json:"infinite_canvas_home_enabled"`
+	PluginManagementEnabled    bool `json:"plugin_management_enabled"`
 	AffiliateEnabled           bool `json:"affiliate_enabled"`
 	RiskControlEnabled         bool `json:"risk_control_enabled"`
 	AllowUserViewErrorRequests bool `json:"allow_user_view_error_requests"`
@@ -744,6 +747,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		InfiniteCanvasEnabled:                settings.InfiniteCanvasEnabled,
 		ModelPlazaHomeEnabled:                settings.ModelPlazaHomeEnabled,
 		InfiniteCanvasHomeEnabled:            settings.InfiniteCanvasHomeEnabled,
+		PluginManagementEnabled:              settings.PluginManagementEnabled,
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		RiskControlEnabled:                   settings.RiskControlEnabled,
 		AllowUserViewErrorRequests:           settings.AllowUserViewErrorRequests,

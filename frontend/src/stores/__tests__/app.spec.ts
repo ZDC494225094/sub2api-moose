@@ -60,6 +60,7 @@ function createPublicSettings(overrides: Partial<PublicSettings> = {}): PublicSe
     infinite_canvas_enabled: true,
     model_plaza_home_enabled: false,
     infinite_canvas_home_enabled: false,
+    plugin_management_enabled: false,
     service_quota_enabled: false,
     affiliate_enabled: false,
     ...overrides,
