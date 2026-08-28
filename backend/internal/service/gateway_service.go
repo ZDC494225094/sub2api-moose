@@ -1563,7 +1563,6 @@ func explicitModelMappingClaims(account Account, model string) bool {
 	}
 	mapped, ok := stringMappingFromRaw(account.Credentials["model_mapping"])[model]
 	return ok && strings.TrimSpace(mapped) != ""
->>>>>>> origin/main
 }
 
 // GetSchedulablePlatforms returns the concrete platforms that currently have

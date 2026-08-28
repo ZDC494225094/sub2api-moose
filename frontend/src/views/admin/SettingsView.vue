@@ -7630,7 +7630,6 @@
                 </p>
               </div>
               <Toggle v-model="form.plugin_management_enabled" />
->>>>>>> origin/main
             </div>
           </div>
         </div>
