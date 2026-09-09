@@ -1,5 +1,8 @@
 // Local customizations preserved across the upstream locale module split.
 export default {
+  "dashboard": {
+    "createKey": "Create API Key"
+  },
   "playground": {
     "eyebrow": "Model Playground",
     "title": "Playground",
@@ -553,6 +556,7 @@ export default {
     "discountCoupon": "Coupon Discount",
     "buyAnother": "Buy another",
     "admin": {
+      "createdAt": "Created at",
       "chartLine": "Line Chart",
       "chartBar": "Orders Bar",
       "chartBarType": "Type Stacked",
@@ -575,7 +579,7 @@ export default {
     }
   },
   "userLottery": {
-    "description": "Use lottery chances or wallet balance to draw prizes from the 3x3 board until the pool is exhausted.",
+    "failedToLoad": "Failed to load lottery activity",
     "noActiveActivity": "There is no active lottery activity right now.",
     "drawBoard": "3x3 Lottery Board",
     "walletBalance": "Wallet Balance: {amount}",

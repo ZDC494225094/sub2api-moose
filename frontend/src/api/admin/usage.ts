@@ -123,6 +123,7 @@ export async function getStats(params: {
   model?: string
   request_type?: UsageRequestType
   stream?: boolean
+  native_compaction_v2?: boolean | null
   upstream_model_mismatch?: boolean
   billing_mode?: string | null
   canvas_managed?: boolean | null

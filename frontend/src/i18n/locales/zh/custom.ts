@@ -1,5 +1,8 @@
 // Local customizations preserved across the upstream locale module split.
 export default {
+  "dashboard": {
+    "createKey": "创建 API Key"
+  },
   "playground": {
     "eyebrow": "模型体验中心",
     "title": "体验中心",
@@ -553,6 +556,7 @@ export default {
     "discountCoupon": "优惠券抵扣",
     "buyAnother": "再买一份",
     "admin": {
+      "createdAt": "创建时间",
       "chartLine": "折线图",
       "chartBar": "订单柱状",
       "chartBarType": "类型堆叠",
@@ -575,7 +579,7 @@ export default {
     }
   },
   "userLottery": {
-    "description": "",
+    "failedToLoad": "加载抽奖活动失败",
     "noActiveActivity": "当前没有进行中的抽奖活动",
     "drawBoard": "九宫格抽奖",
     "walletBalance": "钱包余额：{amount}",

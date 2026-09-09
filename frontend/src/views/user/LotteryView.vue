@@ -5,7 +5,6 @@
       <div class="mb-5 flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ activity.name }}</h1>
-          <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ t('userLottery.description') }}</p>
         </div>
         <button
           type="button"

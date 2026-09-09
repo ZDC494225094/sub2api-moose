@@ -100,3 +100,24 @@ func TestAccountFromServiceShallow_NilCredentialsOmitsStatus(t *testing.T) {
 	require.Nil(t, got.Credentials)
 	require.Nil(t, got.CredentialsStatus)
 }
+
+func TestAccountListItem_PreservesCustomGroupingWithoutExpandingGroups(t *testing.T) {
+	source := &service.Account{
+		ID: 42, Name: "custom", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
+		UpstreamGroup: "provider-a", SortOrder: 19, GroupIDs: []int64{7},
+		Credentials: map[string]any{"api_key": "secret-key", "base_url": "https://example.com"},
+	}
+	item := AccountListItemFromAccount(AccountFromServiceShallow(source))
+	require.Equal(t, source.UpstreamGroup, item.UpstreamGroup)
+	require.Equal(t, source.SortOrder, item.SortOrder)
+	require.Equal(t, source.GroupIDs, item.GroupIDs)
+	raw, err := json.Marshal(item)
+	require.NoError(t, err)
+	var fields map[string]any
+	require.NoError(t, json.Unmarshal(raw, &fields))
+	require.Equal(t, "provider-a", fields["upstream_group"])
+	require.Equal(t, float64(19), fields["sort_order"])
+	require.NotContains(t, fields, "groups")
+	require.NotContains(t, fields, "account_groups")
+	require.NotContains(t, string(raw), "secret-key")
+}
