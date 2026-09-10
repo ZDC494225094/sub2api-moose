@@ -4,8 +4,8 @@
       <div v-if="introActive" ref="introBackdrop" class="globe-intro-backdrop" :class="{ 'is-dark': isDark }" aria-hidden="true"></div>
     </Teleport>
     <div class="network-grid" aria-hidden="true"></div>
-    <div class="network-caption"><span class="signal-dot"></span> ONE API. MORE POSSIBILITIES.</div>
     <div ref="globeStage" class="gateway-globe-stage">
+      <div class="network-caption"><span class="signal-dot"></span> ONE API. MORE POSSIBILITIES.</div>
       <div class="gateway-globe-aura" aria-hidden="true"></div>
       <canvas ref="globeCanvas" class="gateway-globe-canvas" :style="{ visibility: globeReady ? 'visible' : 'hidden', background: 'transparent' }" role="img" aria-label="可拖动旋转的点阵地球，光点沿全球航线流动"></canvas>
       <div ref="logoSources" hidden aria-hidden="true">

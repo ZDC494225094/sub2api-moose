@@ -208,6 +208,8 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
     canvas,
     alpha: true,
     antialias: true,
+    // Keep the completed transparent frame while CSS moves/scales the canvas.
+    preserveDrawingBuffer: true,
     powerPreference: 'high-performance',
   })
   renderer.setClearColor(0x000000, 0)
@@ -435,10 +437,12 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
   setTheme(dark)
 
   const maxSize = options.maxSize || 620
+  let renderedSize = 0
   const resize = () => {
     const rect = parent.getBoundingClientRect()
     const size = Math.floor(Math.min(rect.width || 0, rect.height || rect.width || 0, maxSize))
-    if (size < 8) return
+    if (size < 8 || size === renderedSize) return
+    renderedSize = size
 
     camera.aspect = 1
     camera.updateProjectionMatrix()
@@ -592,6 +596,17 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
 
     renderer.dispose()
     renderer.forceContextLoss?.()
+  }
+  try {
+    // Await actual shader preparation rather than exposing the canvas after an arbitrary RAF.
+    await renderer.compileAsync(scene, camera)
+    renderer.setClearColor(0x000000, 0)
+    renderer.clear(true, true, true)
+    render()
+    renderer.getContext().finish()
+  } catch (error) {
+    cleanup()
+    throw error
   }
   return Object.assign(cleanup, {
     setTheme: (isDark) => { if (!disposed) setTheme(isDark) },

@@ -234,9 +234,15 @@ onBeforeUnmount(() => {
 .support-home .support-direct-link:hover,
 .support-home .support-home-trigger:hover { transform: translateY(-2px); box-shadow: 0 8px 24px #315cf438; }
 .support-home :is(button, a):focus-visible { outline: 2px solid #81a3ff; outline-offset: 3px; }
-:global(.dark) .support-home section { background: linear-gradient(145deg, #18253b, #111c2f); box-shadow: 0 18px 60px #0005; }
-:global(.dark) .support-home section > .divide-y > div > span { background: #729bff12; border-color: #729bff20; color: #91b2ff; }
-:global(.dark) .support-home section button:hover { color: #91b2ff; background: #729bff12; }
+.dark .support-home {
+  --support-ink: #edf2ff;
+  --support-muted: #9ba9c0;
+  --line: #a2b9e520;
+  color-scheme: dark;
+}
+.dark .support-home section { background: linear-gradient(145deg, #18253b, #111c2f); box-shadow: 0 18px 60px #0005; }
+.dark .support-home section > .divide-y > div > span { background: #729bff12; border-color: #729bff20; color: #91b2ff; }
+.dark .support-home section button:hover { color: #91b2ff; background: #729bff12; }
 .support-direct-link { color: white; }
 .support-home-trigger { width: auto; padding: 0 20px; gap: 8px; font-size: 14px; }
 .support-panel-enter-active,
