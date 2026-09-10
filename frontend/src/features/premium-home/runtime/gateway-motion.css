@@ -1,0 +1,86 @@
+/* A large, quiet opening; tighter controls and generous section rhythm. */
+.premium-home { --max: 1280px; overflow-x: clip; }
+.premium-home .nav-actions { gap: 10px; }
+.premium-home .nav-actions .primary-btn { height: 40px; min-width: 120px; padding: 0 16px; font-size: 13px; font-weight: 600; }
+.premium-home .login-btn { font-size: 13px; font-weight: 550; }
+.premium-home .nav-links { font-size: 14px; }
+.premium-home .gateway-hero { padding-top: clamp(52px, 7vw, 100px); gap: 0 36px; }
+.premium-home .gateway-hero .hero-copy { animation: none; padding-bottom: 40px; }
+.premium-home .gateway-hero h1 { font-size: clamp(40px, 4.15vw, 60px); line-height: 1.3; font-weight: 700; letter-spacing: -.055em; }
+.premium-home .gateway-hero .hero-copy > p { font-size: 15px; line-height: 1.95; max-width: 425px; margin-top: 25px; }
+.premium-home .gateway-hero .eyebrow { font-size: 11px; letter-spacing: .05em; margin-bottom: 24px; }
+.premium-home .gateway-hero .hero-actions { margin-top: 32px; }
+.premium-home .gateway-hero .hero-btn { height: 46px; min-width: 132px; padding: 0 21px; font-size: 13px; gap: 16px; border-radius: 11px; }
+.premium-home .hero-notes { gap: 18px; margin-top: 22px; }
+.premium-home .provider-network { animation: none; }
+.premium-home .gateway-notice { margin-top: 38px; padding: 18px 0; }
+.premium-home .provider-band { padding: 42px 0; }
+.premium-home .provider-wordmark { font-size: 21px; }
+.premium-home .feature-strip { margin-bottom: 80px; border-radius: 18px; }
+.premium-home .feature-item { min-height: 106px; }
+.premium-home .feature-item strong { font-size: 14px; font-weight: 600; }
+.premium-home .feature-item span { font-size: 12px; line-height: 1.6; }
+.premium-home .section { margin-top: 80px; }
+.premium-home .section-head { margin-bottom: 28px; align-items: flex-end; }
+.premium-home .section-title { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; }
+.premium-home .section-title h2 { font-size: clamp(25px, 2.5vw, 32px); font-weight: 650; line-height: 1.25; }
+.premium-home .soft-badge { font-size: 13px; padding: 0; line-height: 1.7; }
+.premium-home .all-link { font-size: 12px; font-weight: 550; padding: 8px 0; }
+.premium-home .model-card { padding: 24px 20px; border-radius: 18px; }
+.premium-home .model-card h3 { font-size: 16px; font-weight: 650; line-height: 1.5; }
+.premium-home .model-card p { font-size: 12px; font-weight: 450; }
+.premium-home .support-card { position: relative; margin-top: 88px; padding: 40px; border-radius: 22px; background: radial-gradient(ellipse at 100% 0%, #7598ff1c, transparent 60%), var(--white); }
+.premium-home .support-card h2 { font-size: 25px; letter-spacing: -.03em; font-weight: 650; }
+.premium-home .support-card p { margin-top: 12px; font-size: 14px; line-height: 1.8; }
+.premium-home .enterprise-contact { height: 44px; min-width: 132px; padding: 0 19px; font-size: 13px; font-weight: 600; border-radius: 10px; }
+.premium-home .home-footer { margin-top: 80px; }
+.premium-home :is(.primary-btn, .secondary-btn, .plan-btn) { transition: transform .25s ease, box-shadow .25s ease, background .25s ease; }
+.premium-home :is(.primary-btn, .secondary-btn, .plan-btn):hover { transform: translateY(-3px); box-shadow: 0 9px 24px #315cf425; }
+.premium-home :is(.primary-btn, .secondary-btn, .plan-btn):active { transform: translateY(0) scale(.98); }
+.premium-home .hero-btn svg, .premium-home .hero-btn > span { transition: transform .25s ease; }
+.premium-home .hero-btn:hover svg, .premium-home .hero-btn:hover > span { transform: translateX(3px); }
+.premium-home :is(.model-card, .plan-card, .feature-item) { transition: border-color .3s, box-shadow .3s, background .3s; }
+.premium-home :is(.model-card, .plan-card):hover { border-color: #7598ff60; box-shadow: 0 14px 38px #315cf412; }
+.premium-home .feature-item:hover { background: #7598ff0a; }
+.premium-home .feature-item > svg { transition: transform .35s ease; }
+.premium-home .feature-item:hover > svg { transform: translateY(-4px) rotate(-6deg); }
+.premium-home:not(.motion-enabled) *, .premium-home:not(.motion-enabled) *::before, .premium-home:not(.motion-enabled) *::after { animation-play-state: paused !important; }
+
+@media screen {
+  .premium-home.motion-enabled .hero-copy > * { animation: home-copy-arrive .9s cubic-bezier(.22,1,.36,1) both; }
+  .premium-home.motion-enabled .hero-copy > :nth-child(1) { animation-delay: .35s; }
+  .premium-home.motion-enabled .hero-copy > :nth-child(2) { animation-delay: .48s; }
+  .premium-home.motion-enabled .hero-copy > :nth-child(3) { animation-delay: .62s; }
+  .premium-home.motion-enabled .hero-copy > :nth-child(4) { animation-delay: .76s; }
+  .premium-home.motion-enabled .hero-copy > :nth-child(5) { animation-delay: .9s; }
+  .premium-home.motion-enabled :is(.network-caption, .network-request, .network-footnote, .globe-motion-toggle) { animation: home-detail-arrive .8s 1.25s both; }
+  .premium-home.motion-enabled .gateway-notice { animation: home-copy-arrive .8s 1s both; }
+  .premium-home.motion-enabled .scroll-reveal { opacity: 0; translate: 0 28px; transition: opacity .8s ease var(--reveal-delay, 0ms), translate .8s cubic-bezier(.22,1,.36,1) var(--reveal-delay, 0ms), border-color .3s, box-shadow .3s; }
+  .premium-home.motion-enabled .scroll-reveal.is-revealed, .premium-home.motion-enabled .scroll-reveal:focus-within { opacity: 1; translate: 0 0; }
+}
+@keyframes home-copy-arrive { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes home-detail-arrive { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 1100px) {
+  .premium-home .gateway-hero { gap: 0 20px; }
+  .premium-home .feature-item { padding: 18px 13px; }
+  .premium-home .model-card { padding: 20px 16px; }
+}
+@media (max-width: 760px) {
+  .premium-home .gateway-hero { padding-top: 44px; }
+  .premium-home .gateway-hero h1 { font-size: clamp(35px, 7.7vw, 48px); }
+  .premium-home .gateway-hero .hero-copy { padding-bottom: 0; }
+  .premium-home .gateway-hero .hero-copy > p { font-size: 14px; max-width: 360px; margin-top: 20px; }
+  .premium-home .gateway-hero .hero-actions { margin-top: 25px; }
+  .premium-home .hero-notes { gap: 12px; font-size: 10px; }
+  .premium-home .gateway-notice { margin-top: 16px; }
+  .premium-home .provider-band { padding: 30px 0; }
+  .premium-home .provider-wordmark { font-size: 13px; }
+  .premium-home .feature-strip { margin-bottom: 52px; }
+  .premium-home .feature-item { min-height: 90px; padding: 17px; }
+  .premium-home .section { margin-top: 52px; }
+  .premium-home .section-head { margin-bottom: 22px; }
+  .premium-home .support-card { padding: 26px 24px; margin-top: 56px; gap: 24px; }
+  .premium-home .support-card h2 { font-size: 22px; }
+  .premium-home .support-card p { font-size: 13px; }
+  .premium-home .home-footer { margin-top: 52px; }
+}

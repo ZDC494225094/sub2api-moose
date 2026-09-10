@@ -349,12 +349,17 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
   group.scale.setScalar(1)
   scene.add(group)
 
+  const introStartedAt = performance.now()
+  const introEnabled = (options.animate ?? !window.matchMedia('(prefers-reduced-motion: reduce)').matches) && window.scrollY < 100
+
   const globeShell = new THREE.Mesh(
     new THREE.SphereGeometry(2, 64, 64),
     new THREE.ShaderMaterial({
+      transparent: true,
       uniforms: {
         centerColor: { value: new THREE.Color('#fdfdfe') },
         edgeColor: { value: new THREE.Color('#eaebed') },
+        emergence: { value: introEnabled ? 0 : 1 },
       },
       vertexShader: `
         varying vec3 vNormal;
@@ -370,6 +375,7 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
       fragmentShader: `
         uniform vec3 centerColor;
         uniform vec3 edgeColor;
+        uniform float emergence;
         varying vec3 vNormal;
         varying vec3 vViewPosition;
 
@@ -377,12 +383,13 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
           float facing = max(dot(normalize(vNormal), normalize(vViewPosition)), 0.0);
           float centerWeight = smoothstep(0.1, 1.0, pow(facing, 0.72));
           vec3 color = mix(edgeColor, centerColor, centerWeight);
-          gl_FragColor = vec4(color, 1.0);
+          gl_FragColor = vec4(color, emergence);
           #include <colorspace_fragment>
         }
       `,
     }),
   )
+  globeShell.renderOrder = -1
   group.add(globeShell)
 
   // Render immediately; a slow texture request must never leave a blank globe.
@@ -423,7 +430,11 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
   pulseState.push({ mesh: hubRingA, phase: 0, baseScale: 1 })
   pulseState.push({ mesh: hubRingB, phase: 0.45, baseScale: 0.82 })
 
-  const render = () => renderer.render(scene, camera)
+  const render = () => {
+    const progress = introEnabled ? Math.min(1, Math.max(0, (performance.now() - introStartedAt - 300) / 1500)) : 1
+    globeShell.material.uniforms.emergence.value = progress * progress * (3 - 2 * progress)
+    renderer.render(scene, camera)
+  }
   let disposed = false
   let dark = Boolean(options.isDark)
   const decals = new Map()

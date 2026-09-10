@@ -1,5 +1,5 @@
 <template>
-  <div class="premium-home">
+  <div ref="homeRoot" class="premium-home" :class="{ 'motion-enabled': pageMotion }">
     <header class="topbar">
       <nav class="shell nav" aria-label="主导航">
         <RouterLink class="brand" to="/">
@@ -159,7 +159,7 @@
           <div class="hero-notes"><span><Icon name="terminal" size="sm" /> 统一 API 接入</span><span><Icon name="chart" size="sm" /> 清晰用量管理</span><span><Icon name="shield" size="sm" /> 灵活额度策略</span></div>
         </div>
 
-        <ProviderNetwork :is-dark="isDark" :site-logo="siteLogo" />
+        <ProviderNetwork :is-dark="isDark" :site-logo="siteLogo" @motion-change="pageMotion = $event" />
 
         <aside class="gateway-notice" aria-label="公告">
           <span class="gateway-notice-label"><Icon name="bell" size="sm" /> 平台动态</span>
@@ -471,6 +471,12 @@ import ModelPlazaContent from '@/components/modelPlaza/ModelPlazaContent.vue'
 import { getModelPlaza, type ModelPlazaResponse } from '@/api/modelPlaza'
 import './premium-home.css'
 import './gateway-home.css'
+import './gateway-motion.css'
+import { useHomeMotion } from './useHomeMotion'
+
+const homeRoot = ref<HTMLElement | null>(null)
+const pageMotion = ref(true)
+useHomeMotion(homeRoot)
 
 type IconName = InstanceType<typeof Icon>['$props']['name']
 type ThemeMode = 'light' | 'dark' | 'system'
@@ -800,7 +806,17 @@ function shouldAutoOpenNotice(source: UserAnnouncement[]) {
   return source.length > 0 && !isNoticeDismissedToday()
 }
 
+let autoNoticeTimer: ReturnType<typeof setTimeout> | undefined
+let entranceStartedAt = 0
+let homeUnmounted = false
+function scheduleAutoNotice() {
+  if (homeUnmounted) return
+  // Keep the existing announcement, but let the globe introduction finish first.
+  autoNoticeTimer = setTimeout(openNoticePanel, Math.max(0, 2600 - (performance.now() - entranceStartedAt)))
+}
+
 function openNoticePanel() {
+  clearTimeout(autoNoticeTimer)
   noticePanelOpen.value = true
 }
 
@@ -810,6 +826,7 @@ function openNoticePanelFromMenu() {
 }
 
 function closeNoticePanel(dismissToday = false) {
+  clearTimeout(autoNoticeTimer)
   if (dismissToday) {
     localStorage.setItem(NOTICE_DISMISS_KEY, todayDismissKey())
   }
@@ -946,6 +963,7 @@ watch(visiblePlanTabs, (tabs) => {
 }, { immediate: true })
 
 onMounted(async () => {
+  entranceStartedAt = performance.now()
   window.addEventListener('keydown', onKeydown)
   window.addEventListener('hashchange', syncActiveSectionFromHash)
   document.addEventListener('click', onDocumentClick)
@@ -970,12 +988,12 @@ onMounted(async () => {
     initializeVirtualPurchaseCounts(publicPlans)
     announcements.value = publicAnnouncements
     if (shouldAutoOpenNotice(publicAnnouncements)) {
-      openNoticePanel()
+      scheduleAutoNotice()
     }
   } catch (error) {
     console.warn('Premium home public data fallback:', error)
     if (shouldAutoOpenNotice(fallbackAnnouncements)) {
-      openNoticePanel()
+      scheduleAutoNotice()
     }
   } finally {
     plansLoading.value = false
@@ -983,6 +1001,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  homeUnmounted = true
+  clearTimeout(autoNoticeTimer)
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('hashchange', syncActiveSectionFromHash)
   document.removeEventListener('click', onDocumentClick)

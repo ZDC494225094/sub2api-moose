@@ -173,5 +173,5 @@
   .premium-home .provider-wordmark svg { width: 18px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .premium-home *, .premium-home *::before, .premium-home *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .premium-home:not(.motion-enabled) *, .premium-home:not(.motion-enabled) *::before, .premium-home:not(.motion-enabled) *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
