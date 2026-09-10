@@ -1,5 +1,5 @@
 <template>
-  <div ref="homeRoot" class="premium-home" :class="{ 'motion-enabled': pageMotion }">
+  <div ref="homeRoot" class="premium-home motion-enabled">
     <header class="topbar">
       <nav class="shell nav" aria-label="主导航">
         <RouterLink class="brand" to="/">
@@ -159,7 +159,7 @@
           <div class="hero-notes"><span><Icon name="terminal" size="sm" /> 统一 API 接入</span><span><Icon name="chart" size="sm" /> 清晰用量管理</span><span><Icon name="shield" size="sm" /> 灵活额度策略</span></div>
         </div>
 
-        <ProviderNetwork :is-dark="isDark" :site-logo="siteLogo" @motion-change="pageMotion = $event" />
+        <ProviderNetwork :is-dark="isDark" :site-logo="siteLogo" />
 
         <aside class="gateway-notice" aria-label="公告">
           <span class="gateway-notice-label"><Icon name="bell" size="sm" /> 平台动态</span>
@@ -450,7 +450,7 @@
       </footer>
     </main>
 
-    <CustomerServiceFloat ref="customerServiceFloat" always-visible direct-link />
+    <CustomerServiceFloat ref="customerServiceFloat" always-visible />
   </div>
 </template>
 
@@ -475,7 +475,6 @@ import './gateway-motion.css'
 import { useHomeMotion } from './useHomeMotion'
 
 const homeRoot = ref<HTMLElement | null>(null)
-const pageMotion = ref(true)
 useHomeMotion(homeRoot)
 
 type IconName = InstanceType<typeof Icon>['$props']['name']

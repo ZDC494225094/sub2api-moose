@@ -90,11 +90,14 @@ describe('CustomerServiceFloat', () => {
     expect(wrapper.find('a').exists()).toBe(false)
   })
 
-  it('opens the configured contact URL directly on the homepage', () => {
-    appStore.cachedPublicSettings = { customer_service_link: 'https://support.example.com/contact' }
-    const wrapper = mount(CustomerServiceFloat, { props: { alwaysVisible: true, directLink: true } })
+  it('shows contact details before offering the configured link on the homepage', async () => {
+    appStore.cachedPublicSettings = { contact_info: 'QQ: 123456', customer_service_link: 'https://support.example.com/contact' }
+    const wrapper = mount(CustomerServiceFloat, { props: { alwaysVisible: true } })
+    expect(wrapper.find('a').exists()).toBe(false)
+    await wrapper.get('button[aria-controls="customer-service-panel"]').trigger('click')
+    expect(wrapper.text()).toContain('QQ: 123456')
     const link = wrapper.get('a.support-direct-link')
-    expect(link.text()).toContain('联系我们')
+    expect(link.text()).toContain('立即联系')
     expect(link.attributes('href')).toBe('https://support.example.com/contact')
     expect(link.attributes('rel')).toBe('noopener noreferrer')
   })

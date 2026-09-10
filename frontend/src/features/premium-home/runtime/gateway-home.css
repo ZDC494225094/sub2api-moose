@@ -61,7 +61,6 @@
 .premium-home .network-footnote span { padding: 0 12px; color: #93a5c7; }
 .premium-home .gateway-globe-stage { position: absolute; width: 78%; aspect-ratio: 1; left: 50%; top: 47%; transform: translate(-50%, -50%); }
 .premium-home .gateway-globe-canvas { position: relative; display: block; width: 100%; height: 100%; z-index: 1; }
-.premium-home .globe-motion-toggle { position: absolute; right: 5%; bottom: -4%; display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 50%; background: var(--white); color: var(--muted); cursor: pointer; }
 .premium-home .gateway-globe-aura { position: absolute; inset: 15%; border-radius: 50%; background: radial-gradient(circle, #7caaff0d 55%, #78a9ff26 70%, transparent 73%); box-shadow: 0 0 65px #73a4ef20; animation: globe-breathe 7s ease-in-out infinite; }
 .premium-home .globe-network .network-provider { z-index: 2; pointer-events: none; }
 .premium-home .globe-network .network-request { z-index: 2; bottom: 5%; pointer-events: none; }

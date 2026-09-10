@@ -440,12 +440,17 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
   const decals = new Map()
   let siteLogoRevision = 0
 
-  const loadLogoTexture = async (url) => {
+  const loadLogoTexture = async (url, circular = false) => {
     const image = await new THREE.ImageLoader().loadAsync(url)
     const source = document.createElement('canvas')
     source.width = source.height = 256
     const context = source.getContext('2d')
     if (!context) throw new Error('Logo texture canvas is unavailable')
+    if (circular) {
+      context.beginPath()
+      context.arc(128, 128, 120, 0, Math.PI * 2)
+      context.clip()
+    }
     const scale = 240 / Math.max(image.width, image.height)
     const width = image.width * scale, height = image.height * scale
     context.drawImage(image, (256 - width) / 2, (256 - height) / 2, width, height)
@@ -521,10 +526,10 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
     if (disposed) return
     const revision = ++siteLogoRevision
     const source = url || '/logo.svg'
-    void loadLogoTexture(source).catch((error) => {
+    void loadLogoTexture(source, true).catch((error) => {
       if (source === '/logo.svg') throw error
       console.warn('Globe site logo fallback:', error)
-      return loadLogoTexture('/logo.svg')
+      return loadLogoTexture('/logo.svg', true)
     }).then((texture) => {
       if (disposed || revision !== siteLogoRevision) { texture.dispose(); return }
       installDecal('site', globeHub, texture)

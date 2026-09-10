@@ -2,6 +2,7 @@
   <div
     v-if="hasDetails || alwaysVisible"
     ref="containerRef"
+    :class="{ 'support-home': alwaysVisible }"
     class="fixed bottom-4 right-4 z-40 flex flex-col items-end sm:bottom-6 sm:right-6"
     @keydown.esc.stop="closePanel"
   >
@@ -179,6 +180,63 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.support-home {
+  --support-ink: var(--ink, #172033);
+  --support-muted: var(--muted, #657185);
+  font-family: inherit;
+}
+.support-home section {
+  width: min(calc(100vw - 2rem), 350px);
+  border: 1px solid var(--line, #dfe5ef);
+  border-radius: 20px;
+  background: linear-gradient(145deg, #fff, #f5f8ff);
+  box-shadow: 0 18px 60px #1c355d20, 0 3px 12px #1c355d08;
+  color: var(--support-ink);
+}
+.support-home section header { padding: 21px 20px 17px; border-color: var(--line, #dfe5ef); }
+.support-home section header h2 { color: var(--support-ink); font-size: 16px; font-weight: 650; letter-spacing: -.025em; }
+.support-home section header p { color: var(--support-muted); font-size: 12px; line-height: 1.75; margin-top: 5px; }
+.support-home section > .divide-y { padding: 0 20px; }
+.support-home section > .divide-y > div { padding: 17px 0; border-color: var(--line, #dfe5ef); gap: 12px; }
+.support-home section > .divide-y > div > span {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #315cf414;
+  border-radius: 12px;
+  color: #416cef;
+  background: #315cf409;
+}
+.support-home section .min-w-0.flex-1 > p:first-child { color: var(--support-muted); font-size: 11px; }
+.support-home section .min-w-0.flex-1 > p:last-child {
+  color: var(--support-ink);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 1.7;
+  font-variant-numeric: tabular-nums;
+}
+.support-home section > div:last-child:not(.divide-y) { padding: 14px 20px 20px; border-color: var(--line, #dfe5ef); }
+.support-home section button { border-radius: 9px; color: var(--support-muted); }
+.support-home section button:hover { color: #416cef; background: #315cf40c; }
+.support-home .support-direct-link,
+.support-home .support-home-trigger {
+  background: linear-gradient(135deg, #396bff, #3154df);
+  border: 1px solid #ffffff24;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 5px 16px #315cf427, inset 0 1px 0 #ffffff26;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.support-home .support-home-trigger { height: 46px; border-radius: 14px; padding: 0 18px; }
+.support-home .support-home-trigger > svg { width: 19px; height: 19px; }
+.support-home section .support-direct-link { min-height: 44px; border-radius: 11px; }
+.support-home .support-direct-link:hover,
+.support-home .support-home-trigger:hover { transform: translateY(-2px); box-shadow: 0 8px 24px #315cf438; }
+.support-home :is(button, a):focus-visible { outline: 2px solid #81a3ff; outline-offset: 3px; }
+:global(.dark) .support-home section { background: linear-gradient(145deg, #18253b, #111c2f); box-shadow: 0 18px 60px #0005; }
+:global(.dark) .support-home section > .divide-y > div > span { background: #729bff12; border-color: #729bff20; color: #91b2ff; }
+:global(.dark) .support-home section button:hover { color: #91b2ff; background: #729bff12; }
 .support-direct-link { color: white; }
 .support-home-trigger { width: auto; padding: 0 20px; gap: 8px; font-size: 14px; }
 .support-panel-enter-active,

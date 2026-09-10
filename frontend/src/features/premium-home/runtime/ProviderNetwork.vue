@@ -14,9 +14,6 @@
     </div>
     <div class="network-request" aria-hidden="true"><span class="request-method">POST</span><code>/v1/chat/completions</code><span class="request-spark">↗</span></div>
     <div class="network-footnote">UNIFIED ACCESS <span>·</span> BUILT FOR CREATORS</div>
-    <button class="globe-motion-toggle" type="button" :aria-label="animating ? '暂停页面动画' : '播放页面动画'" :title="animating ? '暂停页面动画' : '播放页面动画'" @click="animating = !animating">
-      <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true"><path v-if="animating" d="M4 3h3v10H4zm5 0h3v10H9z" /><path v-else d="M4 2.5 13 8l-9 5.5z" /></svg>
-    </button>
   </div>
 </template>
 
@@ -26,23 +23,16 @@ import ModelIcon from '@/components/common/ModelIcon.vue'
 import { mountPremiumHomeGlobe, globeProviderMarkers, type PremiumHomeGlobeController } from './premium-home-globe'
 
 const props = defineProps<{ isDark: boolean; siteLogo?: string }>()
-const emit = defineEmits<{ 'motion-change': [enabled: boolean] }>()
 const globeCanvas = ref<HTMLCanvasElement | null>(null)
 const globeStage = ref<HTMLDivElement | null>(null)
 const logoSources = ref<HTMLDivElement | null>(null)
 const globeFailed = ref(false)
-const animating = ref(true)
 let controller: PremiumHomeGlobeController | undefined
 let unmounted = false
 let entrance: Animation | undefined
 
 watch(() => props.isDark, (dark) => controller?.setTheme(dark))
 watch(() => props.siteLogo, (logo) => controller?.setSiteLogo(logo || '/logo.svg'))
-watch(animating, (enabled) => {
-  controller?.setAnimating(enabled)
-  if (!enabled) entrance?.finish()
-  emit('motion-change', enabled)
-})
 onMounted(async () => {
   const providerLogos: Record<string, string> = {}
   logoSources.value?.querySelectorAll<HTMLElement>('[data-logo-source]').forEach((element) => {
@@ -53,14 +43,14 @@ onMounted(async () => {
     providerLogos[element.dataset.logoSource!] = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`
   })
   try {
-    const mounted = await mountPremiumHomeGlobe(globeCanvas.value, { maxSize: 760, maxPixelRatio: 1.75, isDark: props.isDark, animate: animating.value, providerLogos })
+    const mounted = await mountPremiumHomeGlobe(globeCanvas.value, { maxSize: 760, maxPixelRatio: 1.75, isDark: props.isDark, animate: true, providerLogos })
     if (unmounted) { mounted(); return }
     controller = mounted
     controller.setTheme(props.isDark)
-    controller.setAnimating(animating.value)
+    controller.setAnimating(true)
     controller.setSiteLogo(props.siteLogo || '/logo.svg')
     const stage = globeStage.value
-    if (stage && animating.value && window.scrollY < 100) {
+    if (stage && window.scrollY < 100) {
       const rect = stage.getBoundingClientRect()
       const compact = window.innerWidth <= 760
       const offset = compact ? 0 : (window.innerWidth / 2 - rect.left - rect.width / 2) * 0.55
