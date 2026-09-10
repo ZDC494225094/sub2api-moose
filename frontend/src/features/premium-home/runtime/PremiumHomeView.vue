@@ -141,54 +141,42 @@
     </header>
 
     <main id="top" class="shell">
-      <section class="hero">
+      <section class="gateway-hero" aria-labelledby="gateway-title">
         <div class="hero-copy">
           <div class="eyebrow">
-            <Icon name="badge" size="sm" />
-            一站式 AI API 中转服务平台
+            <span class="signal-dot" aria-hidden="true"></span>
+            为下一次创造，连接 AI
+            <span class="eyebrow-index">AI INFRASTRUCTURE</span>
           </div>
-          <h1>连接全球顶尖 AI<br />赋能<span>无限可能</span></h1>
+          <h1 id="gateway-title">让顶尖 AI，<br />成为你的<span>创造力。</span></h1>
           <p>{{ siteSubtitle }}</p>
           <div class="hero-actions">
             <RouterLink class="primary-btn hero-btn" :to="isAuthenticated ? dashboardPath : '/register'">
-              立即开始
+              {{ isAuthenticated ? '进入控制台' : '开始构建' }} <Icon name="arrowRight" size="sm" />
             </RouterLink>
-            <a v-if="homePricingCompareEnabled" class="secondary-btn hero-btn" href="#pricing" @click="setActiveHomeSection('pricing')">套餐定价</a>
+            <a class="secondary-btn hero-btn" href="#plans" @click="setActiveHomeSection('plans')">探索套餐 <span aria-hidden="true">↗</span></a>
           </div>
+          <div class="hero-notes"><span><Icon name="terminal" size="sm" /> 统一 API 接入</span><span><Icon name="chart" size="sm" /> 清晰用量管理</span><span><Icon name="shield" size="sm" /> 灵活额度策略</span></div>
         </div>
 
-        <div class="hero-visual" aria-hidden="true">
-          <div class="hero-orbit">
-            <canvas ref="globeCanvas" class="globe-canvas"></canvas>
-          </div>
-        </div>
+        <ProviderNetwork :is-dark="isDark" :site-logo="siteLogo" />
 
-        <aside class="notice-card notice-card--side" aria-label="公告">
-          <div class="notice-head">
-            <div class="notice-title">
-              <Icon name="menu" size="sm" />
-              公告
-            </div>
-          </div>
-          <div class="notice-list">
+        <aside class="gateway-notice" aria-label="公告">
+          <span class="gateway-notice-label"><Icon name="bell" size="sm" /> 平台动态</span>
+          <div class="gateway-notice-items">
             <button
               v-for="notice in sideAnnouncements"
               :key="notice.id"
-              class="notice-item"
+              class="gateway-notice-item"
               type="button"
               @click="openAnnouncement(notice)"
             >
-              <div class="notice-date">
-                {{ formatDate(notice.created_at || notice.starts_at) }}
-                <span v-if="isNewNotice(notice.created_at)" class="new-tag">NEW</span>
-              </div>
-              <h3>{{ notice.title }}</h3>
-              <p>{{ announcementExcerpt(notice.content) }}</p>
+              <span v-if="isNewNotice(notice.created_at)" class="new-tag">NEW</span>
+              <span class="gateway-notice-text">{{ notice.title }}</span>
+              <time>{{ formatDate(notice.created_at || notice.starts_at) }}</time>
             </button>
           </div>
-          <div class="notice-footer">
-            <button class="notice-footer-btn notice-all-btn" type="button" @click="openNoticePanel">查看全部公告</button>
-          </div>
+          <button class="gateway-notice-all" type="button" @click="openNoticePanel">全部公告 <span aria-hidden="true">↗</span></button>
         </aside>
 
         <AnnouncementPanel
@@ -198,6 +186,11 @@
           @close="closeNoticePanel()"
           @dismiss-today="closeNoticePanel(true)"
         />
+      </section>
+
+      <section class="provider-band" aria-label="AI 模型生态">
+        <div class="provider-band-label">一个平台，多种可能<span>THE MODELS YOU LOVE. ONE API.</span></div>
+        <div v-for="provider in providerBrands" :key="provider.name" class="provider-wordmark"><ModelIcon :model="provider.model" size="27px" /><span>{{ provider.name }}</span></div>
       </section>
 
       <section id="capabilities" class="feature-strip" aria-label="平台优势">
@@ -382,7 +375,7 @@
         </div>
         <div class="models-grid">
           <article v-for="model in models" :key="model.name" class="model-card">
-            <img class="vendor-logo" :src="model.vendor === 'Google' ? googleLogo : model.logo" :alt="`${model.vendor} logo`" />
+            <span class="vendor-logo gateway-model-symbol"><ModelIcon :model="model.name" size="30px" /></span>
             <div>
               <h3>{{ model.name }}</h3>
               <p>{{ model.vendor }}</p>
@@ -397,7 +390,8 @@
           <h2>需要企业级接入方案？</h2>
           <p>支持额度策略、模型路由、私有化部署和多账号稳定调度。</p>
         </div>
-        <RouterLink class="primary-btn" :to="isAuthenticated ? dashboardPath : '/login'">联系控制台</RouterLink>
+        <a v-if="customerServiceLink" class="primary-btn enterprise-contact" :href="customerServiceLink" target="_blank" rel="noopener noreferrer">联系我们 <Icon name="externalLink" size="sm" /></a>
+        <button v-else class="primary-btn enterprise-contact" type="button" @click="customerServiceFloat?.openPanel()">联系我们 <Icon name="chat" size="sm" /></button>
       </section>
 
       <footer class="home-footer" aria-label="首页页脚">
@@ -456,7 +450,7 @@
       </footer>
     </main>
 
-    <CustomerServiceFloat />
+    <CustomerServiceFloat ref="customerServiceFloat" always-visible direct-link />
   </div>
 </template>
 
@@ -465,16 +459,18 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAppStore, useAuthStore } from '@/stores'
 import CustomerServiceFloat from '@/components/common/CustomerServiceFloat.vue'
+import { sanitizeUrl } from '@/utils/url'
 import Icon from '@/components/icons/Icon.vue'
 import AnnouncementPanel from './AnnouncementPanel.vue'
 import type { SubscriptionPlan } from '@/types/payment'
 import type { UserAnnouncement } from '@/types'
 import { getPublicAnnouncements, getPublicPlans } from './api'
-import { mountPremiumHomeGlobe } from './premium-home-globe'
+import ProviderNetwork from './ProviderNetwork.vue'
+import ModelIcon from '@/components/common/ModelIcon.vue'
 import ModelPlazaContent from '@/components/modelPlaza/ModelPlazaContent.vue'
 import { getModelPlaza, type ModelPlazaResponse } from '@/api/modelPlaza'
-import googleLogo from './assets/google-logo.png'
 import './premium-home.css'
+import './gateway-home.css'
 
 type IconName = InstanceType<typeof Icon>['$props']['name']
 type ThemeMode = 'light' | 'dark' | 'system'
@@ -501,7 +497,6 @@ const fallbackAnnouncements: UserAnnouncement[] = [
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const router = useRouter()
-const globeCanvas = ref<HTMLCanvasElement | null>(null)
 const menuOpen = ref(false)
 const noticePanelOpen = ref(false)
 const themeMenuOpen = ref(false)
@@ -523,7 +518,6 @@ const virtualPurchaseCounts = ref<Record<number, number>>({})
 type HomeSection = 'top' | 'pricing' | 'plans' | 'model-plaza'
 const activeHomeSection = ref<HomeSection>('top')
 let systemThemeQuery: MediaQueryList | null = null
-let globeCleanup: (() => void) | null = null
 
 const NOTICE_DISMISS_KEY = 'premium-home-notice-dismiss-date'
 
@@ -550,6 +544,8 @@ const infiniteCanvasHomeEnabled = computed(() =>
   appStore.cachedPublicSettings?.infinite_canvas_home_enabled === true
 )
 const contactInfo = computed(() => appStore.cachedPublicSettings?.contact_info || appStore.contactInfo || '')
+const customerServiceLink = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.customer_service_link || ''))
+const customerServiceFloat = ref<InstanceType<typeof CustomerServiceFloat> | null>(null)
 const footerContent = computed(() => appStore.cachedPublicSettings?.footer_content?.trim() || siteSubtitle.value)
 const footerFriendLinks = computed(() => {
   const links = appStore.cachedPublicSettings?.footer_friend_links || []
@@ -575,7 +571,7 @@ const userInitials = computed(() => {
 })
 const displayPlans = computed(() => plans.value)
 const visibleAnnouncements = computed(() => (announcements.value.length > 0 ? announcements.value : fallbackAnnouncements))
-const sideAnnouncements = computed(() => visibleAnnouncements.value.slice(0, 3))
+const sideAnnouncements = computed(() => visibleAnnouncements.value.slice(0, 2))
 const isDark = computed(() => themeMode.value === 'dark' || (themeMode.value === 'system' && systemDark.value))
 const themeIcon = computed<IconName>(() => {
   if (themeMode.value === 'system') return 'cpu'
@@ -616,11 +612,18 @@ const premiumBurstPlanId = computed(() => {
 })
 
 const features: Array<{ title: string; desc: string; icon: IconName }> = [
-  { title: '稳定可靠', desc: '99.9% 可用性保障', icon: 'shield' },
-  { title: '极速响应', desc: '毫秒级 API 响应', icon: 'bolt' },
-  { title: '安全隐私', desc: '数据加密 · 隐私保护', icon: 'lock' },
-  { title: '丰富模型', desc: '接入 20+ 顶尖大模型', icon: 'cube' },
-  { title: '优质服务', desc: '7x24 小时技术支持', icon: 'users' },
+  { title: '统一接入', desc: '简化多模型 API 调用', icon: 'terminal' },
+  { title: '智能调度', desc: '多账号池 · 灵活路由', icon: 'bolt' },
+  { title: '密钥管理', desc: '独立密钥 · 访问控制', icon: 'lock' },
+  { title: '多元模型', desc: '文本、推理与多模态', icon: 'cube' },
+  { title: '用量透明', desc: '实时追踪调用与费用', icon: 'chart' },
+]
+
+const providerBrands = [
+  { name: 'OpenAI', model: 'gpt' },
+  { name: 'Anthropic', model: 'claude' },
+  { name: 'Gemini', model: 'gemini' },
+  { name: 'DeepSeek', model: 'deepseek' },
 ]
 
 const models = [
@@ -642,25 +645,6 @@ function readInitialThemeMode(): ThemeMode {
     return savedTheme
   }
   return 'system'
-}
-
-async function startGlobeAnimation() {
-  const canvas = globeCanvas.value
-  if (!canvas || globeCleanup || typeof window === 'undefined') return
-  const cleanup = await mountPremiumHomeGlobe(canvas, { maxSize: 760, maxPixelRatio: 2 })
-  if (!globeCanvas.value || globeCanvas.value !== canvas) {
-    cleanup()
-    return
-  }
-
-  globeCleanup = () => {
-    cleanup()
-    globeCleanup = null
-  }
-}
-
-function stopGlobeAnimation() {
-  globeCleanup?.()
 }
 
 function applyThemeClass() {
@@ -802,22 +786,6 @@ function planFeatures(plan: SubscriptionPlan) {
     base.unshift('不限额度策略')
   }
   return base
-}
-
-function stripMarkdown(content: string) {
-  return content
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/!\[[^\]]*]\([^)]*\)/g, ' ')
-    .replace(/\[([^\]]+)]\([^)]*\)/g, '$1')
-    .replace(/[#>*_\-~|]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function announcementExcerpt(content: string) {
-  const plain = stripMarkdown(content)
-  return plain.length > 64 ? `${plain.slice(0, 64)}...` : plain
 }
 
 function todayDismissKey() {
@@ -986,9 +954,6 @@ onMounted(async () => {
   systemDark.value = systemThemeQuery.matches
   systemThemeQuery.addEventListener('change', onSystemThemeChange)
   applyThemeClass()
-  startGlobeAnimation().catch((error) => {
-    console.warn('Premium home globe fallback:', error)
-  })
 
   if (!appStore.publicSettingsLoaded) {
     await appStore.fetchPublicSettings().catch(() => null)
@@ -1023,6 +988,5 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick)
   systemThemeQuery?.removeEventListener('change', onSystemThemeChange)
   systemThemeQuery = null
-  stopGlobeAnimation()
 })
 </script>

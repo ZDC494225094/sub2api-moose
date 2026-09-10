@@ -73,6 +73,8 @@ export default {
       contact: 'Contact',
       afterSalesGroup: 'After-sales Group',
       contactNow: 'Contact Now',
+      contactUs: 'Contact Us',
+      unavailable: 'Contact details are currently unavailable. Please try again later.',
     },
     add: 'Add',
     invalidEmail: 'Please enter a valid email address',

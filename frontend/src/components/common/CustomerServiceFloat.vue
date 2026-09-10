@@ -1,15 +1,15 @@
 <template>
   <div
-    v-if="hasDetails"
+    v-if="hasDetails || alwaysVisible"
     ref="containerRef"
-    class="fixed bottom-4 right-4 z-20 flex flex-col items-end sm:bottom-6 sm:right-6"
+    class="fixed bottom-4 right-4 z-40 flex flex-col items-end sm:bottom-6 sm:right-6"
     @keydown.esc.stop="closePanel"
   >
     <Transition name="support-panel">
       <section
         v-if="panelOpen"
         id="customer-service-panel"
-        class="mb-3 w-[min(calc(100vw-2rem),20rem)] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl shadow-gray-900/10 dark:border-dark-700 dark:bg-dark-850 dark:shadow-black/30"
+        class="mb-3 w-[min(calc(100vw-2rem),20rem)] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl shadow-gray-900/10 dark:border-dark-700 dark:bg-dark-800 dark:shadow-black/30"
         role="region"
         :aria-label="t('common.customerService.title')"
       >
@@ -32,6 +32,8 @@
             <Icon name="x" size="sm" />
           </button>
         </header>
+
+        <p v-if="!hasDetails" class="px-4 py-5 text-sm text-gray-500 dark:text-dark-300">{{ t('common.customerService.unavailable') }}</p>
 
         <div
           v-if="contactInfo || afterSalesGroup"
@@ -93,7 +95,7 @@
             :href="customerServiceLink"
             target="_blank"
             rel="noopener noreferrer"
-            class="flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 dark:ring-offset-dark-850"
+            class="support-direct-link flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 dark:ring-offset-dark-800"
           >
             <span>{{ t('common.customerService.contactNow') }}</span>
             <Icon name="externalLink" size="sm" :stroke-width="2" />
@@ -102,9 +104,18 @@
       </section>
     </Transition>
 
+    <a
+      v-if="directLink && customerServiceLink"
+      :href="customerServiceLink"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="support-direct-link flex min-h-12 items-center justify-center gap-2 rounded-full bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary-600/25 transition hover:-translate-y-0.5 hover:bg-primary-700"
+    ><Icon name="chat" size="md" /><span>{{ t('common.customerService.contactUs') }}</span></a>
     <button
+      v-else
       type="button"
       class="flex h-12 w-12 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg shadow-primary-600/25 transition duration-200 hover:-translate-y-0.5 hover:bg-primary-700 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 active:translate-y-0 dark:ring-offset-dark-950"
+      :class="{ 'support-home-trigger': alwaysVisible }"
       :aria-label="t('common.customerService.title')"
       :aria-expanded="panelOpen"
       aria-controls="customer-service-panel"
@@ -112,6 +123,7 @@
       @click="panelOpen = !panelOpen"
     >
       <Icon :name="panelOpen ? 'x' : 'chat'" size="lg" :stroke-width="2" />
+      <span v-if="alwaysVisible">{{ t('common.customerService.contactUs') }}</span>
     </button>
   </div>
 </template>
@@ -125,6 +137,7 @@ import { sanitizeUrl } from '@/utils/url'
 import Icon from '@/components/icons/Icon.vue'
 
 const { t } = useI18n()
+withDefaults(defineProps<{ alwaysVisible?: boolean; directLink?: boolean }>(), { alwaysVisible: false, directLink: false })
 const appStore = useAppStore()
 const { copyToClipboard } = useClipboard()
 
@@ -148,6 +161,8 @@ function closePanel() {
   panelOpen.value = false
 }
 
+defineExpose({ openPanel: () => { panelOpen.value = true } })
+
 function handlePointerDown(event: PointerEvent) {
   if (containerRef.value && !containerRef.value.contains(event.target as Node)) {
     closePanel()
@@ -164,6 +179,8 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.support-direct-link { color: white; }
+.support-home-trigger { width: auto; padding: 0 20px; gap: 8px; font-size: 14px; }
 .support-panel-enter-active,
 .support-panel-leave-active {
   transition:

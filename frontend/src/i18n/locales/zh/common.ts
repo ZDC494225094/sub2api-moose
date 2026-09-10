@@ -73,6 +73,8 @@ export default {
       contact: '客服联系方式',
       afterSalesGroup: '售后群号',
       contactNow: '立即联系',
+      contactUs: '联系我们',
+      unavailable: '联系信息暂未提供，请稍后再试。',
     },
     add: '添加',
     invalidEmail: '请输入有效的邮箱地址',

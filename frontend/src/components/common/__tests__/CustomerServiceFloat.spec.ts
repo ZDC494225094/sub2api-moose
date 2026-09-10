@@ -15,6 +15,8 @@ const messages: Record<string, string> = {
   'common.customerService.contact': '客服联系方式',
   'common.customerService.afterSalesGroup': '售后群号',
   'common.customerService.contactNow': '立即联系',
+  'common.customerService.contactUs': '联系我们',
+  'common.customerService.unavailable': '联系信息暂未提供，请稍后再试。',
   'common.copy': '复制',
   'common.close': '关闭',
 }
@@ -78,5 +80,31 @@ describe('CustomerServiceFloat', () => {
 
     const wrapper = mount(CustomerServiceFloat)
     expect(wrapper.find('button').exists()).toBe(false)
+  })
+
+  it('keeps the homepage contact entry visible without loaded settings', async () => {
+    const wrapper = mount(CustomerServiceFloat, { props: { alwaysVisible: true, directLink: true } })
+    await wrapper.get('button[aria-controls="customer-service-panel"]').trigger('click')
+    expect(wrapper.text()).toContain('联系我们')
+    expect(wrapper.text()).toContain('联系信息暂未提供')
+    expect(wrapper.find('a').exists()).toBe(false)
+  })
+
+  it('opens the configured contact URL directly on the homepage', () => {
+    appStore.cachedPublicSettings = { customer_service_link: 'https://support.example.com/contact' }
+    const wrapper = mount(CustomerServiceFloat, { props: { alwaysVisible: true, directLink: true } })
+    const link = wrapper.get('a.support-direct-link')
+    expect(link.text()).toContain('联系我们')
+    expect(link.attributes('href')).toBe('https://support.example.com/contact')
+    expect(link.attributes('rel')).toBe('noopener noreferrer')
+  })
+
+  it('retains a safe contact panel when a configured homepage link is invalid', async () => {
+    appStore.cachedPublicSettings = { customer_service_link: 'javascript:alert(1)' }
+    const wrapper = mount(CustomerServiceFloat, { props: { alwaysVisible: true, directLink: true } })
+    wrapper.vm.openPanel()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('section').exists()).toBe(true)
+    expect(wrapper.find('a').exists()).toBe(false)
   })
 })

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { createGlobeDecalGeometry } from './globe-decal-geometry'
 
 // const EARTH_TEXTURE_URL = 'https://www.devdeg.com/wp-content/uploads/2026/05/earth-water_compressed.png'
 const EARTH_TEXTURE_URL = 'https://unpkg.com/three-globe@2.45.2/example/img/earth-water.png'
@@ -12,6 +13,16 @@ const globeRoutes = [
   { start: { lat: 37.7749, lon: -122.4194 }, end: globeHub, width: 0.92, speed: 0.46 },
   { start: { lat: 48.8566, lon: 2.3522 }, end: globeHub, width: 0.82, speed: 0.42 },
   { start: { lat: -33.9249, lon: 18.4241 }, end: globeHub, width: 0.9, speed: 0.4 },
+]
+
+// These are schematic network nodes, not provider office locations.
+export const globeProviderMarkers = [
+  { id: 'openai', name: 'OpenAI', model: 'gpt' },
+  { id: 'gemini', name: 'Gemini', model: 'gemini' },
+  { id: 'deepseek', name: 'DeepSeek', model: 'deepseek' },
+  { id: 'claude', name: 'Claude', model: 'claude' },
+  { id: 'qwen', name: 'Qwen', model: 'qwen' },
+  { id: 'grok', name: 'Grok', model: 'grok' },
 ]
 
 function latLonToVector3(THREE, lat, lon, radius) {
@@ -131,16 +142,9 @@ async function createTextureDots(THREE) {
   }
   material.customProgramCacheKey = () => 'premium-home-globe-dots-v1'
   material.needsUpdate = true
+  mesh.userData.mapTexture = texture
 
   return mesh
-}
-
-async function createEarthDots(THREE) {
-  try {
-    return await createTextureDots(THREE)
-  } catch {
-    return createFallbackDots(THREE, 2.012)
-  }
 }
 
 function createNode(THREE, position, scale = 1, color = 0x3b82f6, radius = 0.03) {
@@ -206,7 +210,7 @@ function buildArcSegments(THREE, route) {
       const t = j / pointCount
       const point = segmentStart.clone().applyAxisAngle(axis, segmentAngle * t)
       const altitudeCurve = 1 - Math.pow(2 * t - 1, 2)
-      const altitude = radius + segmentAngle * 0.15 * altitudeCurve + totalAngle * 0.035
+      const altitude = radius + (segmentAngle * 0.15 + totalAngle * 0.035) * altitudeCurve
       point.normalize().multiplyScalar(altitude)
       points.push(point)
     }
@@ -304,14 +308,15 @@ function collectUniqueNodes() {
 }
 
 export async function mountPremiumHomeGlobe(canvas, options = {}) {
+  const noop = Object.assign(() => {}, { setTheme: () => {}, setAnimating: () => {}, setSiteLogo: () => {} })
   if (!canvas || typeof window === 'undefined') {
-    return () => {}
+    return noop
   }
 
   const parent = canvas.parentElement || canvas
 
   if (!canvas.isConnected) {
-    return () => {}
+    return noop
   }
 
   const renderer = new THREE.WebGLRenderer({
@@ -340,7 +345,7 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
   scene.add(secondaryLight)
 
   const group = new THREE.Group()
-  group.rotation.set(0.2, 1.02, 0)
+  group.rotation.set(0.2, -1.7, 0)
   group.scale.setScalar(1)
   scene.add(group)
 
@@ -373,13 +378,16 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
           float centerWeight = smoothstep(0.1, 1.0, pow(facing, 0.72));
           vec3 color = mix(edgeColor, centerColor, centerWeight);
           gl_FragColor = vec4(color, 1.0);
+          #include <colorspace_fragment>
         }
       `,
     }),
   )
   group.add(globeShell)
 
-  group.add(await createEarthDots(THREE))
+  // Render immediately; a slow texture request must never leave a blank globe.
+  let earthDots = createFallbackDots(THREE, 2.012)
+  group.add(earthDots)
 
   const animatedFlows = []
   globeRoutes.forEach((route) => {
@@ -415,6 +423,116 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
   pulseState.push({ mesh: hubRingA, phase: 0, baseScale: 1 })
   pulseState.push({ mesh: hubRingB, phase: 0.45, baseScale: 0.82 })
 
+  const render = () => renderer.render(scene, camera)
+  let disposed = false
+  let dark = Boolean(options.isDark)
+  const decals = new Map()
+  let siteLogoRevision = 0
+
+  const loadLogoTexture = async (url) => {
+    const image = await new THREE.ImageLoader().loadAsync(url)
+    const source = document.createElement('canvas')
+    source.width = source.height = 256
+    const context = source.getContext('2d')
+    if (!context) throw new Error('Logo texture canvas is unavailable')
+    const scale = 240 / Math.max(image.width, image.height)
+    const width = image.width * scale, height = image.height * scale
+    context.drawImage(image, (256 - width) / 2, (256 - height) / 2, width, height)
+    const texture = new THREE.CanvasTexture(source)
+    texture.colorSpace = THREE.SRGBColorSpace
+    texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy())
+    texture.minFilter = THREE.LinearMipmapLinearFilter
+    return texture
+  }
+
+  const installDecal = (id, position, texture, monochrome = false) => {
+    const previous = decals.get(id)
+    if (previous) {
+      group.remove(previous)
+      previous.geometry.dispose()
+      previous.material.dispose()
+      previous.userData.mapTexture.dispose()
+    }
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        map: { value: texture },
+        monochrome: { value: monochrome },
+        ink: { value: new THREE.Color(dark ? '#edf6ff' : '#162233') },
+      },
+      transparent: true,
+      depthTest: true,
+      depthWrite: false,
+      // A tiny depth bias avoids coplanar flicker without lifting the logo above the surface.
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D map;
+        uniform bool monochrome;
+        uniform vec3 ink;
+        varying vec2 vUv;
+        void main() {
+          vec4 texel = texture2D(map, vUv);
+          if (texel.a < 0.01) discard;
+          gl_FragColor = vec4(monochrome ? ink : texel.rgb, texel.a);
+          #include <colorspace_fragment>
+        }
+      `,
+    })
+    const mesh = new THREE.Mesh(createGlobeDecalGeometry(position.lat, position.lon, id === 'site' ? 0.078 : 0.063), material)
+    mesh.userData.mapTexture = texture
+    mesh.renderOrder = 2
+    decals.set(id, mesh)
+    group.add(mesh)
+    const nodeIndex = id === 'site' ? 0 : globeProviderMarkers.findIndex((marker) => marker.id === id) + 1
+    if (nodeGroup.children[nodeIndex]) nodeGroup.children[nodeIndex].visible = false
+    render()
+  }
+
+  globeRoutes.forEach((route, index) => {
+    const { id } = globeProviderMarkers[index]
+    const url = options.providerLogos?.[id]
+    if (!url) return
+    void loadLogoTexture(url).then((texture) => {
+      if (disposed) { texture.dispose(); return }
+      installDecal(id, route.start, texture, id === 'openai' || id === 'grok')
+    }).catch((error) => console.warn('Globe provider logo unavailable:', id, error))
+  })
+
+  const setSiteLogo = (url) => {
+    if (disposed) return
+    const revision = ++siteLogoRevision
+    const source = url || '/logo.svg'
+    void loadLogoTexture(source).catch((error) => {
+      if (source === '/logo.svg') throw error
+      console.warn('Globe site logo fallback:', error)
+      return loadLogoTexture('/logo.svg')
+    }).then((texture) => {
+      if (disposed || revision !== siteLogoRevision) { texture.dispose(); return }
+      installDecal('site', globeHub, texture)
+    }).catch((error) => console.warn('Globe site logo unavailable:', error))
+  }
+
+  const setTheme = (isDark) => {
+    dark = isDark
+    globeShell.material.uniforms.centerColor.value.set(dark ? '#142b49' : '#fdfdfe')
+    globeShell.material.uniforms.edgeColor.value.set(dark ? '#071220' : '#dfe8f5')
+    earthDots.material.color.set(dark ? '#72a8d7' : '#6d829d')
+    earthDots.material.opacity = dark ? 0.92 : 0.82
+    scene.fog.color.set(dark ? '#0b1220' : '#f3f6fc')
+    animatedFlows.forEach((flow) => flow.uniforms.color.value.set(dark ? '#67e8f9' : '#238af5'))
+    decals.forEach((mesh) => mesh.material.uniforms.ink.value.set(dark ? '#edf6ff' : '#162233'))
+    render()
+  }
+  setTheme(dark)
+
   const maxSize = options.maxSize || 620
   const resize = () => {
     const rect = parent.getBoundingClientRect()
@@ -424,8 +542,7 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
     camera.aspect = 1
     camera.updateProjectionMatrix()
     renderer.setSize(size, size, false)
-    canvas.style.width = `${size}px`
-    canvas.style.height = `${size}px`
+    render()
   }
 
   resize()
@@ -434,7 +551,6 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
 
   const clock = new THREE.Clock()
   let animationFrame = 0
-  let disposed = false
   let dragging = false
   let activePointerId = null
   let lastPointerX = 0
@@ -443,14 +559,29 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
   let rotationY = group.rotation.y
   let inertialVelocityX = 0
   let inertialVelocityY = 0
+  let animationEnabled = options.animate ?? !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  let inView = true
+  const disposeDots = (dots) => {
+    dots.geometry.dispose()
+    dots.material.dispose()
+    dots.userData.mapTexture?.dispose()
+  }
+  void createTextureDots(THREE).then((dots) => {
+    if (disposed) { disposeDots(dots); return }
+    group.remove(earthDots)
+    disposeDots(earthDots)
+    earthDots = dots
+    group.add(dots)
+    setTheme(dark)
+  }).catch(() => { /* The initial land dots remain available offline. */ })
 
-  canvas.style.touchAction = 'none'
+  canvas.style.touchAction = 'pan-y'
   canvas.style.cursor = 'grab'
 
   const clampRotationX = (value) => Math.max(-0.45, Math.min(0.55, value))
 
   const onPointerDown = (event) => {
-    event.preventDefault()
+    if (event.button !== 0 || dragging) return
     dragging = true
     activePointerId = event.pointerId
     lastPointerX = event.clientX
@@ -477,6 +608,7 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
 
     group.rotation.x = rotationX
     group.rotation.y = rotationY
+    render()
   }
 
   const endPointerInteraction = (event) => {
@@ -484,7 +616,7 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
     dragging = false
     activePointerId = null
     canvas.style.cursor = 'grab'
-    canvas.releasePointerCapture?.(event.pointerId)
+    if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
   }
 
   canvas.addEventListener('pointerdown', onPointerDown)
@@ -494,16 +626,17 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
   canvas.addEventListener('lostpointercapture', endPointerInteraction)
 
   const tick = () => {
+    animationFrame = 0
     if (disposed) return
 
-    const delta = clock.getDelta()
+    const delta = Math.min(clock.getDelta(), 0.05)
     const elapsed = clock.elapsedTime
 
     if (!dragging) {
-      rotationY += delta * 0.05 + inertialVelocityY
-      rotationX = clampRotationX(rotationX + inertialVelocityX)
-      inertialVelocityY *= 0.94
-      inertialVelocityX *= 0.9
+      rotationY += delta * 0.05 + inertialVelocityY * delta * 60
+      rotationX = clampRotationX(rotationX + inertialVelocityX * delta * 60)
+      inertialVelocityY *= Math.pow(0.94, delta * 60)
+      inertialVelocityX *= Math.pow(0.9, delta * 60)
       group.rotation.x = rotationX
       group.rotation.y = rotationY
     }
@@ -517,13 +650,30 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
       pulse.mesh.material.opacity = Math.max(0, 0.28 * (1 - cycle))
     })
 
-    renderer.render(scene, camera)
-    animationFrame = window.requestAnimationFrame(tick)
+    group.position.y = Math.sin(elapsed * 0.6) * 0.025
+    hubGlow.material.opacity = (dark ? 0.3 : 0.2) + Math.sin(elapsed * 1.8) * 0.06
+
+    render()
+    if (animationEnabled && !document.hidden && inView) animationFrame = window.requestAnimationFrame(tick)
   }
 
-  tick()
+  const syncAnimation = () => {
+    if (disposed) return
+    if (animationFrame) window.cancelAnimationFrame(animationFrame)
+    animationFrame = 0
+    clock.getDelta()
+    if (animationEnabled && !document.hidden && inView) animationFrame = window.requestAnimationFrame(tick)
+    else render()
+  }
+  const visibilityObserver = new IntersectionObserver(([entry]) => {
+    inView = entry.isIntersecting
+    syncAnimation()
+  })
+  visibilityObserver.observe(canvas)
+  document.addEventListener('visibilitychange', syncAnimation)
+  syncAnimation()
 
-  return () => {
+  const cleanup = () => {
     if (disposed) return
     disposed = true
 
@@ -539,7 +689,10 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
     canvas.style.cursor = ''
     canvas.style.touchAction = ''
     resizeObserver.disconnect()
+    visibilityObserver.disconnect()
+    document.removeEventListener('visibilitychange', syncAnimation)
     group.traverse((item) => {
+      item.userData.mapTexture?.dispose()
       if (item.geometry) {
         item.geometry.dispose?.()
       }
@@ -553,4 +706,9 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
     renderer.dispose()
     renderer.forceContextLoss?.()
   }
+  return Object.assign(cleanup, {
+    setTheme: (isDark) => { if (!disposed) setTheme(isDark) },
+    setAnimating: (enabled) => { animationEnabled = enabled; syncAnimation() },
+    setSiteLogo,
+  })
 }
