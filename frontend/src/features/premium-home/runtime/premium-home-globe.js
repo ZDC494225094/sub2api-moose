@@ -1,9 +1,7 @@
 import * as THREE from 'three'
+import { createLandDots } from './globe-land'
 import { createGlobeDecalGeometry } from './globe-decal-geometry'
 
-// const EARTH_TEXTURE_URL = 'https://www.devdeg.com/wp-content/uploads/2026/05/earth-water_compressed.png'
-const EARTH_TEXTURE_URL = 'https://unpkg.com/three-globe@2.45.2/example/img/earth-water.png'
-// const EARTH_TEXTURE_URL = 'https://backup.fukit.cn/autoupload/fr/l0gmhm2zIgt2UnXKo8lSJczVcRJnkKiqwQso438nc8Oyl5f0KlZfm6UsKj-HyTuv/20260526/q5A1/1600X800/earth-water%2520%281%29_compressed.png'
 const globeHub = { lat: 31.2304, lon: 121.4737 }
 
 const globeRoutes = [
@@ -32,119 +30,6 @@ function latLonToVector3(THREE, lat, lon, radius) {
   const z = radius * Math.sin(phi) * Math.cos(theta)
   const y = radius * Math.cos(phi)
   return new THREE.Vector3(x, y, z)
-}
-
-function approximateLandMask(lat, lon) {
-  const deltaLon = (a, b) => Math.abs((((a - b + 540) % 360) - 180))
-  const ellipse = (centerLat, centerLon, radiusLat, radiusLon) => {
-    const y = (lat - centerLat) / radiusLat
-    const x = deltaLon(lon, centerLon) / radiusLon
-    return x * x + y * y <= 1
-  }
-
-  return (
-    ellipse(49, -101, 27, 56) ||
-    ellipse(61, -150, 12, 28) ||
-    ellipse(17, -92, 10, 30) ||
-    ellipse(-18, -61, 36, 18) ||
-    ellipse(51, 16, 17, 30) ||
-    ellipse(8, 22, 39, 25) ||
-    ellipse(25, 45, 15, 25) ||
-    ellipse(45, 91, 28, 72) ||
-    ellipse(8, 111, 18, 31) ||
-    ellipse(20, 78, 14, 11) ||
-    ellipse(-25, 135, 15, 23) ||
-    ellipse(37, 139, 8, 8) ||
-    ellipse(-20, 47, 11, 5)
-  )
-}
-
-function createFallbackDots(THREE, radius) {
-  const positions = []
-  const step = 1.55
-
-  for (let lat = -58; lat <= 72; lat += step) {
-    for (let lon = -180; lon <= 180; lon += step) {
-      const noise = Math.sin((lat * 12.9898 + lon * 78.233) * 43758.5453)
-      const keep = noise - Math.floor(noise)
-      if (!approximateLandMask(lat, lon) || keep < 0.18) continue
-
-      const point = latLonToVector3(THREE, lat + (keep - 0.5) * 0.42, lon + (0.5 - keep) * 0.42, radius)
-      positions.push(point.x, point.y, point.z)
-    }
-  }
-
-  const geometry = new THREE.BufferGeometry()
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
-  const material = new THREE.PointsMaterial({
-    color: 0x71717a,
-    size: 0.031,
-    transparent: true,
-    opacity: 0.8,
-    sizeAttenuation: true,
-    depthWrite: false,
-  })
-
-  return new THREE.Points(geometry, material)
-}
-
-async function createTextureDots(THREE) {
-  const texture = await new THREE.TextureLoader().loadAsync(EARTH_TEXTURE_URL)
-  const numPoints = 42000
-  const radius = 2.002
-  const dummy = new THREE.Object3D()
-  const normal = new THREE.Vector3()
-  const geometry = new THREE.CircleGeometry(0.011, 6)
-  const material = new THREE.MeshBasicMaterial({
-    color: 0x71717a,
-    transparent: true,
-    opacity: 0.82,
-  })
-  const mesh = new THREE.InstancedMesh(geometry, material, numPoints)
-  const phi = Math.PI * (3 - Math.sqrt(5))
-
-  for (let i = 0; i < numPoints; i += 1) {
-    const y = 1 - (i / (numPoints - 1)) * 2
-    const rAtY = Math.sqrt(1 - y * y)
-    const theta = phi * i
-    const x = Math.cos(theta) * rAtY
-    const z = Math.sin(theta) * rAtY
-
-    dummy.position.set(x * radius, y * radius, z * radius)
-    normal.set(x, y, z).normalize()
-    dummy.lookAt(dummy.position.clone().add(normal))
-    dummy.updateMatrix()
-    mesh.setMatrixAt(i, dummy.matrix)
-  }
-
-  mesh.instanceMatrix.needsUpdate = true
-  mesh.frustumCulled = false
-
-  material.onBeforeCompile = (shader) => {
-    shader.uniforms.uMap = { value: texture }
-    shader.vertexShader = `
-      uniform sampler2D uMap;
-      ${shader.vertexShader}
-    `.replace(
-      '#include <project_vertex>',
-      `
-      vec3 instPos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
-      vec3 instPosNorm = normalize(instPos);
-      float u = 0.5 + atan(instPosNorm.x, instPosNorm.z) / (2.0 * 3.14159265);
-      float v = 0.5 + asin(instPosNorm.y) / 3.14159265;
-      vec4 texColor = texture2D(uMap, vec2(u, v));
-      if (texColor.r > 0.2) {
-        transformed *= 0.0;
-      }
-      #include <project_vertex>
-      `,
-    )
-  }
-  material.customProgramCacheKey = () => 'premium-home-globe-dots-v1'
-  material.needsUpdate = true
-  mesh.userData.mapTexture = texture
-
-  return mesh
 }
 
 function createNode(THREE, position, scale = 1, color = 0x3b82f6, radius = 0.03) {
@@ -392,8 +277,8 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
   globeShell.renderOrder = -1
   group.add(globeShell)
 
-  // Render immediately; a slow texture request must never leave a blank globe.
-  let earthDots = createFallbackDots(THREE, 2.012)
+  // Bundled land coordinates are available on the very first render.
+  const earthDots = createLandDots()
   group.add(earthDots)
 
   const animatedFlows = []
@@ -577,20 +462,6 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
   let inertialVelocityY = 0
   let animationEnabled = options.animate ?? !window.matchMedia('(prefers-reduced-motion: reduce)').matches
   let inView = true
-  const disposeDots = (dots) => {
-    dots.geometry.dispose()
-    dots.material.dispose()
-    dots.userData.mapTexture?.dispose()
-  }
-  void createTextureDots(THREE).then((dots) => {
-    if (disposed) { disposeDots(dots); return }
-    group.remove(earthDots)
-    disposeDots(earthDots)
-    earthDots = dots
-    group.add(dots)
-    setTheme(dark)
-  }).catch(() => { /* The initial land dots remain available offline. */ })
-
   canvas.style.touchAction = 'pan-y'
   canvas.style.cursor = 'grab'
 

@@ -1,11 +1,13 @@
 <template>
   <div class="provider-network globe-network" :class="{ 'is-entering': introActive }" role="group" aria-label="全球 AI 连接网络">
-    <div v-if="introActive" ref="introBackdrop" class="globe-intro-backdrop" aria-hidden="true"></div>
+    <Teleport to="body">
+      <div v-if="introActive" ref="introBackdrop" class="globe-intro-backdrop" :class="{ 'is-dark': isDark }" aria-hidden="true"></div>
+    </Teleport>
     <div class="network-grid" aria-hidden="true"></div>
     <div class="network-caption"><span class="signal-dot"></span> ONE API. MORE POSSIBILITIES.</div>
     <div ref="globeStage" class="gateway-globe-stage">
       <div class="gateway-globe-aura" aria-hidden="true"></div>
-      <canvas ref="globeCanvas" class="gateway-globe-canvas" role="img" aria-label="可拖动旋转的点阵地球，光点沿全球航线流动"></canvas>
+      <canvas ref="globeCanvas" class="gateway-globe-canvas" :style="{ visibility: globeReady ? 'visible' : 'hidden', background: 'transparent' }" role="img" aria-label="可拖动旋转的点阵地球，光点沿全球航线流动"></canvas>
       <div ref="logoSources" hidden aria-hidden="true">
         <div v-for="provider in globeProviderMarkers" :key="provider.id" :data-logo-source="provider.id">
           <ModelIcon :model="provider.model" size="26px" />
@@ -28,6 +30,7 @@ const globeCanvas = ref<HTMLCanvasElement | null>(null)
 const globeStage = ref<HTMLDivElement | null>(null)
 const logoSources = ref<HTMLDivElement | null>(null)
 const globeFailed = ref(false)
+const globeReady = ref(false)
 const introActive = ref(false)
 const introBackdrop = ref<HTMLDivElement | null>(null)
 let controller: PremiumHomeGlobeController | undefined
@@ -60,6 +63,9 @@ onMounted(async () => {
     controller.setTheme(props.isDark)
     controller.setAnimating(true)
     controller.setSiteLogo(props.siteLogo || '/logo.svg')
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    if (unmounted) return
+    globeReady.value = true
     const stage = globeStage.value
     if (stage && window.scrollY < 100) {
       const rect = stage.getBoundingClientRect()
@@ -87,6 +93,7 @@ onMounted(async () => {
       void entrance.finished.then(() => { if (!unmounted) finishEntrance() }).catch(() => {})
     }
   } catch (error) {
+    finishEntrance()
     globeFailed.value = true
     console.warn('Premium home globe unavailable:', error)
   }
@@ -103,7 +110,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .provider-network.is-entering { z-index: 60; pointer-events: none; }
-.globe-intro-backdrop { position: fixed; inset: 0; z-index: -1; background: var(--bg, #f8fafc); pointer-events: none; }
+.globe-intro-backdrop { position: fixed; inset: 0; z-index: 50; background: #f8fafc; pointer-events: none; }
+.globe-intro-backdrop.is-dark { background: #0c1220; }
 .is-entering .gateway-globe-stage { z-index: 1; }
 .is-entering :is(.network-caption, .network-request, .network-footnote) { visibility: hidden; }
 </style>
