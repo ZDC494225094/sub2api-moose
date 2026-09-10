@@ -811,7 +811,7 @@ let homeUnmounted = false
 function scheduleAutoNotice() {
   if (homeUnmounted) return
   // Keep the existing announcement, but let the globe introduction finish first.
-  autoNoticeTimer = setTimeout(openNoticePanel, Math.max(0, 2600 - (performance.now() - entranceStartedAt)))
+  autoNoticeTimer = setTimeout(openNoticePanel, Math.max(0, 3700 - (performance.now() - entranceStartedAt)))
 }
 
 function openNoticePanel() {

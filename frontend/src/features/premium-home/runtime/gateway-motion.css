@@ -48,11 +48,11 @@
 
 @media screen {
   .premium-home.motion-enabled .hero-copy > * { animation: home-copy-arrive .9s cubic-bezier(.22,1,.36,1) both; }
-  .premium-home.motion-enabled .hero-copy > :nth-child(1) { animation-delay: .35s; }
-  .premium-home.motion-enabled .hero-copy > :nth-child(2) { animation-delay: .48s; }
-  .premium-home.motion-enabled .hero-copy > :nth-child(3) { animation-delay: .62s; }
-  .premium-home.motion-enabled .hero-copy > :nth-child(4) { animation-delay: .76s; }
-  .premium-home.motion-enabled .hero-copy > :nth-child(5) { animation-delay: .9s; }
+  .premium-home.motion-enabled .hero-copy > :nth-child(1) { animation-delay: 1.8s; }
+  .premium-home.motion-enabled .hero-copy > :nth-child(2) { animation-delay: 1.95s; }
+  .premium-home.motion-enabled .hero-copy > :nth-child(3) { animation-delay: 2.1s; }
+  .premium-home.motion-enabled .hero-copy > :nth-child(4) { animation-delay: 2.25s; }
+  .premium-home.motion-enabled .hero-copy > :nth-child(5) { animation-delay: 2.4s; }
   .premium-home.motion-enabled :is(.network-caption, .network-request, .network-footnote) { animation: home-detail-arrive .8s 1.25s both; }
   .premium-home.motion-enabled .gateway-notice { animation: home-copy-arrive .8s 1s both; }
   .premium-home.motion-enabled .scroll-reveal { opacity: 0; translate: 0 28px; transition: opacity .8s ease var(--reveal-delay, 0ms), translate .8s cubic-bezier(.22,1,.36,1) var(--reveal-delay, 0ms), border-color .3s, box-shadow .3s; }
