@@ -15,7 +15,7 @@
       </div>
       <span v-if="globeFailed" class="globe-fallback-label">GLOBAL AI NETWORK</span>
     </div>
-    <div class="network-request" aria-hidden="true"><span class="request-method">POST</span><code>/v1/chat/completions</code><span class="request-spark">↗</span></div>
+    <div class="network-request" aria-hidden="true"><span class="request-method">POST</span><code>/v1/chat/completions</code><Icon name="arrowRight" size="sm" class="request-spark" /></div>
     <div class="network-footnote">UNIFIED ACCESS <span>·</span> BUILT FOR CREATORS</div>
   </div>
 </template>
@@ -23,6 +23,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ModelIcon from '@/components/common/ModelIcon.vue'
+import Icon from '@/components/icons/Icon.vue'
 import { mountPremiumHomeGlobe, globeProviderMarkers, type PremiumHomeGlobeController } from './premium-home-globe'
 
 const props = defineProps<{ isDark: boolean; siteLogo?: string }>()

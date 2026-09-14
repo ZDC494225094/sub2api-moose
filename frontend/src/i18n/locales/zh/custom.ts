@@ -326,7 +326,7 @@ export default {
   "admin": {
     "operations": {
       "title": "运营分析",
-      "description": "注册、激活、支付转化与订单风险信号",
+      "description": "充值、消耗、上游成本与计费毛利分析",
       "range": "统计周期",
       "generatedAt": "生成时间",
       "rangeDays": "{days} 天",

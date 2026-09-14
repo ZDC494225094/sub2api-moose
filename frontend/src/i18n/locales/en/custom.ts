@@ -326,7 +326,7 @@ export default {
   "admin": {
     "operations": {
       "title": "Operations Analysis",
-      "description": "Registration, activation, payment conversion, and order risk signals",
+      "description": "Recharge, usage, upstream costs, and billing gross profit",
       "range": "Range",
       "generatedAt": "Generated At",
       "rangeDays": "{days} days",

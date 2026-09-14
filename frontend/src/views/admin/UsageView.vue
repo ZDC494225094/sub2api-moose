@@ -335,6 +335,8 @@ const applyRouteQueryFilters = () => {
   filters.value = {
     ...filters.value,
     user_id: queryUserId,
+    account_id: getNumericQueryValue(route.query.account_id),
+    model: getSingleQueryValue(route.query.model) || undefined,
     start_date: startDate.value,
     end_date: endDate.value
   }

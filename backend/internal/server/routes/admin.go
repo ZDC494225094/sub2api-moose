@@ -291,6 +291,8 @@ func registerDashboardRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		dashboard.GET("/users-trend", h.Admin.Dashboard.GetUserUsageTrend)
 		dashboard.GET("/users-ranking", h.Admin.Dashboard.GetUserSpendingRanking)
 		dashboard.GET("/operations-funnel", h.Admin.Dashboard.GetOperationsFunnel)
+		dashboard.GET("/operations-finance", h.Admin.Dashboard.GetOperationsFinance)
+		dashboard.GET("/operations-customers", h.Admin.Dashboard.GetOperationsCustomers)
 		dashboard.GET("/operations-users", h.Admin.Dashboard.GetOperationsUserDetails)
 		dashboard.GET("/operations-marketing-recipients", h.Admin.Dashboard.ListOperationsMarketingRecipients)
 		dashboard.GET("/operations-marketing-email-records", h.Admin.Dashboard.ListOperationsMarketingEmailRecords)

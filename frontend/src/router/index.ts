@@ -475,7 +475,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/admin/operations',
     name: 'AdminOperations',
-    component: () => import('@/views/admin/OperationsFunnelView.vue'),
+    component: () => import('@/views/admin/OperationsFinanceView.vue'),
     meta: {
       requiresAuth: true,
       requiresAdmin: true,
@@ -483,6 +483,11 @@ const routes: RouteRecordRaw[] = [
       titleKey: 'admin.operations.title',
       descriptionKey: 'admin.operations.description'
     }
+  },
+  {
+    path: '/admin/operations/conversion',
+    name: 'AdminOperationsConversion',
+    redirect: to => ({ path: '/admin/operations', query: to.query }),
   },
   {
     path: '/admin/audit-logs',

@@ -154,7 +154,7 @@
             <RouterLink class="primary-btn hero-btn" :to="isAuthenticated ? dashboardPath : '/register'">
               {{ isAuthenticated ? '进入控制台' : '开始构建' }} <Icon name="arrowRight" size="sm" />
             </RouterLink>
-            <a class="secondary-btn hero-btn" href="#plans" @click="setActiveHomeSection('plans')">探索套餐 <span aria-hidden="true">↗</span></a>
+            <a class="secondary-btn hero-btn" href="#plans" @click="setActiveHomeSection('plans')">探索套餐 <Icon name="arrowRight" size="sm" /></a>
           </div>
           <div class="hero-notes"><span><Icon name="terminal" size="sm" /> 统一 API 接入</span><span><Icon name="chart" size="sm" /> 清晰用量管理</span><span><Icon name="shield" size="sm" /> 灵活额度策略</span></div>
         </div>
@@ -176,7 +176,7 @@
               <time>{{ formatDate(notice.created_at || notice.starts_at) }}</time>
             </button>
           </div>
-          <button class="gateway-notice-all" type="button" @click="openNoticePanel">全部公告 <span aria-hidden="true">↗</span></button>
+          <button class="gateway-notice-all" type="button" @click="openNoticePanel">全部公告 <Icon name="arrowRight" size="sm" /></button>
         </aside>
 
         <AnnouncementPanel
