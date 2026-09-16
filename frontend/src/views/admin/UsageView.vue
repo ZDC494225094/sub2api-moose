@@ -336,6 +336,7 @@ const applyRouteQueryFilters = () => {
     ...filters.value,
     user_id: queryUserId,
     account_id: getNumericQueryValue(route.query.account_id),
+    timezone: getSingleQueryValue(route.query.timezone) || undefined,
     model: getSingleQueryValue(route.query.model) || undefined,
     start_date: startDate.value,
     end_date: endDate.value
@@ -448,6 +449,7 @@ const loadModelStats = async (source: ModelDistributionSource, force = false) =>
     const requestType = filters.value.request_type
     const legacyStream = requestType ? requestTypeToLegacyStream(requestType) : filters.value.stream
     const baseParams = {
+      timezone: filters.value.timezone,
       start_date: filters.value.start_date || startDate.value,
       end_date: filters.value.end_date || endDate.value,
       user_id: filters.value.user_id,
@@ -499,6 +501,7 @@ const loadChartData = async () => {
     const requestType = filters.value.request_type
     const legacyStream = requestType ? requestTypeToLegacyStream(requestType) : filters.value.stream
     const snapshot = await adminAPI.dashboard.getSnapshotV2({
+      timezone: filters.value.timezone,
       start_date: filters.value.start_date || startDate.value,
       end_date: filters.value.end_date || endDate.value,
       granularity: granularity.value,

@@ -25,6 +25,7 @@ type OperationsFinanceResponse struct {
 	StartDate      string                 `json:"start_date"`
 	EndDate        string                 `json:"end_date"`
 	GeneratedAt    string                 `json:"generated_at"`
+	Timezone       string                 `json:"timezone"`
 	CurrentBalance float64                `json:"current_balance"`
 	Summary        OperationsFinanceRow   `json:"summary"`
 	Rows           []OperationsFinanceRow `json:"rows"`
@@ -46,6 +47,7 @@ func (s *DashboardService) GetOperationsFinance(ctx context.Context, start, end 
 	result.StartDate = start.Format("2006-01-02")
 	result.EndDate = end.AddDate(0, 0, -1).Format("2006-01-02")
 	result.GeneratedAt = time.Now().UTC().Format(time.RFC3339)
+	result.Timezone = start.Location().String()
 	for i := range result.Rows {
 		row := &result.Rows[i]
 		calculateOperationsProfit(row)

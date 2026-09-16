@@ -34,7 +34,7 @@
             <td class="p-3"><span class="block max-w-56 truncate" :title="user.email">{{ user.email }}</span><span class="text-xs text-gray-500">{{ user.username || `#${user.id}` }}</span></td>
             <td v-for="column in columns" :key="column.key" class="p-3 text-right tabular-nums" :class="column.key === 'profit' && user.profit < 0 ? 'text-red-600' : ''">{{ column.key === 'margin' ? percent(user.margin) : column.key === 'period_orders' || column.key === 'total_orders' ? user[column.key] : money(user[column.key]) }}</td>
             <td class="p-3 text-xs">{{ date(user.last_used_at) }}</td><td class="p-3 text-xs">{{ date(user.last_paid_at) }}</td>
-            <td class="p-3 text-right"><RouterLink class="text-primary-600" :to="{ path: '/admin/usage', query: { start_date: startDate, end_date: endDate, user_id: user.id } }">消耗明细</RouterLink></td>
+            <td class="p-3 text-right"><RouterLink class="text-primary-600" :to="{ path: '/admin/usage', query: { start_date: startDate, end_date: endDate, user_id: user.id, timezone } }">消耗明细</RouterLink></td>
           </tr><tr v-if="!result.items.length"><td colspan="12" class="p-8 text-center text-gray-500">暂无符合条件的用户</td></tr></tbody>
         </table>
       </div>
@@ -60,12 +60,12 @@ const segments: { key: CustomerSegment; label: string }[] = [
 ]
 const columns = [
   { key: 'balance', label: '当前余额' }, { key: 'period_orders', label: '期间付款次数' }, { key: 'total_orders', label: '累计付款次数' },
-  { key: 'period_amount', label: '期间购买额度' }, { key: 'consumption', label: '期间消耗' }, { key: 'cost', label: '成本' },
+  { key: 'consumption', label: '期间消耗' }, { key: 'cost', label: '成本' },
   { key: 'profit', label: '计费毛利' }, { key: 'margin', label: '毛利率' }
 ] as const
 const money = (n: number) => '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })
 const percent = (n: number | null) => n == null ? '—' : n.toFixed(2) + '%'
-const date = (value: string | null) => value ? new Date(value).toLocaleString() : '—'
+const date = (value: string | null) => value ? new Date(value).toLocaleString('zh-CN', { timeZone: props.timezone }) : '—'
 const totalPages = computed(() => Math.max(1, Math.ceil((result.value?.total ?? 0) / 20)))
 const metrics = computed<{ label: string; value: string; segment: CustomerSegment }[]>(() => {
   if (!result.value) return []

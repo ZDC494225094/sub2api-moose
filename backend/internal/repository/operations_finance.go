@@ -30,10 +30,10 @@ func (r *usageLogRepository) GetOperationsFinance(ctx context.Context, start, en
 	 ) d(dimension,key,label,upstream)
 	 GROUP BY d.dimension,d.key,d.label,d.upstream
 	), payments AS (
-	 SELECT to_char(paid_at AT TIME ZONE $3, 'YYYY-MM-DD') AS day,
-	 COALESCE(SUM(amount) FILTER (WHERE order_type = 'balance'),0) AS recharge,
+	 SELECT to_char(created_at AT TIME ZONE $3, 'YYYY-MM-DD') AS day,
+	 COALESCE(SUM(amount) FILTER (WHERE order_type IN ('balance','subscription')),0) AS recharge,
 	 COALESCE(SUM(amount) FILTER (WHERE order_type = 'subscription'),0) AS subscription
-	 FROM payment_orders WHERE paid_at >= $1 AND paid_at < $2 AND status IN ($4,$5,$6)
+	 FROM payment_orders WHERE created_at >= $1 AND created_at < $2
 	 GROUP BY 1
 	), days AS (
 	 SELECT to_char(d, 'YYYY-MM-DD') AS day FROM generate_series(
@@ -52,8 +52,7 @@ func (r *usageLogRepository) GetOperationsFinance(ctx context.Context, start, en
 	)
 	SELECT result.*, (SELECT COALESCE(SUM(balance),0) FROM users WHERE deleted_at IS NULL)
 	FROM result ORDER BY dimension,key`
-	rows, err := r.sql.QueryContext(ctx, query, start, end, start.Location().String(),
-		service.OrderStatusCompleted, service.OrderStatusPaid, service.OrderStatusRecharging)
+	rows, err := r.sql.QueryContext(ctx, query, start, end, start.Location().String())
 	if err != nil {
 		return nil, err
 	}

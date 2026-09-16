@@ -13,13 +13,34 @@ const data = { start_date: '2026-09-01', end_date: '2026-09-14', generated_at: '
 const create = () => mount(OperationsFinanceView, { global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } } })
 describe('Operations finance', () => {
   beforeEach(() => { vi.clearAllMocks(); getReport.mockResolvedValue(structuredClone(data)) })
+  it('uses the server date despite a changed local clock', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2040-01-01T00:00:00Z'))
+    try {
+      const wrapper = create(); await flushPromises()
+      expect(getReport.mock.calls[0][0]).toEqual({ preset: 'today' })
+      expect(wrapper.findAll('input[type="date"]')[0].element.value).toBe(data.start_date)
+      await wrapper.findAll('button').find(button => button.text() === '昨天')!.trigger('click')
+      await flushPromises()
+      expect(getReport.mock.lastCall?.[0]).toEqual({ preset: 'yesterday' })
+      wrapper.unmount()
+    } finally { vi.useRealTimers() }
+  })
   it('drills from upstream to account to date-filtered requests', async () => {
     const wrapper = create(); await flushPromises()
     await wrapper.findAll('[role="tab"]')[1].trigger('click')
     await wrapper.find('tbody button').trigger('click')
     expect(wrapper.text()).toContain('上游：Vendor A')
     await wrapper.find('tbody button').trigger('click')
-    expect(push).toHaveBeenCalledWith({ path: '/admin/usage', query: { start_date: data.start_date, end_date: data.end_date, account_id: '7' } })
+    expect(push).toHaveBeenCalledWith({ path: '/admin/usage', query: { start_date: data.start_date, end_date: data.end_date, timezone: 'Asia/Shanghai', account_id: '7' } })
+    wrapper.unmount()
+  })
+  it('opens all recharge orders for the selected created-at range', async () => {
+    const wrapper = create(); await flushPromises()
+    const rechargeMetric = wrapper.findAll('button').find(button => button.text().includes('期间充值额度'))
+    expect(rechargeMetric).toBeDefined()
+    await rechargeMetric!.trigger('click')
+    expect(push).toHaveBeenCalledWith({ path: '/admin/orders', query: { date_field: 'created_at', start_date: data.start_date, end_date: data.end_date } })
     wrapper.unmount()
   })
   it('rejects ranges beyond 90 days and clears stale data', async () => {

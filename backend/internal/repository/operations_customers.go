@@ -16,14 +16,15 @@ func (r *usageLogRepository) GetOperationsCustomers(ctx context.Context, f servi
   FROM payment_orders WHERE paid_at < $3 AND status IN ($7,$8,$9)
   GROUP BY user_id
  ), usage AS (
-  SELECT user_id, max(created_at) AS last_used_at,
-   bool_or(created_at >= $4) AS recently_active,
-   bool_or(created_at >= $5 AND created_at < $4) AS previously_active,
-   bool_or(created_at >= $1 AND created_at < $2) AS period_active,
+  SELECT user_id, max(created_at) FILTER (WHERE meaningful) AS last_used_at,
+   bool_or(meaningful AND created_at >= $4) AS recently_active,
+   bool_or(meaningful AND created_at >= $5 AND created_at < $4) AS previously_active,
+   bool_or(meaningful AND created_at >= $1 AND created_at < $2) AS period_active,
    COALESCE(sum(actual_cost) FILTER (WHERE created_at >= $1 AND created_at < $2),0) AS consumption,
    COALESCE(sum(COALESCE(account_stats_cost,total_cost)*COALESCE(account_rate_multiplier,1)) FILTER (WHERE created_at >= $1 AND created_at < $2),0) AS cost
-  FROM usage_logs WHERE created_at < $3
-   AND (actual_cost > 0 OR total_cost > 0 OR account_stats_cost > 0 OR input_tokens > 0 OR output_tokens > 0)
+  FROM (SELECT *, (actual_cost > 0 OR total_cost > 0 OR COALESCE(account_stats_cost,0) > 0
+   OR input_tokens > 0 OR output_tokens > 0 OR cache_creation_tokens > 0 OR cache_read_tokens > 0) AS meaningful
+   FROM usage_logs WHERE created_at < $3) logs
   GROUP BY user_id
  ), customers AS MATERIALIZED (
   SELECT u.id, u.email, COALESCE(u.username,'') AS username, u.balance,

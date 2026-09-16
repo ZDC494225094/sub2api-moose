@@ -19,12 +19,13 @@ export interface FinanceReport {
   start_date: string
   end_date: string
   generated_at: string
+  timezone: string
   current_balance: number
   summary: FinanceRow
   rows: FinanceRow[]
 }
 
-export async function getOperationsFinance(params: { start_date: string; end_date: string; timezone: string }, signal?: AbortSignal) {
+export async function getOperationsFinance(params: { start_date?: string; end_date?: string; preset?: string }, signal?: AbortSignal) {
   const { data } = await apiClient.get<FinanceReport>('/admin/dashboard/operations-finance', { params, signal })
   return data
 }

@@ -27,6 +27,12 @@ describe('API Client', () => {
   // --- 请求拦截器 ---
 
   describe('请求拦截器', () => {
+    it('preserves an explicit reporting timezone for drilldowns', async () => {
+      const adapter = vi.fn().mockResolvedValue({ status: 200, data: { code: 0, data: {} }, headers: {}, config: {}, statusText: 'OK' })
+      apiClient.defaults.adapter = adapter
+      await apiClient.get('/test', { params: { timezone: 'Asia/Shanghai' } })
+      expect(adapter.mock.calls[0][0].params.timezone).toBe('Asia/Shanghai')
+    })
     it('规范化相对 API base，避免在回调页拼出相对 v1 路径', async () => {
       vi.resetModules()
       vi.stubEnv('VITE_API_BASE_URL', 'api/v1')

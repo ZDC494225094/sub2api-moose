@@ -1,17 +1,20 @@
 package admin
 
 import (
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
 func (h *DashboardHandler) GetOperationsFinance(c *gin.Context) {
-	start, end, err := parseOperationsFunnelRange(c)
+	start, end, err := parseOperationsReportingRange(c, timezone.Now())
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -31,7 +34,7 @@ func (h *DashboardHandler) GetOperationsFinance(c *gin.Context) {
 }
 
 func (h *DashboardHandler) GetOperationsCustomers(c *gin.Context) {
-	start, end, err := parseOperationsFunnelRange(c)
+	start, end, err := parseOperationsReportingRange(c, timezone.Now())
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -66,4 +69,46 @@ func (h *DashboardHandler) GetOperationsCustomers(c *gin.Context) {
 		return
 	}
 	response.Success(c, result)
+}
+
+// Reporting dates belong to the business timezone, not the caller's clock or timezone.
+func parseOperationsReportingRange(c *gin.Context, now time.Time) (time.Time, time.Time, error) {
+	loc := timezone.Location()
+	if loc.String() == "Local" {
+		loc, _ = time.LoadLocation("Asia/Shanghai")
+	}
+	now = now.In(loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	start, end := today, today.AddDate(0, 0, 1)
+	preset := c.Query("preset")
+	switch preset {
+	case "today":
+	case "yesterday":
+		start, end = today.AddDate(0, 0, -1), today
+	case "7d":
+		start = today.AddDate(0, 0, -6)
+	case "30d":
+		start = today.AddDate(0, 0, -29)
+	case "month":
+		start = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+	case "":
+		if c.Query("start_date") != "" || c.Query("end_date") != "" {
+			var err error
+			start, err = time.ParseInLocation("2006-01-02", c.Query("start_date"), loc)
+			if err != nil {
+				return time.Time{}, time.Time{}, fmt.Errorf("invalid start_date")
+			}
+			end, err = time.ParseInLocation("2006-01-02", c.Query("end_date"), loc)
+			if err != nil {
+				return time.Time{}, time.Time{}, fmt.Errorf("invalid end_date")
+			}
+			end = end.AddDate(0, 0, 1)
+		}
+	default:
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid preset")
+	}
+	if !start.Before(end) || start.Before(end.AddDate(0, 0, -90)) {
+		return time.Time{}, time.Time{}, fmt.Errorf("Date range must be between 1 and 90 days")
+	}
+	return start, end, nil
 }

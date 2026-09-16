@@ -17,11 +17,11 @@
       <div v-if="error" role="alert" class="border-l-4 border-red-500 bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/20">{{ error }}</div>
       <div v-if="loading" role="status" class="py-8 text-center text-sm text-gray-500">正在汇总经营数据…</div>
       <template v-else-if="report">
-        <div class="flex flex-wrap justify-between gap-2 text-xs text-gray-500"><span>{{ report.start_date }} 至 {{ report.end_date }}</span><span>更新于 {{ new Date(report.generated_at).toLocaleString() }}</span></div>
+        <div class="flex flex-wrap justify-between gap-2 text-xs text-gray-500"><span>{{ report.start_date }} 至 {{ report.end_date }}</span><span>更新于 {{ new Date(report.generated_at).toLocaleString('zh-CN', { timeZone: timezone }) }}</span></div>
         <div class="grid grid-cols-2 gap-x-5 gap-y-6 border-b border-gray-200 pb-6 xl:grid-cols-4 dark:border-dark-600">
           <button v-for="metric in metrics" :key="metric.label" type="button" class="min-w-0 text-left" @click="metric.action()">
             <span class="text-xs text-gray-500">{{ metric.label }} <Icon name="chevronRight" size="xs" class="inline" /></span>
-            <span class="mt-2 block break-words text-2xl font-semibold tabular-nums" :class="metric.color">{{ metric.value }}</span>
+            <span class="mt-2 block whitespace-pre-line break-words text-2xl font-semibold tabular-nums" :class="metric.color">{{ metric.value }}</span>
             <span class="mt-1 block text-xs text-gray-500">{{ metric.hint }}</span>
           </button>
         </div>
@@ -30,7 +30,7 @@
           <section class="min-w-0"><h2 class="mb-4 text-sm font-semibold">上游成本排行 · Top 10</h2><div v-if="upstreams.length" class="h-72"><Bar :data="upstreamData" :options="barOptions" /></div><div v-else class="py-20 text-center text-sm text-gray-500">暂无上游消耗</div></section>
         </div>
         <div class="grid min-w-0 gap-6 border-t border-gray-200 pt-5 xl:grid-cols-2 dark:border-dark-600">
-          <section class="min-w-0"><h2 class="mb-4 text-sm font-semibold">充值与订阅额度趋势</h2><div class="h-56"><Bar :data="rechargeData" :options="rechargeOptions" /></div></section>
+          <section class="min-w-0"><h2 class="mb-4 text-sm font-semibold">充值额度（含订阅）趋势</h2><div class="h-56"><Bar :data="rechargeData" :options="rechargeOptions" /></div></section>
           <section class="min-w-0"><h2 class="mb-4 text-sm font-semibold">每日计费毛利率</h2><div class="h-56"><Line :data="marginData" :options="marginOptions" /></div></section>
         </div>
         <section ref="detailsSection" class="min-w-0 border-t border-gray-200 pt-5 dark:border-dark-600">
@@ -44,7 +44,7 @@
           </table></div>
           <div class="mt-4 flex items-center justify-end gap-3 text-xs text-gray-500"><span>共 {{ filteredRows.length }} 项 · {{ page }} / {{ totalPages }}</span><button class="btn btn-secondary" :disabled="page <= 1" aria-label="上一页" @click="page--"><Icon name="chevronLeft" size="sm" /></button><button class="btn btn-secondary" :disabled="page >= totalPages" aria-label="下一页" @click="page++"><Icon name="chevronRight" size="sm" /></button></div>
         </section>
-        <footer class="border-t border-gray-200 pt-4 text-xs leading-6 text-gray-500 dark:border-dark-600">统计口径：充值为已支付、充值中及已完成订单的余额额度，订阅单独统计；不含兑换码与人工赠送。用户消耗为实际计费额；上游成本为账号统计价 × 账号倍率；计费毛利 = 用户消耗 − 上游成本，毛利率 = 计费毛利 ÷ 用户消耗。以上为 USD 计费口径，非现金净利润，未扣支付手续费、退款及运营费用。余额为查询时当前值，非所选日期的历史余额；上游分组使用账号当前归属。</footer>
+        <footer class="border-t border-gray-200 pt-4 text-xs leading-6 text-gray-500 dark:border-dark-600">统计日期和时间范围由服务器业务时区确定。期间充值额度与订单管理保持一致：按订单创建时间、当前日期范围、余额充值和订阅充值订单、全部订单状态汇总订单 amount。消耗、成本和毛利采用 USD 计费口径；毛利 = 实际计费额 − 账号统计价 × 账号倍率，毛利率按汇总金额相除，非现金净利润。余额为当前存量；上游归属为账号当前分组。</footer>
         <OperationsCustomers ref="customers" :start-date="report.start_date" :end-date="report.end_date" :timezone="timezone" />
       </template>
     </div>
@@ -60,38 +60,35 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import OperationsCustomers from './components/OperationsCustomers.vue'
 import { getOperationsFinance, type FinanceReport, type FinanceRow } from '@/api/admin/operationsFinance'
-import { formatLocalDate } from '@/utils/localDate'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend)
 const router = useRouter()
 const route = useRoute()
-const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
-const start = ref(''), end = ref(''), activePreset = ref('近30天')
+const timezone = ref('Asia/Shanghai')
+const start = ref(''), end = ref(''), activePreset = ref('今天')
 const report = ref<FinanceReport | null>(null), loading = ref(false), error = ref('')
 let controller: AbortController | undefined
 const presets = [{ label: '今天', days: 1 }, { label: '昨天', days: 0 }, { label: '近7天', days: 7 }, { label: '近30天', days: 30 }, { label: '本月', days: -1 }]
 const money = (value: number) => '$' + value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })
 const percent = (value: number | null) => value == null ? '—' : `${value.toFixed(2)}%`
-function setRange(days: number, label: string, fetch = true) {
-  const last = new Date(), first = new Date()
-  if (days === 0) { last.setDate(last.getDate() - 1); first.setDate(first.getDate() - 1) }
-  else if (days === -1) first.setDate(1)
-  else first.setDate(first.getDate() - days + 1)
-  start.value = formatLocalDate(first); end.value = formatLocalDate(last); activePreset.value = label
-  if (fetch) void load()
+const presetKeys: Record<string, string> = { '今天': 'today', '昨天': 'yesterday', '近7天': '7d', '近30天': '30d', '本月': 'month' }
+function setRange(_days: number, label: string) {
+  activePreset.value = label
+  void load()
 }
 async function load() {
   controller?.abort()
   const request = new AbortController(); controller = request
   report.value = null; error.value = ''; loading.value = false
   const days = (Date.parse(end.value) - Date.parse(start.value)) / 86400000 + 1
-  if (!Number.isFinite(days) || days < 1 || days > 90) { error.value = '请选择有效日期，单次查询最多 90 天。'; return }
+  if (!activePreset.value && (!Number.isFinite(days) || days < 1 || days > 90)) { error.value = '请选择有效日期，单次查询最多 90 天。'; return }
   loading.value = true
   try {
-    const result = await getOperationsFinance({ start_date: start.value, end_date: end.value, timezone }, request.signal)
+    const result = await getOperationsFinance(activePreset.value ? { preset: presetKeys[activePreset.value] } : { start_date: start.value, end_date: end.value }, request.signal)
     if (controller !== request) return
     report.value = result; page.value = 1; upstreamFilter.value = ''
-    void router.replace({ query: { start_date: result.start_date, end_date: result.end_date } })
+    timezone.value = result.timezone || 'Asia/Shanghai'; start.value = result.start_date; end.value = result.end_date
+    void router.replace({ query: activePreset.value ? { preset: presetKeys[activePreset.value] } : { start_date: result.start_date, end_date: result.end_date } })
   } catch { if (!request.signal.aborted) error.value = '经营数据加载失败，请重试。' }
   finally { if (controller === request) loading.value = false }
 }
@@ -104,7 +101,7 @@ const detailsSection = ref<HTMLElement>()
 const customers = ref<InstanceType<typeof OperationsCustomers>>()
 const lossOnly = ref(false)
 const columns = computed<{ key: NumericKey; label: string }[]>(() => [
-  ...(dimension.value === 'day' ? [{ key: 'recharge' as const, label: '充值额度' }, { key: 'subscription' as const, label: '订阅额度' }] : []),
+  ...(dimension.value === 'day' ? [{ key: 'recharge' as const, label: '充值额度' }] : []),
   { key: 'requests', label: '请求数' }, { key: 'consumption', label: '用户消耗' }, { key: 'list_cost', label: '标准价消耗' }, { key: 'cost', label: '上游成本' }, { key: 'profit', label: '计费毛利' }, { key: 'margin', label: '毛利率' }
 ])
 const filteredRows = computed(() => (report.value?.rows ?? []).filter(r => r.dimension === dimension.value && (!lossOnly.value || r.profit < 0) && (!upstreamFilter.value || r.upstream === upstreamFilter.value) && r.label.toLowerCase().includes(search.value.toLowerCase())).sort((a, b) => ((a[sortKey.value] ?? -Infinity) - (b[sortKey.value] ?? -Infinity)) * (descending.value ? -1 : 1) || a.key.localeCompare(b.key)))
@@ -114,8 +111,8 @@ watch([search, lossOnly], () => { page.value = 1 })
 function sortBy(key: NumericKey) { descending.value = sortKey.value === key ? !descending.value : true; sortKey.value = key; page.value = 1 }
 function selectDimension(key: Dimension) { dimension.value = key; upstreamFilter.value = ''; search.value = ''; page.value = 1; if (!columns.value.some(c => c.key === sortKey.value)) sortKey.value = 'cost' }
 function showDetails(key: Dimension) { selectDimension(key); detailsSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
-function usage(extra: Record<string, string> = {}) { void router.push({ path: '/admin/usage', query: { start_date: report.value!.start_date, end_date: report.value!.end_date, ...extra } }) }
-function orders(day?: string, orderType?: string) { void router.push({ path: '/admin/orders', query: { date_field: 'paid_at', order_type: orderType, start_date: day ?? report.value!.start_date, end_date: day ?? report.value!.end_date } }) }
+function usage(extra: Record<string, string> = {}) { void router.push({ path: '/admin/usage', query: { start_date: report.value!.start_date, end_date: report.value!.end_date, timezone: timezone.value, ...extra } }) }
+function orders(day?: string) { void router.push({ path: '/admin/orders', query: { date_field: 'created_at', start_date: day ?? report.value!.start_date, end_date: day ?? report.value!.end_date } }) }
 function drill(row: FinanceRow) {
   if (row.dimension === 'upstream') { selectDimension('account'); upstreamFilter.value = row.key }
   else if (row.dimension === 'day') usage({ start_date: row.key, end_date: row.key })
@@ -125,8 +122,7 @@ const metrics = computed(() => {
   if (!report.value) return []
   const s = report.value.summary
   return [
-    { label: '期间充值额度', value: money(s.recharge), hint: '余额订单 · 按支付日期', color: '', action: () => orders(undefined, 'balance') },
-    { label: '期间订阅额度', value: money(s.subscription), hint: '订阅订单 · 按支付日期', color: '', action: () => orders(undefined, 'subscription') },
+    { label: '期间充值额度', value: money(s.recharge), hint: '余额充值 + 订阅充值 · 创建时间 · 全部状态', color: '', action: () => orders() },
     { label: '当前用户余额', value: money(report.value.current_balance), hint: '当前存量 · 含赠送', color: '', action: () => customers.value?.open('balance') },
     { label: '用户消耗', value: money(s.consumption), hint: '期间实际计费额', color: 'text-sky-600', action: () => usage() },
     { label: '上游汇总成本', value: money(s.cost), hint: '账号统计价 × 账号倍率', color: 'text-amber-600', action: () => showDetails('upstream') },
@@ -143,7 +139,7 @@ const trendData = computed(() => ({ labels: days.value.map(r => r.key), datasets
   { label: '计费毛利', data: days.value.map(r => r.profit), borderColor: '#059669', backgroundColor: '#059669', pointRadius: 2 }
 ] }))
 const upstreamData = computed(() => ({ labels: upstreams.value.map(r => r.label), datasets: [{ label: '上游成本', data: upstreams.value.map(r => r.cost), backgroundColor: '#d97706' }] }))
-const rechargeData = computed(() => ({ labels: days.value.map(r => r.key), datasets: [{ label: '充值额度', data: days.value.map(r => r.recharge), backgroundColor: '#0284c7' }, { label: '订阅额度', data: days.value.map(r => r.subscription), backgroundColor: '#059669' }] }))
+const rechargeData = computed(() => ({ labels: days.value.map(r => r.key), datasets: [{ label: '充值额度（含订阅）', data: days.value.map(r => r.recharge), backgroundColor: '#0284c7' }] }))
 const marginData = computed(() => ({ labels: days.value.map(r => r.key), datasets: [{ label: '计费毛利率', data: days.value.map(r => r.margin), borderColor: '#059669', backgroundColor: '#059669', pointRadius: 2, spanGaps: false }] }))
 const marginOptions: ChartOptions<'line'> = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => percent(context.parsed.y) } } }, scales: { y: { title: { display: true, text: '%' }, ticks: { callback: value => `${value}%` } } }, onClick: (_event, elements) => { const row = days.value[elements[0]?.index ?? -1]; if (row) drill(row) } }
 const lineOptions: ChartOptions<'line'> = { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom' } }, onClick: (_event, elements) => { const row = days.value[elements[0]?.index ?? -1]; if (row) drill(row) }, scales: { y: { title: { display: true, text: 'USD' } } } }
@@ -155,7 +151,7 @@ function exportRows() {
   const url = URL.createObjectURL(new Blob(['\uFEFF' + values.map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8;' }))
   const a = document.createElement('a'); a.href = url; a.download = `operations-${dimension.value}-${report.value!.start_date}-${report.value!.end_date}.csv`; a.click(); URL.revokeObjectURL(url)
 }
-setRange(30, '近30天', false)
+if (typeof route.query.preset === 'string') activePreset.value = Object.keys(presetKeys).find(key => presetKeys[key] === route.query.preset) || '今天'
 if (typeof route.query.start_date === 'string' && typeof route.query.end_date === 'string') {
   start.value = route.query.start_date; end.value = route.query.end_date; activePreset.value = ''
 }
