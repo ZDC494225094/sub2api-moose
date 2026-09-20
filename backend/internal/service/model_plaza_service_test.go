@@ -351,7 +351,7 @@ func TestListPlazaGroups_GroupVideoPriceOverridesChannelPricing(t *testing.T) {
 			}},
 		{ID: 20, Name: "g-plain", Platform: "grok", RateMultiplier: 1},
 	}
-	out, err := newPlazaChannelService(channels, groups, nil).ListPlazaGroups(context.Background())
+	out, err := newPlazaService(channels, groups, nil).ListGroups(context.Background())
 	require.NoError(t, err)
 	require.Len(t, out, 2)
 	byName := map[string]PlazaGroup{}
@@ -403,7 +403,7 @@ func newPlazaServiceWithBilling(channels []Channel, groups []Group, groupPlatfor
 			return groupPlatforms, nil
 		},
 	}
-	cs := NewChannelService(repo, nil, nil, nil)
+	cs := NewChannelService(repo, nil, nil, nil, nil)
 	bs := NewBillingService(&config.Config{}, catalog)
 	return NewModelPlazaService(repo, &stubGroupRepoForAvailable{activeGroups: groups}, catalog, bs, NewModelPricingResolver(cs, bs))
 }

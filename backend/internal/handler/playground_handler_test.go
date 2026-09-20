@@ -29,13 +29,14 @@ func TestCanvasGroupRateMultiplierUsesCurrentPeakRate(t *testing.T) {
 	group := service.Group{
 		ID:                 1,
 		RateMultiplier:     1.5,
+		SubscriptionType:   service.SubscriptionTypeSubscription,
 		PeakRateEnabled:    true,
 		PeakStart:          "10:00",
 		PeakEnd:            "12:00",
 		PeakRateMultiplier: 0.8,
 	}
 
-	if got, want := h.canvasGroupRateMultiplier(context.Background(), 1, group, time.Date(2026, time.August, 11, 10, 30, 0, 0, timezone.Location())), 0.8; got != want {
+	if got, want := h.canvasGroupRateMultiplier(context.Background(), 1, group, time.Date(2026, time.August, 11, 10, 30, 0, 0, timezone.Location())), group.RateMultiplier*group.PeakRateMultiplier; got != want {
 		t.Fatalf("canvasGroupRateMultiplier() = %v, want %v", got, want)
 	}
 	if got, want := h.canvasGroupRateMultiplier(context.Background(), 1, group, time.Date(2026, time.August, 11, 9, 30, 0, 0, timezone.Location())), 1.5; got != want {

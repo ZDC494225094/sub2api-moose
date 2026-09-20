@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 )
 
@@ -27,7 +26,7 @@ type Group struct {
 	BillingRateSyncAccountID *int64
 	BillingRateMarkup        float64
 	// 高峰时段倍率：peak_rate_enabled 为 true 且当前时刻处于 [PeakStart, PeakEnd) 时，
-	// token 计费直接使用 PeakRateMultiplier 作为最终倍率。详见 PeakMultiplierAt。
+	// token 计费倍率额外乘以 PeakRateMultiplier。详见 PeakMultiplierAt。
 	PeakRateEnabled    bool
 	PeakStart          string
 	PeakEnd            string
@@ -311,78 +310,72 @@ func parseMinutes(hhmm string) (int, bool) {
 	return h*60 + m, true
 }
 
-// peakRateAt 返回指定时刻 now 是否处于高峰，以及高峰时应直接使用的最终 token 计费倍率。
-//   - 未启用 / 未配置 / 配置非法（start==end 或格式错误） / 非高峰时段 → 返回 1.0（安全降级）
-//   - 区间为左闭右开 [PeakStart, PeakEnd)，支持跨午夜（如 22:00-次日02:00）
+// PeakMultiplierAt 返回指定时刻 now 的高峰因子。
+//   - 未启用 / 未配置 / 配置非法（start>=end 或格式错误） / 非高峰时段 → 返回 1.0（安全降级）
+//   - 区间为左闭右开 [PeakStart, PeakEnd)，仅支持当日区间，不支持跨天（如 22:00-次日02:00）
 //   - 时刻基于全局系统时区（timezone.Location）判定
 //
 // 该方法是纯函数，不读取任何外部状态，便于单测。
-func (g *Group) peakRateAt(now time.Time) (float64, bool) {
-	if g == nil || !g.PeakRateEnabled || g.PeakStart == "" || g.PeakEnd == "" {
-		return 1.0, false
+func (g *Group) PeakMultiplierAt(now time.Time) float64 {
+	if g == nil || !g.IsSubscriptionType() || !g.PeakRateEnabled || g.PeakStart == "" || g.PeakEnd == "" {
+		return 1.0
 	}
 	start, ok1 := parseMinutes(g.PeakStart)
 	end, ok2 := parseMinutes(g.PeakEnd)
-	if !ok1 || !ok2 || start == end {
-		return 1.0, false
+	if !ok1 || !ok2 || start >= end {
+		return 1.0
 	}
 	t := now.In(timezone.Location())
 	cur := t.Hour()*60 + t.Minute()
-	if (start < end && cur >= start && cur < end) ||
-		(start > end && (cur >= start || cur < end)) {
-		return g.PeakRateMultiplier, true
+	if cur >= start && cur < end {
+		return g.PeakRateMultiplier
 	}
-	return 1.0, false
-}
-
-// PeakRateAt 返回当前时刻是否处于高峰，以及高峰时配置的最终 token 倍率。
-// 画布等登录态入口用它展示与网关计费一致的当前倍率。
-func (g *Group) PeakRateAt(now time.Time) (float64, bool) {
-	return g.peakRateAt(now)
-}
-
-// PeakMultiplierAt 返回高峰时配置的最终倍率；非高峰或配置非法时返回 1.0。
-func (g *Group) PeakMultiplierAt(now time.Time) float64 {
-	rate, _ := g.PeakRateAt(now)
-	return rate
+	return 1.0
 }
 
 // ValidatePeakRateConfig 是高峰倍率配置的唯一校验来源，供 handler 与 service 层共用。
-// enabled=true 时要求 start/end 合法且不相同（支持跨午夜），multiplier>=0。
+// enabled=true 时仅允许订阅类型分组；并要求 start/end 合法且 end>start（不支持跨天），multiplier>=0。
 // multiplier=0 是允许的，表示高峰 token 请求按 0 倍计费，可用于折扣/免费策略。
-// enabled=false 时放行。
-func ValidatePeakRateConfig(enabled bool, start, end string, multiplier float64) error {
+// enabled=false 时放行（不关心类型）。subscriptionType 为空按 standard 处理。
+func ValidatePeakRateConfig(subscriptionType string, enabled bool, start, end string, multiplier float64) error {
 	if !enabled {
 		return nil
 	}
+	if subscriptionType != SubscriptionTypeSubscription {
+		return errors.New("高峰时段倍率仅支持订阅类型分组")
+	}
 	if start == "" || end == "" {
-		return infraerrors.BadRequest("INVALID_PEAK_RATE_CONFIG", "启用高峰倍率时，高峰开始和高峰结束时间必填")
+		return errors.New("peak_rate_enabled 为 true 时 peak_start 与 peak_end 必填")
 	}
 	st, okStart := parseMinutes(start)
 	if !okStart {
-		return infraerrors.BadRequest("INVALID_PEAK_RATE_CONFIG", fmt.Sprintf("高峰开始时间格式应为 HH:MM，当前值为 %q", start))
+		return fmt.Errorf("peak_start 格式应为 HH:MM，got %q", start)
 	}
 	en, okEnd := parseMinutes(end)
 	if !okEnd {
-		return infraerrors.BadRequest("INVALID_PEAK_RATE_CONFIG", fmt.Sprintf("高峰结束时间格式应为 HH:MM，当前值为 %q", end))
+		return fmt.Errorf("peak_end 格式应为 HH:MM，got %q", end)
 	}
-	if st == en {
-		return infraerrors.BadRequest("INVALID_PEAK_RATE_CONFIG", "高峰开始和高峰结束时间不能相同")
+	if st >= en {
+		return errors.New("peak_end 必须大于 peak_start（不支持跨天区间，如 22:00-02:00）")
 	}
 	if multiplier < 0 {
-		return infraerrors.BadRequest("INVALID_PEAK_RATE_CONFIG", "高峰倍率不能为负")
+		return errors.New("peak_rate_multiplier 不能为负")
 	}
 	return nil
 }
 
 // NormalizePeakRateConfig 归一化最终落库的高峰配置，CreateGroup 与 UpdateGroup 两条写路径共用（唯一收口）：
-//   - 所有分组类型均可配置高峰倍率；
-//   - 关闭高峰时保留已配置的合法窗口（便于临时停用后再启用），
+//   - 非订阅类型分组不携带任何高峰配置，一律清空（enabled=false、窗口置空、倍率归 1.0）；
+//   - 订阅分组关闭高峰时保留已配置的合法窗口（便于临时停用后再启用），
 //     但清掉无法解析的脏字符串与负倍率，避免脏数据入库。
 //
 // 与 ValidatePeakRateConfig 的分工：enabled=true 时校验已保证各字段合法，本函数为无操作；
-// enabled=false 时校验放行，由本函数兜底清洗。调用顺序为先归一化、后校验。
-func NormalizePeakRateConfig(enabled bool, start, end string, multiplier float64) (bool, string, string, float64) {
+// enabled=false 时校验放行，由本函数兜底清洗。调用顺序为先归一化、后校验，
+// 使"订阅转标准"这类更新能静默清空高峰配置而不是被校验拒绝。
+func NormalizePeakRateConfig(subscriptionType string, enabled bool, start, end string, multiplier float64) (bool, string, string, float64) {
+	if subscriptionType != SubscriptionTypeSubscription {
+		return false, "", "", 1.0
+	}
 	if !enabled {
 		if _, ok := parseMinutes(start); !ok {
 			start = ""
@@ -397,18 +390,17 @@ func NormalizePeakRateConfig(enabled bool, start, end string, multiplier float64
 	return enabled, start, end, multiplier
 }
 
-// computePeakAwareMultipliers 把"基础 token 倍率 base"（已含系统/分组/用户级倍率）
-// 拆分为最终 token 倍率与图片按次倍率：图片按次倍率基于 base 现算、不受高峰影响；高峰时 token 倍率直接替换为配置值。
+// computePeakAwareMultipliers 把"基础 token 倍率 base"（已含系统/分组/用户级倍率，但不含高峰）
+// 拆分为最终 token 倍率与图片按次倍率：图片按次倍率基于 base 现算、不受高峰影响；token 倍率在 base 上叠加高峰因子。
 // gateway_service.recordUsageCore 与 openai_gateway_service.RecordUsage 共用此函数，
-// 锁死"高峰倍率覆盖 token 倍率、图片按次倍率不受影响"这一规则。
+// 锁死"高峰因子只乘入 token 倍率、图片按次倍率不受影响"这一叠加顺序——任何调换都会被 group_peak_rate_test 覆盖。
 func computePeakAwareMultipliers(apiKey *APIKey, base float64, now time.Time) (text, image float64) {
 	image = resolveImageRateMultiplier(apiKey, base)
-	text = base
+	peak := 1.0
 	if apiKey != nil && apiKey.Group != nil {
-		if peakRate, active := apiKey.Group.peakRateAt(now); active {
-			text = peakRate
-		}
+		peak = apiKey.Group.PeakMultiplierAt(now)
 	}
+	text = base * peak
 	return
 }
 

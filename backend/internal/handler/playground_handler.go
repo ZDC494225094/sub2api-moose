@@ -95,10 +95,7 @@ func (h *PlaygroundHandler) canvasGroupRateMultiplier(ctx context.Context, userI
 	if h.gatewayService != nil {
 		rate = h.gatewayService.ResolveUserGroupRateMultiplier(ctx, userID, group.ID, rate)
 	}
-	if peakRate, active := group.PeakRateAt(now); active {
-		return peakRate
-	}
-	return rate
+	return rate * group.PeakMultiplierAt(now)
 }
 
 // StartCanvasRun binds a canvas job to a user-selected group without exposing

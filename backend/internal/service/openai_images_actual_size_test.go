@@ -77,7 +77,7 @@ func TestOpenAIGatewayServiceForwardImages_OAuthReturnsActualSizeForExplicitSize
 	require.NotNil(t, run.result)
 	require.Equal(t, 1, run.result.ImageCount)
 	require.Equal(t, []string{"1672x941"}, run.result.ImageOutputSizes)
-	require.Equal(t, "gpt-5.6", gjson.GetBytes(run.upstream.lastBody, "model").String())
+	require.Equal(t, openAIImagesResponsesMainModel, gjson.GetBytes(run.upstream.lastBody, "model").String())
 	require.Equal(t, "2048x1152", gjson.GetBytes(run.upstream.lastBody, "tools.0.size").String())
 	require.Equal(t, http.StatusOK, run.recorder.Code)
 	require.Equal(t, "1672x941", gjson.Get(run.recorder.Body.String(), "size").String())
@@ -163,7 +163,7 @@ type openAIOAuthImageActualSizeTestRun struct {
 func runOpenAIOAuthImageActualSizeTest(t *testing.T, stream bool, requestSize string) openAIOAuthImageActualSizeTestRun {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
-	body := []byte(fmt.Sprintf(`{"model":"gpt-image-2","prompt":"draw a test chart","size":%q,"quality":"low","output_format":"png","stream":%t}`, requestSize, stream))
+	body := []byte(fmt.Sprintf(`{"model":"gpt-image-1","prompt":"draw a test chart","size":%q,"quality":"low","output_format":"png","stream":%t}`, requestSize, stream))
 	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -173,8 +173,8 @@ func runOpenAIOAuthImageActualSizeTest(t *testing.T, stream bool, requestSize st
 
 	encoded := encodeOpenAIImageTestPNG(t, 1672, 941)
 	upstreamBody := fmt.Sprintf(
-		"data: {\"type\":\"response.created\",\"response\":{\"created_at\":1710000000,\"tools\":[{\"type\":\"image_generation\",\"model\":\"gpt-image-2\",\"size\":\"auto\",\"quality\":\"auto\",\"output_format\":\"png\"}]}}\n\n"+
-			"data: {\"type\":\"response.completed\",\"response\":{\"created_at\":1710000000,\"tools\":[{\"type\":\"image_generation\",\"model\":\"gpt-image-2\",\"size\":\"auto\",\"quality\":\"auto\",\"output_format\":\"png\"}],\"output\":[{\"id\":\"ig_actual_size\",\"type\":\"image_generation_call\",\"result\":%q}]}}\n\n"+
+		"data: {\"type\":\"response.created\",\"response\":{\"created_at\":1710000000,\"tools\":[{\"type\":\"image_generation\",\"model\":\"gpt-image-1\",\"size\":\"auto\",\"quality\":\"auto\",\"output_format\":\"png\"}]}}\n\n"+
+			"data: {\"type\":\"response.completed\",\"response\":{\"created_at\":1710000000,\"tools\":[{\"type\":\"image_generation\",\"model\":\"gpt-image-1\",\"size\":\"auto\",\"quality\":\"auto\",\"output_format\":\"png\"}],\"output\":[{\"id\":\"ig_actual_size\",\"type\":\"image_generation_call\",\"result\":%q}]}}\n\n"+
 			"data: [DONE]\n\n",
 		encoded,
 	)

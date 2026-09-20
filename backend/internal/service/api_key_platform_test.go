@@ -13,7 +13,13 @@ func TestNormalizeAPIKeyPlatformIncludesEveryConcreteGroupPlatform(t *testing.T)
 		{input: PlatformAntigravity, want: PlatformAntigravity},
 		{input: PlatformGrok, want: PlatformGrok},
 		{input: " GROK ", want: PlatformGrok},
-		{input: PlatformComposite, want: ""},
+		{input: PlatformKimi, want: PlatformKimi},
+		{input: PlatformZhipu, want: PlatformZhipu},
+		{input: PlatformDeepseek, want: PlatformDeepseek},
+		{input: PlatformMiniMax, want: PlatformMiniMax},
+		{input: PlatformOpenCodeGo, want: PlatformOpenCodeGo},
+		{input: PlatformComposite, want: PlatformComposite},
+		{input: "invalid", want: ""},
 	}
 
 	for _, tt := range tests {

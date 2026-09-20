@@ -256,8 +256,6 @@ import {
   isOneTimeDailyQuota
 } from '@/utils/subscriptionQuota'
 
-const RESET_AFTER_EXPIRY_BOUNDARY_DELAY_MS = 60 * 1000
-
 function platformAccentDotClass(p: string): string {
   switch (p) {
     case 'anthropic': return 'bg-orange-500'
@@ -369,11 +367,6 @@ function formatResetTime(
 
   const windowHours = period === 'daily' ? 24 : period === 'weekly' ? 168 : 720
   const resetAt = new Date(start.getTime() + windowHours * 60 * 60 * 1000)
-  const expiresAt = parseValidDate(subscription.expires_at)
-  if (expiresAt && resetAt.getTime() === expiresAt.getTime()) {
-    resetAt.setTime(expiresAt.getTime() + RESET_AFTER_EXPIRY_BOUNDARY_DELAY_MS)
-  }
-
   return Number.isFinite(resetAt.getTime())
     ? t('userSubscriptions.resetsAt', { time: formatDateTimeToMinute(resetAt) })
     : t('userSubscriptions.windowNotActive')

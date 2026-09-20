@@ -2386,14 +2386,16 @@ interface PlaygroundFileSystemFileHandle {
   createWritable(): Promise<PlaygroundFileSystemWritable>
 }
 
+type PlaygroundPermissionState = 'granted' | 'denied' | 'prompt'
+
 interface PlaygroundFileSystemDirectoryHandle {
   readonly name: string
   getFileHandle(name: string, options?: { create?: boolean }): Promise<PlaygroundFileSystemFileHandle>
-  queryPermission?(options?: { mode: 'readwrite' }): Promise<PermissionState>
-  requestPermission?(options?: { mode: 'readwrite' }): Promise<PermissionState>
+  queryPermission?(options?: { mode: 'readwrite' }): Promise<PlaygroundPermissionState>
+  requestPermission?(options?: { mode: 'readwrite' }): Promise<PlaygroundPermissionState>
 }
 
-type PlaygroundDirectoryPermission = PermissionState | 'unsupported'
+type PlaygroundDirectoryPermission = PlaygroundPermissionState | 'unsupported'
 
 interface PlaygroundImagePersistBatch {
   records: PlaygroundPersistedImage[]
@@ -3916,7 +3918,7 @@ async function hydratePersistedVideos(signal?: AbortSignal) {
 async function queryDirectoryPermission(
   handle: PlaygroundFileSystemDirectoryHandle,
   requestAccess = false,
-): Promise<PermissionState> {
+): Promise<PlaygroundPermissionState> {
   const options = { mode: 'readwrite' as const }
   let permission = handle.queryPermission ? await handle.queryPermission(options) : 'granted'
   if (permission !== 'granted' && requestAccess && handle.requestPermission) {
@@ -3928,7 +3930,7 @@ async function queryDirectoryPermission(
 async function queryImageDirectoryPermission(
   handle: PlaygroundFileSystemDirectoryHandle,
   requestAccess = false,
-): Promise<PermissionState> {
+): Promise<PlaygroundPermissionState> {
   const permission = await queryDirectoryPermission(handle, requestAccess)
   imageDirectoryPermission.value = permission
   return permission
@@ -3937,7 +3939,7 @@ async function queryImageDirectoryPermission(
 async function queryVideoDirectoryPermission(
   handle: PlaygroundFileSystemDirectoryHandle,
   requestAccess = false,
-): Promise<PermissionState> {
+): Promise<PlaygroundPermissionState> {
   const permission = await queryDirectoryPermission(handle, requestAccess)
   videoDirectoryPermission.value = permission
   return permission

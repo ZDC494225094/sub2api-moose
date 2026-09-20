@@ -422,7 +422,7 @@ describe('admin GroupsView column settings', () => {
     expect(getCapacitySummary).toHaveBeenCalledTimes(1)
   })
 
-  it('renders and expands peak rate controls for a standard group', async () => {
+  it('renders peak rate controls only after switching to a subscription group', async () => {
     const wrapper = await mountView()
     const createButton = wrapper
       .findAll('button')
@@ -439,6 +439,9 @@ describe('admin GroupsView column settings', () => {
     )
     expect(subscriptionSelect).toBeTruthy()
     expect((subscriptionSelect!.element as HTMLSelectElement).value).toBe('standard')
+
+    expect(wrapper.findAll('label').some((label) => label.text().includes('Enable Peak Rate'))).toBe(false)
+    await subscriptionSelect!.setValue('subscription')
 
     const peakToggleLabel = wrapper
       .findAll('label')

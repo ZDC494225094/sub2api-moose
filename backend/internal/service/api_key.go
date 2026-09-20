@@ -108,6 +108,8 @@ func NormalizeAPIKeyPlatform(platform string) string {
 		return PlatformAntigravity
 	case PlatformGrok:
 		return PlatformGrok
+	case PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo, PlatformComposite:
+		return strings.ToLower(strings.TrimSpace(platform))
 	default:
 		return ""
 	}

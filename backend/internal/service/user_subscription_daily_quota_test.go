@@ -173,8 +173,9 @@ func TestUserSubscriptionNeedsMonthlyReset_ThirtyDayPlanUsesExactStartTime(t *te
 	}
 
 	require.False(t, sub.NeedsMonthlyResetAt(time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)), "30天包月套餐不应在到期当天零点提前重置月额度")
-	require.False(t, sub.NeedsMonthlyResetAt(start.Add(30*24*time.Hour)), "到期时订阅已过期，不应再重置月额度")
-	require.Equal(t, start.Add(30*24*time.Hour).Add(time.Minute), *sub.MonthlyResetTime())
+	require.True(t, sub.NeedsMonthlyResetAt(start.Add(30*24*time.Hour)), "上游窗口到期判断只反映周期结束")
+	require.False(t, sub.canAutomaticallyResetMonthlyAt(start.Add(30*24*time.Hour)), "到期时订阅已过期，不应再重置月额度")
+	require.Equal(t, start.Add(30*24*time.Hour), *sub.MonthlyResetTime())
 }
 
 func TestUserSubscriptionResetTime_DailyUsesCalendarBoundaryAndPeriodicUsesStartsAt(t *testing.T) {
@@ -195,7 +196,7 @@ func TestUserSubscriptionResetTime_DailyUsesCalendarBoundaryAndPeriodicUsesStart
 	require.True(t, sub.NeedsDailyResetAt(time.Date(2026, 6, 2, 0, 0, 0, 0, time.UTC)))
 }
 
-func TestUserSubscriptionNeedsReset_ExpiredSubscriptionKeepsUsageWindows(t *testing.T) {
+func TestUserSubscriptionNeedsReset_ReportsElapsedPeriodicWindows(t *testing.T) {
 	start := time.Now().Add(-40 * 24 * time.Hour)
 	sub := &UserSubscription{
 		Status:             SubscriptionStatusActive,
@@ -207,8 +208,8 @@ func TestUserSubscriptionNeedsReset_ExpiredSubscriptionKeepsUsageWindows(t *test
 	}
 
 	require.False(t, sub.NeedsDailyReset())
-	require.False(t, sub.NeedsWeeklyReset())
-	require.False(t, sub.NeedsMonthlyReset())
+	require.True(t, sub.NeedsWeeklyReset())
+	require.True(t, sub.NeedsMonthlyReset())
 }
 
 func TestCheckAndResetWindows_DailyCardDoesNotResetDailyUsage(t *testing.T) {

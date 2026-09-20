@@ -166,7 +166,7 @@ func TestCalculateProgress_MonthlyUsage(t *testing.T) {
 	assert.Equal(t, 80.0, progress.Monthly.Percentage)
 }
 
-func TestCalculateProgress_MonthlyResetOnExpiryBoundaryMovesAfterExpiry(t *testing.T) {
+func TestCalculateProgress_MonthlyResetOnExpiryBoundaryMatchesUpstream(t *testing.T) {
 	svc := newTestSubscriptionService()
 	start := time.Date(2026, 6, 1, 15, 30, 45, 0, time.UTC)
 	expiresAt := start.Add(30 * 24 * time.Hour)
@@ -186,7 +186,7 @@ func TestCalculateProgress_MonthlyResetOnExpiryBoundaryMovesAfterExpiry(t *testi
 	progress := svc.calculateProgress(sub, group)
 
 	require.NotNil(t, progress.Monthly)
-	assert.Equal(t, expiresAt.Add(time.Minute), progress.Monthly.ResetsAt)
+	assert.Equal(t, expiresAt, progress.Monthly.ResetsAt)
 }
 
 func TestCalculateProgress_ResetTimeUsesStartsAtForLegacyMidnightWindow(t *testing.T) {

@@ -539,7 +539,7 @@ func TestAPIKeyAuthRejectsUnavailableGroup(t *testing.T) {
 				},
 			}
 			cfg := &config.Config{RunMode: config.RunModeStandard}
-			apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+			apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, &unavailableAPIKeyGroupRepo{}, nil, nil, nil, cfg)
 			router := gin.New()
 			var markedBusinessLimited bool
 			var businessLimitedReason string
@@ -1637,6 +1637,14 @@ type stubUserSubscriptionRepo struct {
 	resetMonthly   func(ctx context.Context, id int64, start time.Time) error
 }
 
+type unavailableAPIKeyGroupRepo struct {
+	service.GroupRepository
+}
+
+func (r *unavailableAPIKeyGroupRepo) GetByIDLite(context.Context, int64) (*service.Group, error) {
+	return nil, service.ErrGroupNotFound
+}
+
 type fakeSettingRepo struct {
 	values map[string]string
 }
@@ -1700,6 +1708,14 @@ func (r *stubUserSubscriptionRepo) GetActiveByUserIDAndGroupID(ctx context.Conte
 		return r.getActive(ctx, userID, groupID)
 	}
 	return nil, errors.New("not implemented")
+}
+
+func (r *stubUserSubscriptionRepo) ListActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) ([]service.UserSubscription, error) {
+	sub, err := r.GetActiveByUserIDAndGroupID(ctx, userID, groupID)
+	if err != nil || sub == nil {
+		return nil, err
+	}
+	return []service.UserSubscription{*sub}, nil
 }
 
 func (r *stubUserSubscriptionRepo) Update(ctx context.Context, sub *service.UserSubscription) error {

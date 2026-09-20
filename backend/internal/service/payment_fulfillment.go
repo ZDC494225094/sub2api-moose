@@ -559,7 +559,7 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder, lease
 	if err != nil || g.Status != payment.EntityStatusActive {
 		return fmt.Errorf("group %d no longer exists or inactive", gid)
 	}
-	if err := s.ensurePaymentSubscriptionAssigned(ctx, o, gid, days); err != nil {
+	if err := s.ensurePaymentSubscriptionAssigned(ctx, o, gid, days, lease); err != nil {
 		return err
 	}
 	if err := s.applyAffiliateRebateForOrder(ctx, o); err != nil {
@@ -568,7 +568,10 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder, lease
 	return s.markCompleted(ctx, o, lease, "SUBSCRIPTION_SUCCESS")
 }
 
-func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, o *dbent.PaymentOrder, groupID int64, days int) error {
+func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, o *dbent.PaymentOrder, groupID int64, days int, lease *paymentFulfillmentLease) error {
+	if lease == nil {
+		return errors.New("missing payment fulfillment lease")
+	}
 	if s.subscriptionSvc == nil {
 		return errors.New("subscription service is unavailable")
 	}
@@ -626,15 +629,32 @@ func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, 
 	}
 
 	if assignedSubscription == nil {
-		return errors.New("subscription assignment audit exists but exact subscription could not be recovered")
+		if !alreadyAssigned {
+			return errors.New("subscription assignment returned no subscription")
+		}
+		// Legacy orders may only have a durable success audit, without an exact
+		// subscription ID or order note. Honor upstream idempotency: never issue
+		// another subscription just to backfill the local association.
+		return tx.Commit()
 	}
 	if assignedSubscription.ID <= 0 {
 		return errors.New("assigned subscription has invalid id")
 	}
 
 	if !paymentOrderHasRecordedSubscription(o) || *o.SubscriptionID != assignedSubscription.ID {
-		if _, err := txClient.PaymentOrder.UpdateOneID(o.ID).SetSubscriptionID(assignedSubscription.ID).Save(txCtx); err != nil {
+		// UpdatedAt is the upstream fulfillment lease token. Keep it unchanged
+		// while recording the local subscription association, and reject workers
+		// whose lease was superseded before this transaction commits.
+		updated, err := txClient.PaymentOrder.Update().Where(
+			paymentorder.IDEQ(o.ID),
+			paymentorder.StatusEQ(OrderStatusRecharging),
+			paymentorder.UpdatedAtEQ(lease.version),
+		).SetSubscriptionID(assignedSubscription.ID).SetUpdatedAt(lease.version).Save(txCtx)
+		if err != nil {
 			return fmt.Errorf("record subscription id: %w", err)
+		}
+		if updated == 0 {
+			return infraerrors.Conflict("CONFLICT", "fulfillment lease was lost before recording subscription")
 		}
 		o.SubscriptionID = &assignedSubscription.ID
 	}

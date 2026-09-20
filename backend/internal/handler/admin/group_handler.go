@@ -208,7 +208,7 @@ func sanitizeUpdateGroupRequestForSimpleMode(req *UpdateGroupRequest) {
 type CreateGroupRequest struct {
 	Name                      string                        `json:"name" binding:"required"`
 	Description               string                        `json:"description"`
-	Platform                  string                        `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek composite"`
+	Platform                  string                        `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek minimax opencode_go composite"`
 	RateMultiplier            float64                       `json:"rate_multiplier"`
 	BillingRateSyncAccountID  *int64                        `json:"billing_rate_sync_account_id"`
 	BillingRateMarkup         float64                       `json:"billing_rate_markup"`
@@ -284,7 +284,7 @@ type CreateGroupRequest struct {
 type UpdateGroupRequest struct {
 	Name                      string                         `json:"name"`
 	Description               *string                        `json:"description"`
-	Platform                  string                         `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek composite"`
+	Platform                  string                         `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek minimax opencode_go composite"`
 	RateMultiplier            *float64                       `json:"rate_multiplier"`
 	BillingRateSyncAccountID  optionalInt64Field             `json:"billing_rate_sync_account_id"`
 	BillingRateMarkup         *float64                       `json:"billing_rate_markup"`
@@ -364,7 +364,7 @@ type UpdateGroupAccountsRequest struct {
 type CompositeRouteRequest struct {
 	PublicModel    string `json:"public_model" binding:"required"`
 	MatchType      string `json:"match_type" binding:"omitempty,oneof=exact prefix"`
-	TargetPlatform string `json:"target_platform" binding:"required,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek"`
+	TargetPlatform string `json:"target_platform" binding:"required,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek minimax opencode_go"`
 	UpstreamModel  string `json:"upstream_model"`
 	Endpoint       string `json:"endpoint" binding:"omitempty,oneof=any messages count_tokens responses chat_completions embeddings images gemini"`
 	Priority       int    `json:"priority"`
@@ -731,7 +731,7 @@ func (h *GroupHandler) Create(c *gin.Context) {
 		sanitizeCreateGroupRequestForSimpleMode(&req)
 	}
 
-	if err := service.ValidatePeakRateConfig(req.PeakRateEnabled, req.PeakStart, req.PeakEnd, float64ValueOrDefault(req.PeakRateMultiplier, 1.0)); err != nil {
+	if err := service.ValidatePeakRateConfig(req.SubscriptionType, req.PeakRateEnabled, req.PeakStart, req.PeakEnd, float64ValueOrDefault(req.PeakRateMultiplier, 1.0)); err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}

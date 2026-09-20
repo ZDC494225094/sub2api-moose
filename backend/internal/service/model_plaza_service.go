@@ -136,6 +136,8 @@ func (s *ModelPlazaService) ListGroups(ctx context.Context) ([]PlazaGroup, error
 			IsExclusive:               g.IsExclusive,
 			ImageRateIndependent:      g.ImageRateIndependent,
 			ImageRateMultiplier:       g.ImageRateMultiplier,
+			VideoRateIndependent:      g.VideoRateIndependent,
+			VideoRateMultiplier:       g.VideoRateMultiplier,
 			LongContextPricingEnabled: g.LongContextPricingEnabled,
 		}
 		groupEnt[g.ID] = g
@@ -228,6 +230,10 @@ func (s *ModelPlazaService) ListGroups(ctx context.Context) ([]PlazaGroup, error
 // token 模型取计费阶梯表（单价与档位均由真实计费函数得出），
 // 图片/按次模型（或阶梯表不可用时）沿用渠道定价与分组图片档位价。
 func (s *ModelPlazaService) fillDisplayPricing(ctx context.Context, m *PlazaModel, g *Group) {
+	if m.Pricing != nil && m.Pricing.BillingMode == BillingModeVideo {
+		m.Pricing = plazaVideoDisplayPricing(m.Pricing, g, m.Name)
+		return
+	}
 	if s.billingService != nil && s.resolver != nil {
 		sched, err := s.billingService.ResolveContextPricingSchedule(ctx, s.resolver, ContextPricingScheduleInput{
 			Model:    m.Name,
@@ -244,6 +250,41 @@ func (s *ModelPlazaService) fillDisplayPricing(ctx context.Context, m *PlazaMode
 		}
 	}
 	m.Pricing = withDefaultMaxReasoningEffortMultiplier(plazaImageDisplayPricing(m.Pricing, g), m.Name)
+}
+
+// Use the same model-specific and resolution-specific prices as video billing.
+// Clone the shared channel pricing before applying a group's overrides.
+func plazaVideoDisplayPricing(p *ChannelModelPricing, g *Group, model string) *ChannelModelPricing {
+	if p == nil || g == nil || p.BillingMode != BillingModeVideo {
+		return p
+	}
+	labels := []string{VideoBillingResolution480P, VideoBillingResolution720P, VideoBillingResolution1080P}
+	hasOverride := false
+	for _, label := range labels {
+		hasOverride = hasOverride || g.GetVideoPriceForModel(model, label) != nil
+	}
+	if !hasOverride {
+		return p
+	}
+	cloned := p.Clone()
+	cloned.Intervals = nil
+	for i, label := range labels {
+		price := g.GetVideoPriceForModel(model, label)
+		if price == nil {
+			price = p.PerRequestPrice
+			for _, interval := range p.Intervals {
+				if interval.TierLabel == label && interval.PerRequestPrice != nil {
+					price = interval.PerRequestPrice
+					break
+				}
+			}
+		}
+		if price != nil {
+			value := *price
+			cloned.Intervals = append(cloned.Intervals, PricingInterval{TierLabel: label, PerRequestPrice: &value, SortOrder: i})
+		}
+	}
+	return &cloned
 }
 
 func withDefaultMaxReasoningEffortMultiplier(pricing *ChannelModelPricing, model string) *ChannelModelPricing {

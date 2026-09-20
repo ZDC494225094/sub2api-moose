@@ -11,15 +11,15 @@ const groupsViewSource = readFileSync(
 );
 
 describe("admin group peak rate controls", () => {
-  it("shows the existing peak rate controls for standard and subscription groups", () => {
+  it("limits peak rate controls to subscription groups and clears stale standard-group settings", () => {
     expect(groupsViewSource).toContain('v-model="createForm.peak_rate_enabled"');
     expect(groupsViewSource).toContain('v-model="editForm.peak_rate_enabled"');
     expect(
       groupsViewSource.match(
-        /<!-- 高峰时段倍率配置 -->\s*<div class="border-t pt-4">/g,
+        /<!-- 高峰时段倍率配置（仅订阅类型分组） -->\s*<div v-if="(?:create|edit)Form.subscription_type === 'subscription'" class="border-t pt-4">/g,
       ),
     ).toHaveLength(2);
-    expect(groupsViewSource).not.toContain(
+    expect(groupsViewSource).toContain(
       "() => editForm.subscription_type,",
     );
     expect(groupsViewSource).toContain(

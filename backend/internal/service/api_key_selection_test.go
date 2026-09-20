@@ -413,6 +413,22 @@ func TestValidateBindableGroupIDsRejectsPlatformMismatch(t *testing.T) {
 	require.Empty(t, platform)
 }
 
+func TestValidateBindableGroupIDsSupportsUpstreamPlatforms(t *testing.T) {
+	for _, platform := range []string{PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo, PlatformComposite} {
+		t.Run(platform, func(t *testing.T) {
+			first := &Group{ID: 61, Platform: platform, Status: StatusActive, SubscriptionType: SubscriptionTypeStandard}
+			second := &Group{ID: 62, Platform: platform, Status: StatusActive, SubscriptionType: SubscriptionTypeStandard}
+			repo := &apiKeySelectionGroupRepo{groups: map[int64]*Group{first.ID: first, second.ID: second}}
+			svc := NewAPIKeyService(nil, nil, repo, nil, nil, nil, nil)
+			for _, requested := range []string{"", platform} {
+				got, err := svc.validateBindableGroupIDs(context.Background(), &User{ID: 706}, requested, []int64{first.ID, second.ID})
+				require.NoError(t, err)
+				require.Equal(t, platform, got)
+			}
+		})
+	}
+}
+
 func TestGetAvailableGroupsMergesMultipleSubscriptionsForSameGroup(t *testing.T) {
 	now := time.Now()
 	subscription := &Group{ID: 70, Name: "sub", Platform: PlatformOpenAI, Status: StatusActive, SubscriptionType: SubscriptionTypeSubscription}

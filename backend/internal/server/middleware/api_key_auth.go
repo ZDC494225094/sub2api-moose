@@ -157,10 +157,18 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			AbortWithError(c, 401, "USER_INACTIVE", "User account is not active")
 			return
 		}
-		selection, selectErr := apiKeyService.SelectUsableGroupForAPIKey(c.Request.Context(), apiKey, subscriptionService)
-		if selectErr != nil {
-			AbortWithError(c, 403, "NO_USABLE_API_KEY_GROUP", selectErr.Error())
-			return
+		billingInfoRequest := c.Request.URL.Path == "/v1/sub2api/billing"
+		var selection *service.APIKeyGroupSelection
+		if !billingInfoRequest {
+			var selectErr error
+			selection, selectErr = apiKeyService.SelectUsableGroupForAPIKey(c.Request.Context(), apiKey, subscriptionService)
+			if selectErr != nil {
+				if abortIfAPIKeyGroupUnavailable(c, apiKey) {
+					return
+				}
+				AbortWithError(c, 403, "NO_USABLE_API_KEY_GROUP", selectErr.Error())
+				return
+			}
 		}
 		if selection != nil {
 			apiKey.Group = selection.Group
@@ -179,7 +187,6 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 		}
 		ctx := context.WithValue(c.Request.Context(), ctxkey.UserID, apiKey.User.ID)
 		c.Request = c.Request.WithContext(ctx)
-		billingInfoRequest := c.Request.URL.Path == "/v1/sub2api/billing"
 		// Async image task polling only reads data that already belongs to the
 		// authenticated key and must remain available after the completed
 		// generation consumes the key's remaining balance.

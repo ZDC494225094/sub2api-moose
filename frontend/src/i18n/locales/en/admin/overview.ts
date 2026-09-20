@@ -436,6 +436,13 @@ export default {
       title: 'User Management',
       description: 'Manage users and their permissions',
       createUser: 'Create User',
+      bulkDelete: {
+        action: 'Delete selected ({count})',
+        title: 'Delete selected users',
+        confirm: 'Delete the {count} selected users? This action cannot be undone. Administrator accounts cannot be deleted.',
+        success: 'Deleted {count} users',
+        failed: 'Failed to delete {count} users. They remain selected for retry.'
+      },
       bulkLimits: {
         action: 'Set limits ({count})',
         title: 'Set user limits',
@@ -776,6 +783,7 @@ export default {
         clearAllConfirm: 'Clear daily / weekly / monthly limits for ALL platforms? All platforms will become "unlimited" with no local undo — you must manually re-enter values before saving.',
         reset: {
           button: 'Reset window',
+          unavailable: 'No limit configured for this platform, so there is no usage window to reset',
           confirm: 'Reset the {window} usage for {platform} for this user? This is effective immediately.',
           success: 'Reset {platform} {window} usage',
           failed: 'Reset failed',
@@ -1003,6 +1011,8 @@ export default {
         kimi: 'Kimi',
         zhipu: 'Zhipu GLM',
         deepseek: 'DeepSeek',
+        minimax: 'MiniMax',
+        opencode_go: 'OpenCode',
         composite: 'Composite',
       },
       deleteConfirm:
@@ -1085,8 +1095,8 @@ export default {
         enable: 'Enable peak rate multiplier',
         peakStart: 'Peak start',
         peakEnd: 'Peak end',
-        peakMultiplier: 'Peak final rate',
-        multiplierHint: 'Used directly as the final token billing rate during peak hours; it is not multiplied by the group or user rate. Image tokens in token billing are also affected. 0 means peak token requests are free.'
+        peakMultiplier: 'Peak multiplier',
+        multiplierHint: 'Applies to token billing multiplier; image tokens in token billing are also affected. 0 means peak token requests are billed at 0x.'
       },
       profitControl: {
         enable: 'Enable profit control',

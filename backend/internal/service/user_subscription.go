@@ -6,10 +6,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 )
 
-const (
-	subscriptionResetAfterExpiryBoundaryDelay = time.Minute
-	subscriptionDayDuration                   = 24 * time.Hour
-)
+const subscriptionDayDuration = 24 * time.Hour
 
 type UserSubscription struct {
 	ID      int64
@@ -101,11 +98,7 @@ func (s *UserSubscription) NeedsWeeklyResetAt(now time.Time) bool {
 	if s.WeeklyWindowStart == nil {
 		return false
 	}
-	if s.IsExpiredAt(now) {
-		return false
-	}
-	resetAt := s.WeeklyResetTime()
-	return resetAt != nil && !now.Before(*resetAt)
+	return !now.Before(s.WeeklyWindowStart.Add(7 * 24 * time.Hour))
 }
 
 func (s *UserSubscription) NeedsMonthlyReset() bool {
@@ -116,11 +109,7 @@ func (s *UserSubscription) NeedsMonthlyResetAt(now time.Time) bool {
 	if s.MonthlyWindowStart == nil {
 		return false
 	}
-	if s.IsExpiredAt(now) {
-		return false
-	}
-	resetAt := s.MonthlyResetTime()
-	return resetAt != nil && !now.Before(*resetAt)
+	return !now.Before(s.MonthlyWindowStart.Add(30 * 24 * time.Hour))
 }
 
 func (s *UserSubscription) canAutomaticallyResetDailyAt(now time.Time) bool {
@@ -219,7 +208,7 @@ func (s *UserSubscription) WeeklyResetTime() *time.Time {
 	if windowStart == nil {
 		return nil
 	}
-	t := s.resetTimeAfterExpiryBoundary(s.windowResetAnchor(*s.WeeklyWindowStart).Add(7 * 24 * time.Hour))
+	t := s.windowResetAnchor(*s.WeeklyWindowStart).Add(7 * 24 * time.Hour)
 	return &t
 }
 
@@ -232,7 +221,7 @@ func (s *UserSubscription) MonthlyResetTime() *time.Time {
 	if windowStart == nil {
 		return nil
 	}
-	t := s.resetTimeAfterExpiryBoundary(s.windowResetAnchor(*s.MonthlyWindowStart).Add(30 * 24 * time.Hour))
+	t := s.windowResetAnchor(*s.MonthlyWindowStart).Add(30 * 24 * time.Hour)
 	return &t
 }
 
@@ -265,16 +254,6 @@ func (s *UserSubscription) advanceWindowStartAt(windowStart *time.Time, period t
 	}
 	t := effectiveStart.Add(time.Duration(periods) * period)
 	return &t
-}
-
-func (s *UserSubscription) resetTimeAfterExpiryBoundary(resetAt time.Time) time.Time {
-	if s == nil || s.ExpiresAt.IsZero() {
-		return resetAt
-	}
-	if resetAt.Equal(s.ExpiresAt) {
-		return s.ExpiresAt.Add(subscriptionResetAfterExpiryBoundaryDelay)
-	}
-	return resetAt
 }
 
 func (s *UserSubscription) CheckDailyLimit(group *Group, additionalCost float64) bool {

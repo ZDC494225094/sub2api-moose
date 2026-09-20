@@ -267,11 +267,11 @@
               v-if="selectedCount > 0"
               class="btn btn-danger flex-1 md:flex-initial"
               data-test="bulk-delete-users"
-              :disabled="batchActionLoading"
-              @click="requestBatchAction('delete')"
+              :disabled="bulkDeleting"
+              @click="bulkDeleteIds = [...selectedIds]"
             >
               <Icon name="trash" size="md" class="mr-2" />
-              {{ t('admin.users.batchActions.deleteAction', { count: selectedCount }) }}
+              {{ t('admin.users.bulkDelete.action', { count: selectedCount }) }}
             </button>
 
             <!-- Create User Button (full width on mobile, auto width on desktop) -->
@@ -772,14 +772,21 @@
     <ConfirmDialog :show="showDeleteDialog" :title="t('admin.users.deleteUser')" :message="t('admin.users.deleteConfirm', { email: deletingUser?.email })" :danger="true" @confirm="confirmDelete" @cancel="showDeleteDialog = false" />
     <ConfirmDialog
       :show="pendingBatchAction !== null"
-      :title="pendingBatchAction === 'delete' ? t('admin.users.batchActions.deleteTitle') : t('admin.users.batchActions.disableTitle')"
-      :message="pendingBatchAction === 'delete'
-        ? t('admin.users.batchActions.deleteConfirm', { count: selectedCount })
-        : t('admin.users.batchActions.disableConfirm', { count: selectedCount })"
-      :confirm-text="pendingBatchAction === 'delete' ? t('admin.users.batchActions.confirmDelete') : t('admin.users.batchActions.confirmDisable')"
-      :danger="pendingBatchAction === 'delete'"
+      :title="t('admin.users.batchActions.disableTitle')"
+      :message="t('admin.users.batchActions.disableConfirm', { count: selectedCount })"
+      :confirm-text="t('admin.users.batchActions.confirmDisable')"
+      :danger="false"
       @confirm="confirmBatchAction"
       @cancel="pendingBatchAction = null"
+    />
+    <ConfirmDialog
+      :show="bulkDeleteIds.length > 0"
+      :title="t('admin.users.bulkDelete.title')"
+      :message="t('admin.users.bulkDelete.confirm', { count: bulkDeleteIds.length })"
+      :confirm-text="t('common.delete')"
+      danger
+      @confirm="confirmBulkDelete"
+      @cancel="bulkDeleteIds = []"
     />
     <UserCreateModal :show="showCreateModal" @close="showCreateModal = false" @success="loadUsers" />
     <UserEditModal :show="showEditModal" :user="editingUser" @close="closeEditModal" @success="loadUsers" />
@@ -1328,7 +1335,8 @@ const {
   selectedIds,
   selectedCount,
   setSelectedIds,
-  clear: clearSelection
+  clear: clearSelection,
+  removeMany: removeSelectedIds
 } = useTableSelection<AdminUser>({
   rows: sortedUsers,
   getId: (user) => user.id
@@ -1355,8 +1363,10 @@ const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const showBulkEditModal = ref(false)
 const showDeleteDialog = ref(false)
-const pendingBatchAction = ref<'disable' | 'delete' | null>(null)
+const pendingBatchAction = ref<'disable' | null>(null)
 const batchActionLoading = ref(false)
+const bulkDeleteIds = ref<number[]>([])
+const bulkDeleting = ref(false)
 const showApiKeysModal = ref(false)
 const showAttributesModal = ref(false)
 const showPlatformQuotaModal = ref(false)
@@ -1820,7 +1830,7 @@ const confirmDelete = async () => {
   }
 }
 
-const requestBatchAction = (action: 'disable' | 'delete') => {
+const requestBatchAction = (action: 'disable') => {
   if (selectedCount.value === 0) return
   if (selectedCount.value > 500) {
     appStore.showError(t('admin.users.batchActions.tooMany'))
@@ -1839,9 +1849,7 @@ const confirmBatchAction = async () => {
 
   batchActionLoading.value = true
   try {
-    const result = action === 'disable'
-      ? await adminAPI.users.batchDisable(userIds)
-      : await adminAPI.users.batchDelete(userIds)
+    const result = await adminAPI.users.batchDisable(userIds)
     const skipped = result.skipped?.length ?? 0
     const successKey = action === 'disable'
       ? (skipped > 0 ? 'admin.users.batchActions.disablePartial' : 'admin.users.batchActions.disableSuccess')
@@ -1859,6 +1867,30 @@ const confirmBatchAction = async () => {
   } finally {
     batchActionLoading.value = false
   }
+}
+
+const confirmBulkDelete = async () => {
+  const ids = bulkDeleteIds.value
+  bulkDeleteIds.value = []
+  bulkDeleting.value = true
+  const deletedIds: number[] = []
+  for (const id of ids) {
+    try {
+      await adminAPI.users.delete(id)
+      deletedIds.push(id)
+    } catch (error) {
+      console.error('Error deleting user:', error)
+    }
+  }
+  removeSelectedIds(deletedIds)
+  if (deletedIds.length > 0) {
+    appStore.showSuccess(t('admin.users.bulkDelete.success', { count: deletedIds.length }))
+    pagination.page = 1
+  }
+  const failed = ids.length - deletedIds.length
+  if (failed > 0) appStore.showError(t('admin.users.bulkDelete.failed', { count: failed }))
+  await loadUsers()
+  bulkDeleting.value = false
 }
 
 const handleDeposit = (user: AdminUser) => {

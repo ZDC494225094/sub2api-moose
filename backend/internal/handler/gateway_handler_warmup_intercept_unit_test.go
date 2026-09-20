@@ -29,6 +29,8 @@ type fakeSchedulerCache struct {
 	accounts []*service.Account
 }
 
+func (f *fakeSchedulerCache) Ping(context.Context) error { return nil }
+
 func (f *fakeSchedulerCache) GetSnapshot(_ context.Context, _ service.SchedulerBucket) ([]*service.Account, bool, error) {
 	return f.accounts, true, nil
 }

@@ -732,16 +732,23 @@ func TestAlreadyProcessedRecoversStaleRechargingLease(t *testing.T) {
 	groupRepo := &subscriptionGroupRepoStub{
 		group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
 	}
+	subRepo := newSubscriptionUserSubRepoStub()
+	subRepo.seed(&UserSubscription{
+		ID: 77, UserID: order.UserID, GroupID: 7, Status: SubscriptionStatusActive,
+		Notes: paymentSubscriptionOrderNote(order.ID), ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
+	})
 	svc := &PaymentService{
 		entClient:       client,
 		groupRepo:       groupRepo,
-		subscriptionSvc: NewSubscriptionService(groupRepo, userSubRepoNoop{}, nil, nil, nil),
+		subscriptionSvc: NewSubscriptionService(groupRepo, subRepo, nil, nil, nil),
 	}
 
 	require.NoError(t, svc.alreadyProcessed(ctx, order))
 	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
 	require.NoError(t, err)
 	require.Equal(t, OrderStatusCompleted, reloaded.Status)
+	require.NotNil(t, reloaded.SubscriptionID)
+	require.Equal(t, int64(77), *reloaded.SubscriptionID)
 }
 
 func TestFulfillmentLeaseVersionRejectsStaleWorker(t *testing.T) {
@@ -774,6 +781,41 @@ func TestFulfillmentLeaseVersionRejectsStaleWorker(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, OrderStatusRecharging, reloaded.Status)
 	require.NoError(t, svc.markCompleted(ctx, order, secondLease, "SUBSCRIPTION_SUCCESS"))
+}
+
+func TestRecordPaymentSubscriptionRejectsSupersededLease(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusPaid, time.Now())
+	subRepo := newSubscriptionUserSubRepoStub()
+	subRepo.seed(&UserSubscription{
+		ID: 77, UserID: order.UserID, GroupID: 7, Status: SubscriptionStatusActive,
+		Notes: paymentSubscriptionOrderNote(order.ID), ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
+	})
+	groupRepo := &subscriptionGroupRepoStub{
+		group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
+	}
+	svc := &PaymentService{
+		entClient:       client,
+		subscriptionSvc: NewSubscriptionService(groupRepo, subRepo, nil, nil, nil),
+	}
+	lease, err := svc.acquirePaymentFulfillmentLease(ctx, order)
+	require.NoError(t, err)
+	require.NotNil(t, lease)
+	newVersion := lease.version.Add(time.Second)
+	_, err = client.PaymentOrder.UpdateOneID(order.ID).SetUpdatedAt(newVersion).Save(ctx)
+	require.NoError(t, err)
+
+	err = svc.ensurePaymentSubscriptionAssigned(ctx, order, 7, 30, lease)
+	require.Equal(t, "CONFLICT", infraerrors.Reason(err))
+	current, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Nil(t, current.SubscriptionID)
+	require.True(t, current.UpdatedAt.Equal(newVersion))
+	require.Equal(t, OrderStatusRecharging, current.Status)
+	audits, err := client.PaymentAuditLog.Query().Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, audits)
 }
 
 func TestPublicRedeemStillEnforcesFailureLimit(t *testing.T) {

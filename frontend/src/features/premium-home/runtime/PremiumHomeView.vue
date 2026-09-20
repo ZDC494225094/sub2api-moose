@@ -16,7 +16,7 @@
         <div class="nav-links">
           <a :class="{ active: activeHomeSection === 'top' }" href="#top" @click="setActiveHomeSection('top')">首页</a>
           <!-- <a :class="{ active: activeHomeSection === 'pricing' }" href="#pricing" @click="setActiveHomeSection('pricing')">充值与定价</a> -->
-          <a :class="{ active: activeHomeSection === 'plans' }" href="#plans" @click="setActiveHomeSection('plans')">套餐服务</a>
+          <a v-if="homeSubscriptionsEnabled" :class="{ active: activeHomeSection === 'plans' }" href="#plans" @click="setActiveHomeSection('plans')">套餐服务</a>
           <a
             v-if="modelPlazaHomeEnabled"
             :class="{ active: activeHomeSection === 'model-plaza' }"
@@ -119,7 +119,7 @@
       <div class="mobile-menu" :class="{ 'is-open': menuOpen }">
         <a :class="{ active: activeHomeSection === 'top' }" href="#top" @click="handleHomeNavClick('top')">首页</a>
         <a v-if="homePricingCompareEnabled" :class="{ active: activeHomeSection === 'pricing' }" href="#pricing" @click="handleHomeNavClick('pricing')">充值与定价</a>
-        <a :class="{ active: activeHomeSection === 'plans' }" href="#plans" @click="handleHomeNavClick('plans')">套餐服务</a>
+        <a v-if="homeSubscriptionsEnabled" :class="{ active: activeHomeSection === 'plans' }" href="#plans" @click="handleHomeNavClick('plans')">套餐服务</a>
         <a
           v-if="modelPlazaHomeEnabled"
           :class="{ active: activeHomeSection === 'model-plaza' }"
@@ -154,7 +154,7 @@
             <RouterLink class="primary-btn hero-btn" :to="isAuthenticated ? dashboardPath : '/register'">
               {{ isAuthenticated ? '进入控制台' : '开始构建' }} <Icon name="arrowRight" size="sm" />
             </RouterLink>
-            <a class="secondary-btn hero-btn" href="#plans" @click="setActiveHomeSection('plans')">探索套餐 <Icon name="arrowRight" size="sm" /></a>
+            <a v-if="homeSubscriptionsEnabled" class="secondary-btn hero-btn" href="#plans" @click="setActiveHomeSection('plans')">探索套餐 <Icon name="arrowRight" size="sm" /></a>
           </div>
           <div class="hero-notes"><span><Icon name="terminal" size="sm" /> 统一 API 接入</span><span><Icon name="chart" size="sm" /> 清晰用量管理</span><span><Icon name="shield" size="sm" /> 灵活额度策略</span></div>
         </div>
@@ -262,7 +262,7 @@
         </div>
       </section>
 
-      <section id="plans" class="section">
+      <section v-if="homeSubscriptionsEnabled" id="plans" class="section">
         <div class="section-head">
           <div class="section-title">
             <h2>套餐服务</h2>
@@ -414,7 +414,7 @@
             <h3>站点导航</h3>
             <a href="#top" @click="setActiveHomeSection('top')">首页</a>
             <a v-if="homePricingCompareEnabled" href="#pricing" @click="setActiveHomeSection('pricing')">充值与定价</a>
-            <a href="#plans" @click="setActiveHomeSection('plans')">套餐服务</a>
+            <a v-if="homeSubscriptionsEnabled" href="#plans" @click="setActiveHomeSection('plans')">套餐服务</a>
             <a v-if="modelPlazaHomeEnabled" href="#model-plaza" @click="setActiveHomeSection('model-plaza')">模型广场</a>
             <a
               v-if="infiniteCanvasHomeEnabled"
@@ -460,6 +460,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import { useAppStore, useAuthStore } from '@/stores'
 import CustomerServiceFloat from '@/components/common/CustomerServiceFloat.vue'
 import { sanitizeUrl } from '@/utils/url'
+import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import Icon from '@/components/icons/Icon.vue'
 import AnnouncementPanel from './AnnouncementPanel.vue'
 import type { SubscriptionPlan } from '@/types/payment'
@@ -532,6 +533,7 @@ const siteSubtitle = computed(() =>
   appStore.cachedPublicSettings?.site_subtitle || '聚合最前沿的大模型 API，稳定高效的中转服务，助力开发者与企业快速构建智能应用'
 )
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
+const homeSubscriptionsEnabled = computed(() => resolveFeatureFlag(appStore.cachedPublicSettings, FeatureFlags.subscription))
 const homePricingCompareEnabled = computed(() => appStore.cachedPublicSettings?.home_pricing_compare_enabled !== false)
 const homeDocsEnabled = computed(() => appStore.cachedPublicSettings?.home_docs_enabled !== false)
 const modelPlazaHomeEnabled = computed(() =>
@@ -892,6 +894,10 @@ function onSystemThemeChange(event: MediaQueryListEvent) {
 }
 
 function setActiveHomeSection(section: HomeSection) {
+  if (section === 'plans' && !homeSubscriptionsEnabled.value) {
+    activeHomeSection.value = 'top'
+    return
+  }
   if (section === 'pricing' && !homePricingCompareEnabled.value) {
     activeHomeSection.value = 'top'
     return
@@ -913,7 +919,7 @@ function syncActiveSectionFromHash() {
     activeHomeSection.value = 'model-plaza'
     return
   }
-  if (window.location.hash === '#plans') {
+  if (window.location.hash === '#plans' && homeSubscriptionsEnabled.value) {
     activeHomeSection.value = 'plans'
     return
   }
@@ -923,6 +929,10 @@ function syncActiveSectionFromHash() {
   }
   activeHomeSection.value = 'top'
 }
+
+watch(homeSubscriptionsEnabled, (enabled) => {
+  if (!enabled && activeHomeSection.value === 'plans') activeHomeSection.value = 'top'
+})
 
 watch(homePricingCompareEnabled, (enabled) => {
   if (!enabled && activeHomeSection.value === 'pricing') {
@@ -980,7 +990,7 @@ onMounted(async () => {
 
   try {
     const [publicPlans, publicAnnouncements] = await Promise.all([
-      getPublicPlans(),
+      homeSubscriptionsEnabled.value ? getPublicPlans() : Promise.resolve([]),
       getPublicAnnouncements(),
     ])
     plans.value = publicPlans
