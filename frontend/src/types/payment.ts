@@ -83,6 +83,7 @@ export interface CheckoutInfoResponse {
 // ==================== Orders ====================
 
 export interface PaymentOrder {
+  recharge_campaign?: { campaign: import('@/api/rechargeCampaigns').RechargeCampaign; principal: number; credited: number; inviter_id: number; reward: number }
   id: number
   user_id: number
   amount: number
@@ -176,6 +177,8 @@ export interface CreateOrderRequest {
   payment_type: string
   order_type: string
   plan_id?: number
+  campaign_id?: number
+  campaign_revision?: string
   user_coupon_id?: number
   return_url?: string
   payment_source?: string

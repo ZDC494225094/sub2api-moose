@@ -39,6 +39,14 @@
           </div>
           <!-- Top-up Tab -->
           <template v-else-if="activeTab === 'recharge'">
+            <div v-if="selectedCampaign || campaignError" class="space-y-2 border-l-2 border-teal-500 pl-4">
+              <div v-if="selectedCampaign" class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex flex-wrap items-center gap-2"><CampaignBadge :campaign="selectedCampaign" /><span class="text-sm font-semibold">{{ selectedCampaign.name }} · {{ campaignHeadline(selectedCampaign) }}</span></div>
+                <button class="btn btn-secondary btn-sm" @click="shareCampaign">分享福利</button>
+              </div>
+              <template v-if="selectedCampaign"><p class="text-sm text-gray-500">{{ selectedCampaign.description }}<span v-if="selectedCampaign.min_amount"> · 满 {{ selectedCampaign.min_amount }} 可享</span></p><p class="text-xs text-gray-500">{{ new Date(selectedCampaign.ends_at).toLocaleString() }} 截止 · 已自动享受，不与优惠券叠加</p><p v-if="selectedCampaign.reward_percent" class="text-sm text-teal-600">邀请好友充值得 {{ selectedCampaign.reward_percent }}% 奖励，每单最高 ${{ selectedCampaign.reward_cap }}，冻结 {{ selectedCampaign.freeze_hours }} 小时。{{ selectedCampaign.new_invitees_only ? '仅限活动期内新邀请的好友。' : '' }}</p></template>
+              <p v-if="campaignError" class="text-sm text-red-500" role="alert">{{ campaignError }}</p>
+            </div>
             <!-- Recharge Account Card -->
             <div class="card p-5">
               <p class="text-xs font-medium text-gray-400 dark:text-gray-500">{{ t('payment.rechargeAccount') }}</p>
@@ -53,9 +61,18 @@
               <AmountInput
                 v-model="amount"
                 :amounts="[10, 20, 50, 100, 200, 500, 1000, 2000, 5000]"
-                :min="globalMinAmount"
-                :max="globalMaxAmount"
-              />
+                :min="activeCampaigns.length ? 0 : globalMinAmount"
+                :max="activeCampaigns.length ? 0 : globalMaxAmount"
+              >
+                <template #amount="{ amount: quickAmount }">
+                  <span class="block text-lg font-semibold tabular-nums">{{ quickAmount }}</span>
+                  <span v-if="quickCampaign(quickAmount)" class="mt-1 flex min-h-[3.25rem] flex-col items-center justify-center gap-1.5">
+                    <CampaignBadge :campaign="quickCampaign(quickAmount)!" />
+                    <span class="break-all text-xs font-medium" :class="quickCampaign(quickAmount)?.kind === 'discount' ? 'text-rose-600 dark:text-rose-300' : 'text-teal-700 dark:text-teal-300'">{{ quickCampaignLabel(quickAmount) }}</span>
+                  </span>
+                  <span v-else-if="activeCampaigns.length" class="mt-1 flex min-h-[3.25rem] items-center justify-center text-xs font-normal text-gray-400">标准充值</span>
+                </template>
+              </AmountInput>
               <p v-if="amountError" class="mt-2 text-xs text-amber-600 dark:text-amber-300">{{ amountError }}</p>
             </div>
             <div v-if="enabledMethods.length >= 1" class="card p-6">
@@ -65,7 +82,7 @@
                 @select="selectedMethod = $event"
               />
             </div>
-            <div v-if="availableCoupons.length > 0" class="card p-6">
+            <div v-if="availableCoupons.length > 0 && !selectedCampaign" class="card p-6">
               <div class="flex items-center justify-between gap-3">
                 <div>
                   <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('userLottery.availableCoupons') }}</p>
@@ -84,7 +101,7 @@
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
                   <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(feeAmount) }}</span>
                 </div>
-                <div v-if="feeRate > 0" class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
+                <div v-if="feeRate > 0 || selectedCampaign" class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
                   <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.actualPay') }}</span>
                   <span class="text-lg font-bold text-primary-600 dark:text-primary-400">{{ formatSelectedPaymentAmount(discountedRechargeAmount) }}</span>
                 </div>
@@ -92,7 +109,7 @@
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.discountCoupon') }}</span>
                   <span class="text-emerald-600 dark:text-emerald-400">-{{ formatSelectedPaymentAmount(actualRechargeDiscount) }}</span>
                 </div>
-                <div v-if="balanceRechargeMultiplier !== 1" class="flex justify-between" :class="{ 'border-t border-gray-200 pt-2 dark:border-dark-600': feeRate <= 0 }">
+                <div v-if="balanceRechargeMultiplier !== 1 || selectedCampaign" class="flex justify-between" :class="{ 'border-t border-gray-200 pt-2 dark:border-dark-600': feeRate <= 0 }">
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.creditedBalance') }}</span>
                   <span class="text-gray-900 dark:text-white">${{ creditedAmount.toFixed(2) }}</span>
                 </div>
@@ -282,11 +299,17 @@
         </div>
       </Transition>
     </Teleport>
+    <CampaignShareDialog :campaign="sharingCampaign" :affiliate-code="campaignAffiliateCode" :sharer="user ? { name: user.username || '一位创作者', avatarUrl: user.avatar_url } : undefined" @close="sharingCampaign = null" />
   </AppLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useNow, useIntervalFn } from '@vueuse/core'
+import { campaignAPI, campaignHeadline, campaignStatus, campaignAmounts, automaticCampaign, type RechargeCampaign } from '@/api/rechargeCampaigns'
+import CampaignShareDialog from '@/components/payment/CampaignShareDialog.vue'
+import CampaignBadge from '@/components/payment/CampaignBadge.vue'
+import { getAffiliateDetail } from '@/api/user'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -569,6 +592,44 @@ watch(tabs, (available) => {
 
 const visibleMethods = computed(() => getVisibleMethods(checkout.value.methods))
 const enabledMethods = computed(() => Object.keys(visibleMethods.value))
+const campaignNow = useNow({ interval: 1000 })
+const campaigns = ref<RechargeCampaign[]>([])
+const activeCampaigns = computed(() => campaigns.value.filter(a => campaignStatus(a, campaignNow.value.getTime()) === '进行中'))
+const selectedCampaign = computed(() => automaticCampaign(campaigns.value, amount.value ?? 0, campaignNow.value.getTime()))
+const selectedCampaignId = computed(() => selectedCampaign.value?.id ?? null)
+const sharingCampaign = ref<RechargeCampaign | null>(null)
+const campaignError = ref('')
+const campaignLoadFailed = ref(false)
+const campaignAffiliateCode = ref('')
+watch(selectedCampaignId, id => { if(id) selectedCouponId.value = null })
+async function loadCampaigns() {
+  try {
+    campaigns.value = (await campaignAPI.publicList()).data
+    campaignLoadFailed.value = false
+    campaignError.value = ''
+  } catch {
+    campaignLoadFailed.value = true
+    campaignError.value = '活动加载失败，请刷新后重试。'
+  }
+}
+useIntervalFn(() => { if (paymentPhase.value === 'select' && !submitting.value) void loadCampaigns() }, 60000)
+function quickCampaign(value: number) {
+  return automaticCampaign(campaigns.value, value, campaignNow.value.getTime())
+}
+function quickCampaignLabel(value: number) {
+  const activity = quickCampaign(value)
+  const quote = campaignAmounts(activity, value, balanceRechargeMultiplier.value)
+  const fee = feeRate.value > 0 ? Math.ceil(quote.principal * feeRate.value) / 100 : 0
+  return activity?.kind === 'discount'
+    ? `实付 ${formatSelectedPaymentAmount(Math.round((quote.principal + fee) * 100) / 100)}`
+    : `到账 $${quote.credited.toFixed(2)}`
+}
+async function shareCampaign() {
+ if (!selectedCampaign.value) return
+ if (!selectedCampaign.value.reward_percent) { campaignAffiliateCode.value = ''; sharingCampaign.value = selectedCampaign.value; return }
+ try { campaignAffiliateCode.value = (await getAffiliateDetail()).aff_code; sharingCampaign.value = selectedCampaign.value }
+ catch { campaignError.value = '无法获取邀请码，请稍后重试。' }
+}
 const validAmount = computed(() => amount.value ?? 0)
 const balanceRechargeMultiplier = computed(() => {
   const multiplier = checkout.value.balance_recharge_multiplier
@@ -579,7 +640,8 @@ const subscriptionUsdToCnyRate = computed(() => {
   const rate = checkout.value.subscription_usd_to_cny_rate
   return Number.isFinite(rate) && rate > 0 ? rate : 0
 })
-const creditedAmount = computed(() => Math.round((validAmount.value * balanceRechargeMultiplier.value) * 100) / 100)
+const campaignQuote = computed(() => campaignAmounts(selectedCampaign.value, validAmount.value, balanceRechargeMultiplier.value))
+const creditedAmount = computed(() => campaignQuote.value.credited)
 
 // Adaptive grid: center single card, 2-col for 2 plans, 3-col for 3+
 const planGridClass = computed(() => {
@@ -668,7 +730,7 @@ const methodOptions = computed<PaymentMethodOption[]>(() =>
       type,
       display_name: ml?.display_name,
       fee_rate: ml?.fee_rate ?? 0,
-      available: ml?.available !== false && amountFitsMethod(validAmount.value, type),
+      available: ml?.available !== false && amountFitsMethod(discountedRechargeAmount.value, type),
     }
   })
 )
@@ -676,13 +738,13 @@ const methodOptions = computed<PaymentMethodOption[]>(() =>
 const feeRate = computed(() => checkout.value?.recharge_fee_rate ?? 0)
 const feeAmount = computed(() =>
   feeRate.value > 0 && validAmount.value > 0
-    ? Math.ceil(((validAmount.value * feeRate.value) / 100) * 100) / 100
+    ? Math.ceil(((campaignQuote.value.principal * feeRate.value) / 100) * 100) / 100
     : 0
 )
 const totalAmount = computed(() =>
   feeRate.value > 0 && validAmount.value > 0
-    ? Math.round((validAmount.value + feeAmount.value) * 100) / 100
-    : validAmount.value
+    ? Math.round((campaignQuote.value.principal + feeAmount.value) * 100) / 100
+    : campaignQuote.value.principal
 )
 const discountedRechargeAmount = computed(() => {
   if (!selectedCoupon.value) return totalAmount.value
@@ -697,21 +759,23 @@ const actualRechargeDiscount = computed(() => {
 const amountError = computed(() => {
   if (validAmount.value <= 0) return ''
   // No method can handle this amount
-  if (!enabledMethods.value.some((m) => amountFitsMethod(validAmount.value, m))) {
+  if (!enabledMethods.value.some((m) => amountFitsMethod(discountedRechargeAmount.value, m))) {
     return t('payment.amountNoMethod')
   }
   // Selected method can't handle this amount (but others can)
   const ml = selectedLimit.value
   if (ml) {
-    if (ml.single_min > 0 && validAmount.value < ml.single_min) return t('payment.amountTooLow', { min: formatSelectedPaymentAmount(ml.single_min) })
-    if (ml.single_max > 0 && validAmount.value > ml.single_max) return t('payment.amountTooHigh', { max: formatSelectedPaymentAmount(ml.single_max) })
+    if (ml.single_min > 0 && discountedRechargeAmount.value < ml.single_min) return t('payment.amountTooLow', { min: formatSelectedPaymentAmount(ml.single_min) })
+    if (ml.single_max > 0 && discountedRechargeAmount.value > ml.single_max) return t('payment.amountTooHigh', { max: formatSelectedPaymentAmount(ml.single_max) })
   }
   return ''
 })
 
 const canSubmit = computed(() =>
   validAmount.value > 0
-    && amountFitsMethod(validAmount.value, selectedMethod.value)
+    && !campaignLoadFailed.value
+    && (!selectedCampaign.value || (campaignStatus(selectedCampaign.value, campaignNow.value.getTime()) === '进行中' && validAmount.value >= selectedCampaign.value.min_amount))
+    && amountFitsMethod(discountedRechargeAmount.value, selectedMethod.value)
     && selectedLimit.value?.available !== false
 )
 
@@ -898,6 +962,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
     if (options.wechatResumeToken) {
       payload.wechat_resume_token = options.wechatResumeToken
     }
+    if (orderType === 'balance' && selectedCampaignId.value) { payload.campaign_id = selectedCampaignId.value; payload.campaign_revision = selectedCampaign.value?.revision }
     if (selectedCouponId.value) {
       payload.user_coupon_id = selectedCouponId.value
     }
@@ -1121,6 +1186,8 @@ async function attemptMobileQrFallback(err: unknown, context: MobileQrFallbackCo
       isMobile: false,
       isWechatBrowser: false,
     })
+    if (context.orderType === 'balance' && selectedCampaignId.value) { payload.campaign_id = selectedCampaignId.value; payload.campaign_revision = selectedCampaign.value?.revision }
+    if (selectedCouponId.value) payload.user_coupon_id = selectedCouponId.value
     const result = await paymentStore.createOrder(payload) as CreateOrderResult & { resume_token?: string }
     const stripeMethod = visibleMethod === 'wxpay' ? 'wechat_pay' : 'alipay'
     const stripeRouteUrl = result.client_secret
@@ -1211,6 +1278,7 @@ async function resumeWechatPaymentFromQuery() {
 }
 
 onMounted(async () => {
+  await loadCampaigns()
   try {
     const res = await paymentAPI.getCheckoutInfo()
     checkout.value = res.data

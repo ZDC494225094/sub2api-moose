@@ -101,6 +101,11 @@
             </div>
           </div>
         </div>
+        <div v-if="selectedOrder.recharge_campaign" class="rounded-xl bg-teal-50 p-4 text-sm text-teal-800 dark:bg-teal-900/20 dark:text-teal-200">
+          <p class="font-semibold">充值活动：{{ selectedOrder.recharge_campaign.campaign.name }}</p>
+          <p class="mt-1">下单优惠：{{ selectedOrder.recharge_campaign.campaign.kind === 'bonus' ? '赠送' : '实付比例' }} {{ selectedOrder.recharge_campaign.campaign.percent }}% · 邀请奖励 ${{ selectedOrder.recharge_campaign.reward }}</p>
+          <p class="mt-1 text-xs">按下单时规则结算，后续活动修改不会影响此订单。</p>
+        </div>
         <!-- Audit Logs -->
         <div v-if="orderAuditLogs.length > 0" class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <p class="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('payment.admin.auditLogs') }}</p>

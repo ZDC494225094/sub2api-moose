@@ -413,7 +413,7 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
     if (disposed) return
     const revision = ++siteLogoRevision
     const source = url || '/logo.svg'
-    void loadLogoTexture(source, true).catch((error) => {
+    return loadLogoTexture(source, true).catch((error) => {
       if (source === '/logo.svg') throw error
       console.warn('Globe site logo fallback:', error)
       return loadLogoTexture('/logo.svg', true)

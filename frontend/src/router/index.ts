@@ -3,6 +3,7 @@
  * Defines all application routes with lazy loading and navigation guards
  */
 
+import { storeAffiliateReferralCode } from '@/utils/oauthAffiliate'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
@@ -335,6 +336,12 @@ const routes: RouteRecordRaw[] = [
       descriptionKey: 'userSubscriptions.description',
       requiresSubscription: true
     }
+  },
+  {
+    path: '/recharge-campaigns/:id',
+    name: 'RechargeCampaignLanding',
+    component: () => import('@/views/user/RechargeCampaignLandingView.vue'),
+    meta: { requiresAuth: false, title: '充值活动' }
   },
   {
     path: '/purchase',
@@ -792,6 +799,12 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/orders/campaigns',
+    name: 'AdminRechargeCampaigns',
+    component: () => import('@/views/admin/orders/AdminRechargeCampaignsView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, requiresPayment: true, title: 'Recharge Campaigns', titleKey: 'nav.rechargeCampaigns' }
+  },
+  {
     path: '/admin/orders/lottery',
     name: 'AdminPaymentLottery',
     component: () => import('@/views/admin/orders/AdminLotteryView.vue'),
@@ -876,6 +889,8 @@ function isBackendModePublicRouteAllowed(path: string, hasPendingAuthSession: bo
 }
 
 router.beforeEach(async (to, _from, next) => {
+  if (to.path === '/purchase' && to.query.aff) storeAffiliateReferralCode(to.query.aff)
+  if (to.path === '/purchase' && Number(to.query.campaign) > 0) { try { sessionStorage.setItem('recharge_campaign_referral', String(to.query.campaign)) } catch { /* storage unavailable */ } }
   // 开始导航加载状态
   navigationLoading.startNavigation()
 

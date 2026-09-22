@@ -39,10 +39,13 @@ func TestApplyWeChatPaymentResumeClaims(t *testing.T) {
 		Amount:      "12.50",
 		OrderType:   payment.OrderTypeSubscription,
 		PlanID:      7,
+		CampaignID:  42, CampaignRevision: "immutable-revision",
 	})
 	if err != nil {
 		t.Fatalf("applyWeChatPaymentResumeClaims returned error: %v", err)
 	}
+	require.Equal(t, int64(42), req.CampaignID)
+	require.Equal(t, "immutable-revision", req.CampaignRevision)
 	if req.OpenID != "openid-123" {
 		t.Fatalf("openid = %q, want %q", req.OpenID, "openid-123")
 	}

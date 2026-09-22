@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import PaymentView from '../PaymentView.vue'
+import { campaignAPI, type RechargeCampaign } from '@/api/rechargeCampaigns'
 import { PAYMENT_RECOVERY_STORAGE_KEY } from '@/components/payment/paymentFlow'
 import { formatPaymentAmount } from '@/components/payment/currency'
 import AmountInput from '@/components/payment/AmountInput.vue'
@@ -8,6 +9,11 @@ import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import en from '@/i18n/locales/en'
 import zh from '@/i18n/locales/zh'
 import type { CheckoutInfoResponse, MethodLimit, SubscriptionPlan } from '@/types/payment'
+
+vi.mock('@/api/rechargeCampaigns', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/api/rechargeCampaigns')>(),
+  campaignAPI: { publicList: vi.fn().mockResolvedValue({ data: [] }) },
+}))
 
 const routeState = vi.hoisted(() => ({
   path: '/purchase',
@@ -888,6 +894,60 @@ describe('PaymentView subscription feature flag', () => {
     expect(wrapper.text()).not.toContain('payment.billingUnavailable')
     expect(wrapper.text()).not.toContain('payment.rechargeAccount')
     expect(wrapper.findAllComponents(SubscriptionPlanCard).length).toBeGreaterThan(0)
+    wrapper.unmount()
+  })
+})
+
+
+describe('PaymentView recharge campaign checkout', () => {
+  const active: RechargeCampaign = { id: 7, revision: 'rule-v1', name: '限时福利', description: '', enabled: true, starts_at: '2020-01-01T00:00:00Z', ends_at: '2099-01-01T00:00:00Z', kind: 'bonus', percent: 10, min_amount: 0, reward_percent: 5, reward_cap: 10, freeze_hours: 72, new_invitees_only: true }
+  beforeEach(() => {
+    vi.useRealTimers()
+    routeState.query = {}
+    appStoreState.setPublicSettings(undefined)
+    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture())
+    getCoupons.mockResolvedValue({ data: { items: [], total: 0 } })
+    createOrder.mockReset().mockRejectedValue({ message: 'test checkout stopped' })
+    window.localStorage.clear()
+    window.sessionStorage.clear()
+  })
+  afterEach(() => vi.mocked(campaignAPI.publicList).mockResolvedValue({ data: [] } as never))
+
+  async function mountCampaign(campaign: RechargeCampaign) {
+    vi.mocked(campaignAPI.publicList).mockResolvedValue({ data: [campaign] } as never)
+    const wrapper = shallowMount(PaymentView, { global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, AmountInput: false, CampaignBadge: false, Teleport: true, Transition: false } } })
+    await flushPromises()
+    wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', 100)
+    await flushPromises()
+    return wrapper
+  }
+  it('automatically applies the gift without a referral or selection and sends its revision', async () => {
+    const wrapper = await mountCampaign(active)
+    expect(wrapper.text()).toContain('$110.00')
+    expect(wrapper.text()).not.toContain('不参加活动')
+    expect(wrapper.getComponent(AmountInput).text()).toContain('到账 $55.00')
+    expect(wrapper.getComponent(AmountInput).text()).toContain('活动中 · 赠10%')
+    const submit = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))!
+    expect(submit.attributes('disabled')).toBeUndefined()
+    await submit.trigger('click'); await flushPromises()
+    expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({ amount: 100, campaign_id: 7, campaign_revision: 'rule-v1', order_type: 'balance' }))
+    wrapper.unmount()
+  })
+  it('shows 100 credited and 90 payable for a nine-tenths discount', async () => {
+    const wrapper = await mountCampaign({ ...active, kind: 'discount', percent: 90 })
+    expect(wrapper.text()).toContain('$100.00')
+    const submit = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))!
+    expect(submit.text()).toContain('90.00')
+    expect(wrapper.getComponent(AmountInput).text()).toContain('实付')
+    expect(wrapper.getComponent(AmountInput).text()).toContain('活动中 · 9折')
+    wrapper.unmount()
+  })
+  it.each([{ ...active, min_amount: 200 }, { ...active, starts_at: '2098-01-01T00:00:00Z' }, { ...active, ends_at: '2021-01-01T00:00:00Z' }])('allows standard checkout when threshold or time window is not met', async campaign => {
+    const wrapper = await mountCampaign(campaign)
+    const submit = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))!
+    expect(submit.attributes('disabled')).toBeUndefined()
+    await submit.trigger('click'); await flushPromises()
+    expect(createOrder).toHaveBeenCalledWith(expect.not.objectContaining({ campaign_id: 7 }))
     wrapper.unmount()
   })
 })

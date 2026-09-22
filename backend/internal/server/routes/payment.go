@@ -29,6 +29,7 @@ func RegisterPaymentRoutes(
 	// 面板全局按用户限流
 	authenticated.Use(panelRateLimiter.Global())
 	{
+		authenticated.GET("/campaigns", paymentHandler.ListRechargeCampaigns)
 		authenticated.GET("/config", paymentHandler.GetPaymentConfig)
 		authenticated.GET("/checkout-info", paymentHandler.GetCheckoutInfo)
 		authenticated.GET("/plans", paymentHandler.GetPlans)
@@ -56,6 +57,7 @@ func RegisterPaymentRoutes(
 	// persisted-state compatibility path for staggered upgrades.
 	public := v1.Group("/payment/public")
 	{
+		public.GET("/campaigns", paymentHandler.ListRechargeCampaigns)
 		public.GET("/plans", paymentHandler.GetPublicPlans)
 		public.POST("/orders/verify", paymentHandler.VerifyOrderPublic)
 		public.POST("/orders/resolve", paymentHandler.ResolveOrderPublicByResumeToken)
@@ -79,6 +81,9 @@ func RegisterPaymentRoutes(
 	adminGroup.Use(gin.HandlerFunc(auditLog))
 	adminGroup.Use(middleware.AdminComplianceGuard(settingService))
 	{
+		adminGroup.GET("/campaigns", adminPaymentHandler.ListRechargeCampaigns)
+		adminGroup.POST("/campaigns", adminPaymentHandler.SaveRechargeCampaign)
+		adminGroup.PUT("/campaigns/:id", adminPaymentHandler.SaveRechargeCampaign)
 		// Dashboard
 		adminGroup.GET("/dashboard", adminPaymentHandler.GetDashboard)
 

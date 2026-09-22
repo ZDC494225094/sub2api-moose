@@ -61,6 +61,16 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	} else if req.OrderType == payment.OrderTypeBalance {
 		orderAmount = calculateCreditedBalance(req.Amount, cfg.BalanceRechargeMultiplier)
 	}
+	req.campaign, err = s.prepareRechargeCampaign(ctx, req, cfg)
+	if err != nil {
+		return nil, err
+	}
+	if req.campaign != nil {
+		req.CampaignID = req.campaign.Campaign.ID
+		req.CampaignRevision = req.campaign.Campaign.Revision
+		orderAmount = req.campaign.Credited
+		limitAmount = req.campaign.Principal
+	}
 	var couponResult *ApplyPaymentCouponResult
 	if req.UserCouponID > 0 {
 		if s.couponService == nil {
@@ -199,6 +209,16 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		return nil, err
 	}
 	providerSnapshot := buildPaymentOrderProviderSnapshot(sel, req)
+	if req.campaign != nil {
+		if !req.campaign.Campaign.active(time.Now()) {
+			return nil, infraerrors.BadRequest("CAMPAIGN_UNAVAILABLE", "活动已结束，请刷新后重试")
+		}
+		if providerSnapshot == nil {
+			providerSnapshot = map[string]any{}
+		}
+		providerSnapshot["recharge_campaign"] = req.campaign
+		// Eligibility uses order creation time. Keep the normal payment timeout for orders placed near the deadline.
+	}
 	selectedInstanceID := ""
 	selectedProviderKey := ""
 	if sel != nil {
@@ -794,6 +814,10 @@ func buildWeChatPaymentOAuthStartURL(req CreateOrderRequest, scope string) (stri
 	}
 	if orderType := strings.TrimSpace(req.OrderType); orderType != "" {
 		q.Set("order_type", orderType)
+	}
+	if req.CampaignID > 0 {
+		q.Set("campaign_id", strconv.FormatInt(req.CampaignID, 10))
+		q.Set("campaign_revision", req.CampaignRevision)
 	}
 	if req.PlanID > 0 {
 		q.Set("plan_id", strconv.FormatInt(req.PlanID, 10))

@@ -781,7 +781,16 @@ func (s *PaymentService) applyAffiliateRebateForOrder(ctx context.Context, o *db
 	}
 
 	sourceOrderID := o.ID
-	rebateAmount, err := s.affiliateService.AccrueInviteRebateForOrder(txCtx, o.UserID, baseAmount, &sourceOrderID)
+	snap, err := campaignSnapshot(o)
+	if err != nil {
+		return err
+	}
+	var rebateAmount float64
+	if snap != nil {
+		rebateAmount, err = s.accrueCampaignReward(txCtx, snap, o)
+	} else {
+		rebateAmount, err = s.affiliateService.AccrueInviteRebateForOrder(txCtx, o.UserID, baseAmount, &sourceOrderID)
+	}
 	if err != nil {
 		s.writeAuditLog(ctx, o.ID, "AFFILIATE_REBATE_FAILED", "system", map[string]any{
 			"error": err.Error(),

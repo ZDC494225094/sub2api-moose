@@ -2,7 +2,7 @@ export interface PremiumHomeGlobeController {
   (): void
   setTheme(isDark: boolean): void
   setAnimating(enabled: boolean): void
-  setSiteLogo(url: string): void
+  setSiteLogo(url: string): Promise<void> | void
 }
 
 export function mountPremiumHomeGlobe(
