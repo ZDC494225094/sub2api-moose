@@ -88,6 +88,7 @@ export const adminPaymentAPI = {
 
   /** Get all orders (paginated, with filters) */
   getOrders(params?: {
+    finance_only?: boolean
     page?: number
     page_size?: number
     status?: string
@@ -98,8 +99,8 @@ export const adminPaymentAPI = {
     start_date?: string
     end_date?: string
     order_type?: string
-  }) {
-    return apiClient.get<BasePaginationResponse<PaymentOrder>>('/admin/payment/orders', { params })
+  }, signal?: AbortSignal) {
+    return apiClient.get<BasePaginationResponse<PaymentOrder>>('/admin/payment/orders', { params, signal })
   },
 
   /** Get a specific order by ID */

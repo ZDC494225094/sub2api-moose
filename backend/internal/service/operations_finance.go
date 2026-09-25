@@ -7,18 +7,21 @@ import (
 
 // Finance amounts are billing credits (USD), never mixed with payment currencies.
 type OperationsFinanceRow struct {
-	Dimension    string   `json:"dimension"`
-	Key          string   `json:"key"`
-	Label        string   `json:"label"`
-	Upstream     string   `json:"upstream"`
-	Requests     int64    `json:"requests"`
-	Consumption  float64  `json:"consumption"`
-	ListCost     float64  `json:"list_cost"`
-	Cost         float64  `json:"cost"`
-	Recharge     float64  `json:"recharge"`
-	Subscription float64  `json:"subscription"`
-	Profit       float64  `json:"profit"`
-	Margin       *float64 `json:"margin"`
+	TotalOrders      int64    `json:"total_orders"`
+	PaidOrders       int64    `json:"paid_orders"`
+	ExcludedRecharge float64  `json:"excluded_recharge"`
+	Dimension        string   `json:"dimension"`
+	Key              string   `json:"key"`
+	Label            string   `json:"label"`
+	Upstream         string   `json:"upstream"`
+	Requests         int64    `json:"requests"`
+	Consumption      float64  `json:"consumption"`
+	ListCost         float64  `json:"list_cost"`
+	Cost             float64  `json:"cost"`
+	Recharge         float64  `json:"recharge"`
+	Subscription     float64  `json:"subscription"`
+	Profit           float64  `json:"profit"`
+	Margin           *float64 `json:"margin"`
 }
 
 type OperationsFinanceResponse struct {
@@ -58,6 +61,9 @@ func (s *DashboardService) GetOperationsFinance(ctx context.Context, start, end 
 			result.Summary.Cost += row.Cost
 			result.Summary.Recharge += row.Recharge
 			result.Summary.Subscription += row.Subscription
+			result.Summary.TotalOrders += row.TotalOrders
+			result.Summary.PaidOrders += row.PaidOrders
+			result.Summary.ExcludedRecharge += row.ExcludedRecharge
 		}
 	}
 	calculateOperationsProfit(&result.Summary)

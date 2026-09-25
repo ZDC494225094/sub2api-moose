@@ -38,8 +38,8 @@ func TestOperationsFinanceProfit(t *testing.T) {
 
 func TestOperationsFinanceSummaryDoesNotDoubleCountDimensions(t *testing.T) {
 	s := &DashboardService{usageRepo: financeRepositoryStub{result: &OperationsFinanceResponse{Rows: []OperationsFinanceRow{
-		{Dimension: "day", Consumption: 10, Cost: 5, Recharge: 100, Requests: 1},
-		{Dimension: "day", Consumption: 90, Cost: 85, Recharge: 200, Subscription: 200, Requests: 2},
+		{Dimension: "day", Consumption: 10, Cost: 5, Recharge: 100, Requests: 1, TotalOrders: 5, PaidOrders: 2, ExcludedRecharge: 99},
+		{Dimension: "day", Consumption: 90, Cost: 85, Recharge: 200, Subscription: 200, Requests: 2, TotalOrders: 3, PaidOrders: 1, ExcludedRecharge: 77},
 		{Dimension: "upstream", Consumption: 100, Cost: 90, Requests: 3},
 		{Dimension: "account", Consumption: 100, Cost: 90, Requests: 3},
 	}}}}
@@ -53,6 +53,9 @@ func TestOperationsFinanceSummaryDoesNotDoubleCountDimensions(t *testing.T) {
 	require.Equal(t, 100.0, result.Summary.Consumption)
 	require.Equal(t, 10.0, result.Summary.Profit)
 	require.Equal(t, 10.0, *result.Summary.Margin)
+	require.Equal(t, int64(8), result.Summary.TotalOrders)
+	require.Equal(t, int64(3), result.Summary.PaidOrders)
+	require.Equal(t, 176.0, result.Summary.ExcludedRecharge)
 	require.Equal(t, 300.0, result.Summary.Recharge)
 	require.Equal(t, 200.0, result.Summary.Subscription)
 }

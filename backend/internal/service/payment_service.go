@@ -117,6 +117,8 @@ type CreateOrderResponse struct {
 }
 
 type OrderListParams struct {
+	// FinanceOnly matches operations finance successful recharge credits (not cash receipts).
+	FinanceOnly bool
 	Page        int
 	PageSize    int
 	Status      string

@@ -75,7 +75,7 @@ func TestOperationsFinanceReadOnlyDatabase(t *testing.T) {
 	require.InDelta(t, dailyCost, modelCost, 0.000001)
 	// Reconcile against raw orders using the same created_at and order type range.
 	orderRows, err := db.QueryContext(ctx, `SELECT amount FROM payment_orders
-	 WHERE created_at >= $1 AND created_at < $2 AND order_type IN ('balance','subscription')`, start, start.AddDate(0, 0, 1))
+	 WHERE created_at >= $1 AND created_at < $2 AND order_type IN ('balance','subscription') AND status IN ('PAID','RECHARGING','COMPLETED')`, start, start.AddDate(0, 0, 1))
 	require.NoError(t, err)
 	credits := 0.0
 	for orderRows.Next() {

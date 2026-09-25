@@ -73,7 +73,18 @@ func (h *PaymentHandler) ListOrders(c *gin.Context) {
 	if !ok {
 		return
 	}
+	// Finance drill-down shares the report's business timezone and 90-day bound.
+	financeOnly := c.Query("finance_only") == "true"
+	if financeOnly {
+		start, end, err := parseOperationsReportingRange(c, time.Now())
+		if err != nil {
+			response.BadRequest(c, err.Error())
+			return
+		}
+		startTime, endTime, dateField = &start, &end, "created_at"
+	}
 	orders, total, err := h.paymentService.AdminListOrders(c.Request.Context(), userID, service.OrderListParams{
+		FinanceOnly: financeOnly,
 		Page:        page,
 		PageSize:    pageSize,
 		Status:      c.Query("status"),

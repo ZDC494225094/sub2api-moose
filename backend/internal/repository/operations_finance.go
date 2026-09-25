@@ -7,6 +7,17 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
+// Keep success filtering inside each amount aggregate: total_orders and excluded_recharge
+// deliberately retain unsuccessful orders to explain the gap without inflating recharge.
+const operationsFinancePaymentsQuery = `
+	 SELECT to_char(created_at AT TIME ZONE $3, 'YYYY-MM-DD') AS day,
+	 COALESCE(SUM(amount) FILTER (WHERE status IN ($4,$5,$6)),0) AS recharge,
+	 COALESCE(SUM(amount) FILTER (WHERE order_type = 'subscription' AND status IN ($4,$5,$6)),0) AS subscription,
+	 COUNT(*) AS total_orders, COUNT(*) FILTER (WHERE status IN ($4,$5,$6)) AS paid_orders,
+	 COALESCE(SUM(amount) FILTER (WHERE status NOT IN ($4,$5,$6)),0) AS excluded_recharge
+	 FROM payment_orders WHERE created_at >= $1 AND created_at < $2 AND order_type IN ('balance','subscription')
+	 GROUP BY 1`
+
 func (r *usageLogRepository) GetOperationsFinance(ctx context.Context, start, end time.Time) (*service.OperationsFinanceResponse, error) {
 	// One statement gives all dimensions and inventory the same database snapshot.
 	// Include zero-charge requests: they may still incur upstream costs.
@@ -29,12 +40,7 @@ func (r *usageLogRepository) GetOperationsFinance(ctx context.Context, start, en
 	 ('model', u.model, u.model, '')
 	 ) d(dimension,key,label,upstream)
 	 GROUP BY d.dimension,d.key,d.label,d.upstream
-	), payments AS (
-	 SELECT to_char(created_at AT TIME ZONE $3, 'YYYY-MM-DD') AS day,
-	 COALESCE(SUM(amount) FILTER (WHERE order_type IN ('balance','subscription')),0) AS recharge,
-	 COALESCE(SUM(amount) FILTER (WHERE order_type = 'subscription'),0) AS subscription
-	 FROM payment_orders WHERE created_at >= $1 AND created_at < $2
-	 GROUP BY 1
+	), payments AS (` + operationsFinancePaymentsQuery + `
 	), days AS (
 	 SELECT to_char(d, 'YYYY-MM-DD') AS day FROM generate_series(
 	 ($1::timestamptz AT TIME ZONE $3)::date,
@@ -43,16 +49,19 @@ func (r *usageLogRepository) GetOperationsFinance(ctx context.Context, start, en
 	 SELECT 'day' AS dimension, days.day AS key, days.day AS label, '' AS upstream,
 	 COALESCE(d.requests,0) AS requests, COALESCE(d.consumption,0) AS consumption,
 	 COALESCE(d.list_cost,0) AS list_cost, COALESCE(d.cost,0) AS cost,
-	 COALESCE(p.recharge,0) AS recharge, COALESCE(p.subscription,0) AS subscription
+	 COALESCE(p.recharge,0) AS recharge, COALESCE(p.subscription,0) AS subscription,
+	 COALESCE(p.total_orders,0) AS total_orders, COALESCE(p.paid_orders,0) AS paid_orders,
+	 COALESCE(p.excluded_recharge,0) AS excluded_recharge
 	 FROM days LEFT JOIN dimensions d ON d.dimension='day' AND d.key=days.day
 	 LEFT JOIN payments p ON p.day=days.day
 	 UNION ALL
-	 SELECT dimension,key,label,upstream,requests,consumption,list_cost,cost,0,0
+	 SELECT dimension,key,label,upstream,requests,consumption,list_cost,cost,0,0,0,0,0
 	 FROM dimensions WHERE dimension <> 'day'
 	)
 	SELECT result.*, (SELECT COALESCE(SUM(balance),0) FROM users WHERE deleted_at IS NULL)
 	FROM result ORDER BY dimension,key`
-	rows, err := r.sql.QueryContext(ctx, query, start, end, start.Location().String())
+	rows, err := r.sql.QueryContext(ctx, query, start, end, start.Location().String(),
+		service.OrderStatusPaid, service.OrderStatusRecharging, service.OrderStatusCompleted)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +70,7 @@ func (r *usageLogRepository) GetOperationsFinance(ctx context.Context, start, en
 	for rows.Next() {
 		var row service.OperationsFinanceRow
 		if err := rows.Scan(&row.Dimension, &row.Key, &row.Label, &row.Upstream, &row.Requests,
-			&row.Consumption, &row.ListCost, &row.Cost, &row.Recharge, &row.Subscription, &result.CurrentBalance); err != nil {
+			&row.Consumption, &row.ListCost, &row.Cost, &row.Recharge, &row.Subscription, &row.TotalOrders, &row.PaidOrders, &row.ExcludedRecharge, &result.CurrentBalance); err != nil {
 			return nil, err
 		}
 		result.Rows = append(result.Rows, row)

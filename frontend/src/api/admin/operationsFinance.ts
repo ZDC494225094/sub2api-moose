@@ -5,6 +5,9 @@ export interface FinanceRow {
   key: string
   label: string
   upstream: string
+  total_orders: number
+  paid_orders: number
+  excluded_recharge: number
   requests: number
   consumption: number
   list_cost: number

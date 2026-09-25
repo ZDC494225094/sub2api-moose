@@ -918,6 +918,10 @@ func (s *PaymentService) GetUserOrders(ctx context.Context, userID int64, p Orde
 // AdminListOrders returns a paginated list of orders. If userID > 0, filters by user.
 func (s *PaymentService) AdminListOrders(ctx context.Context, userID int64, p OrderListParams) ([]*dbent.PaymentOrder, int, error) {
 	q := s.entClient.PaymentOrder.Query()
+	if p.FinanceOnly {
+		q = q.Where(paymentorder.StatusIn(OrderStatusPaid, OrderStatusRecharging, OrderStatusCompleted),
+			paymentorder.OrderTypeIn(payment.OrderTypeBalance, payment.OrderTypeSubscription))
+	}
 	if userID > 0 {
 		q = q.Where(paymentorder.UserIDEQ(userID))
 	}

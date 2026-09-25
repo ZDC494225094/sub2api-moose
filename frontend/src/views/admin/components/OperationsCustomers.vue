@@ -1,5 +1,5 @@
 <template>
-  <section ref="section" class="operations-customers border-t border-gray-200 pt-5 dark:border-dark-600">
+  <section ref="section" class="operations-customers">
     <div class="customers-heading mb-4">
       <h2 class="text-sm font-semibold">用户经营与留存</h2>
       <label class="customers-period text-xs text-gray-500">流失观察周期
@@ -34,7 +34,7 @@
             <td class="p-3"><span class="block max-w-56 truncate" :title="user.email">{{ user.email }}</span><span class="text-xs text-gray-500">{{ user.username || `#${user.id}` }}</span></td>
             <td v-for="column in columns" :key="column.key" class="p-3 text-right tabular-nums" :class="column.key === 'profit' && user.profit < 0 ? 'text-red-600' : ''">{{ column.key === 'margin' ? percent(user.margin) : column.key === 'period_orders' || column.key === 'total_orders' ? user[column.key] : money(user[column.key]) }}</td>
             <td class="p-3 text-xs">{{ date(user.last_used_at) }}</td><td class="p-3 text-xs">{{ date(user.last_paid_at) }}</td>
-            <td class="p-3 text-right"><RouterLink class="text-primary-600" :to="{ path: '/admin/usage', query: { start_date: startDate, end_date: endDate, user_id: user.id, timezone } }">消耗明细</RouterLink></td>
+            <td class="p-3 text-right"><button class="text-primary-600" @click="emit('usage', { id: user.id, email: user.email })">消耗明细</button></td>
           </tr><tr v-if="!result.items.length"><td colspan="12" class="p-8 text-center text-gray-500">暂无符合条件的用户</td></tr></tbody>
         </table>
       </div>
@@ -49,6 +49,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import Icon from '@/components/icons/Icon.vue'
 import { getOperationsCustomers, type CustomersReport, type CustomerSegment } from '@/api/admin/operationsFinance'
 
+const emit = defineEmits<{ usage: [user: { id: number; email: string }] }>()
 const props = defineProps<{ startDate: string; endDate: string; timezone: string }>()
 const section = ref<HTMLElement>(), result = ref<CustomersReport | null>(null)
 const segment = ref<CustomerSegment>('all'), churnDays = ref(30), page = ref(1)

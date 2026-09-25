@@ -126,3 +126,38 @@ func TestAdminListOrdersFiltersByPaidAtRange(t *testing.T) {
 	require.Len(t, orders, 1)
 	require.Equal(t, "sub2_paid_inside_range", orders[0].OutTradeNo)
 }
+
+func TestAdminListOrdersFinanceOnly(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentOrderLifecycleTestClient(t)
+	user, err := client.User.Create().SetEmail("finance-filter@example.com").SetPasswordHash("hash").SetUsername("finance-filter").Save(ctx)
+	require.NoError(t, err)
+	start := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(0, 0, 1)
+	statuses := []string{OrderStatusPending, OrderStatusPaid, OrderStatusRecharging, OrderStatusCompleted, OrderStatusExpired, OrderStatusCancelled, OrderStatusFailed, OrderStatusRefundRequested, OrderStatusRefunding, OrderStatusRefundPending, OrderStatusPartiallyRefunded, OrderStatusRefunded, OrderStatusRefundFailed}
+	for _, status := range statuses {
+		for _, kind := range []string{payment.OrderTypeBalance, payment.OrderTypeSubscription, "other"} {
+			id := status + "_" + kind
+			_, err := client.PaymentOrder.Create().SetUserID(user.ID).SetUserEmail(user.Email).SetUserName(user.Username).
+				SetAmount(10).SetPayAmount(10).SetFeeRate(0).SetRechargeCode(id).SetOutTradeNo(id).SetPaymentType(payment.TypeAlipay).
+				SetPaymentTradeNo("").SetOrderType(kind).SetStatus(status).SetExpiresAt(end).SetClientIP("127.0.0.1").SetSrcHost("api.example.com").SetCreatedAt(start).Save(ctx)
+			require.NoError(t, err)
+		}
+	}
+	svc := &PaymentService{entClient: client}
+	rows, total, err := svc.AdminListOrders(ctx, 0, OrderListParams{Page: 1, PageSize: 20, FinanceOnly: true, StartTime: &start, EndTime: &end})
+	require.NoError(t, err)
+	require.Equal(t, 6, total)
+	require.Len(t, rows, 6)
+	amount := 0.0
+	for _, row := range rows {
+		require.Contains(t, []string{OrderStatusPaid, OrderStatusRecharging, OrderStatusCompleted}, row.Status)
+		require.Contains(t, []string{payment.OrderTypeBalance, payment.OrderTypeSubscription}, row.OrderType)
+		amount += row.Amount
+	}
+	require.Equal(t, 60.0, amount)
+	// The operational filter must not change the ordinary order management listing.
+	_, total, err = svc.AdminListOrders(ctx, 0, OrderListParams{Page: 1, PageSize: 20, StartTime: &start, EndTime: &end})
+	require.NoError(t, err)
+	require.Equal(t, len(statuses)*3, total)
+}
