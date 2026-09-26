@@ -18,7 +18,24 @@ export interface FinanceRow {
   margin: number | null
 }
 
+export interface PaymentDay {
+  day: string
+  currency: string
+  recharge_paid: number
+  subscription_paid: number
+  credited: number
+  pending_credit: number
+}
+export interface FinanceInventory {
+  frozen_balance: number
+  subscription_remaining: number
+  limited_subscriptions: number
+  unlimited_subscriptions: number
+  gift_remaining: number | null
+}
 export interface FinanceReport {
+  payments: PaymentDay[]
+  inventory: FinanceInventory
   start_date: string
   end_date: string
   generated_at: string

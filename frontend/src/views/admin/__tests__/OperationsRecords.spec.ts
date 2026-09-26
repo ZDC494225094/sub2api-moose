@@ -21,6 +21,28 @@ describe('Operations in-page records', () => {
     expect(getOrders.mock.lastCall?.[0]).toMatchObject({ start_date: '2026-09-10', end_date: '2026-09-10', page: 1 })
     wrapper.unmount()
   })
+  it('separates actual paid, completed credits and pending credits without scrolling', async () => {
+    getOrders.mockResolvedValue({ data: { total: 3, items: [
+      { id: 1, order_type: 'balance', pay_amount: 70, amount: 100, currency: 'CNY', status: 'COMPLETED' },
+      { id: 2, order_type: 'balance', pay_amount: 40, amount: 60, currency: 'USD', status: 'PAID' },
+      { id: 3, order_type: 'subscription', pay_amount: 150, amount: 199, currency: 'CNY', status: 'COMPLETED' }
+    ] } })
+    const wrapper = create()
+    await wrapper.vm.open({ mode: 'orders', title: '付款' }); await flushPromises()
+    const rows = wrapper.findAll('tbody tr')
+    expect(rows[0].text()).toContain('¥70.00 元')
+    expect(rows[0].findAll('td')[4].text()).toBe('$100.00')
+    expect(rows[1].text()).toContain('USD 40.00')
+    expect(rows[1].findAll('td')[4].text()).toBe('$0.00')
+    expect(rows[1].findAll('td')[5].text()).toBe('$60.00')
+    expect(rows[2].text()).toContain('¥150.00 元')
+    expect(rows[2].text()).not.toContain('$199')
+    expect(rows[2].text()).toContain('不适用')
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
+    await wrapper.get('[aria-label="关闭页内明细"]').trigger('click')
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    wrapper.unmount()
+  })
   it('preserves account, model, user, timezone and dates, closes when report changes', async () => {
     const wrapper = create()
     await wrapper.vm.open({ mode: 'usage', title: '账号请求', account_id: 9, model: 'test-model', user_id: 4 }); await flushPromises()

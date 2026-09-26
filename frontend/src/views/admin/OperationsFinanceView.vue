@@ -3,7 +3,7 @@
     <div class="finance space-y-6">
       <header class="finance-hero">
         <div class="flex items-center gap-4"><div class="hero-icon"><Icon name="chartBar" size="lg" /></div><div><p class="mb-1 text-[10px] font-semibold tracking-[0.24em] text-indigo-500 dark:text-indigo-300">OPERATIONS INTELLIGENCE</p><h1 class="text-2xl font-semibold tracking-tight">运营分析</h1><p class="mt-2 text-xs text-gray-500 dark:text-gray-400">从充值、消耗到利润，追踪每一笔经营变化</p></div></div>
-        <button v-if="report" type="button" class="btn btn-secondary flex items-center gap-2" @click="customers?.open('repeat')"><Icon name="users" size="sm" /> 用户经营与留存 <Icon name="arrowRight" size="sm" /></button>
+        <button v-if="report" type="button" class="btn btn-secondary flex items-center gap-2" @click="openCustomers('repeat')"><Icon name="users" size="sm" /> 用户经营与留存 <Icon name="arrowRight" size="sm" /></button>
       </header>
       <form class="finance-panel finance-filter" @submit.prevent="load">
         <div class="mr-auto"><p class="mb-2 text-xs text-gray-500">统计周期 <span class="ml-2 text-gray-400">{{ timezone }} · 最多 90 天</span></p><div class="date-presets" role="group" aria-label="日期快捷选择"><button v-for="preset in presets" :key="preset.label" type="button" :aria-pressed="activePreset === preset.label" :class="{ selected: activePreset === preset.label }" @click="setRange(preset.days, preset.label)">{{ preset.label }}</button></div></div>
@@ -30,11 +30,18 @@
           <section class="finance-panel min-w-0"><div class="chart-heading"><div><h3>上游成本分布</h3><p>Top 10 · 点击柱形下探账号</p></div><Icon name="server" size="sm" class="text-indigo-400" /></div><div v-if="upstreams.length" class="h-72"><Bar :data="upstreamData" :options="barOptions" /></div><div v-else class="py-20 text-center text-sm text-gray-500">暂无上游消耗</div></section>
         </div>
         <div class="grid min-w-0 gap-4 xl:grid-cols-2">
-          <section class="finance-panel min-w-0"><div class="chart-heading"><div><h3>成功充值结构</h3><p>余额 {{ money(report.summary.recharge - report.summary.subscription) }} · 订阅 {{ money(report.summary.subscription) }}</p></div><span class="unit-badge">仅成功状态</span></div><div class="h-56"><Bar :data="rechargeData" :options="rechargeOptions" /></div><p class="mt-3 border-t border-gray-100 pt-3 text-[11px] leading-5 text-gray-500 dark:border-dark-700">未计入 {{ (report.summary.total_orders - report.summary.paid_orders).toLocaleString() }} 笔 / {{ money(report.summary.excluded_recharge) }}：待支付、取消、过期、失败及退款相关状态。点击柱形核对成功订单。</p></section>
+          <section class="finance-panel min-w-0"><div class="chart-heading"><div><h3>实际付款结构</h3><p>充值与订阅付款分开统计 · 点击柱形查看构成</p></div><select v-model="cashCurrency" class="input !w-auto !py-1" aria-label="付款币种"><option v-for="currency in cashCurrencies.length ? cashCurrencies : ['CNY']" :key="currency" :value="currency">{{ currency }}</option></select></div><div class="h-56"><Bar :data="rechargeData" :options="rechargeOptions" /></div><p class="mt-3 border-t border-gray-100 pt-3 text-[11px] leading-5 text-gray-500 dark:border-dark-700">未计入 {{ (report.summary.total_orders - report.summary.paid_orders).toLocaleString() }} 笔：待支付、取消、过期、失败及退款相关状态。点击柱形核对成功订单。</p></section>
           <section class="finance-panel min-w-0"><div class="chart-heading"><div><h3>计费毛利率</h3><p>按选定粒度重新加权汇总，不对每日百分比取平均</p></div><span class="unit-badge">毛利 / 消耗</span></div><div class="h-56"><Line :data="marginData" :options="marginOptions" /></div><p class="mt-3 border-t border-gray-100 pt-3 text-[11px] leading-5 text-gray-500 dark:border-dark-700">无计费消耗时不计算毛利率，以断点显示；计费毛利不是现金净利润。</p></section>
         </div>
-        <section ref="detailsSection" class="finance-panel min-w-0 scroll-mt-6">
-          <div class="section-heading mb-5"><div><span class="section-index">03</span><h2>多维经营分析</h2></div><span class="text-xs text-gray-400">上游 → 账号 → 请求 · 全程页内下探</span></div>
+        <section class="finance-panel">
+          <div class="section-heading"><div><span class="section-index">03</span><h2>多维经营分析</h2></div><span class="text-xs text-gray-400">原地打开 · 逐层分析 · 关闭后保留当前位置</span></div>
+          <div class="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4"><button v-for="item in dimensions" :key="item.key" class="analysis-entry" @click="showDetails(item.key)"><Icon :name="item.key === 'upstream' ? 'server' : item.key === 'account' ? 'users' : item.key === 'model' ? 'cube' : 'chartBar'" size="sm" /><span>{{ item.label }}</span><Icon name="chevronRight" size="xs" class="ml-auto" /></button></div>
+        </section>
+        <BaseDialog :show="modal !== null" :title="modalTitle" width="extra-wide" @close="closeModal">
+          <div ref="modalContent" class="finance space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500"><button v-if="modalHistory.length" class="btn btn-secondary flex items-center gap-1" @click="backModal"><Icon name="chevronLeft" size="sm" />返回上一级</button><span>{{ report.start_date }} — {{ report.end_date }} · {{ timezone }}</span><span>原地分析 · Esc 关闭</span></div>
+        <section v-show="modal === 'dimensions'" class="finance-panel min-w-0 ">
+          <div class="section-heading mb-5"><div><span class="section-index">03</span><h2>多维经营分析</h2></div><span class="text-xs text-gray-400">上游 → 账号 → 请求 · 原地弹窗下探</span></div>
           <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div class="dimension-tabs" role="tablist" aria-label="分析维度"><button v-for="item in dimensions" :key="item.key" role="tab" :class="{ selected: dimension === item.key }" :aria-selected="dimension === item.key" @click="selectDimension(item.key)">{{ item.label }}</button></div>
             <div class="flex flex-wrap items-center gap-3"><label class="flex items-center gap-1 text-xs text-gray-500"><input v-model="lossOnly" type="checkbox" class="rounded">仅看亏损</label><input v-model="search" type="search" class="input !w-44 max-w-full" placeholder="搜索名称" aria-label="搜索明细"><button class="btn btn-secondary" title="导出当前维度 CSV" aria-label="导出当前维度 CSV" @click="exportRows"><Icon name="download" size="sm" /></button></div>
@@ -47,24 +54,40 @@
           </table></div>
           <div class="mt-4 flex items-center justify-end gap-3 text-xs text-gray-500"><span>共 {{ filteredRows.length }} 项 · {{ page }} / {{ totalPages }}</span><button class="btn btn-secondary" :disabled="page <= 1" aria-label="上一页" @click="page--"><Icon name="chevronLeft" size="sm" /></button><button class="btn btn-secondary" :disabled="page >= totalPages" aria-label="下一页" @click="page++"><Icon name="chevronRight" size="sm" /></button></div>
         </section>
-        <div class="finance-panel"><OperationsCustomers ref="customers" :start-date="report.start_date" :end-date="report.end_date" :timezone="timezone" @usage="(user) => usage({ user_id: user.id }, `${user.email} · 请求消耗明细`)" /></div>
-        <OperationsRecords ref="records" :start-date="report.start_date" :end-date="report.end_date" :timezone="timezone" />
-        <details class="finance-panel text-xs leading-6 text-gray-500"><summary class="cursor-pointer font-medium text-gray-700 dark:text-gray-300">统计口径与数据说明</summary><div class="mt-3 grid gap-3 md:grid-cols-2"><p><b>充值额度：</b>按订单创建日期、服务器业务时区统计余额及订阅订单 amount，仅含 PAID / RECHARGING / COMPLETED，不含待支付、取消、过期、失败及退款相关状态。它是当前状态下的有效充值额度，不是按付款日期统计的现金收入；退款相关订单整单排除，不按现金退款额冲减 USD 额度。</p><p><b>计费利润：</b>消耗、成本与毛利均为 USD 计费口径。毛利 = 实际计费额 − 账号统计价 × 账号倍率；毛利率 = 汇总毛利 ÷ 汇总消耗。零计费但产生成本的请求仍计入；此处不包含固定运营费用。</p><p><b>维度与时间：</b>日 / 周 / 月只在选定日期范围内汇总，首尾可能是不完整周期。上游归属为账号当前分组，不代表历史归属；当前用户余额为存量，包含赠送，不受日期筛选影响。</p><p><b>下探与核对：</b>卡片、趋势与明细共享筛选口径；CSV 导出当前维度全部筛选结果，而非当前页。明细为打开时的实时查询，支付状态变化可能导致与上次汇总有差异，可刷新重新核对。</p></div></details>
+
+            <template v-if="modal === 'balance'">
+              <div class="grid gap-3 md:grid-cols-3" aria-label="当前余额构成">
+                <div class="inventory-card"><span>用户余额 · USD</span><strong>{{ money(report.current_balance) }}</strong><p>含赠送的当前账面余额，不受日期筛选影响。</p></div>
+                <div class="inventory-card"><span>订阅可用额度 · USD</span><strong>{{ report.inventory ? money(report.inventory.subscription_remaining) : '—' }}</strong><p>{{ report.inventory?.limited_subscriptions ?? 0 }} 份有限额订阅的当前可用量；另有 {{ report.inventory?.unlimited_subscriptions ?? 0 }} 份无限额订阅。</p></div>
+                <div class="inventory-card"><span>剩余赠送额度 · USD</span><strong>{{ report.inventory?.gift_remaining == null ? '未单独核算' : money(report.inventory.gift_remaining) }}</strong><p>赠送已合并进余额，未独立追踪消耗；无法准确拆分，不按 0 展示。</p></div>
+              </div>
+              <p class="rounded-xl bg-gray-50 p-4 text-xs leading-6 text-gray-500 dark:bg-dark-900">订阅额度按每份有效订阅的日 / 周 / 月剩余限额取最小值后汇总，已按实际重置规则刷新。无限额订阅单独计数，不将多个周期相加，也不与余额相加。冻结余额：{{ report.inventory ? money(report.inventory.frozen_balance) : '—' }}。</p>
+              <button class="btn btn-secondary" @click="openCustomers('balance')">查看有余额用户明细</button>
+            </template>
+            <OperationsCustomers v-if="modal === 'customers' || modalHistory.includes('customers')" v-show="modal === 'customers'" ref="customers" :start-date="report.start_date" :end-date="report.end_date" :timezone="timezone" @usage="(user) => usage({ user_id: user.id }, `${user.email} · 请求消耗明细`)" />
+            <OperationsPaymentBreakdown v-if="modal === 'orders'" :payments="report.payments ?? []" :start="paymentRange.start" :end="paymentRange.end" />
+            <OperationsRecords v-if="modal === 'orders' || modal === 'usage'" ref="records" embedded :start-date="report.start_date" :end-date="report.end_date" :timezone="timezone" @close="closeModal" />
+          </div>
+        </BaseDialog>
+        <details class="finance-panel text-xs leading-6 text-gray-500"><summary class="cursor-pointer font-medium text-gray-700 dark:text-gray-300">统计口径与数据说明</summary><div class="mt-3 grid gap-3 md:grid-cols-2"><p><b>付款与到账：</b>按订单创建日期、服务器业务时区归属；实际付款取 pay_amount，按币种分别汇总余额充值与订阅付款，仅含 PAID / RECHARGING / COMPLETED。实际到账仅取 COMPLETED 余额订单的 amount（USD），其余成功余额订单单列待到账。退款相关状态整单排除；此处不是按付款日期统计的现金流水报表。</p><p><b>计费利润：</b>消耗、成本与毛利均为 USD 计费口径。毛利 = 实际计费额 − 账号统计价 × 账号倍率；毛利率 = 汇总毛利 ÷ 汇总消耗。零计费但产生成本的请求仍计入；此处不包含固定运营费用。</p><p><b>维度与时间：</b>日 / 周 / 月只在选定日期范围内汇总，首尾可能是不完整周期。上游归属为账号当前分组，不代表历史归属；当前用户余额为存量，包含赠送，不受日期筛选影响。</p><p><b>下探与核对：</b>卡片、趋势与明细共享筛选口径；CSV 导出当前维度全部筛选结果，而非当前页。明细为打开时的实时查询，支付状态变化可能导致与上次汇总有差异，可刷新重新核对。</p></div></details>
       </template>
     </div>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, type ChartOptions } from 'chart.js'
 import { Line, Bar } from 'vue-chartjs'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
+import OperationsPaymentBreakdown from './components/OperationsPaymentBreakdown.vue'
+import { cashMoney, paymentTotals } from './operationsFinanceMetrics'
 import OperationsCustomers from './components/OperationsCustomers.vue'
 import OperationsRecords from './components/OperationsRecords.vue'
-import { getOperationsFinance, type FinanceReport, type FinanceRow } from '@/api/admin/operationsFinance'
+import { getOperationsFinance, type FinanceReport, type FinanceRow, type CustomerSegment } from '@/api/admin/operationsFinance'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend)
 const router = useRouter()
@@ -84,7 +107,7 @@ function setRange(_days: number, label: string) {
 async function load() {
   controller?.abort()
   const request = new AbortController(); controller = request
-  report.value = null; error.value = ''; loading.value = false
+  closeModal(); report.value = null; error.value = ''; loading.value = false
   const days = (Date.parse(end.value) - Date.parse(start.value)) / 86400000 + 1
   if (!activePreset.value && (!Number.isFinite(days) || days < 1 || days > 90)) { error.value = '请选择有效日期，单次查询最多 90 天。'; return }
   loading.value = true
@@ -102,12 +125,38 @@ type NumericKey = 'requests' | 'consumption' | 'list_cost' | 'cost' | 'recharge'
 const dimensions: { key: Dimension; label: string }[] = [{ key: 'day', label: '每日汇总' }, { key: 'upstream', label: '上游汇总' }, { key: 'account', label: '上游账号' }, { key: 'model', label: '计费模型' }]
 const dimension = ref<Dimension>('day'), upstreamFilter = ref(''), search = ref(''), page = ref(1)
 const sortKey = ref<NumericKey>('cost'), descending = ref(true)
-const detailsSection = ref<HTMLElement>()
+type ModalMode = 'dimensions' | 'orders' | 'usage' | 'customers' | 'balance'
+const modal = ref<ModalMode | null>(null), modalHistory = ref<ModalMode[]>([])
+const modalContent = ref<HTMLElement>()
+function trapModalFocus(event: KeyboardEvent) {
+  if (!modal.value || event.key !== 'Tab' || event.defaultPrevented) return
+  const dialog = modalContent.value?.closest('[role="dialog"]')
+  if (!dialog) return
+  const elements = Array.from(dialog.querySelectorAll<HTMLElement>('button, a[href], input, select, textarea, [tabindex]'))
+    .filter(el => el.tabIndex >= 0 && !el.hasAttribute('disabled') && el.getClientRects().length > 0)
+  const first = elements[0], last = elements[elements.length - 1]
+  if (!first || !last) return
+  const active = document.activeElement
+  if (!dialog.contains(active) || (event.shiftKey ? active === first : active === last)) {
+    event.preventDefault(); (event.shiftKey ? last : first).focus({ preventScroll: true })
+  }
+}
+const modalTitle = computed(() => ({ dimensions: '多维经营分析', orders: '充值付款与到账明细', usage: '请求消耗明细', customers: '用户经营与留存', balance: '当前余额与订阅额度' })[modal.value ?? 'dimensions'])
+const paymentRange = ref<{ start?: string; end?: string }>({})
+function openModal(mode: ModalMode) { if (modal.value && modal.value !== mode) modalHistory.value.push(modal.value); modal.value = mode }
+function closeModal() { modal.value = null; modalHistory.value = [] }
+function backModal() { modal.value = modalHistory.value.pop() ?? null }
+async function openCustomers(segment: CustomerSegment) { openModal('customers'); await nextTick(); customers.value?.open(segment) }
+const cashTotals = computed(() => paymentTotals(report.value?.payments ?? []))
+const cashCurrency = ref('CNY')
+const cashCurrencies = computed(() => cashTotals.value.currencies.map(c => c.currency))
+watch(cashCurrencies, currencies => { if (!currencies.includes(cashCurrency.value)) cashCurrency.value = currencies[0] ?? 'CNY' })
+const cashHeadline = computed(() => cashTotals.value.currencies.length ? cashTotals.value.currencies.map(c => cashMoney(c.recharge_paid + c.subscription_paid, c.currency)).join(' / ') : '暂无成功付款')
 const customers = ref<InstanceType<typeof OperationsCustomers>>()
 const records = ref<InstanceType<typeof OperationsRecords>>()
 const lossOnly = ref(false)
 const columns = computed<{ key: NumericKey; label: string }[]>(() => [
-  ...(dimension.value === 'day' ? [{ key: 'recharge' as const, label: '充值额度' }] : []),
+  ...(dimension.value === 'day' ? [{ key: 'recharge' as const, label: '余额到账 USD' }] : []),
   { key: 'requests', label: '请求数' }, { key: 'consumption', label: '用户消耗' }, { key: 'list_cost', label: '标准价消耗' }, { key: 'cost', label: '上游成本' }, { key: 'profit', label: '计费毛利' }, { key: 'margin', label: '毛利率' }
 ])
 const filteredRows = computed(() => (report.value?.rows ?? []).filter(r => r.dimension === dimension.value && (!lossOnly.value || r.profit < 0) && (!upstreamFilter.value || r.upstream === upstreamFilter.value) && r.label.toLowerCase().includes(search.value.toLowerCase())).sort((a, b) => ((a[sortKey.value] ?? -Infinity) - (b[sortKey.value] ?? -Infinity)) * (descending.value ? -1 : 1) || a.key.localeCompare(b.key)))
@@ -116,11 +165,17 @@ const pageRows = computed(() => filteredRows.value.slice((page.value - 1) * 20, 
 watch([search, lossOnly, upstreamFilter], () => { page.value = 1 })
 function sortBy(key: NumericKey) { descending.value = sortKey.value === key ? !descending.value : true; sortKey.value = key; page.value = 1 }
 function selectDimension(key: Dimension) { dimension.value = key; lossOnly.value = false; upstreamFilter.value = ''; search.value = ''; page.value = 1; if (!columns.value.some(c => c.key === sortKey.value)) sortKey.value = 'cost' }
-function showDetails(key: Dimension) { selectDimension(key); detailsSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
-function usage(extra: { start_date?: string; end_date?: string; account_id?: number; model?: string; user_id?: number } = {}, title = '请求消耗明细') { void records.value?.open({ mode: 'usage', title, ...extra }) }
-function orders(day?: string, lastDay?: string) { void records.value?.open({ mode: 'orders', title: day ? `${day}${lastDay && lastDay !== day ? ' 至 ' + lastDay : ''} · 成功充值订单` : '期间成功充值订单', ...(day ? { start_date: day, end_date: lastDay ?? day } : {}) }) }
+function showDetails(key: Dimension) { selectDimension(key); openModal('dimensions') }
+async function usage(extra: { start_date?: string; end_date?: string; account_id?: number; model?: string; user_id?: number } = {}, title = '请求消耗明细') {
+  openModal('usage'); await nextTick(); void records.value?.open({ mode: 'usage', title, ...extra })
+}
+async function orders(day?: string, lastDay?: string) {
+  paymentRange.value = { start: day, end: lastDay ?? day }
+  openModal('orders'); await nextTick()
+  void records.value?.open({ mode: 'orders', title: day ? `${day}${lastDay && lastDay !== day ? ' 至 ' + lastDay : ''} · 成功付款订单` : '期间成功付款订单', ...(day ? { start_date: day, end_date: lastDay ?? day } : {}) })
+}
 function drill(row: FinanceRow) {
-  if (row.dimension === 'upstream') { selectDimension('account'); upstreamFilter.value = row.key; detailsSection.value?.scrollIntoView({ behavior: 'smooth' }) }
+  if (row.dimension === 'upstream') { selectDimension('account'); upstreamFilter.value = row.key; openModal('dimensions') }
   else if (row.dimension === 'day') usage({ start_date: row.key, end_date: row.key }, `${row.key} · 请求消耗明细`)
   else usage(row.dimension === 'account' ? { account_id: Number(row.key) } : { model: row.key }, `${row.label} · 请求消耗明细`)
 }
@@ -128,8 +183,8 @@ const metrics = computed(() => {
   if (!report.value) return []
   const s = report.value.summary
   return [
-    { label: '期间充值额度', icon: 'creditCard' as const, value: money(s.recharge), hint: '余额 + 订阅 · 仅成功支付状态', color: '', action: () => orders() },
-    { label: '当前用户余额', icon: 'users' as const, value: money(report.value.current_balance), hint: '当前存量 · 含赠送', color: '', action: () => customers.value?.open('balance') },
+    { label: '期间实际付款', icon: 'creditCard' as const, value: cashHeadline.value, hint: '充值 + 订阅 · 点击拆分付款与到账', color: '', action: () => orders() },
+    { label: '当前用户余额', icon: 'users' as const, value: money(report.value.current_balance), hint: '当前存量 · 含赠送', color: '', action: () => openModal('balance') },
     { label: '用户消耗', icon: 'chartBar' as const, value: money(s.consumption), hint: '期间实际计费额', color: 'text-sky-600', action: () => usage() },
     { label: '上游汇总成本', icon: 'server' as const, value: money(s.cost), hint: '账号统计价 × 账号倍率', color: 'text-amber-600', action: () => showDetails('upstream') },
     { label: '计费毛利', icon: 'trendingUp' as const, value: money(s.profit), hint: '用户消耗 − 上游成本', color: s.profit < 0 ? 'text-red-600' : 'text-emerald-600', action: () => showDetails('day') },
@@ -163,15 +218,16 @@ const trendData = computed(() => ({ labels: periods.value.map(r => r.label), dat
   { label: '计费毛利', data: periods.value.map(r => r.profit), borderColor: '#10b981', backgroundColor: '#10b981', pointRadius: 2, tension: 0.25 }
 ] }))
 const upstreamData = computed(() => ({ labels: upstreams.value.map(r => r.label), datasets: [{ label: '上游成本', data: upstreams.value.map(r => r.cost), backgroundColor: '#818cf8', borderRadius: 5, maxBarThickness: 36 }] }))
+const cashPeriods = computed(() => periods.value.map(period => paymentTotals(report.value?.payments ?? [], period.key, period.endKey).currencies.find(c => c.currency === cashCurrency.value)))
 const rechargeData = computed(() => ({ labels: periods.value.map(r => r.label), datasets: [
-  { label: '余额充值', data: periods.value.map(r => r.recharge - r.subscription), backgroundColor: '#6366f1', borderRadius: 3, maxBarThickness: 32 },
-  { label: '订阅充值', data: periods.value.map(r => r.subscription), backgroundColor: '#2dd4bf', borderRadius: 3, maxBarThickness: 32 }
+  { label: '充值付款', data: cashPeriods.value.map(r => r?.recharge_paid ?? 0), backgroundColor: '#6366f1', borderRadius: 3, maxBarThickness: 32 },
+  { label: '订阅付款', data: cashPeriods.value.map(r => r?.subscription_paid ?? 0), backgroundColor: '#2dd4bf', borderRadius: 3, maxBarThickness: 32 }
 ] }))
 const marginData = computed(() => ({ labels: periods.value.map(r => r.label), datasets: [{ label: '计费毛利率 %', data: periods.value.map(r => r.margin), borderColor: '#10b981', backgroundColor: '#10b981', pointRadius: 3, tension: 0.2 }] }))
 const lineOptions: ChartOptions<'line'> = { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 7, padding: 20 } } }, scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 9 } }, y: { title: { display: true, text: 'USD 计费额度' }, grid: { color: '#94a3b81a' } } }, onClick: (_event, elements) => { const row = periods.value[elements[0]?.index ?? -1]; if (row) usage({ start_date: row.key, end_date: row.endKey }, `${row.label} · 请求消耗明细`) } }
 const marginOptions: ChartOptions<'line'> = { ...lineOptions, scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 9 } }, y: { title: { display: true, text: '%' }, grid: { color: '#94a3b81a' } } } }
 const barOptions: ChartOptions<'bar'> = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { maxRotation: 35 } }, y: { beginAtZero: true, grid: { color: '#94a3b81a' }, title: { display: true, text: 'USD' } } }, onClick: (_event, elements) => { const row = upstreams.value[elements[0]?.index ?? -1]; if (row) drill(row) } }
-const rechargeOptions: ChartOptions<'bar'> = { ...barOptions, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 7, padding: 20 } } }, scales: { x: { stacked: true, grid: { display: false }, ticks: { maxTicksLimit: 9 } }, y: { stacked: true, beginAtZero: true, grid: { color: '#94a3b81a' }, title: { display: true, text: 'USD' } } }, onClick: (_event, elements) => { const row = periods.value[elements[0]?.index ?? -1]; if (row) orders(row.key, row.endKey) } }
+const rechargeOptions = computed<ChartOptions<'bar'>>(() => ({ ...barOptions, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 7, padding: 20 } } }, scales: { x: { stacked: true, grid: { display: false }, ticks: { maxTicksLimit: 9 } }, y: { stacked: true, beginAtZero: true, grid: { color: '#94a3b81a' }, title: { display: true, text: cashCurrency.value } } }, onClick: (_event, elements) => { const row = periods.value[elements[0]?.index ?? -1]; if (row) orders(row.key, row.endKey) } } ))
 const rankingMetric = ref<'cost' | 'consumption' | 'profit' | 'requests'>('cost')
 const rankingLabels = { cost: '上游成本', consumption: '用户消耗', profit: '计费毛利', requests: '请求数' }
 const rankedRows = computed(() => [...filteredRows.value].sort((a, b) => b[rankingMetric.value] - a[rankingMetric.value] || a.key.localeCompare(b.key)).slice(0, 12))
@@ -203,13 +259,20 @@ if (typeof route.query.preset === 'string') activePreset.value = Object.keys(pre
 if (typeof route.query.start_date === 'string' && typeof route.query.end_date === 'string') {
   start.value = route.query.start_date; end.value = route.query.end_date; activePreset.value = ''
 }
-onMounted(load)
-onBeforeUnmount(() => controller?.abort())
+onMounted(() => { void load(); document.addEventListener('keydown', trapModalFocus) })
+onBeforeUnmount(() => { controller?.abort(); document.removeEventListener('keydown', trapModalFocus) })
 </script>
 
 <style scoped>
 .finance { letter-spacing: 0; --panel-border: #e5e7eb; --panel-bg: #fff; }
 :global(.dark .finance) { --panel-border: #293448; --panel-bg: #141d2c; }
+.analysis-entry { display:flex; align-items:center; gap:10px; border:1px solid var(--panel-border); border-radius:12px; padding:16px; font-size:13px; text-align:left; transition:background .15s; }
+.analysis-entry:hover { background:#6366f10c; color:#6366f1; }
+.inventory-card { padding:20px; border:1px solid var(--panel-border); border-radius:14px; background:var(--panel-bg); }
+.inventory-card > span { font-size:12px; color:#64748b; }
+.inventory-card strong { display:block; margin:12px 0; font-size:24px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+:global(.dark .inventory-card > span), :global(.dark .inventory-card p) { color:#94a3b8; }
+.inventory-card p { font-size:12px; line-height:1.8; color:#64748b; }
 .finance-filter { display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; }
 .filter-actions { display:flex; gap:8px; flex-shrink:0; }
 .finance-hero { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:20px; padding:12px 0 8px; }
@@ -236,6 +299,13 @@ onBeforeUnmount(() => controller?.abort())
 .date-presets button, .dimension-tabs button { padding:7px 12px; font-size:12px; border-radius:7px; color:#6b7280; }
 .date-presets button.selected, .dimension-tabs button.selected { background:var(--panel-bg); color:#6366f1; box-shadow:0 1px 4px #0f172a12; font-weight:600; }
 .finance :deep(button:focus-visible) { outline:2px solid #818cf8; outline-offset:3px; }
-@media(max-width:767px) { .finance-filter { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); } .finance-filter > div:first-child, .filter-actions { grid-column:1 / -1; } .finance-filter > label { min-width:0; } .finance-filter .input { min-width:0; width:100%; } .filter-actions .btn-primary { flex:1; } .finance-panel { padding:16px; } .insight-strip { grid-template-columns:repeat(2,minmax(0,1fr)); } .insight-item:nth-child(3) { border-left:0; } .insight-item:nth-child(n+3) { border-top:1px solid var(--panel-border); } .insight-item { padding:15px; } }
+@media(max-width:767px) { .analysis-entry { display:flex; align-items:center; gap:10px; border:1px solid var(--panel-border); border-radius:12px; padding:16px; font-size:13px; text-align:left; transition:background .15s; }
+.analysis-entry:hover { background:#6366f10c; color:#6366f1; }
+.inventory-card { padding:20px; border:1px solid var(--panel-border); border-radius:14px; background:var(--panel-bg); }
+.inventory-card > span { font-size:12px; color:#64748b; }
+.inventory-card strong { display:block; margin:12px 0; font-size:24px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+:global(.dark .inventory-card > span), :global(.dark .inventory-card p) { color:#94a3b8; }
+.inventory-card p { font-size:12px; line-height:1.8; color:#64748b; }
+.finance-filter { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); } .finance-filter > div:first-child, .filter-actions { grid-column:1 / -1; } .finance-filter > label { min-width:0; } .finance-filter .input { min-width:0; width:100%; } .filter-actions .btn-primary { flex:1; } .finance-panel { padding:16px; } .insight-strip { grid-template-columns:repeat(2,minmax(0,1fr)); } .insight-item:nth-child(3) { border-left:0; } .insight-item:nth-child(n+3) { border-top:1px solid var(--panel-border); } .insight-item { padding:15px; } }
 @media(prefers-reduced-motion:reduce) { .metric-card { transition:none; } }
 </style>

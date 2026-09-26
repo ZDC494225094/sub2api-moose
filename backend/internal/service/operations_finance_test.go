@@ -59,3 +59,44 @@ func TestOperationsFinanceSummaryDoesNotDoubleCountDimensions(t *testing.T) {
 	require.Equal(t, 300.0, result.Summary.Recharge)
 	require.Equal(t, 200.0, result.Summary.Subscription)
 }
+
+func TestOperationsInventoryRemainingQuota(t *testing.T) {
+	now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
+	daily, weekly, monthly := 10.0, 50.0, 100.0
+	current := now.Add(-time.Hour)
+	sub := UserSubscription{Status: SubscriptionStatusActive, StartsAt: now.Add(-10 * 24 * time.Hour), ExpiresAt: now.Add(60 * 24 * time.Hour),
+		DailyWindowStart: &current, WeeklyWindowStart: &current, MonthlyWindowStart: &current, DailyUsageUSD: 3, WeeklyUsageUSD: 48, MonthlyUsageUSD: 20}
+	group := Group{DailyLimitUSD: &daily, WeeklyLimitUSD: &weekly, MonthlyLimitUSD: &monthly}
+	var v OperationsInventory
+	v.AddSubscription(sub, group, now)
+	require.Equal(t, 2.0, v.SubscriptionRemaining) // min(7,2,80), not their sum
+	require.Equal(t, int64(1), v.LimitedSubscriptions)
+	require.Nil(t, v.GiftRemaining)
+	v.AddSubscription(sub, Group{}, now)
+	require.Equal(t, int64(1), v.UnlimitedSubscriptions)
+	expired := sub
+	expired.ExpiresAt = now
+	v.AddSubscription(expired, group, now)
+	future := sub
+	future.StartsAt = now.Add(time.Hour)
+	v.AddSubscription(future, group, now)
+	require.Equal(t, int64(1), v.LimitedSubscriptions)
+	old := now.Add(-40 * 24 * time.Hour)
+	sub.StartsAt = now.Add(-60 * 24 * time.Hour)
+	sub.DailyWindowStart = &old
+	sub.WeeklyWindowStart = &old
+	sub.MonthlyWindowStart = &old
+	sub.DailyUsageUSD = 100
+	sub.WeeklyUsageUSD = 100
+	sub.MonthlyUsageUSD = 100
+	var reset OperationsInventory
+	reset.AddSubscription(sub, group, now)
+	require.Equal(t, 10.0, reset.SubscriptionRemaining) // all stale windows normalized without DB writes
+	require.Equal(t, 100.0, sub.DailyUsageUSD)          // read-only copy
+	sub.DailyWindowStart = &current
+	sub.WeeklyWindowStart = &current
+	sub.MonthlyWindowStart = &current
+	var exhausted OperationsInventory
+	exhausted.AddSubscription(sub, group, now)
+	require.Zero(t, exhausted.SubscriptionRemaining)
+}

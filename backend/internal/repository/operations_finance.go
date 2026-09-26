@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -11,12 +12,25 @@ import (
 // deliberately retain unsuccessful orders to explain the gap without inflating recharge.
 const operationsFinancePaymentsQuery = `
 	 SELECT to_char(created_at AT TIME ZONE $3, 'YYYY-MM-DD') AS day,
-	 COALESCE(SUM(amount) FILTER (WHERE status IN ($4,$5,$6)),0) AS recharge,
+	 COALESCE(SUM(amount) FILTER (WHERE order_type = 'balance' AND status = $6),0) AS recharge,
 	 COALESCE(SUM(amount) FILTER (WHERE order_type = 'subscription' AND status IN ($4,$5,$6)),0) AS subscription,
 	 COUNT(*) AS total_orders, COUNT(*) FILTER (WHERE status IN ($4,$5,$6)) AS paid_orders,
-	 COALESCE(SUM(amount) FILTER (WHERE status NOT IN ($4,$5,$6)),0) AS excluded_recharge
+	 COALESCE(SUM(amount) FILTER (WHERE order_type = 'balance' AND status NOT IN ($4,$5,$6)),0) AS excluded_recharge
 	 FROM payment_orders WHERE created_at >= $1 AND created_at < $2 AND order_type IN ('balance','subscription')
 	 GROUP BY 1`
+
+// Currency normalization mirrors PaymentOrderCurrency, including legacy CNY fallback.
+const operationsFinanceCashQuery = `
+ SELECT to_char(created_at AT TIME ZONE $3, 'YYYY-MM-DD') AS day,
+ CASE WHEN upper(btrim(provider_snapshot->>'currency')) ~ '^[A-Z]{3}$'
+ THEN upper(btrim(provider_snapshot->>'currency')) ELSE 'CNY' END AS currency,
+ COALESCE(SUM(pay_amount) FILTER (WHERE order_type='balance'),0) AS recharge_paid,
+ COALESCE(SUM(pay_amount) FILTER (WHERE order_type='subscription'),0) AS subscription_paid,
+ COALESCE(SUM(amount) FILTER (WHERE order_type='balance' AND status=$6),0) AS credited,
+ COALESCE(SUM(amount) FILTER (WHERE order_type='balance' AND status IN ($4,$5)),0) AS pending_credit
+ FROM payment_orders WHERE created_at >= $1 AND created_at < $2
+ AND order_type IN ('balance','subscription') AND status IN ($4,$5,$6)
+ GROUP BY 1,2`
 
 func (r *usageLogRepository) GetOperationsFinance(ctx context.Context, start, end time.Time) (*service.OperationsFinanceResponse, error) {
 	// One statement gives all dimensions and inventory the same database snapshot.
@@ -41,7 +55,18 @@ func (r *usageLogRepository) GetOperationsFinance(ctx context.Context, start, en
 	 ) d(dimension,key,label,upstream)
 	 GROUP BY d.dimension,d.key,d.label,d.upstream
 	), payments AS (` + operationsFinancePaymentsQuery + `
-	), days AS (
+	), cash AS (` + operationsFinanceCashQuery + `
+ ), inventory_subscriptions AS (
+ SELECT jsonb_build_object(
+ 'StartsAt',s.starts_at,'ExpiresAt',s.expires_at,'Status',s.status,
+ 'DailyWindowStart',s.daily_window_start,'WeeklyWindowStart',s.weekly_window_start,'MonthlyWindowStart',s.monthly_window_start,
+ 'DailyUsageUSD',s.daily_usage_usd,'WeeklyUsageUSD',s.weekly_usage_usd,'MonthlyUsageUSD',s.monthly_usage_usd,
+ 'Group',jsonb_build_object('DailyLimitUSD',g.daily_limit_usd,'WeeklyLimitUSD',g.weekly_limit_usd,'MonthlyLimitUSD',g.monthly_limit_usd)
+ ) AS data
+ FROM user_subscriptions s JOIN groups g ON g.id=s.group_id JOIN users u ON u.id=s.user_id
+ WHERE s.deleted_at IS NULL AND g.deleted_at IS NULL AND u.deleted_at IS NULL
+ AND s.status='active' AND s.starts_at <= now() AND s.expires_at > now()
+ ), days AS (
 	 SELECT to_char(d, 'YYYY-MM-DD') AS day FROM generate_series(
 	 ($1::timestamptz AT TIME ZONE $3)::date,
 	 ($2::timestamptz AT TIME ZONE $3)::date - 1, interval '1 day') d
@@ -58,7 +83,13 @@ func (r *usageLogRepository) GetOperationsFinance(ctx context.Context, start, en
 	 SELECT dimension,key,label,upstream,requests,consumption,list_cost,cost,0,0,0,0,0
 	 FROM dimensions WHERE dimension <> 'day'
 	)
-	SELECT result.*, (SELECT COALESCE(SUM(balance),0) FROM users WHERE deleted_at IS NULL)
+	SELECT result.*, (SELECT COALESCE(SUM(balance),0) FROM users WHERE deleted_at IS NULL),
+ CASE WHEN result.dimension='day' AND result.key=to_char($1::timestamptz AT TIME ZONE $3,'YYYY-MM-DD')
+ THEN jsonb_build_object(
+ 'Payments',COALESCE((SELECT jsonb_agg(cash ORDER BY day,currency) FROM cash),'[]'::jsonb),
+ 'Subscriptions',COALESCE((SELECT jsonb_agg(data) FROM inventory_subscriptions),'[]'::jsonb),
+ 'AsOf',now(),'FrozenBalance',(SELECT COALESCE(SUM(frozen_balance),0) FROM users WHERE deleted_at IS NULL))
+ ELSE '{}'::jsonb END
 	FROM result ORDER BY dimension,key`
 	rows, err := r.sql.QueryContext(ctx, query, start, end, start.Location().String(),
 		service.OrderStatusPaid, service.OrderStatusRecharging, service.OrderStatusCompleted)
@@ -66,12 +97,31 @@ func (r *usageLogRepository) GetOperationsFinance(ctx context.Context, start, en
 		return nil, err
 	}
 	defer rows.Close()
-	result := &service.OperationsFinanceResponse{Rows: []service.OperationsFinanceRow{}}
+	result := &service.OperationsFinanceResponse{Rows: []service.OperationsFinanceRow{}, Payments: []service.OperationsPaymentDay{}}
 	for rows.Next() {
 		var row service.OperationsFinanceRow
+		var metadata []byte
 		if err := rows.Scan(&row.Dimension, &row.Key, &row.Label, &row.Upstream, &row.Requests,
-			&row.Consumption, &row.ListCost, &row.Cost, &row.Recharge, &row.Subscription, &row.TotalOrders, &row.PaidOrders, &row.ExcludedRecharge, &result.CurrentBalance); err != nil {
+			&row.Consumption, &row.ListCost, &row.Cost, &row.Recharge, &row.Subscription, &row.TotalOrders, &row.PaidOrders, &row.ExcludedRecharge, &result.CurrentBalance, &metadata); err != nil {
 			return nil, err
+		}
+		var snapshot struct {
+			Payments      []service.OperationsPaymentDay
+			Subscriptions []service.UserSubscription
+			AsOf          time.Time
+			FrozenBalance float64
+		}
+		if err := json.Unmarshal(metadata, &snapshot); err != nil {
+			return nil, err
+		}
+		if !snapshot.AsOf.IsZero() {
+			result.Payments = snapshot.Payments
+			result.Inventory.FrozenBalance = snapshot.FrozenBalance
+			for _, sub := range snapshot.Subscriptions {
+				if sub.Group != nil {
+					result.Inventory.AddSubscription(sub, *sub.Group, snapshot.AsOf)
+				}
+			}
 		}
 		result.Rows = append(result.Rows, row)
 	}

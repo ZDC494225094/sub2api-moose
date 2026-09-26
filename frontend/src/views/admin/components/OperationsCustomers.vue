@@ -1,5 +1,5 @@
 <template>
-  <section ref="section" class="operations-customers">
+  <section class="operations-customers">
     <div class="customers-heading mb-4">
       <h2 class="text-sm font-semibold">用户经营与留存</h2>
       <label class="customers-period text-xs text-gray-500">流失观察周期
@@ -51,7 +51,7 @@ import { getOperationsCustomers, type CustomersReport, type CustomerSegment } fr
 
 const emit = defineEmits<{ usage: [user: { id: number; email: string }] }>()
 const props = defineProps<{ startDate: string; endDate: string; timezone: string }>()
-const section = ref<HTMLElement>(), result = ref<CustomersReport | null>(null)
+const result = ref<CustomersReport | null>(null)
 const segment = ref<CustomerSegment>('all'), churnDays = ref(30), page = ref(1)
 const searchInput = ref(''), search = ref(''), loading = ref(false), error = ref('')
 let controller: AbortController | undefined
@@ -95,7 +95,7 @@ async function load() {
 function reload() { page.value = 1; void load() }
 function applySearch() { search.value = searchInput.value.trim(); reload() }
 function changePage(delta: number) { page.value += delta; void load() }
-function open(value: CustomerSegment) { segment.value = value; search.value = ''; searchInput.value = ''; reload(); section.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
+function open(value: CustomerSegment) { segment.value = value; search.value = ''; searchInput.value = ''; reload() }
 watch(() => [props.startDate, props.endDate, props.timezone], reload, { immediate: true })
 onBeforeUnmount(() => controller?.abort())
 defineExpose({ open })
