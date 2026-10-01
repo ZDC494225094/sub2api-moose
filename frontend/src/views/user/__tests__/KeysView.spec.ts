@@ -4,9 +4,13 @@ import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { useExtensionStore } from '@/extensions/store'
 
-import type { ApiKey } from '@/types'
+import type { ApiKey, PublicSettings } from '@/types'
 import { keysAPI } from '@/api'
 import KeysView from '../KeysView.vue'
+
+const appStoreState = vi.hoisted(() => ({
+  setPublicSettings: (_value: PublicSettings | null) => {},
+}))
 
 const {
   listKeys,
@@ -68,9 +72,6 @@ vi.mock('@/api', () => ({
     delete: vi.fn(),
     toggleStatus: vi.fn(),
   },
-  authAPI: {
-    getPublicSettings,
-  },
   usageAPI: {
     getDashboardApiKeysUsage,
   },
@@ -83,12 +84,22 @@ vi.mock('@/api', () => ({
 // The page reads switch state only through the shared store; never fetch here.
 vi.mock('@/extensions/api', () => ({ extensionAPI: { publicState: vi.fn(), list: vi.fn(), update: vi.fn() } }))
 
-vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError,
-    showSuccess,
-  }),
-}))
+vi.mock('@/stores/app', async () => {
+  const { reactive } = await import('vue')
+  const state = reactive({ cachedPublicSettings: null as PublicSettings | null })
+  appStoreState.setPublicSettings = value => { state.cachedPublicSettings = value }
+  return {
+    useAppStore: () => ({
+      showError,
+      showSuccess,
+      get cachedPublicSettings() { return state.cachedPublicSettings },
+      async fetchPublicSettings() {
+        state.cachedPublicSettings = await getPublicSettings()
+        return state.cachedPublicSettings
+      },
+    }),
+  }
+})
 
 vi.mock('@/stores/onboarding', () => ({
   useOnboardingStore: () => ({
@@ -276,12 +287,13 @@ describe('user KeysView column settings', () => {
     localStorage.clear()
     setActivePinia(createPinia())
     // Existing cases describe the multi-group UI; switch-off modes are covered below.
-    useExtensionStore().flags = { 'multi-group-billing': true }
+    useExtensionStore().flags = { 'multi-group-billing': true, 'site-customization': true }
 
     listKeys.mockReset()
     updateKey.mockReset()
     vi.mocked(keysAPI.create).mockReset()
     getPublicSettings.mockReset()
+    appStoreState.setPublicSettings(null)
     getDashboardApiKeysUsage.mockReset()
     getAvailableGroups.mockReset()
     getUserGroupRates.mockReset()
@@ -303,6 +315,44 @@ describe('user KeysView column settings', () => {
     getAvailableGroups.mockResolvedValue([])
     getUserGroupRates.mockResolvedValue({})
     isCurrentStep.mockReturnValue(false)
+  })
+
+  it('updates an open endpoint panel when shared public settings are refreshed', async () => {
+    const initial = {
+      api_base_url: 'https://example.com/api',
+      custom_endpoints: [{ name: 'Custom', endpoint: 'https://example.com/custom', description: '' }],
+    } as PublicSettings
+    getPublicSettings.mockResolvedValue(initial)
+    const wrapper = await mountView()
+    const endpoints = () => wrapper.getComponent({ name: 'EndpointPopover' })
+    expect(getPublicSettings).toHaveBeenCalledTimes(1)
+    expect(endpoints().props('customEndpoints')).toEqual(initial.custom_endpoints)
+
+    appStoreState.setPublicSettings({ ...initial, custom_endpoints: [] }); await nextTick()
+    expect(endpoints().props('customEndpoints')).toEqual([])
+    expect(endpoints().props('apiBaseUrl')).toBe(initial.api_base_url)
+
+    const updated = [{ name: 'New custom', endpoint: 'https://example.com/new', description: '' }]
+    appStoreState.setPublicSettings({ ...initial, custom_endpoints: updated }); await nextTick()
+    expect(endpoints().props('customEndpoints')).toEqual(updated)
+    expect(getPublicSettings).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it.each([false, undefined])('hides cached custom endpoints when admission is %s without hiding the native endpoint', async enabled => {
+    const initial = {
+      api_base_url: 'https://example.com/api',
+      custom_endpoints: [{ name: 'Custom', endpoint: 'https://example.com/custom', description: '' }],
+    } as PublicSettings
+    getPublicSettings.mockResolvedValue(initial)
+    const wrapper = await mountView()
+    const endpoints = () => wrapper.getComponent({ name: 'EndpointPopover' })
+    useExtensionStore().flags['site-customization'] = enabled; await nextTick()
+    expect(endpoints().props('customEndpoints')).toEqual([])
+    expect(endpoints().props('apiBaseUrl')).toBe(initial.api_base_url)
+    useExtensionStore().flags['site-customization'] = true; await nextTick()
+    expect(endpoints().props('customEndpoints')).toEqual(initial.custom_endpoints)
+    wrapper.unmount()
   })
 
   it.each([

@@ -53,7 +53,8 @@ func (f rewardAccrueFunc) AccrueQuota(ctx context.Context, inviter, user int64, 
 }
 
 func TestRewardAccrualUsesOnlySavedSnapshotAndHostTransactionContext(t *testing.T) {
-	ctx := context.WithValue(context.Background(), struct{}{}, "host-transaction")
+	type testContextKey struct{}
+	ctx := context.WithValue(context.Background(), testContextKey{}, "host-transaction")
 	snap := &Snapshot{Campaign: testCampaign(), InviterID: 99, Reward: 2.5}
 	snap.Campaign.Enabled = false
 	snap.Campaign.FreezeHours = 72

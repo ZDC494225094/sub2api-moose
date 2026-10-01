@@ -14,6 +14,7 @@ import { extensionIds } from '../catalog'
 // Use the real managed catalog; no simulated promotion.
 vi.mock('../api', () => ({ extensionAPI: { publicState: vi.fn() } }))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ isAdmin: true }) }))
+vi.mock('@/stores/app', () => ({ useAppStore: () => ({ publicSettingsLoading: false, fetchPublicSettings: async () => null }) }))
 
 let wrapper: VueWrapper | undefined
 beforeEach(() => { setActivePinia(createPinia()); vi.resetAllMocks() })
@@ -84,5 +85,4 @@ describe('disabled extension historical access', () => {
     expect(store.pathEnabled('/playground')).toBe(false)
   })
 })
-
 

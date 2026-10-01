@@ -60,7 +60,7 @@ func (a *siteCustomizationAdmission) ShouldExposeCustomUI(ctx context.Context) b
 
 // ProvideSiteCustomizationAdmission returns a combined admission implementation
 // for site-customization extension checks.
-func ProvideSiteCustomizationAdmission(settings service.SettingRepository) interface{} {
+func ProvideSiteCustomizationAdmission(settings service.SettingRepository) any {
 	impl := &siteCustomizationAdmission{
 		states: customize.NewManager(siteCustomizationSettingReader{settings}),
 		lookup: customize.Lookup,

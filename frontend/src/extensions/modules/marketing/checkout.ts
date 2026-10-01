@@ -1,4 +1,4 @@
-import { computed, inject, provide, ref, watch, type InjectionKey } from 'vue'
+import { computed, inject, onScopeDispose, provide, ref, watch, type InjectionKey } from 'vue'
 import type { CreateOrderRequest, OrderType, UserCoupon } from '@/types/payment'
 import type { CheckoutAdjustmentContext, CheckoutAdjustmentContribution } from '../../checkout'
 import { marketingAPI } from './api'
@@ -14,6 +14,10 @@ function createController(context: CheckoutAdjustmentContext, admission: Readonl
   const coupons = ref<UserCoupon[]>([])
   const selectedId = ref<number | null>(null)
   const selected = computed(() => coupons.value.find(item => item.id === selectedId.value) ?? null)
+  let initialized = false
+  let disposed = false
+  let revision = 0
+  let inFlight: Promise<void> | undefined
   function eligible(coupon: UserCoupon, orderType: OrderType): boolean {
     return admission.value && !context.excludesAdjustments(orderType) && coupon.status === 'unused'
       && (coupon.scope === 'universal' || coupon.scope === orderType)
@@ -38,11 +42,35 @@ function createController(context: CheckoutAdjustmentContext, admission: Readonl
   watch(() => selected.value && eligible(selected.value, context.orderType.value), valid => {
     if (!valid) selectedId.value = null
   }, { flush: 'sync' })
-  async function initialize() {
-    if (!admission.value) return
-    const loaded = await loadCheckoutCoupons()
-    if (admission.value) coupons.value = loaded
+  function loadCoupons(): Promise<void> {
+    if (disposed || !admission.value) return Promise.resolve()
+    if (inFlight) return inFlight
+    const requestRevision = revision
+    const request = loadCheckoutCoupons().then(loaded => {
+      if (!disposed && admission.value && requestRevision === revision) coupons.value = loaded
+    }).finally(() => {
+      if (inFlight === request) inFlight = undefined
+    })
+    inFlight = request
+    return request
   }
+  function initialize(): Promise<void> {
+    initialized = true
+    return loadCoupons()
+  }
+  // A checkout mounted while disabled/unknown must recover without remounting.
+  // Invalidate synchronously so an off -> on cycle cannot revive an older load.
+  watch(admission, enabled => {
+    revision++
+    inFlight = undefined
+    if (!enabled) selectedId.value = null
+    else if (initialized) {
+      // Background refresh failures leave native checkout available; a later
+      // enable/recovery or explicit initialization can retry the coupon read.
+      void loadCoupons().catch(() => {})
+    }
+  }, { flush: 'sync' })
+  onScopeDispose(() => { disposed = true; revision++; inFlight = undefined })
   function prepareOrder(payload: CreateOrderRequest) {
     if (payload.wechat_resume_token) return
     if (!admission.value) {

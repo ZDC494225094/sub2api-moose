@@ -1,5 +1,6 @@
 import { onBeforeUnmount, onMounted, watch } from 'vue'
 import type { Router } from 'vue-router'
+import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { extensionFallback, extensionForPath } from './catalog'
 import { extensionHistoricalPath } from './route-access'
@@ -25,8 +26,26 @@ export function installCustomExtensionGuard(router: Router): void {
 export function useCustomExtensionRuntime(router: Router): void {
   const store = useExtensionStore()
   const auth = useAuthStore()
+  const app = useAppStore()
   let timer: ReturnType<typeof setInterval> | undefined
-  const refresh = () => { if (document.visibilityState !== 'hidden' && router.currentRoute.value.path !== '/setup') void store.refresh(true) }
+  let disposed = false
+  const mayRefresh = () => !disposed && document.visibilityState !== 'hidden' && router.currentRoute.value.path !== '/setup'
+  const refreshPublicSettings = async () => {
+    // An existing settings request may have started before a saved toggle.
+    // Wait for it before forcing a fresh read instead of joining its stale result.
+    if (app.publicSettingsLoading) await app.fetchPublicSettings()
+    if (mayRefresh()) await app.fetchPublicSettings(true)
+  }
+  const refresh = () => {
+    if (!mayRefresh()) return
+    void store.refresh(true)
+    void refreshPublicSettings()
+  }
+  // Also cover same-tab saves, which do not emit a storage event. Settings are
+  // server-filtered, so changing flags alone cannot restore previously hidden UI.
+  watch(() => store.flags['site-customization'], () => {
+    if (mayRefresh()) void refreshPublicSettings()
+  }, { flush: 'sync' })
   const onStorage = (event: StorageEvent) => { if (event.key === EXTENSION_STORAGE_EVENT) refresh() }
   watch(() => [store.flags, router.currentRoute.value.path], () => {
     const path = router.currentRoute.value.path
@@ -42,9 +61,9 @@ export function useCustomExtensionRuntime(router: Router): void {
     window.addEventListener('storage', onStorage)
   })
   onBeforeUnmount(() => {
+    disposed = true
     if (timer) clearInterval(timer)
     document.removeEventListener('visibilitychange', refresh)
     window.removeEventListener('storage', onStorage)
   })
 }
-

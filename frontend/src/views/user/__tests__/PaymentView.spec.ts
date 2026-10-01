@@ -1000,6 +1000,41 @@ describe('PaymentView real coupon slot integration', () => {
     getCoupons.mockResolvedValue({ data: { items: [{ id: 71, coupon_code: 'SAVE20', status: 'unused', scope: 'subscription', threshold_amount: 100, discount_amount: 20 }] } })
   })
   afterEach(() => getCoupons.mockResolvedValue({ data: { items: [] } }))
+  it.each(['disabled', 'unknown'])('loads coupon options after an initially %s plugin recovers on the open page', async initialState => {
+    getCoupons.mockClear()
+    if (initialState === 'unknown') {
+      vi.mocked(extensionAPI.publicState).mockRejectedValueOnce(new Error('offline'))
+    } else {
+      const disabled = extensionFlags(false)
+      disabled.data.enabled['marketing-tools'] = false
+      vi.mocked(extensionAPI.publicState).mockResolvedValueOnce(disabled as never)
+    }
+    const wrapper = await mountSubscriptionConfirm({ checkout: { recharge_fee_rate: 10 }, plan: { price: 100 } }, true)
+    try {
+      expect(getCoupons).not.toHaveBeenCalled()
+      expect(wrapper.findComponent(CouponSelection).exists()).toBe(false)
+
+      await useExtensionStore().refresh(true); await flushPromises()
+      await vi.waitFor(() => expect(wrapper.findComponent(CouponSelection).exists()).toBe(true))
+      const selector = () => wrapper.getComponent(CouponSelection).getComponent(Select)
+      expect(getCoupons).toHaveBeenCalledTimes(1)
+      expect(selector().props('options')).toEqual(expect.arrayContaining([expect.objectContaining({ value: 71 })]))
+      selector().vm.$emit('update:modelValue', 71); await flushPromises()
+      expect(wrapper.getComponent(CouponSummary).text()).toContain('payment.discountCoupon')
+
+      vi.mocked(extensionAPI.publicState).mockRejectedValueOnce(new Error('offline'))
+      await useExtensionStore().refresh(true); await flushPromises()
+      expect(wrapper.findComponent(CouponSelection).exists()).toBe(false)
+      getCoupons.mockResolvedValueOnce({ data: { items: [{ id: 82, coupon_code: 'RECOVERED', status: 'unused', scope: 'subscription', threshold_amount: 100, discount_amount: 10 }] } })
+      await useExtensionStore().refresh(true); await flushPromises()
+      await vi.waitFor(() => expect(wrapper.findComponent(CouponSelection).exists()).toBe(true))
+      expect(getCoupons).toHaveBeenCalledTimes(2)
+      expect(selector().props('options').map((option: { value: number | null }) => option.value)).toEqual([null, 82])
+      expect(wrapper.getComponent(CouponSummary).text()).toBe('')
+      expect(getCheckoutInfo).toHaveBeenCalledTimes(1)
+      expect(createOrder).not.toHaveBeenCalled()
+    } finally { wrapper.unmount() }
+  })
   it('uses discounted per-currency limits, UI totals and original-principal order payload', async () => {
     const wrapper = await mountSubscriptionConfirm({
       checkout: { subscription_usd_to_cny_rate: 7, recharge_fee_rate: 10, methods: {

@@ -64,7 +64,7 @@ func TestCatalogAndDefaultDisabled(t *testing.T) {
 			require.Nil(t, state.Enabled)
 		}
 	}
-	require.Equal(t, 8, count)
+	require.Equal(t, 10, count)
 }
 
 func TestPersistentIndependentSwitchesAcrossManagers(t *testing.T) {
@@ -92,7 +92,7 @@ func TestInvalidUnknownPendingAndFailedUpdates(t *testing.T) {
 	store := newStore()
 	m := NewManager(store)
 	require.Error(t, m.SetEnabled(ctx, "../anything", false))
-	require.Error(t, m.SetEnabled(ctx, "billing-scheduling", false))
+	require.Error(t, m.SetEnabled(ctx, "subscription-extensions", false))
 	require.Empty(t, store.values)
 	store.err = errors.New("private database error")
 	require.Error(t, m.SetEnabled(ctx, "playground", false))
@@ -172,7 +172,7 @@ func TestStateHTTPContracts(t *testing.T) {
 		r.ServeHTTP(w, httptest.NewRequest("PUT", "/admin/playground", strings.NewReader(body)))
 		require.Equal(t, 400, w.Code)
 	}
-	for id, code := range map[string]int{"playground": 200, "marketing-tools": 200, "multi-group-billing": 200, "billing-scheduling": 409, "unknown": 404} {
+	for id, code := range map[string]int{"playground": 200, "marketing-tools": 200, "multi-group-billing": 200, "billing-scheduling": 200, "site-customization": 200, "subscription-extensions": 409, "unknown": 404} {
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, httptest.NewRequest("PUT", "/admin/"+id, strings.NewReader(`{"enabled":false}`)))
 		require.Equal(t, code, w.Code)

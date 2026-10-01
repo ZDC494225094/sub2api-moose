@@ -457,6 +457,7 @@ export const useAppStore = defineStore('app', () => {
 
     // Public settings state
     publicSettingsLoaded,
+    publicSettingsLoading,
     siteName,
     siteLogo,
     siteVersion,

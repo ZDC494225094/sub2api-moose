@@ -130,7 +130,8 @@ func TestCampaignQuoteFreezesCappedRewardAndUsesReadOnlyInviterPort(t *testing.T
 	svc := NewService(&fakeRepository{items: []Campaign{a}}, func(context.Context) bool { return enabled })
 	svc.now = func() time.Time { return a.StartsAt }
 	input := QuoteInput{UserID: 42, Amount: 100, Multiplier: 2, NativeCredited: 200}
-	ctx := context.WithValue(context.Background(), struct{}{}, "host-quote-context")
+	type testContextKey struct{}
+	ctx := context.WithValue(context.Background(), testContextKey{}, "host-quote-context")
 	calls := 0
 	lookup := inviterLookupFunc(func(got context.Context, id int64, campaign Campaign) (int64, error) {
 		calls++

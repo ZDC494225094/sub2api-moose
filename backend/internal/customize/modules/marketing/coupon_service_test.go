@@ -190,7 +190,8 @@ func TestCouponHistoricalConsumeAndReleaseNeedNoCatalogOrSwitch(t *testing.T) {
 	for _, op := range []string{"consume", "release"} {
 		for _, fail := range []string{"", op + "-discount", op + "-coupon"} {
 			t.Run(op+"/"+fail, func(t *testing.T) {
-				ctx := context.WithValue(context.Background(), struct{}{}, "existing order")
+				type testContextKey struct{}
+				ctx := context.WithValue(context.Background(), testContextKey{}, "existing order")
 				trace := &couponTrace{t: t, ctx: ctx, fail: fail, err: errors.New("repository failed")}
 				svc := newTestCouponService(nil, &couponRows{trace: trace}, &discountRows{trace: trace})
 				var err error

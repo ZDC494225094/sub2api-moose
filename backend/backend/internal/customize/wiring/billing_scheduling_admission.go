@@ -66,7 +66,7 @@ func (a *billingSchedulingAdmission) checkEnabled(ctx context.Context) error {
 
 // ProvideBillingSchedulingAdmission returns a combined admission implementation
 // for billing-scheduling extension checks.
-func ProvideBillingSchedulingAdmission(settings service.SettingRepository) interface{} {
+func ProvideBillingSchedulingAdmission(settings service.SettingRepository) any {
 	impl := &billingSchedulingAdmission{
 		states: customize.NewManager(billingSchedulingSettingReader{settings}),
 		lookup: customize.Lookup,

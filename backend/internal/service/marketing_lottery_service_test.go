@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/stretchr/testify/require"
 )
@@ -223,4 +224,8 @@ func TestLotteryServiceDeleteActivity_PropagatesExistsCheckError(t *testing.T) {
 
 func (lotteryUserStateRepoNoop) Get(context.Context, int64, int64) (*LotteryUserState, error) {
 	panic("unexpected")
+}
+
+func newMarketingTestLotteryService(client *dbent.Client, activities LotteryActivityRepository, prizes LotteryPrizeRepository, states LotteryUserStateRepository, chances LotteryChanceLogRepository, records LotteryDrawRecordRepository, progress LotteryConsumeProgressRepository, users UserRepository, redeem *RedeemService, coupons *CouponService) *LotteryService {
+	return NewLotteryServiceWithAdmission(client, activities, prizes, states, chances, records, progress, users, redeem, coupons, marketingTestAdmission{})
 }

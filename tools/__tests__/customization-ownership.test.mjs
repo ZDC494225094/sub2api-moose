@@ -122,3 +122,16 @@ test('Docker context explicitly excludes known local artifacts but keeps release
   for (const required of ['/.runtime/', '/.tmp*/', '/dump.rdb', '/generated/', '/frontend/temp-dist/']) assert.ok(lines.includes(required), required)
   for (const requiredSource of ['/frontend/public/', '/frontend/public/logo.png', '/backend/internal/pkg/geo/']) assert.ok(!lines.includes(requiredSource), requiredSource)
 })
+
+test('site-customization module paths have explicit ownership rules', () => {
+  const actualRules = JSON.parse(readFileSync(new URL('../../customizations/ownership.json', import.meta.url), 'utf8'))
+  const paths = [
+    'backend/internal/customize/modules/sitecustomization/admission.go',
+    'frontend/src/extensions/modules/site-customization/admission.ts',
+    'frontend/src/extensions/modules/site-customization/index.ts',
+  ]
+  const reviewed = { version: 1, baseline, reviewed_at: '2026-10-01', note: 'Module ownership regression.', reviews: [] }
+  const result = evaluateOwnership(actualRules, reviewed, { paths, knownPaths: paths, baseline })
+  assert.equal(ownershipCheckFailed(result), false)
+  for (const file of result.files) assert.equal(file.owner, 'site-customization')
+})
