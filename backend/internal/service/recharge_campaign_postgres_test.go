@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/internal/customize"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/Wei-Shaw/sub2api/migrations"
 	_ "github.com/lib/pq"
@@ -58,11 +59,11 @@ func TestRechargeCampaignPostgres(t *testing.T) {
 	_, err = client.ExecContext(ctx, `INSERT INTO user_affiliates(user_id,aff_code,inviter_id,invited_at) VALUES($1,'INVITER',NULL,NULL),($2,'BUYER',$1,NOW())`, inviter.ID, buyer.ID)
 	require.NoError(t, err)
 	settings := NewSettingService(&paymentFulfillmentSettingRepoStub{values: map[string]string{SettingKeyAffiliateEnabled: "true"}}, nil)
-	svc := &PaymentService{entClient: client, affiliateService: NewAffiliateService(&paymentFulfillmentAffiliateRepoStub{}, settings, nil, nil)}
+	svc := &PaymentService{configService: &PaymentConfigService{settingRepo: &paymentConfigSettingRepoStub{values: map[string]string{customize.Key(customize.RechargeCampaigns): "true"}}}, entClient: client, affiliateService: NewAffiliateService(&paymentFulfillmentAffiliateRepoStub{}, settings, nil, nil)}
 	a := validCampaign()
 	a.RewardPercent = 5
 	a.RewardCap = 3
-	created, err := svc.SaveRechargeCampaign(ctx, a)
+	created, err := svc.rechargeCampaignCatalog().Save(ctx, a)
 	require.NoError(t, err)
 	req := CreateOrderRequest{UserID: buyer.ID, CampaignID: created.ID, CampaignRevision: created.Revision, OrderType: payment.OrderTypeBalance, Amount: 100, PaymentType: payment.TypeAlipay}
 	cfg := &PaymentConfig{BalanceRechargeMultiplier: 1}
@@ -89,7 +90,7 @@ func TestRechargeCampaignPostgres(t *testing.T) {
 	require.Equal(t, 3.0, saved.Reward)
 	// Editing a campaign invalidates stale quotes but never modifies an existing order snapshot.
 	created.Percent = 20
-	_, err = svc.SaveRechargeCampaign(ctx, *created)
+	_, err = svc.rechargeCampaignCatalog().Save(ctx, *created)
 	require.NoError(t, err)
 	_, err = svc.prepareRechargeCampaign(ctx, req, cfg)
 	require.Error(t, err)

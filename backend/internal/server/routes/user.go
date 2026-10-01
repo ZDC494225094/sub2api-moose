@@ -147,28 +147,7 @@ func RegisterUserRoutes(
 			monitors.GET("/:id/status", h.ChannelMonitor.GetStatus)
 		}
 
-		// 体验中心后台任务：请求由后端继续执行，前端刷新后可通过 run id 恢复结果。
-		playground := authenticated.Group("/playground")
-		{
-			playground.POST("/runs", h.Playground.StartRun)
-			playground.GET("/runs/:id", h.Playground.GetRun)
-			playground.GET("/runs/:id/images/:index", h.Playground.GetRunImage)
-			playground.GET("/runs/:id/videos/:index", h.Playground.GetRunVideo)
-			playground.GET("/runs/:id/audio/:index", h.Playground.GetRunAudio)
-			playground.DELETE("/runs/:id", h.Playground.CancelRun)
-		}
-
-		// 无限画布使用登录态选择分组，调用凭据始终由服务端保管。
-		canvas := authenticated.Group("/canvas")
-		{
-			canvas.GET("/config", h.Playground.GetCanvasConfig)
-			canvas.POST("/runs", h.Playground.StartCanvasRun)
-			canvas.GET("/runs/:id", h.Playground.GetRun)
-			canvas.GET("/runs/:id/images/:index", h.Playground.GetRunImage)
-			canvas.GET("/runs/:id/videos/:index", h.Playground.GetRunVideo)
-			canvas.GET("/runs/:id/audio/:index", h.Playground.GetRunAudio)
-			canvas.DELETE("/runs/:id", h.Playground.CancelRun)
-		}
+		registerCustomUserRoutes(authenticated, h, settingService.CustomExtensions())
 
 		// V2 passive views require feature on + mode=v2.
 		monitorV2 := authenticated.Group("/channel-monitor-v2")

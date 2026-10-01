@@ -11,6 +11,7 @@ type APIKeyAuthSnapshot struct {
 	GroupID         *int64                   `json:"group_id,omitempty"`
 	GroupIDs        []int64                  `json:"group_ids,omitempty"`
 	BillingPriority string                   `json:"billing_priority"`
+	RoutingPolicy   string                   `json:"custom_routing_policy"`
 	Name            string                   `json:"name"`
 	Status          string                   `json:"status"`
 	IPWhitelist     []string                 `json:"ip_whitelist,omitempty"`

@@ -1,0 +1,179 @@
+[
+  {
+    "id": "extension-host",
+    "patterns": [
+      "^backend/internal/customize/(?!modules/)",
+      "^backend/internal/(service|server/routes)/custom_extensions",
+      "^frontend/src/extensions/(?!modules/)",
+      "^customizations/",
+      "^tools/customization-audit\\.mjs$",
+      "^CUSTOM_EXTENSIONS\\.md$",
+      "^\\.github/workflows/custom-extensions\\.yml$",
+      "^backend/internal/handler/custom_extensions\\.go$",
+      "^tools/(lib/|__tests__/)?customization-",
+      "^backend/internal/repository/custom_extension_migrations"
+    ]
+  },
+  {
+    "id": "premium-home",
+    "patterns": [
+      "^frontend/src/features/premium-home/",
+      "premium-home",
+      "PremiumHome",
+      "^frontend/public/(models|textures)/"
+    ]
+  },
+  {
+    "id": "infinite-canvas",
+    "patterns": [
+      "^canvas/",
+      "^无限画布源码/",
+      "infinite.?canvas",
+      "/canvas[/.]"
+    ]
+  },
+  {
+    "id": "operations-analytics",
+    "patterns": [
+      "^frontend/src/extensions/modules/operations-analytics/",
+      "[Oo]perations",
+      "operations_",
+      "operationsFinance"
+    ]
+  },
+  {
+    "id": "recharge-campaigns",
+    "patterns": [
+      "^backend/internal/customize/modules/rechargecampaigns/",
+      "^frontend/src/extensions/modules/recharge-campaigns/",
+      "[Rr]echarge.?[Cc]ampaign",
+      "recharge_campaign",
+      "[Cc]ampaignShare",
+      "[Cc]ampaignPresentation",
+      "RECHARGE_CAMPAIGNS"
+    ]
+  },
+  {
+    "id": "customer-support",
+    "patterns": [
+      "^frontend/src/extensions/modules/customer-support/",
+      "[Cc]ustomerService"
+    ]
+  },
+  {
+    "id": "marketing-tools",
+    "patterns": [
+      "^frontend/src/extensions/modules/marketing/",
+      "^backend/internal/customize/modules/marketing/",
+      "[Cc]oupon",
+      "[Ll]ottery",
+      "marketing_",
+      "^backend/internal/service/payment_marketing(?:_test)?\\.go$"
+    ]
+  },
+  {
+    "id": "playground",
+    "patterns": [
+      "[Pp]layground",
+      "playground_"
+    ]
+  },
+  {
+    "id": "multi-group-billing",
+    "patterns": [
+      "^backend/internal/customize/modules/multigroupbilling/",
+      "api_key",
+      "apikey",
+      "APIKey",
+      "[Kk]eysView"
+    ]
+  },
+  {
+    "id": "billing-scheduling",
+    "patterns": [
+      "custom_group_usage",
+      "custom_channel_time_pricing",
+      "billing",
+      "scheduler",
+      "composite"
+    ]
+  },
+  {
+    "id": "subscription-extensions",
+    "patterns": [
+      "[Ss]ubscription",
+      "subscription_",
+      "[Rr]edeem",
+      "[Pp]ayment",
+      "payment_"
+    ]
+  },
+  {
+    "id": "media-gateway",
+    "patterns": [
+      "video",
+      "[Vv]ideo",
+      "grok",
+      "gemini",
+      "openai",
+      "gateway",
+      "claude",
+      "[Vv]eo",
+      "sora",
+      "apicompat",
+      "model_plaza",
+      "modelPlaza"
+    ]
+  },
+  {
+    "id": "admin-efficiency",
+    "patterns": [
+      "account",
+      "[Aa]ccount",
+      "[Gg]roup",
+      "group_",
+      "[Uu]ser",
+      "user_",
+      "availableChannels"
+    ]
+  },
+  {
+    "id": "site-customization",
+    "patterns": [
+      "[Ss]etting",
+      "setting_",
+      "[Ff]ooter",
+      "[Cc]ustomMenu",
+      "[Aa]nnouncement",
+      "announcement_",
+      "branding"
+    ]
+  },
+  {
+    "id": "access-policy",
+    "patterns": [
+      "[Aa]uth",
+      "[Ll]ogin",
+      "[Rr]egister",
+      "registration",
+      "[Aa]ccess",
+      "security",
+      "[Mm]ainland"
+    ]
+  },
+  {
+    "id": "shared-infrastructure",
+    "patterns": [
+      "^backend/ent/",
+      "^backend/migrations/",
+      "^frontend/src/(types|i18n|api|router|stores|components/layout)/",
+      "^frontend/(package|pnpm|vite|tsconfig)",
+      "^backend/(go\\.|cmd/|internal/(server|repository|config|web)/)",
+      "(wire|usage|migration|Makefile|Dockerfile|deploy/|README|DEV_GUIDE|start-|\\.gitignore|go\\.sum)"
+    ]
+  },
+  {
+    "id": "local-artifacts",
+    "patterns": []
+  }
+]

@@ -4,10 +4,10 @@ package service
 
 import (
 	"context"
-	"math"
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/customize"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/stretchr/testify/require"
 )
@@ -16,47 +16,14 @@ func validCampaign() RechargeCampaign {
 	return RechargeCampaign{Name: "秋日充值礼", Enabled: true, Kind: "bonus", Percent: 10, StartsAt: time.Now().Add(-time.Hour), EndsAt: time.Now().Add(time.Hour), RewardCap: 10, FreezeHours: 72, NewInviteesOnly: true}
 }
 
-func TestRechargeCampaignAmounts(t *testing.T) {
-	for _, tc := range []struct {
-		kind                                             string
-		percent, amount, multiplier, principal, credited float64
-	}{
-		{"bonus", 10, 50, 1, 50, 55}, {"bonus", 10, 100, 1, 100, 110}, {"discount", 90, 100, 1, 90, 100},
-		{"bonus", 10, 50, 2, 50, 110}, {"discount", 90, 100, 2, 90, 200}, {"discount", 90, 0.05, 1, 0.05, 0.05},
-	} {
-		a := validCampaign()
-		a.Kind = tc.kind
-		a.Percent = tc.percent
-		p, c := campaignAmounts(a, tc.amount, tc.multiplier)
-		require.Equal(t, tc.principal, p)
-		require.Equal(t, tc.credited, c)
-	}
-}
-func TestRechargeCampaignValidationAndTimeBoundaries(t *testing.T) {
-	a := validCampaign()
-	require.NoError(t, a.validate())
-	require.True(t, a.active(a.StartsAt))
-	require.False(t, a.active(a.EndsAt))
-	require.False(t, a.active(a.StartsAt.Add(-time.Nanosecond)))
-	for _, change := range []func(*RechargeCampaign){
-		func(a *RechargeCampaign) { a.Percent = math.NaN() }, func(a *RechargeCampaign) { a.Percent = math.Inf(1) },
-		func(a *RechargeCampaign) { a.Kind = "invalid" }, func(a *RechargeCampaign) { a.Kind = "discount"; a.Percent = 100 },
-		func(a *RechargeCampaign) { a.RewardPercent = 5; a.RewardCap = 0 }, func(a *RechargeCampaign) { a.EndsAt = a.StartsAt },
-		func(a *RechargeCampaign) { a.FreezeHours = -1 }, func(a *RechargeCampaign) { a.MinAmount = -1 },
-	} {
-		b := a
-		change(&b)
-		require.Error(t, b.validate())
-	}
-}
 func TestRechargeCampaignSelectionGuardsAndSnapshot(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
-	svc := &PaymentService{entClient: client}
+	svc := &PaymentService{configService: &PaymentConfigService{settingRepo: &paymentConfigSettingRepoStub{values: map[string]string{customize.Key(customize.RechargeCampaigns): "true"}}}, entClient: client}
 	_, err := client.ExecContext(ctx, `CREATE TABLE recharge_campaigns(id INTEGER PRIMARY KEY,config TEXT NOT NULL,created_at TEXT DEFAULT CURRENT_TIMESTAMP,updated_at TEXT DEFAULT CURRENT_TIMESTAMP)`)
 	require.NoError(t, err)
 	a := validCampaign()
-	created, err := svc.SaveRechargeCampaign(ctx, a)
+	created, err := svc.rechargeCampaignCatalog().Save(ctx, a)
 	require.NoError(t, err)
 	cfg := &PaymentConfig{BalanceRechargeMultiplier: 1}
 	req := CreateOrderRequest{CampaignID: created.ID, CampaignRevision: created.Revision, OrderType: payment.OrderTypeBalance, Amount: 50}
@@ -84,7 +51,7 @@ func TestRechargeCampaignSelectionGuardsAndSnapshot(t *testing.T) {
 	created.MinAmount = 100
 	raw := *created
 	raw.ID = 0
-	other, err := svc.SaveRechargeCampaign(ctx, raw)
+	other, err := svc.rechargeCampaignCatalog().Save(ctx, raw)
 	require.NoError(t, err)
 	req.CampaignID = other.ID
 	req.CampaignRevision = other.Revision
@@ -93,22 +60,6 @@ func TestRechargeCampaignSelectionGuardsAndSnapshot(t *testing.T) {
 	require.Equal(t, 10.0, snap.Campaign.Percent)
 }
 
-func TestRechargeCampaignAutomaticSelection(t *testing.T) {
-	now := time.Now()
-	bonus := validCampaign()
-	bonus.ID = 1
-	discount := bonus
-	discount.ID, discount.Kind, discount.Percent, discount.MinAmount = 2, "discount", 90, 100
-	require.Equal(t, int64(1), automaticRechargeCampaign([]RechargeCampaign{discount, bonus}, 50, now).ID)
-	require.Equal(t, int64(2), automaticRechargeCampaign([]RechargeCampaign{bonus, discount}, 100, now).ID)
-	newest := bonus
-	newest.ID = 3
-	require.Equal(t, int64(3), automaticRechargeCampaign([]RechargeCampaign{newest, bonus}, 50, now).ID)
-	require.Nil(t, automaticRechargeCampaign([]RechargeCampaign{bonus}, 50, bonus.EndsAt))
-	require.Nil(t, automaticRechargeCampaign([]RechargeCampaign{discount}, 50, now))
-	bonus.Enabled = false
-	require.Nil(t, automaticRechargeCampaign([]RechargeCampaign{bonus}, 50, now))
-}
 func TestRechargeCampaignRewardRetriesUseImmutableSnapshot(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)

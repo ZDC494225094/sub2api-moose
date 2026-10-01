@@ -74,6 +74,7 @@ type CreateOrderRequest struct {
 	CampaignRevision string
 	CampaignID       int64
 	campaign         *RechargeCampaignSnapshot
+	couponQuote      *ApplyPaymentCouponResult
 	UserID           int64
 	Amount           float64
 	PaymentType      string

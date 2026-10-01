@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
+import { createPinia, setActivePinia } from 'pinia'
+import { useExtensionStore } from '@/extensions/store'
 
 import type { ApiKey } from '@/types'
 import { keysAPI } from '@/api'
@@ -78,6 +80,9 @@ vi.mock('@/api', () => ({
   },
 }))
 
+// The page reads switch state only through the shared store; never fetch here.
+vi.mock('@/extensions/api', () => ({ extensionAPI: { publicState: vi.fn(), list: vi.fn(), update: vi.fn() } }))
+
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
     showError,
@@ -104,6 +109,7 @@ vi.mock('vue-i18n', async () => {
     ...actual,
     useI18n: () => ({
       t: (key: string) => messages[key] ?? key,
+      locale: { value: 'en' },
     }),
   }
 })
@@ -268,6 +274,9 @@ const getButtonByText = (wrapper: VueWrapper, text: string) => {
 describe('user KeysView column settings', () => {
   beforeEach(() => {
     localStorage.clear()
+    setActivePinia(createPinia())
+    // Existing cases describe the multi-group UI; switch-off modes are covered below.
+    useExtensionStore().flags = { 'multi-group-billing': true }
 
     listKeys.mockReset()
     updateKey.mockReset()
@@ -665,6 +674,90 @@ describe('user KeysView column settings', () => {
       await getButtonByText(wrapper, 'common.edit').trigger('click')
       expect(wrapper.find('[data-tour="key-form-provider"]').exists()).toBe(false)
       expect(optionIds(wrapper)).toHaveLength(11)
+    })
+  })
+
+  describe('multi-group switch and key ownership', () => {
+    const openaiGroups = [1, 2, 3].map((id) => ({ id, name: `OpenAI ${id}`, platform: 'openai', rate_multiplier: 1, subscription_type: 'standard' }))
+    const groupSelect = (wrapper: VueWrapper) => wrapper.findComponent('[data-tour="key-form-group"]')
+    const extraGroupIds = (wrapper: VueWrapper) => wrapper.get('[data-test="key-additional-groups"]')
+      .findAll('input[type="checkbox"]').length
+    const openEdit = async (key: ApiKey) => {
+      listKeys.mockResolvedValue({ items: [key], total: 1, page: 1, page_size: 20, pages: 1 })
+      const wrapper = await mountView()
+      await getButtonByText(wrapper, 'common.edit').trigger('click')
+      await nextTick()
+      return wrapper
+    }
+
+    beforeEach(() => {
+      getAvailableGroups.mockResolvedValue(openaiGroups)
+    })
+
+    it('creates single-group balance-first keys while the switch is off', async () => {
+      useExtensionStore().flags = { 'multi-group-billing': false }
+      const wrapper = await mountView()
+      await wrapper.get('[data-tour="keys-create-btn"]').trigger('click')
+      await wrapper.get('input[name="key-provider"][value="openai"]').setValue()
+      await wrapper.get('[data-tour="key-form-name"]').setValue('Upstream key')
+      await groupSelect(wrapper).vm.$emit('update:modelValue', 1)
+      await nextTick()
+      expect(wrapper.find('[data-test="key-additional-groups"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="key-billing-priority"]').exists()).toBe(false)
+      expect(wrapper.get('[data-test="key-routing-notice"]').text()).toContain('single group')
+      await groupSelect(wrapper).vm.$emit('update:modelValue', 2)
+      vi.mocked(keysAPI.create).mockResolvedValue({ ...createApiKey(), group_id: 2 })
+      await wrapper.get('#key-form').trigger('submit')
+      await flushPromises()
+      const args = vi.mocked(keysAPI.create).mock.calls[0]
+      expect(args[2]).toBe(2)
+      expect(args[9]).toEqual([2])
+      expect(args[10]).toBe('balance_first')
+    })
+
+    it('treats missing switch state as off rather than offering configuration the server may reject', async () => {
+      useExtensionStore().flags = {}
+      const wrapper = await mountView()
+      await wrapper.get('[data-tour="keys-create-btn"]').trigger('click')
+      expect(wrapper.find('[data-test="key-billing-priority"]').exists()).toBe(false)
+    })
+
+    it('lets an existing multi-group key keep or reduce its configuration while off, but not add groups', async () => {
+      useExtensionStore().flags = { 'multi-group-billing': false }
+      const key: ApiKey = { ...createApiKey(), platform: 'openai', group_id: 1, group_ids: [1, 2], billing_priority: 'subscription_first', routing_policy: 'multigroup-v1' }
+      const wrapper = await openEdit(key)
+      expect(wrapper.get('[data-test="key-routing-notice"]').text()).toContain('keeps its existing groups')
+      expect(extraGroupIds(wrapper)).toBe(2) // only the original groups, not group 3
+      expect(wrapper.get('[data-test="key-billing-priority"]').findAll('button')).toHaveLength(2)
+      updateKey.mockResolvedValue(key)
+      await wrapper.get('#key-form').trigger('submit')
+      await flushPromises()
+      expect(updateKey).toHaveBeenCalledWith(key.id, expect.objectContaining({ group_ids: [1, 2], billing_priority: 'subscription_first' }))
+    })
+
+    it('keeps the old priority choice hidden for balance-first keys while off', async () => {
+      useExtensionStore().flags = { 'multi-group-billing': false }
+      const wrapper = await openEdit({ ...createApiKey(), platform: 'openai', group_id: 1, group_ids: [1, 2], billing_priority: 'balance_first', routing_policy: 'multigroup-v1' })
+      expect(wrapper.find('[data-test="key-billing-priority"]').exists()).toBe(false)
+    })
+
+    it('keeps upstream-owned keys single-group even when the switch is on', async () => {
+      const key: ApiKey = { ...createApiKey(), platform: 'openai', group_id: 1, group_ids: [1], billing_priority: 'balance_first', routing_policy: 'upstream-v1' }
+      const wrapper = await openEdit(key)
+      expect(wrapper.get('[data-test="key-routing-notice"]').text()).toContain('upstream single-group routing')
+      expect(wrapper.find('[data-test="key-additional-groups"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="key-billing-priority"]').exists()).toBe(false)
+      await groupSelect(wrapper).vm.$emit('update:modelValue', 3)
+      updateKey.mockResolvedValue(key)
+      await wrapper.get('#key-form').trigger('submit')
+      await flushPromises()
+      expect(updateKey).toHaveBeenCalledWith(key.id, expect.objectContaining({ group_id: 3, group_ids: [3], billing_priority: 'balance_first' }))
+    })
+
+    it('shows no notice and the full editor for multi-group keys while on', async () => {
+      const wrapper = await openEdit({ ...createApiKey(), platform: 'openai', group_id: 1, group_ids: [1, 2], routing_policy: 'multigroup-v1' })
+      expect(wrapper.find('[data-test="key-routing-notice"]').exists()).toBe(false)
+      expect(extraGroupIds(wrapper)).toBe(3)
     })
   })
 })

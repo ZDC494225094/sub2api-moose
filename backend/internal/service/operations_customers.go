@@ -51,11 +51,7 @@ type OperationsCustomersResponse struct {
 	ChurnDays int                       `json:"churn_days"`
 }
 
-type operationsCustomersReader interface {
-	GetOperationsCustomers(context.Context, OperationsCustomerFilter) (*OperationsCustomersResponse, error)
-}
-
-func (s *DashboardService) GetOperationsCustomers(ctx context.Context, f OperationsCustomerFilter) (*OperationsCustomersResponse, error) {
+func (s *OperationsService) GetOperationsCustomers(ctx context.Context, f OperationsCustomerFilter) (*OperationsCustomersResponse, error) {
 	switch f.Segment {
 	case "all", "balance", "paying", "repeat", "new_paying", "active", "churned":
 	default:
@@ -73,8 +69,8 @@ func (s *DashboardService) GetOperationsCustomers(ctx context.Context, f Operati
 	if now := time.Now().In(f.End.Location()); f.AsOf.After(now) {
 		f.AsOf = now
 	}
-	r, ok := s.usageRepo.(operationsCustomersReader)
-	if !ok {
+	r := s.repository
+	if r == nil {
 		return nil, ErrOperationsFunnelUnsupported
 	}
 	result, err := r.GetOperationsCustomers(ctx, f)

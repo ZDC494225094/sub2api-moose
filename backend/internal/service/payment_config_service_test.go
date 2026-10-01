@@ -420,7 +420,9 @@ func (s *paymentConfigSettingRepoStub) Set(context.Context, string, string) erro
 func (s *paymentConfigSettingRepoStub) GetMultiple(_ context.Context, keys []string) (map[string]string, error) {
 	out := make(map[string]string, len(keys))
 	for _, key := range keys {
-		out[key] = s.values[key]
+		if value, ok := s.values[key]; ok {
+			out[key] = value
+		}
 	}
 	return out, nil
 }

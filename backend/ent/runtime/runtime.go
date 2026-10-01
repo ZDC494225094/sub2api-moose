@@ -61,6 +61,8 @@ func init() {
 	apikey.Interceptors[0] = apikeyMixinInters1[0]
 	apikeyMixinFields0 := apikeyMixin[0].Fields()
 	_ = apikeyMixinFields0
+	apikeyMixinFields2 := apikeyMixin[2].Fields()
+	_ = apikeyMixinFields2
 	apikeyFields := schema.APIKey{}.Fields()
 	_ = apikeyFields
 	// apikeyDescCreatedAt is the schema descriptor for created_at field.
@@ -73,6 +75,12 @@ func init() {
 	apikey.DefaultUpdatedAt = apikeyDescUpdatedAt.Default.(func() time.Time)
 	// apikey.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	apikey.UpdateDefaultUpdatedAt = apikeyDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// apikeyDescCustomRoutingPolicy is the schema descriptor for custom_routing_policy field.
+	apikeyDescCustomRoutingPolicy := apikeyMixinFields2[0].Descriptor()
+	// apikey.DefaultCustomRoutingPolicy holds the default value on creation for the custom_routing_policy field.
+	apikey.DefaultCustomRoutingPolicy = apikeyDescCustomRoutingPolicy.Default.(string)
+	// apikey.CustomRoutingPolicyValidator is a validator for the "custom_routing_policy" field. It is called by the builders before save.
+	apikey.CustomRoutingPolicyValidator = apikeyDescCustomRoutingPolicy.Validators[0].(func(string) error)
 	// apikeyDescKey is the schema descriptor for key field.
 	apikeyDescKey := apikeyFields[1].Descriptor()
 	// apikey.KeyValidator is a validator for the "key" field. It is called by the builders before save.

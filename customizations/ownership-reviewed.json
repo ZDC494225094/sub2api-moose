@@ -1,0 +1,499 @@
+{
+  "version": 1,
+  "reviewed_at": "2026-09-26",
+  "baseline": "aea725f2ea644d5592d0bbb1d63b607efa7e200a",
+  "note": "Exact-path ownership review of the 70 previously unmatched paths. This records responsibility and pending extraction, not runtime isolation or complete semantic coverage of regex-classified files. Original inventory remains unchanged.",
+  "reviews": [
+    {
+      "paths": [
+        ".dockerignore"
+      ],
+      "owners": [
+        "shared-infrastructure",
+        "infinite-canvas"
+      ],
+      "kind": "build",
+      "evidence": "The delta keeps integrated canvas sources, excludes the reference checkout and local environment/config files. Root local runtime/snapshot/generated files need explicit context exclusions.",
+      "next_step": "Keep a small build-context seam; do not remove local files or change immutable inventory."
+    },
+    {
+      "paths": [
+        ".github/workflows/release.yml"
+      ],
+      "owners": [
+        "shared-infrastructure",
+        "infinite-canvas"
+      ],
+      "kind": "build",
+      "evidence": "Adds canvas build/artifact composition and a canvas-agent publication job to release dependencies.",
+      "next_step": "Separate optional agent publication from core release in a later reviewed CI extraction; do not publish or use credentials during local verification."
+    },
+    {
+      "paths": [
+        ".runtime/frontend-port.txt",
+        ".runtime/redis.runtime.conf",
+        "dump.rdb"
+      ],
+      "owners": [
+        "local-artifacts"
+      ],
+      "kind": "runtime-artifact",
+      "evidence": "Tracked local port/configuration and Redis snapshot, identified by path and file metadata only; contents are not read for business classification.",
+      "next_step": "Preserve in place, exclude from container build context, and obtain separate authorization before any data cleanup or Git-history cleanup."
+    },
+    {
+      "paths": [
+        "frontend/temp-dist/logo.png",
+        "generated/edit_20260813_122316_uocd.png",
+        "generated/img_20260813_122011_zc9k.png"
+      ],
+      "owners": [
+        "local-artifacts"
+      ],
+      "kind": "runtime-artifact",
+      "evidence": "Temporary build logo and generated image outputs; no filename references were found in frontend/src, frontend/package.json, backend/internal/web or tools.",
+      "next_step": "Preserve artifacts, exclude only these output directories from container context; do not remove frontend/public/logo.png."
+    },
+    {
+      "paths": [
+        "backend/internal/domain/constants.go"
+      ],
+      "owners": [
+        "marketing-tools"
+      ],
+      "kind": "shared-host",
+      "evidence": "Adds RedeemTypeMarketing to the shared domain constants.",
+      "next_step": "Extract marketing type policy without breaking historical redemption decoding."
+    },
+    {
+      "paths": [
+        "backend/internal/handler/admin/admin_service_stub_test.go"
+      ],
+      "owners": [
+        "admin-efficiency"
+      ],
+      "kind": "compatibility",
+      "evidence": "Adds group account management, upstream group names and sort-order methods to the admin service test double.",
+      "next_step": "Keep the double in sync while extracting admin management contracts; it is not a runtime feature switch."
+    },
+    {
+      "paths": [
+        "backend/internal/handler/admin/channel_monitor_handler.go",
+        "backend/internal/handler/dto/channel_monitor.go",
+        "backend/internal/service/channel_monitor_aggregator.go",
+        "backend/internal/service/channel_monitor_types.go",
+        "frontend/src/components/admin/monitor/MonitorPrimaryModelCell.vue"
+      ],
+      "owners": [
+        "admin-efficiency"
+      ],
+      "kind": "shared-host",
+      "evidence": "Propagates PrimaryMessage / Message from monitor results through aggregation and DTOs to the failed/error model cell.",
+      "next_step": "Split diagnostic presentation independently of account sorting; do not gate the upstream monitor itself."
+    },
+    {
+      "paths": [
+        "backend/internal/service/channel_monitor_checker.go",
+        "backend/internal/service/channel_monitor_const.go"
+      ],
+      "owners": [
+        "admin-efficiency"
+      ],
+      "kind": "shared-host",
+      "evidence": "Adds sanitized target labels/error normalization and replaces a 30-second header timeout with the existing total client timeout.",
+      "next_step": "Review timeout policy separately from the diagnostic UI; turning off presentation must not silently change probe timing."
+    },
+    {
+      "paths": [
+        "backend/internal/handler/admin/dashboard_handler.go",
+        "backend/internal/handler/admin/dashboard_handler_request_type_test.go",
+        "backend/internal/handler/admin/dashboard_query_cache.go",
+        "backend/internal/handler/admin/dashboard_snapshot_v2_handler.go"
+      ],
+      "owners": [
+        "infinite-canvas",
+        "shared-infrastructure"
+      ],
+      "kind": "shared-host",
+      "evidence": "Adds canvas_managed query parsing, filter propagation and cache-key fields to the native dashboard; the dedicated operations handlers have already been extracted.",
+      "next_step": "Retain historical canvas usage filtering and cache isolation when new canvas generation is disabled."
+    },
+    {
+      "paths": [
+        "backend/internal/handler/dto/mappers.go",
+        "backend/internal/handler/dto/types.go"
+      ],
+      "owners": [
+        "shared-infrastructure",
+        "multi-group-billing",
+        "admin-efficiency",
+        "subscription-extensions",
+        "media-gateway"
+      ],
+      "kind": "shared-host",
+      "evidence": "Shared API contracts add key platform/group_ids/billing_priority, group billing markup, account upstream group/sort order, redeem batch, video usage and admin error fields.",
+      "next_step": "Do not assign the DTO file exclusively to one plugin; extract per-domain adapters while retaining historical fields."
+    },
+    {
+      "paths": [
+        "backend/internal/handler/handler.go"
+      ],
+      "owners": [
+        "extension-host"
+      ],
+      "kind": "shared-host",
+      "evidence": "Adds the Extensions *ExtensionHandlers composition field; module handlers live behind the extension wiring.",
+      "next_step": "Keep this a minimal host seam, not a location for module implementation."
+    },
+    {
+      "paths": [
+        "backend/internal/pkg/antigravity/request_transformer.go",
+        "backend/internal/pkg/antigravity/request_transformer_test.go",
+        "backend/internal/pkg/imagemime/sniff.go"
+      ],
+      "owners": [
+        "media-gateway"
+      ],
+      "kind": "compatibility",
+      "evidence": "Normalizes image MIME values and sniffs base64 magic bytes for Antigravity inline images, with a mismatched PNG/WebP regression.",
+      "next_step": "Extract media normalization policy without turning off safe decoding of already supported requests."
+    },
+    {
+      "paths": [
+        "backend/internal/pkg/geo/china_ipv4.txt",
+        "backend/internal/pkg/geo/china_ipv6.txt"
+      ],
+      "owners": [
+        "access-policy"
+      ],
+      "kind": "asset",
+      "evidence": "Both files are go:embed inputs of pkg/geo/mainland_china.go for the UI-region policy.",
+      "next_step": "Version with the access policy; do not treat these source CIDR datasets as cache or local runtime data."
+    },
+    {
+      "paths": [
+        "backend/internal/service/admin_service.go"
+      ],
+      "owners": [
+        "admin-efficiency",
+        "multi-group-billing"
+      ],
+      "kind": "shared-host",
+      "evidence": "Adds group/account ordering and upstream-group management methods plus group billing-rate synchronization and markup inputs.",
+      "next_step": "Split administration and billing contracts instead of a single global admin switch."
+    },
+    {
+      "paths": [
+        "backend/internal/service/admin_service_delete_test.go"
+      ],
+      "owners": [
+        "subscription-extensions"
+      ],
+      "kind": "compatibility",
+      "evidence": "Adds subscription-ID-specific billing-cache methods to the deletion test stub.",
+      "next_step": "Retain historical subscription-ID cache semantics while extracting entitlement strategies."
+    },
+    {
+      "paths": [
+        "backend/internal/service/channel.go",
+        "backend/internal/service/channel_service.go",
+        "backend/internal/service/channel_service_test.go",
+        "backend/internal/service/channel_test.go",
+        "backend/internal/service/model_pricing_resolver.go",
+        "frontend/src/components/admin/channel/types.ts",
+        "frontend/src/components/admin/channel/__tests__/types.spec.ts",
+        "frontend/src/views/admin/ChannelsView.vue"
+      ],
+      "owners": [
+        "media-gateway"
+      ],
+      "kind": "shared-host",
+      "evidence": "Video pricing is documented/validated per output second and resolution tier; ChannelsView includes video in price requirements and tests cover unbounded resolution tiers.",
+      "next_step": "Isolate new-media pricing contributions but keep historical usage amounts and units readable."
+    },
+    {
+      "paths": [
+        "backend/internal/service/content_moderation_runtime_cache_test.go"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "compatibility",
+      "evidence": "Expires the runtime snapshot explicitly in the stale-config-on-refresh-failure regression; no production content-moderation code is changed by this delta.",
+      "next_step": "Keep as a deterministic test correction, not a security feature toggle."
+    },
+    {
+      "paths": [
+        "backend/internal/service/domain_constants.go"
+      ],
+      "owners": [
+        "shared-infrastructure",
+        "marketing-tools",
+        "access-policy",
+        "customer-support",
+        "premium-home",
+        "site-customization",
+        "infinite-canvas",
+        "media-gateway"
+      ],
+      "kind": "shared-host",
+      "evidence": "Adds marketing redemption, registration proof, mainland UI restriction, support fields, homepage/footer options and canvas/model-plaza settings in one constants file.",
+      "next_step": "Preserve setting keys and split ownership at their consumers; a file-level owner is not an exclusive runtime boundary."
+    },
+    {
+      "paths": [
+        "backend/internal/service/notification_email_service.go",
+        "backend/internal/service/notification_email_service_test.go"
+      ],
+      "owners": [
+        "subscription-extensions"
+      ],
+      "kind": "compatibility",
+      "evidence": "Aligns subscription-expiry sample variables and expected email values to second precision.",
+      "next_step": "Keep email format compatibility while extracting subscription presentation."
+    },
+    {
+      "paths": [
+        "backend/internal/service/ratelimit_service_ollama_429_test.go"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "compatibility",
+      "evidence": "Uses the previous reset generation plus one millisecond instead of consecutive Now calls in the stale-probe race test.",
+      "next_step": "Keep deterministic clock-generation testing; this is not a new gateway behavior."
+    },
+    {
+      "paths": [
+        "docs/PLAYGROUND_GPT_IMAGE_2_API.md",
+        "frontend/test-model-recognition.js"
+      ],
+      "owners": [
+        "playground",
+        "media-gateway"
+      ],
+      "kind": "docs",
+      "evidence": "Documents the playground run/poll/download chain and provides a standalone console script for video-model name classification; the script is not a production entry point or an assertion-based regression suite.",
+      "next_step": "Keep source-derived docs beside the eventual module and rely on the existing Vitest video-rule tests for assertions."
+    },
+    {
+      "paths": [
+        "docs/channel-monitor-v2-safe-defaults.md"
+      ],
+      "owners": [
+        "admin-efficiency",
+        "shared-infrastructure"
+      ],
+      "kind": "docs",
+      "evidence": "Records monitor V1/V2 defaults, bounded historical backfill and error-log query policy; documentation is not evidence that every policy is plugin-isolated.",
+      "next_step": "Keep monitor migration/timeout policies separate from presentation switches."
+    },
+    {
+      "paths": [
+        "docs/upstream-v0.2.7-merge.md",
+        "启动命令.txt"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "docs",
+      "evidence": "Historical upstream-merge evidence and local startup notes, not runtime module implementation.",
+      "next_step": "Retain historical evidence; do not reinterpret old verification as current deployment proof."
+    },
+    {
+      "paths": [
+        "frontend/.eslintignore"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "build",
+      "evidence": "Excludes Vite timestamped temporary configuration bundles that can disappear during lint enumeration.",
+      "next_step": "Preserve source linting and exclude only transient generated bundles."
+    },
+    {
+      "paths": [
+        "frontend/public/logo.png"
+      ],
+      "owners": [
+        "site-customization"
+      ],
+      "kind": "asset",
+      "evidence": "Public logo asset under the actual frontend public input, distinct from the temp-dist duplicate.",
+      "next_step": "Keep as a shipped branding asset; route replacement through site appearance policy rather than deleting it as generated output."
+    },
+    {
+      "paths": [
+        "frontend/src/App.vue"
+      ],
+      "owners": [
+        "extension-host",
+        "access-policy"
+      ],
+      "kind": "shared-host",
+      "evidence": "Composes the extension runtime/overlay slot and independently reconciles the per-request mainland-China UI access decision.",
+      "next_step": "Keep access enforcement independent of ordinary plugin flags while reducing the remaining host seam."
+    },
+    {
+      "paths": [
+        "frontend/src/components/common/DataTable.vue",
+        "frontend/src/components/common/__tests__/DataTable.spec.ts"
+      ],
+      "owners": [
+        "admin-efficiency",
+        "shared-infrastructure"
+      ],
+      "kind": "shared-host",
+      "evidence": "Adds grouped rows/cards, persistent group headers on collapse, row styles/clicks and drag-handle event contracts, covered for desktop and mobile.",
+      "next_step": "Extract opt-in table behaviors or an extension wrapper; retain native ungrouped/default table behavior."
+    },
+    {
+      "paths": [
+        "frontend/src/components/common/PlatformTypeBadge.vue"
+      ],
+      "owners": [
+        "admin-efficiency",
+        "media-gateway"
+      ],
+      "kind": "shared-host",
+      "evidence": "Shows Gitee AI label/icon/style for OpenAI-platform accounts whose upstream provider is gitee.",
+      "next_step": "Separate provider presentation from gateway protocol and native platform values."
+    },
+    {
+      "paths": [
+        "frontend/src/components/icons/Icon.vue"
+      ],
+      "owners": [
+        "shared-infrastructure",
+        "playground",
+        "admin-efficiency"
+      ],
+      "kind": "asset",
+      "evidence": "Adds undo/redo/eraser/move/expand/shrink/star/folder SVG paths consumed by extension interfaces.",
+      "next_step": "Move module-only assets behind the icon contribution boundary; preserve native icon names."
+    },
+    {
+      "paths": [
+        "frontend/src/components/icons/registry.ts"
+      ],
+      "owners": [
+        "site-customization"
+      ],
+      "kind": "business",
+      "evidence": "Defines and validates the custom menu icon-name allowlist using native Icon prop types.",
+      "next_step": "Keep menu configuration validation in the site customization module."
+    },
+    {
+      "paths": [
+        "frontend/src/components/keys/BulkEditKeysModal.vue",
+        "frontend/src/components/keys/__tests__/BulkEditKeysModal.spec.ts"
+      ],
+      "owners": [
+        "multi-group-billing"
+      ],
+      "kind": "shared-host",
+      "evidence": "Bulk group updates also submit group_ids and platform, with Minimax regression expectations.",
+      "next_step": "Retain existing-key compatibility; do not drop group_ids merely by hiding a multi-group editor."
+    },
+    {
+      "paths": [
+        "frontend/src/main.ts"
+      ],
+      "owners": [
+        "shared-infrastructure",
+        "site-customization"
+      ],
+      "kind": "shared-host",
+      "evidence": "Reads base64 app-config meta injection using UTF-8 and handles stored system theme before bootstrap.",
+      "next_step": "Keep configuration transport compatible with the server; isolate theme contribution without breaking startup."
+    },
+    {
+      "paths": [
+        "frontend/src/utils/featureFlags.ts"
+      ],
+      "owners": [
+        "shared-infrastructure",
+        "infinite-canvas",
+        "premium-home"
+      ],
+      "kind": "shared-host",
+      "evidence": "Registers the original infinite_canvas_enabled and homepage docs/pricing flags, distinct from custom_extensions flags.",
+      "next_step": "Preserve the AND relation between native settings and extension permission; do not redefine original setting defaults silently."
+    },
+    {
+      "paths": [
+        "frontend/src/utils/localDate.ts",
+        "frontend/src/utils/__tests__/localDate.spec.ts"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "compatibility",
+      "evidence": "Formats local year/month/day rather than UTC ISO dates; the regression checks local calendar field use.",
+      "next_step": "Keep as a shared date correctness helper, not a user-visible plugin switch."
+    },
+    {
+      "paths": [
+        "frontend/src/views/KeyUsageView.vue",
+        "frontend/src/views/__tests__/KeyUsageView.spec.ts"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "compatibility",
+      "evidence": "Cancels queued frames/timers after unmount or superseded ring animations, tested at 0/20/100 ms.",
+      "next_step": "Keep lifecycle cleanup regardless of enabled modules."
+    },
+    {
+      "paths": [
+        "frontend/src/views/__tests__/HomeView.compact.spec.ts"
+      ],
+      "owners": [
+        "customer-support"
+      ],
+      "kind": "compatibility",
+      "evidence": "Contains a legacy CustomerServiceFloat test stub; the current native HomeView source is restored to the upstream baseline and support renders through slots.",
+      "next_step": "Clean up or retain harmless test compatibility independently; do not reinsert the widget into native HomeView."
+    },
+    {
+      "paths": [
+        "frontend/src/views/admin/UsageView.vue",
+        "frontend/src/views/admin/__tests__/UsageView.spec.ts"
+      ],
+      "owners": [
+        "shared-infrastructure",
+        "infinite-canvas",
+        "media-gateway",
+        "admin-efficiency"
+      ],
+      "kind": "shared-host",
+      "evidence": "Adds canvas-managed query/export propagation, video units in exports and request-result display; tests preserve filter and CSV column alignment.",
+      "next_step": "Use independent filter/column/export contributions and keep historical canvas/media usage visible after disabling new requests."
+    },
+    {
+      "paths": [
+        "frontend/src/views/admin/orders/AdminOrdersView.vue"
+      ],
+      "owners": [
+        "subscription-extensions",
+        "recharge-campaigns",
+        "operations-analytics"
+      ],
+      "kind": "shared-host",
+      "evidence": "Adds order-type labels, created/paid date filters with route query initialization, and read-only recharge-campaign snapshot details.",
+      "next_step": "Extract presentation contributions without suppressing existing order snapshots or breaking reporting deep links."
+    },
+    {
+      "paths": [
+        "frontend/src/views/admin/orders/PlanEditDialog.vue"
+      ],
+      "owners": [
+        "subscription-extensions",
+        "premium-home"
+      ],
+      "kind": "shared-host",
+      "evidence": "Adds display_purchase_count editing/defaults/payload for plan presentation.",
+      "next_step": "Keep display-only sales count separate from real transaction counts and subscription entitlements."
+    }
+  ]
+}

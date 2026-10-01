@@ -43,7 +43,7 @@ INSERT INTO coupon_templates (
 )
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 RETURNING id, created_at, updated_at`
-	return scanSingleRow(ctx, r.sql, query, []any{
+	return scanSingleRow(ctx, marketingSQL(ctx, r.sql), query, []any{
 		input.Name, input.Description, input.Scope, input.DiscountAmount, input.ThresholdAmount,
 		input.ValidDays, input.ValidFrom, input.ValidUntil, input.Status, input.Notes,
 	}, &input.ID, &input.CreatedAt, &input.UpdatedAt)
@@ -65,7 +65,7 @@ SET name = $2,
     updated_at = NOW()
 WHERE id = $1
 RETURNING updated_at`
-	return scanSingleRow(ctx, r.sql, query, []any{
+	return scanSingleRow(ctx, marketingSQL(ctx, r.sql), query, []any{
 		item.ID, item.Name, item.Description, item.Scope, item.DiscountAmount, item.ThresholdAmount,
 		item.ValidDays, item.ValidFrom, item.ValidUntil, item.Status, item.Notes,
 	}, &item.UpdatedAt)
@@ -81,7 +81,7 @@ WHERE id = $1`
 	var validDays sql.NullInt64
 	var validFrom sql.NullTime
 	var validUntil sql.NullTime
-	err := scanSingleRow(ctx, r.sql, query, []any{id},
+	err := scanSingleRow(ctx, marketingSQL(ctx, r.sql), query, []any{id},
 		&item.ID, &item.Name, &item.Description, &item.Scope, &item.DiscountAmount, &item.ThresholdAmount,
 		&validDays, &validFrom, &validUntil, &item.Status, &item.Notes, &item.CreatedAt, &item.UpdatedAt,
 	)
@@ -107,7 +107,7 @@ WHERE id = $1`
 }
 
 func (r *couponTemplateRepository) List(ctx context.Context, params pagination.PaginationParams, filter service.CouponTemplateListFilter) ([]service.CouponTemplate, *pagination.PaginationResult, error) {
-	exec := r.sql
+	exec := marketingSQL(ctx, r.sql)
 	where := []string{"1=1"}
 	args := make([]any, 0, 4)
 	if filter.Status != "" {
@@ -178,7 +178,7 @@ INSERT INTO user_coupons (
 )
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 RETURNING id, created_at, updated_at`
-	return scanSingleRow(ctx, r.sql, query, []any{
+	return scanSingleRow(ctx, marketingSQL(ctx, r.sql), query, []any{
 		input.TemplateID, input.UserID, input.CouponCode, input.SourceType, input.SourceRefID,
 		input.Scope, input.DiscountAmount, input.ThresholdAmount, input.ValidFrom, input.ValidUntil, input.Status,
 	}, &input.ID, &input.CreatedAt, &input.UpdatedAt)
@@ -210,7 +210,7 @@ WHERE ` + predicate
 	var reservedAt sql.NullTime
 	var usedOrderID sql.NullInt64
 	var usedAt sql.NullTime
-	err := scanSingleRow(ctx, r.sql, query, []any{arg},
+	err := scanSingleRow(ctx, marketingSQL(ctx, r.sql), query, []any{arg},
 		&item.ID, &item.TemplateID, &item.UserID, &item.CouponCode, &item.SourceType, &sourceRefID, &item.Scope,
 		&item.DiscountAmount, &item.ThresholdAmount, &validFrom, &validUntil, &item.Status,
 		&reservedOrderID, &reservedAt, &usedOrderID, &usedAt, &item.CreatedAt, &item.UpdatedAt,
@@ -253,7 +253,7 @@ WHERE ` + predicate
 }
 
 func (r *userCouponRepository) ListByUser(ctx context.Context, userID int64, params pagination.PaginationParams, filter service.UserCouponListFilter) ([]service.UserCoupon, *pagination.PaginationResult, error) {
-	exec := r.sql
+	exec := marketingSQL(ctx, r.sql)
 	where := []string{"user_id = $1"}
 	args := []any{userID}
 	if filter.Status != "" {
@@ -330,7 +330,7 @@ WHERE ` + whereClause + fmt.Sprintf(" ORDER BY created_at DESC, id DESC LIMIT %d
 }
 
 func (r *userCouponRepository) ReserveForOrder(ctx context.Context, couponID int64, orderID int64, reservedAt time.Time) (bool, error) {
-	result, err := r.sql.ExecContext(ctx, `
+	result, err := marketingSQL(ctx, r.sql).ExecContext(ctx, `
 UPDATE user_coupons
 SET status = $3,
     reserved_order_id = $2,
@@ -348,7 +348,7 @@ WHERE id = $1 AND status = 'unused'`, couponID, orderID, service.UserCouponStatu
 }
 
 func (r *userCouponRepository) ReleaseReservationByOrderID(ctx context.Context, orderID int64, releasedAt time.Time) error {
-	_, err := r.sql.ExecContext(ctx, `
+	_, err := marketingSQL(ctx, r.sql).ExecContext(ctx, `
 UPDATE user_coupons
 SET status = 'unused',
     reserved_order_id = NULL,
@@ -360,7 +360,7 @@ WHERE reserved_order_id = $1 AND status = 'reserved'`, orderID)
 }
 
 func (r *userCouponRepository) MarkUsedByOrderID(ctx context.Context, orderID int64, usedAt time.Time) error {
-	_, err := r.sql.ExecContext(ctx, `
+	_, err := marketingSQL(ctx, r.sql).ExecContext(ctx, `
 UPDATE user_coupons
 SET status = 'used',
     used_order_id = $1,
@@ -380,7 +380,7 @@ INSERT INTO payment_order_discounts (
 )
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 RETURNING id, created_at, updated_at`
-	return scanSingleRow(ctx, r.sql, query, []any{
+	return scanSingleRow(ctx, marketingSQL(ctx, r.sql), query, []any{
 		item.OrderID, item.UserCouponID, item.CouponTemplateID, item.CouponCode, item.Scope,
 		item.DiscountAmount, item.ThresholdAmount, item.OriginalAmount, item.DiscountedAmount,
 		item.Status, item.ReservedAt.UTC(),
@@ -393,7 +393,7 @@ func (r *paymentOrderDiscountRepository) GetByOrderID(ctx context.Context, order
 	var templateID sql.NullInt64
 	var releasedAt sql.NullTime
 	var usedAt sql.NullTime
-	err := scanSingleRow(ctx, r.sql, `
+	err := scanSingleRow(ctx, marketingSQL(ctx, r.sql), `
 SELECT id, order_id, user_coupon_id, coupon_template_id, coupon_code, scope, discount_amount,
        threshold_amount, original_amount, discounted_amount, status, reserved_at, released_at,
        used_at, created_at, updated_at
@@ -429,7 +429,7 @@ WHERE order_id = $1`, []any{orderID},
 }
 
 func (r *paymentOrderDiscountRepository) MarkReleasedByOrderID(ctx context.Context, orderID int64, releasedAt time.Time) error {
-	_, err := r.sql.ExecContext(ctx, `
+	_, err := marketingSQL(ctx, r.sql).ExecContext(ctx, `
 UPDATE payment_order_discounts
 SET status = 'released',
     released_at = $2,
@@ -439,11 +439,25 @@ WHERE order_id = $1 AND status = 'reserved'`, orderID, releasedAt.UTC())
 }
 
 func (r *paymentOrderDiscountRepository) MarkUsedByOrderID(ctx context.Context, orderID int64, usedAt time.Time) error {
-	_, err := r.sql.ExecContext(ctx, `
+	_, err := marketingSQL(ctx, r.sql).ExecContext(ctx, `
 UPDATE payment_order_discounts
 SET status = 'used',
     used_at = $2,
     updated_at = NOW()
 WHERE order_id = $1 AND status = 'reserved'`, orderID, usedAt.UTC())
 	return err
+}
+
+// Only the paid-order recovery path restores a released historical snapshot.
+// Its original discount and price stay immutable.
+func (r *paymentOrderDiscountRepository) RestoreReservationByOrderID(ctx context.Context, orderID int64, at time.Time) (bool, error) {
+	result, err := marketingSQL(ctx, r.sql).ExecContext(ctx, `
+UPDATE payment_order_discounts
+SET status = 'reserved', reserved_at = $2, released_at = NULL, updated_at = NOW()
+WHERE order_id = $1 AND status = 'released'`, orderID, at.UTC())
+	if err != nil {
+		return false, err
+	}
+	n, err := result.RowsAffected()
+	return n == 1, err
 }

@@ -601,7 +601,8 @@
               />
             </template>
           </Select>
-          <div v-if="formData.group_id !== null && formPlatformGroupOptions.length > 1" class="mt-2 overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-dark-600 dark:bg-dark-800" data-test="key-additional-groups">
+          <p v-if="formRoutingNotice" role="status" data-test="key-routing-notice" class="mt-2 rounded-lg bg-amber-50 p-2.5 text-xs leading-5 text-amber-800 dark:bg-amber-950 dark:text-amber-200">{{ formRoutingNotice }}</p>
+          <div v-if="formData.group_id !== null && formRoutingMode !== 'single' && formAdditionalGroupOptions.length > 1" class="mt-2 overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-dark-600 dark:bg-dark-800" data-test="key-additional-groups">
             <div class="border-b border-gray-100 p-2 dark:border-dark-700">
               <div class="relative">
                 <svg class="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
@@ -666,11 +667,11 @@
           </div>
         </div>
 
-        <div>
+        <div v-if="formBillingPriorityOptions.length > 1" data-test="key-billing-priority">
           <label class="input-label">{{ t('keys.billingPriority.label') }}</label>
           <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <button
-              v-for="option in billingPriorityOptions"
+              v-for="option in formBillingPriorityOptions"
               :key="option.value"
               type="button"
               @click="formData.billing_priority = option.value"
@@ -1279,7 +1280,9 @@
               type="checkbox"
               class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600"
               :checked="isKeyGroupSelected(selectedKeyForGroup, option.value)"
-              :disabled="isKeyGroupSelected(selectedKeyForGroup, option.value) && getApiKeyGroupIds(selectedKeyForGroup).length <= 1"
+              :disabled="isKeyGroupSelected(selectedKeyForGroup, option.value)
+                ? getApiKeyGroupIds(selectedKeyForGroup).length <= 1
+                : !canAddKeyGroup(selectedKeyForGroup, option.value)"
               @change="selectedKeyForGroup && toggleKeyGroup(selectedKeyForGroup, option.value)"
             />
             <GroupOptionItem
@@ -1301,10 +1304,10 @@
             {{ t('keys.noGroupFound') }}
           </div>
         </div>
-        <div class="border-t border-gray-100 p-2 dark:border-dark-700">
+        <div v-if="selectedKeyBillingPriorityOptions.length > 1" class="border-t border-gray-100 p-2 dark:border-dark-700">
           <div class="grid grid-cols-2 gap-2">
             <button
-              v-for="option in billingPriorityOptions"
+              v-for="option in selectedKeyBillingPriorityOptions"
               :key="option.value"
               type="button"
               @click.stop="selectedKeyForGroup && changeKeyBillingPriority(selectedKeyForGroup, option.value)"
@@ -1332,7 +1335,7 @@
 	import { useClipboard } from '@/composables/useClipboard'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 import { keysAPI, authAPI, usageAPI, userGroupsAPI } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -1350,6 +1353,7 @@ import BulkEditKeysModal from '@/components/keys/BulkEditKeysModal.vue'
 	import GroupBadge from '@/components/common/GroupBadge.vue'
 	import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 	import PlatformIcon from '@/components/common/PlatformIcon.vue'
+import { allowedBillingPriorities, canAddGroup, keyRoutingMode, keyRoutingNotice, originalGroupIds, useMultiGroupAdmission } from '@/extensions/modules/multi-group-billing/key-routing'
 	import type { ApiKey, BillingPriority, Group, PublicSettings, SubscriptionType, GroupPlatform, UpdateApiKeyRequest } from '@/types'
 import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
@@ -1390,6 +1394,8 @@ const onboardingStore = useOnboardingStore()
 const { copyToClipboard: clipboardCopy } = useClipboard()
 
 const defaultBillingPriority: BillingPriority = 'balance_first'
+// Multi-group routing is an extension; ownership rules live in its module.
+const multiGroupEnabled = useMultiGroupAdmission()
 const defaultPlatform: GroupPlatform = 'anthropic'
 
 const allColumns = computed<Column[]>(() => [
@@ -1762,6 +1768,14 @@ const getKeyPlatform = (key: ApiKey): GroupPlatform => {
   return normalizeGroupPlatform(firstGroup?.platform || key.group?.platform)
 }
 
+const selectedKeyRoutingMode = computed(() => keyRoutingMode(multiGroupEnabled.value, selectedKeyForGroup.value))
+const canAddKeyGroup = (key: ApiKey | null | undefined, groupId: number) =>
+  !!key && canAddGroup(selectedKeyRoutingMode.value, getApiKeyGroupIds(key), groupId, originalGroupIds(key))
+const selectedKeyBillingPriorityOptions = computed(() => {
+  const allowed = allowedBillingPriorities(selectedKeyRoutingMode.value, selectedKeyForGroup.value?.billing_priority)
+  return billingPriorityOptions.value.filter((option) => allowed.includes(option.value))
+})
+
 const selectedKeyPlatformGroupOptions = computed<GroupOption[]>(() => {
   const key = selectedKeyForGroup.value
   if (!key) return []
@@ -1769,7 +1783,23 @@ const selectedKeyPlatformGroupOptions = computed<GroupOption[]>(() => {
   return groupOptions.value.filter((option) => option.platform === platform)
 })
 
-const filteredFormGroupOptions = computed<GroupOption[]>(() => filterGroupOptions(formPlatformGroupOptions.value))
+const formRoutingKey = computed(() => showEditModal.value ? selectedKey.value : null)
+const formRoutingMode = computed(() => keyRoutingMode(multiGroupEnabled.value, formRoutingKey.value))
+const formOriginalGroupIds = computed(() => originalGroupIds(formRoutingKey.value))
+const formRoutingNotice = computed(() => keyRoutingNotice(formRoutingMode.value, !showEditModal.value, locale.value))
+const formBillingPriorityOptions = computed(() => {
+  const allowed = allowedBillingPriorities(formRoutingMode.value, formRoutingKey.value?.billing_priority)
+  return billingPriorityOptions.value.filter((option) => allowed.includes(option.value))
+})
+watch(formBillingPriorityOptions, (options) => {
+  if (!options.some((option) => option.value === formData.value.billing_priority)) {
+    formData.value.billing_priority = defaultBillingPriority
+  }
+})
+const formAdditionalGroupOptions = computed<GroupOption[]>(() => formRoutingMode.value === 'retain'
+  ? formPlatformGroupOptions.value.filter((option) => formOriginalGroupIds.value.includes(option.value))
+  : formPlatformGroupOptions.value)
+const filteredFormGroupOptions = computed<GroupOption[]>(() => filterGroupOptions(formAdditionalGroupOptions.value))
 const filteredSelectedKeyGroupOptions = computed<GroupOption[]>(() => filterGroupOptions(selectedKeyPlatformGroupOptions.value))
 
 const selectedFormGroupOptions = computed<GroupOption[]>(() =>
@@ -1839,8 +1869,10 @@ const toggleFormGroup = (groupId: number) => {
   const index = ids.indexOf(groupId)
   if (index >= 0) {
     ids.splice(index, 1)
-  } else {
+  } else if (canAddGroup(formRoutingMode.value, ids, groupId, formOriginalGroupIds.value)) {
     ids.push(groupId)
+  } else {
+    formData.value.group_ids = [groupId]
   }
   syncPrimaryGroup()
 }
@@ -1852,7 +1884,9 @@ const selectPrimaryGroup = (value: string | number | boolean | null) => {
     formData.value.group_ids = []
     return
   }
-  const additionalIds = option.platform === formData.value.platform ? formData.value.group_ids : []
+  const keepsOthers = option.platform === formData.value.platform && formRoutingMode.value !== 'single' &&
+    (formRoutingMode.value === 'multi' || formOriginalGroupIds.value.includes(option.value))
+  const additionalIds = keepsOthers ? formData.value.group_ids : []
   formData.value.platform = option.platform
   formData.value.group_ids = [option.value, ...additionalIds.filter((id) => id !== option.value)]
   syncPrimaryGroup()
@@ -2097,7 +2131,7 @@ const toggleKeyGroup = (key: ApiKey, groupId: number) => {
     groupIds.splice(index, 1)
   } else {
     const option = groupOptions.value.find((item) => item.value === groupId)
-    if (!option || option.platform !== getKeyPlatform(key)) return
+    if (!option || option.platform !== getKeyPlatform(key) || !canAddKeyGroup(key, groupId)) return
     groupIds.push(groupId)
   }
   updateKeyRouting(key, groupIds)
@@ -2105,6 +2139,7 @@ const toggleKeyGroup = (key: ApiKey, groupId: number) => {
 
 const changeKeyBillingPriority = (key: ApiKey, priority: BillingPriority) => {
   if (normalizeBillingPriority(key.billing_priority) === priority) return
+  if (!allowedBillingPriorities(keyRoutingMode(multiGroupEnabled.value, key), key.billing_priority).includes(priority)) return
   updateKeyRouting(key, getApiKeyGroupIds(key), priority)
 }
 

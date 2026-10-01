@@ -191,16 +191,7 @@ func (lotteryUserRepoNoop) UpdateUserLastActiveAt(context.Context, int64, time.T
 func TestLotteryServiceDeleteActivity_BlocksWhenDrawRecordsExist(t *testing.T) {
 	activityRepo := &lotteryActivityRepoStubForDelete{}
 	drawRecordRepo := &lotteryDrawRecordRepoStubForDelete{exists: true}
-	svc := &LotteryService{
-		activityRepo:        activityRepo,
-		prizeRepo:           lotteryPrizeRepoNoop{},
-		userStateRepo:       lotteryUserStateRepoNoop{},
-		chanceLogRepo:       lotteryChanceLogRepoNoop{},
-		drawRecordRepo:      drawRecordRepo,
-		consumeProgressRepo: lotteryConsumeProgressRepoNoop{},
-		userRepo:            lotteryUserRepoNoop{},
-		clock:               realLotteryClock{},
-	}
+	svc := newMarketingTestLotteryService(nil, activityRepo, lotteryPrizeRepoNoop{}, lotteryUserStateRepoNoop{}, lotteryChanceLogRepoNoop{}, drawRecordRepo, lotteryConsumeProgressRepoNoop{}, lotteryUserRepoNoop{}, nil, nil)
 
 	err := svc.DeleteActivity(context.Background(), 88)
 	require.Error(t, err)
@@ -212,16 +203,7 @@ func TestLotteryServiceDeleteActivity_BlocksWhenDrawRecordsExist(t *testing.T) {
 func TestLotteryServiceDeleteActivity_DeletesWhenNoDrawRecords(t *testing.T) {
 	activityRepo := &lotteryActivityRepoStubForDelete{}
 	drawRecordRepo := &lotteryDrawRecordRepoStubForDelete{exists: false}
-	svc := &LotteryService{
-		activityRepo:        activityRepo,
-		prizeRepo:           lotteryPrizeRepoNoop{},
-		userStateRepo:       lotteryUserStateRepoNoop{},
-		chanceLogRepo:       lotteryChanceLogRepoNoop{},
-		drawRecordRepo:      drawRecordRepo,
-		consumeProgressRepo: lotteryConsumeProgressRepoNoop{},
-		userRepo:            lotteryUserRepoNoop{},
-		clock:               realLotteryClock{},
-	}
+	svc := newMarketingTestLotteryService(nil, activityRepo, lotteryPrizeRepoNoop{}, lotteryUserStateRepoNoop{}, lotteryChanceLogRepoNoop{}, drawRecordRepo, lotteryConsumeProgressRepoNoop{}, lotteryUserRepoNoop{}, nil, nil)
 
 	err := svc.DeleteActivity(context.Background(), 99)
 	require.NoError(t, err)
@@ -231,19 +213,14 @@ func TestLotteryServiceDeleteActivity_DeletesWhenNoDrawRecords(t *testing.T) {
 func TestLotteryServiceDeleteActivity_PropagatesExistsCheckError(t *testing.T) {
 	activityRepo := &lotteryActivityRepoStubForDelete{}
 	drawRecordRepo := &lotteryDrawRecordRepoStubForDelete{existsErr: errors.New("query failed")}
-	svc := &LotteryService{
-		activityRepo:        activityRepo,
-		prizeRepo:           lotteryPrizeRepoNoop{},
-		userStateRepo:       lotteryUserStateRepoNoop{},
-		chanceLogRepo:       lotteryChanceLogRepoNoop{},
-		drawRecordRepo:      drawRecordRepo,
-		consumeProgressRepo: lotteryConsumeProgressRepoNoop{},
-		userRepo:            lotteryUserRepoNoop{},
-		clock:               realLotteryClock{},
-	}
+	svc := newMarketingTestLotteryService(nil, activityRepo, lotteryPrizeRepoNoop{}, lotteryUserStateRepoNoop{}, lotteryChanceLogRepoNoop{}, drawRecordRepo, lotteryConsumeProgressRepoNoop{}, lotteryUserRepoNoop{}, nil, nil)
 
 	err := svc.DeleteActivity(context.Background(), 66)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "query failed")
 	require.Empty(t, activityRepo.deletedIDs)
+}
+
+func (lotteryUserStateRepoNoop) Get(context.Context, int64, int64) (*LotteryUserState, error) {
+	panic("unexpected")
 }

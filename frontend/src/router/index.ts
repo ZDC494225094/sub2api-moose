@@ -3,6 +3,8 @@
  * Defines all application routes with lazy loading and navigation guards
  */
 
+import { customExtensionRoutes } from '@/extensions/routes'
+import { installCustomExtensionGuard } from '@/extensions/runtime'
 import { storeAffiliateReferralCode } from '@/utils/oauthAffiliate'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -19,6 +21,7 @@ import { resolveRouteDocumentTitle } from './title'
  * Route definitions with lazy loading
  */
 const routes: RouteRecordRaw[] = [
+  ...customExtensionRoutes,
   // ==================== Setup Routes ====================
   {
     path: '/setup',
@@ -31,24 +34,6 @@ const routes: RouteRecordRaw[] = [
   },
 
   // ==================== Public Routes ====================
-  {
-    path: '/',
-    name: 'PremiumHome',
-    component: () => import('@/features/premium-home/runtime/PremiumHomeView.vue'),
-    meta: {
-      requiresAuth: false,
-      title: 'Home'
-    }
-  },
-  {
-    path: '/docs',
-    name: 'PremiumDocs',
-    component: () => import('@/features/premium-home/runtime/PremiumDocsView.vue'),
-    meta: {
-      requiresAuth: false,
-      title: '文档中心'
-    }
-  },
   {
     path: '/home',
     name: 'Home',
@@ -239,18 +224,7 @@ const routes: RouteRecordRaw[] = [
       descriptionKey: 'keys.description'
     }
   },
-  {
-    path: '/playground',
-    name: 'Playground',
-    component: () => import('@/views/user/PlaygroundView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: false,
-      title: 'Playground',
-      titleKey: 'playground.title',
-      descriptionKey: 'playground.description'
-    }
-  },
+
   {
     path: '/batch-image',
     name: 'BatchImageGuide',
@@ -337,12 +311,7 @@ const routes: RouteRecordRaw[] = [
       requiresSubscription: true
     }
   },
-  {
-    path: '/recharge-campaigns/:id',
-    name: 'RechargeCampaignLanding',
-    component: () => import('@/views/user/RechargeCampaignLandingView.vue'),
-    meta: { requiresAuth: false, title: '充值活动' }
-  },
+
   {
     path: '/purchase',
     name: 'PurchaseSubscription',
@@ -353,18 +322,6 @@ const routes: RouteRecordRaw[] = [
       title: 'Purchase Subscription',
       titleKey: 'nav.buySubscription',
       descriptionKey: 'purchase.description',
-      requiresPayment: true
-    }
-  },
-  {
-    path: '/lottery',
-    name: 'Lottery',
-    component: () => import('@/views/user/LotteryView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: false,
-      title: 'Lottery',
-      titleKey: 'nav.lottery',
       requiresPayment: true
     }
   },
@@ -480,23 +437,8 @@ const routes: RouteRecordRaw[] = [
       descriptionKey: 'admin.ops.description'
     }
   },
-  {
-    path: '/admin/operations',
-    name: 'AdminOperations',
-    component: () => import('@/views/admin/OperationsFinanceView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Operations Analysis',
-      titleKey: 'admin.operations.title',
-      descriptionKey: 'admin.operations.description'
-    }
-  },
-  {
-    path: '/admin/operations/conversion',
-    name: 'AdminOperationsConversion',
-    redirect: to => ({ path: '/admin/operations', query: to.query }),
-  },
+
+
   {
     path: '/admin/audit-logs',
     name: 'AdminAuditLogs',
@@ -786,36 +728,7 @@ const routes: RouteRecordRaw[] = [
     }
   },
 
-  {
-    path: '/admin/orders/coupons',
-    name: 'AdminPaymentCoupons',
-    component: () => import('@/views/admin/orders/AdminCouponTemplatesView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Coupon Templates',
-      titleKey: 'nav.couponTemplates',
-      requiresPayment: true
-    }
-  },
-  {
-    path: '/admin/orders/campaigns',
-    name: 'AdminRechargeCampaigns',
-    component: () => import('@/views/admin/orders/AdminRechargeCampaignsView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, requiresPayment: true, title: 'Recharge Campaigns', titleKey: 'nav.rechargeCampaigns' }
-  },
-  {
-    path: '/admin/orders/lottery',
-    name: 'AdminPaymentLottery',
-    component: () => import('@/views/admin/orders/AdminLotteryView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Lottery',
-      titleKey: 'nav.marketingLottery',
-      requiresPayment: true
-    }
-  },
+
 
   // ==================== 404 Not Found ====================
   {
@@ -1093,6 +1006,8 @@ router.beforeEach(async (to, _from, next) => {
 /**
  * Navigation guard: End loading and trigger prefetch
  */
+installCustomExtensionGuard(router)
+
 router.afterEach((to) => {
   // 结束导航加载状态
   navigationLoading.endNavigation()

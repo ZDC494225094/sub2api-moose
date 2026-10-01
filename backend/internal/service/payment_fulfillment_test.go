@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"strconv"
 	"testing"
@@ -220,7 +221,9 @@ func (s *paymentFulfillmentSettingRepoStub) Set(_ context.Context, key, value st
 func (s *paymentFulfillmentSettingRepoStub) GetMultiple(_ context.Context, keys []string) (map[string]string, error) {
 	out := make(map[string]string, len(keys))
 	for _, key := range keys {
-		out[key] = s.values[key]
+		if value, ok := s.values[key]; ok {
+			out[key] = value
+		}
 	}
 	return out, nil
 }
@@ -1344,3 +1347,211 @@ func TestExecuteSubscriptionFulfillmentDoesNotDuplicateWorkAfterLegacySuccessAud
 
 var _ AffiliateRepository = (*paymentFulfillmentAffiliateRepoStub)(nil)
 var _ SettingRepository = (*paymentFulfillmentSettingRepoStub)(nil)
+
+// The coupon repository probes write through the actual Ent transaction client.
+// A failure of the second extension write must also undo the host status change.
+type lifecycleCouponProbe struct{ consumeCouponProbe }
+
+func (r *lifecycleCouponProbe) ReleaseReservationByOrderID(ctx context.Context, id int64, at time.Time) error {
+	return r.MarkUsedByOrderID(ctx, id, at)
+}
+
+type lifecycleDiscountProbe struct{ consumeDiscountProbe }
+
+func (r *lifecycleDiscountProbe) MarkReleasedByOrderID(ctx context.Context, id int64, at time.Time) error {
+	return r.MarkUsedByOrderID(ctx, id, at)
+}
+func TestPaymentMarketingLifecycleAtomicTransitions(t *testing.T) {
+	for _, action := range []string{"complete", "cancel", "expire", "failed"} {
+		t.Run(action, func(t *testing.T) {
+			ctx := context.Background()
+			client := newPaymentConfigServiceTestClient(t)
+			_, err := client.ExecContext(ctx, "CREATE TABLE marketing_order_probe(kind TEXT PRIMARY KEY, order_id INTEGER NOT NULL)")
+			require.NoError(t, err)
+			status := OrderStatusRecharging
+			if action == "cancel" || action == "expire" {
+				status = OrderStatusPending
+			}
+			order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, status, time.Now())
+			// Avoid provider calls; this test isolates the database transition boundary.
+			order.PaymentType = ""
+			order.PaymentTradeNo = ""
+			coupons := &lifecycleCouponProbe{consumeCouponProbe{t: t, fail: true}}
+			discounts := &lifecycleDiscountProbe{consumeDiscountProbe{t: t}}
+			svc := &PaymentService{entClient: client, couponService: newMarketingTestCouponService(nil, coupons, discounts)}
+			lease := &paymentFulfillmentLease{version: order.UpdatedAt}
+			writes := func() int {
+				rows, err := client.QueryContext(ctx, "SELECT COUNT(*) FROM marketing_order_probe")
+				require.NoError(t, err)
+				defer rows.Close()
+				require.True(t, rows.Next())
+				var n int
+				require.NoError(t, rows.Scan(&n))
+				return n
+			}
+			if action == "failed" {
+				svc.markFailed(ctx, order.ID, lease, errors.New("retryable fulfillment failure"))
+				current, err := client.PaymentOrder.Get(ctx, order.ID)
+				require.NoError(t, err)
+				require.Equal(t, OrderStatusFailed, current.Status)
+				// Neither release method may be called for a retryable fulfillment failure.
+				require.Zero(t, writes())
+				return
+			}
+			target := OrderStatusCompleted
+			if action == "cancel" {
+				target = OrderStatusCancelled
+			}
+			if action == "expire" {
+				target = OrderStatusExpired
+			}
+			transition := func() error {
+				if action == "complete" {
+					return svc.markCompleted(ctx, order, lease, "TEST_COMPLETED")
+				}
+				_, err := svc.cancelCore(ctx, order, target, "test", "test")
+				return err
+			}
+			require.ErrorContains(t, transition(), "coupon consume failed")
+			current, err := client.PaymentOrder.Get(ctx, order.ID)
+			require.NoError(t, err)
+			require.Equal(t, status, current.Status)
+			require.Nil(t, current.CompletedAt)
+			require.Zero(t, writes())
+			coupons.fail = false
+			require.NoError(t, transition())
+			current, err = client.PaymentOrder.Get(ctx, order.ID)
+			require.NoError(t, err)
+			require.Equal(t, target, current.Status)
+			require.Equal(t, 2, writes())
+			require.NoError(t, transition())
+			require.Equal(t, 2, writes())
+		})
+	}
+}
+
+func TestPaymentMarketingRecoveryBeforeFulfillmentAndAtomicRollback(t *testing.T) {
+	for _, orderType := range []string{payment.OrderTypeBalance, payment.OrderTypeSubscription} {
+		t.Run(orderType, func(t *testing.T) {
+			ctx := context.Background()
+			client := newPaymentConfigServiceTestClient(t)
+			_, err := client.ExecContext(ctx, "CREATE TABLE marketing_order_probe(kind TEXT PRIMARY KEY, order_id INTEGER NOT NULL)")
+			require.NoError(t, err)
+			order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusPaid, time.Now())
+			order, err = client.PaymentOrder.UpdateOneID(order.ID).SetOrderType(orderType).SetPaidAt(time.Now()).Save(ctx)
+			require.NoError(t, err)
+			coupons := &paidRecoveryCoupons{orderCouponProbe{t: t, coupon: UserCoupon{ID: 7, UserID: order.UserID, Status: UserCouponStatusUnused}}}
+			discounts := &paidRecoveryDiscounts{t: t, fail: true, couponID: 7}
+			svc := &PaymentService{entClient: client, couponService: newMarketingTestCouponService(nil, coupons, discounts)}
+			err = svc.executeFulfillment(ctx, order.ID)
+			require.ErrorContains(t, err, "snapshot recovery failed")
+			current, err := client.PaymentOrder.Get(ctx, order.ID)
+			require.NoError(t, err)
+			require.Equal(t, OrderStatusFailed, current.Status)
+			require.NotNil(t, current.PaidAt) // retain the paid fact for refund/retry
+			require.Nil(t, current.CompletedAt)
+			rows, err := client.QueryContext(ctx, "SELECT COUNT(*) FROM marketing_order_probe")
+			require.NoError(t, err)
+			require.True(t, rows.Next())
+			var n int
+			require.NoError(t, rows.Scan(&n))
+			require.NoError(t, rows.Close())
+			require.Zero(t, n) // coupon claim rolled back with snapshot failure
+			user, err := client.User.Get(ctx, order.UserID)
+			require.NoError(t, err)
+			require.Zero(t, user.Balance)
+			discounts.fail = false
+			require.NoError(t, svc.reconcilePaidOrderCoupon(ctx, current))
+			rows, err = client.QueryContext(ctx, "SELECT COUNT(*) FROM marketing_order_probe")
+			require.NoError(t, err)
+			require.True(t, rows.Next())
+			require.NoError(t, rows.Scan(&n))
+			require.NoError(t, rows.Close())
+			require.Equal(t, 2, n)
+		})
+	}
+}
+
+func (r *lifecycleDiscountProbe) GetByOrderID(ctx context.Context, id int64) (*PaymentOrderDiscount, error) {
+	require.NotNil(r.t, dbent.TxFromContext(ctx))
+	return nil, nil
+}
+
+type completedRepairCoupons struct {
+	consumeCouponProbe
+	coupon UserCoupon
+}
+
+func (r *completedRepairCoupons) GetByID(ctx context.Context, id int64) (*UserCoupon, error) {
+	require.NotNil(r.t, dbent.TxFromContext(ctx))
+	copy := r.coupon
+	return &copy, nil
+}
+
+type completedRepairDiscounts struct {
+	consumeDiscountProbe
+	couponID int64
+}
+
+func (r *completedRepairDiscounts) GetByOrderID(ctx context.Context, id int64) (*PaymentOrderDiscount, error) {
+	require.NotNil(r.t, dbent.TxFromContext(ctx))
+	return &PaymentOrderDiscount{OrderID: id, UserCouponID: &r.couponID, Status: OrderDiscountStatusUsed}, nil
+}
+func TestPaymentMarketingCompletedRepairNeverReissuesRights(t *testing.T) {
+	for _, entry := range []string{"callback", "balance", "subscription", "lease_retry"} {
+		for _, conflict := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/conflict=%v", entry, conflict), func(t *testing.T) {
+				ctx := context.Background()
+				client := newPaymentConfigServiceTestClient(t)
+				_, err := client.ExecContext(ctx, "CREATE TABLE marketing_order_probe(kind TEXT PRIMARY KEY, order_id INTEGER NOT NULL)")
+				require.NoError(t, err)
+				order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusCompleted, time.Now())
+				owner := order.ID
+				if conflict {
+					owner++
+				}
+				coupons := &completedRepairCoupons{consumeCouponProbe: consumeCouponProbe{t: t}, coupon: UserCoupon{ID: 7, UserID: order.UserID, Status: UserCouponStatusReserved, ReservedOrderID: &owner}}
+				discounts := &completedRepairDiscounts{consumeDiscountProbe: consumeDiscountProbe{t: t}, couponID: 7}
+				// No wallet/subscription dependencies: any attempt to issue rights fails.
+				svc := &PaymentService{entClient: client, couponService: newMarketingTestCouponService(nil, coupons, discounts)}
+				repair := func() error {
+					switch entry {
+					case "callback":
+						return svc.alreadyProcessed(ctx, order)
+					case "balance":
+						return svc.ExecuteBalanceFulfillment(ctx, order.ID)
+					case "subscription":
+						return svc.ExecuteSubscriptionFulfillment(ctx, order.ID)
+					default:
+						return svc.markCompleted(ctx, order, &paymentFulfillmentLease{version: order.UpdatedAt}, "TEST")
+					}
+				}
+				for i := 0; i < 2; i++ {
+					err = repair()
+					if conflict {
+						require.ErrorContains(t, err, "paid order coupon is unavailable")
+					} else {
+						require.NoError(t, err)
+					}
+				}
+				current, err := client.PaymentOrder.Get(ctx, order.ID)
+				require.NoError(t, err)
+				require.Equal(t, OrderStatusCompleted, current.Status)
+				user, err := client.User.Get(ctx, order.UserID)
+				require.NoError(t, err)
+				require.Zero(t, user.Balance)
+				rows, err := client.QueryContext(ctx, "SELECT COUNT(*) FROM marketing_order_probe")
+				require.NoError(t, err)
+				defer rows.Close()
+				require.True(t, rows.Next())
+				var n int
+				require.NoError(t, rows.Scan(&n))
+				if conflict {
+					require.Zero(t, n)
+				} else {
+					require.Equal(t, 2, n)
+				}
+			})
+		}
+	}
+}

@@ -8,7 +8,7 @@ import (
 )
 
 type customersRepositoryStub struct {
-	UsageLogRepository
+	OperationsRepository
 	filter OperationsCustomerFilter
 }
 
@@ -19,7 +19,7 @@ func (r *customersRepositoryStub) GetOperationsCustomers(_ context.Context, f Op
 }
 func TestOperationsCustomersRatesAndAsOf(t *testing.T) {
 	repo := &customersRepositoryStub{}
-	s := &DashboardService{usageRepo: repo}
+	s := &OperationsService{repository: repo}
 	end := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	f := OperationsCustomerFilter{Start: end.AddDate(0, 0, -30), End: end, ChurnDays: 30, Page: 1, PageSize: 20, Segment: "repeat"}
 	result, err := s.GetOperationsCustomers(context.Background(), f)
@@ -38,7 +38,7 @@ func TestOperationsCustomersRatesAndAsOf(t *testing.T) {
 	require.False(t, repo.filter.AsOf.After(time.Now()))
 }
 func TestOperationsCustomersRejectInvalidFilters(t *testing.T) {
-	s := &DashboardService{usageRepo: &customersRepositoryStub{}}
+	s := &OperationsService{repository: &customersRepositoryStub{}}
 	for _, f := range []OperationsCustomerFilter{
 		{Segment: "unknown", ChurnDays: 30, Page: 1, PageSize: 20},
 		{Segment: "all", ChurnDays: 1, Page: 1, PageSize: 20},

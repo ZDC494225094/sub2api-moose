@@ -1,0 +1,158 @@
+[
+  {
+    "id": "premium-home",
+    "name": "品牌首页与文档中心",
+    "description": "独立首页、动效与文档页面；关闭后根地址返回上游 /home。",
+    "managed": true,
+    "disable_behavior": "停止进入品牌首页和文档中心，不修改上游首页配置。",
+    "paths": [
+      "/",
+      "/docs"
+    ]
+  },
+  {
+    "id": "playground",
+    "name": "体验中心",
+    "description": "体验中心页面及后台生成任务入口。",
+    "managed": true,
+    "disable_behavior": "禁止新建任务；已开始的任务继续执行，仍可查询、下载和取消。",
+    "paths": [
+      "/playground"
+    ]
+  },
+  {
+    "id": "infinite-canvas",
+    "name": "无限画布",
+    "description": "画布入口与服务端代调用接口；仍受原有画布功能开关约束。",
+    "managed": true,
+    "disable_behavior": "停止打开画布和创建任务；已有任务仍可查询、下载和取消。本地画布数据不删除。",
+    "paths": [
+      "/canvas"
+    ]
+  },
+  {
+    "id": "operations-analytics",
+    "name": "运营分析",
+    "description": "运营漏斗、财务、客户分析与营销邮件入口。",
+    "managed": true,
+    "disable_behavior": "关闭独立分析页面和对应 API，不影响上游仪表盘及运维监控。",
+    "paths": [
+      "/admin/operations"
+    ]
+  },
+  {
+    "id": "recharge-campaigns",
+    "name": "充值活动",
+    "description": "活动管理、分享落地页和新订单活动优惠。",
+    "managed": true,
+    "disable_behavior": "停止新订单享受活动；携带过期活动参数的请求拒绝并要求重新确认。已创建订单仍按活动快照履约和退款。",
+    "paths": [
+      "/recharge-campaigns",
+      "/admin/orders/campaigns"
+    ],
+    "slots": [
+      "header-bottom",
+      "checkout-summary",
+      "checkout-amount",
+      "checkout-overlay"
+    ]
+  },
+  {
+    "id": "customer-support",
+    "name": "客服悬浮窗",
+    "description": "首页和控制台的客服联系、售后群、外链及品牌首页联系按钮；使用独立 UI 插槽，不改写上游首页。",
+    "managed": true,
+    "disable_behavior": "立即移除悬浮窗和品牌首页联系按钮；保留联系方式配置，不影响上游页面和原有帮助链接。",
+    "paths": [],
+    "slots": [
+      "application-overlay",
+      "layout-overlay",
+      "premium-home:contact"
+    ]
+  },
+  {
+    "id": "marketing-tools",
+    "name": "优惠券与抽奖",
+    "description": "优惠券、抽奖与结算折扣独立模块；统一开关控制新增业务，关闭后保留历史读取和订单处理。",
+    "managed": true,
+    "disable_behavior": "停止新增抽奖、发券、券报价/预留及管理写入；保留历史页面、券核销/释放、已支付履约重试及宿主支持的退款。已准入的事务继续完成或回滚，不删除历史权益。",
+    "paths": [
+      "/lottery",
+      "/admin/orders/coupons",
+      "/admin/orders/lottery"
+    ],
+    "slots": [
+      "checkout-discount-selection",
+      "checkout-discount-summary"
+    ]
+  },
+  {
+    "id": "multi-group-billing",
+    "name": "多分组密钥与计费优先级",
+    "description": "API 密钥的多分组候选路由、余额/订阅计费优先级及平台选择；密钥创建时持久化路由归属，开关只影响新配置。",
+    "managed": true,
+    "disable_behavior": "新建密钥使用上游单分组路由；拒绝新增多分组或订阅优先配置。已有多分组密钥按原归属继续路由与计费，可保持或缩减为单分组；不删除分组、订阅或用量数据。",
+    "paths": [],
+    "gates": [
+      "api-key-create",
+      "api-key-update"
+    ]
+  },
+  {
+    "id": "billing-scheduling",
+    "name": "计费与调度增强",
+    "description": "分组倍率同步、渠道分时定价、自定义分组用量及组合调度等计费/调度增强。",
+    "managed": true,
+    "disable_behavior": "回退到基础计费（无倍率/分时/自定义用量/组合调度）；历史用量和账单记录不受影响。",
+    "paths": [],
+    "gates": [
+      "rate-multiplier",
+      "time-pricing",
+      "custom-usage",
+      "composite-scheduling"
+    ]
+  },
+  {
+    "id": "subscription-extensions",
+    "name": "订阅与兑换增强",
+    "description": "多订阅、有效期、兑换及订单履约增强。",
+    "managed": false,
+    "disable_behavior": "待提取权益策略接口；历史权益不能随开关失效。",
+    "paths": []
+  },
+  {
+    "id": "media-gateway",
+    "name": "视频与媒体协议扩展",
+    "description": "OpenAI 视频、Grok、Veo 等网关适配及计费增强。",
+    "managed": false,
+    "disable_behavior": "待按上游协议适配边界拆分，并保留异步任务的状态查询和结算。",
+    "paths": []
+  },
+  {
+    "id": "admin-efficiency",
+    "name": "账号、分组与用户管理增强",
+    "description": "上游账号分组、排序、批量用户操作及分组管理增强。",
+    "managed": false,
+    "disable_behavior": "待逐项提取页面插槽、独立路由及仓储接口。",
+    "paths": []
+  },
+  {
+    "id": "site-customization",
+    "name": "站点外观与自定义入口",
+    "description": "自定义菜单、页脚友情链接、自定义端点及公告系统。",
+    "managed": true,
+    "disable_behavior": "停止公共API返回自定义菜单和页脚链接；拒绝创建新公告；已发布公告继续显示（历史内容保留）；站点名称不受影响。",
+    "paths": [],
+    "gates": [
+      "announcement-create"
+    ]
+  },
+  {
+    "id": "access-policy",
+    "name": "访问与注册策略增强",
+    "description": "区域访问限制、注册凭证等安全相关定制。",
+    "managed": false,
+    "disable_behavior": "待独立策略链；禁止以普通业务开关绕过现有安全约束。",
+    "paths": []
+  }
+]

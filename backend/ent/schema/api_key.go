@@ -2,6 +2,7 @@ package schema
 
 import (
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
+	routing "github.com/Wei-Shaw/sub2api/internal/customize/modules/multigroupbilling/entschema"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 
 	"entgo.io/ent"
@@ -28,6 +29,7 @@ func (APIKey) Mixin() []ent.Mixin {
 	return []ent.Mixin{
 		mixins.TimeMixin{},
 		mixins.SoftDeleteMixin{},
+		routing.Routing{},
 	}
 }
 

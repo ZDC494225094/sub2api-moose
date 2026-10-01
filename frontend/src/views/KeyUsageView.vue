@@ -555,28 +555,51 @@ function getRingOffset(ring: RingItem): number {
   return CIRCUMFERENCE - (Math.min(ring.pct, 100) / 100) * CIRCUMFERENCE
 }
 
+let ringFrame: number | undefined
+let ringDelay: ReturnType<typeof setTimeout> | undefined
+let ringRevision = 0
+let disposed = false
+
+function cancelRingAnimation() {
+  ringRevision++
+  if (ringFrame !== undefined) cancelAnimationFrame(ringFrame)
+  if (ringDelay !== undefined) clearTimeout(ringDelay)
+  ringFrame = undefined
+  ringDelay = undefined
+}
+
 function triggerRingAnimation(items: RingItem[]) {
+  cancelRingAnimation()
+  if (disposed) return
+  const revision = ringRevision
+  const isCurrent = () => !disposed && revision === ringRevision
   ringAnimated.value = false
   displayPcts.value = items.map(() => 0)
 
   nextTick(() => {
-    requestAnimationFrame(() => {
-      setTimeout(() => {
+    if (!isCurrent()) return
+    ringFrame = requestAnimationFrame(() => {
+      ringFrame = undefined
+      if (!isCurrent()) return
+      ringDelay = setTimeout(() => {
+        ringDelay = undefined
+        if (!isCurrent()) return
         ringAnimated.value = true
 
-        // Animate percentage numbers
         const duration = 1000
         const startTime = performance.now()
         const targets = items.map(item => item.isBalance ? 0 : item.pct)
 
         function tick() {
+          ringFrame = undefined
+          if (!isCurrent()) return
           const elapsed = performance.now() - startTime
           const p = Math.min(elapsed / duration, 1)
           const ease = 1 - Math.pow(1 - p, 3)
           displayPcts.value = targets.map(target => Math.round(ease * target))
-          if (p < 1) requestAnimationFrame(tick)
+          if (p < 1) ringFrame = requestAnimationFrame(tick)
         }
-        requestAnimationFrame(tick)
+        ringFrame = requestAnimationFrame(tick)
       }, 50)
     })
   })
@@ -939,6 +962,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  disposed = true
+  cancelRingAnimation()
   if (resetTimer) clearInterval(resetTimer)
 })
 </script>

@@ -248,7 +248,7 @@
         </div>
       </div>
     </div>
-    <RechargeCampaignTicker v-if="user" />
+    <ExtensionSlot v-if="user" name="header-bottom" />
   </header>
 </template>
 
@@ -261,7 +261,7 @@ import { useAdminSettingsStore } from '@/stores/adminSettings'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMini.vue'
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
-import RechargeCampaignTicker from './RechargeCampaignTicker.vue'
+import ExtensionSlot from '@/extensions/components/ExtensionSlot.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'

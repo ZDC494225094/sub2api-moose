@@ -21,7 +21,13 @@ func RegisterPaymentRoutes(
 	auditLog middleware.AuditLogMiddleware,
 	settingService *service.SettingService,
 	panelRateLimiter *middleware.PanelRateLimiter,
+	customHandlers ...*handler.ExtensionHandlers,
 ) {
+	var extensions *handler.ExtensionHandlers
+	if len(customHandlers) > 0 {
+		extensions = customHandlers[0]
+	}
+
 	// --- User-facing payment endpoints (authenticated) ---
 	authenticated := v1.Group("/payment")
 	authenticated.Use(gin.HandlerFunc(jwtAuth))
@@ -29,15 +35,11 @@ func RegisterPaymentRoutes(
 	// 面板全局按用户限流
 	authenticated.Use(panelRateLimiter.Global())
 	{
-		authenticated.GET("/campaigns", paymentHandler.ListRechargeCampaigns)
+		registerCustomPaymentUserRoutes(authenticated, extensions, settingService.CustomExtensions())
 		authenticated.GET("/config", paymentHandler.GetPaymentConfig)
 		authenticated.GET("/checkout-info", paymentHandler.GetCheckoutInfo)
 		authenticated.GET("/plans", paymentHandler.GetPlans)
 		authenticated.GET("/limits", paymentHandler.GetLimits)
-		authenticated.GET("/coupons", paymentHandler.GetMyCoupons)
-		authenticated.GET("/lottery/active", paymentHandler.GetActiveLottery)
-		authenticated.POST("/lottery/draw", paymentHandler.DrawLottery)
-		authenticated.GET("/lottery/my-records", paymentHandler.ListMyDrawRecords)
 
 		orders := authenticated.Group("/orders")
 		{
@@ -57,7 +59,7 @@ func RegisterPaymentRoutes(
 	// persisted-state compatibility path for staggered upgrades.
 	public := v1.Group("/payment/public")
 	{
-		public.GET("/campaigns", paymentHandler.ListRechargeCampaigns)
+		registerCustomPaymentPublicRoutes(public, extensions, settingService.CustomExtensions(), panelRateLimiter.PublicIP())
 		public.GET("/plans", paymentHandler.GetPublicPlans)
 		public.POST("/orders/verify", paymentHandler.VerifyOrderPublic)
 		public.POST("/orders/resolve", paymentHandler.ResolveOrderPublicByResumeToken)
@@ -81,9 +83,7 @@ func RegisterPaymentRoutes(
 	adminGroup.Use(gin.HandlerFunc(auditLog))
 	adminGroup.Use(middleware.AdminComplianceGuard(settingService))
 	{
-		adminGroup.GET("/campaigns", adminPaymentHandler.ListRechargeCampaigns)
-		adminGroup.POST("/campaigns", adminPaymentHandler.SaveRechargeCampaign)
-		adminGroup.PUT("/campaigns/:id", adminPaymentHandler.SaveRechargeCampaign)
+		registerCustomPaymentAdminRoutes(adminGroup, extensions, settingService.CustomExtensions())
 		// Dashboard
 		adminGroup.GET("/dashboard", adminPaymentHandler.GetDashboard)
 
@@ -110,24 +110,6 @@ func RegisterPaymentRoutes(
 			plans.POST("/bulk-increase-display-purchase-count", adminPaymentHandler.BulkIncrementPlanDisplayPurchaseCount)
 			plans.PUT("/:id", adminPaymentHandler.UpdatePlan)
 			plans.DELETE("/:id", adminPaymentHandler.DeletePlan)
-		}
-
-		couponTemplates := adminGroup.Group("/coupon-templates")
-		{
-			couponTemplates.GET("", adminPaymentHandler.ListCouponTemplates)
-			couponTemplates.POST("", adminPaymentHandler.CreateCouponTemplate)
-			couponTemplates.PUT("/:id", adminPaymentHandler.UpdateCouponTemplate)
-		}
-
-		lottery := adminGroup.Group("/lottery")
-		{
-			lottery.GET("/activities", adminPaymentHandler.ListLotteryActivities)
-			lottery.POST("/activities", adminPaymentHandler.CreateLotteryActivity)
-			lottery.PUT("/activities/:id", adminPaymentHandler.UpdateLotteryActivity)
-			lottery.DELETE("/activities/:id", adminPaymentHandler.DeleteLotteryActivity)
-			lottery.GET("/activities/:id/draw-records", adminPaymentHandler.ListActivityDrawRecords)
-			lottery.POST("/prizes", adminPaymentHandler.CreateLotteryPrize)
-			lottery.PUT("/prizes/:id", adminPaymentHandler.UpdateLotteryPrize)
 		}
 
 		// Provider Instances

@@ -39,14 +39,7 @@
           </div>
           <!-- Top-up Tab -->
           <template v-else-if="activeTab === 'recharge'">
-            <div v-if="selectedCampaign || campaignError" class="space-y-2 border-l-2 border-teal-500 pl-4">
-              <div v-if="selectedCampaign" class="flex flex-wrap items-center justify-between gap-2">
-                <div class="flex flex-wrap items-center gap-2"><CampaignBadge :campaign="selectedCampaign" /><span class="text-sm font-semibold">{{ selectedCampaign.name }} · {{ campaignHeadline(selectedCampaign) }}</span></div>
-                <button class="btn btn-secondary btn-sm" @click="shareCampaign">分享福利</button>
-              </div>
-              <template v-if="selectedCampaign"><p class="text-sm text-gray-500">{{ selectedCampaign.description }}<span v-if="selectedCampaign.min_amount"> · 满 {{ selectedCampaign.min_amount }} 可享</span></p><p class="text-xs text-gray-500">{{ new Date(selectedCampaign.ends_at).toLocaleString() }} 截止 · 已自动享受，不与优惠券叠加</p><p v-if="selectedCampaign.reward_percent" class="text-sm text-teal-600">邀请好友充值得 {{ selectedCampaign.reward_percent }}% 奖励，每单最高 ${{ selectedCampaign.reward_cap }}，冻结 {{ selectedCampaign.freeze_hours }} 小时。{{ selectedCampaign.new_invitees_only ? '仅限活动期内新邀请的好友。' : '' }}</p></template>
-              <p v-if="campaignError" class="text-sm text-red-500" role="alert">{{ campaignError }}</p>
-            </div>
+            <ExtensionSlot name="checkout-summary" />
             <!-- Recharge Account Card -->
             <div class="card p-5">
               <p class="text-xs font-medium text-gray-400 dark:text-gray-500">{{ t('payment.rechargeAccount') }}</p>
@@ -61,16 +54,12 @@
               <AmountInput
                 v-model="amount"
                 :amounts="[10, 20, 50, 100, 200, 500, 1000, 2000, 5000]"
-                :min="activeCampaigns.length ? 0 : globalMinAmount"
-                :max="activeCampaigns.length ? 0 : globalMaxAmount"
+                :min="adjustsAmountLimits ? 0 : globalMinAmount"
+                :max="adjustsAmountLimits ? 0 : globalMaxAmount"
               >
                 <template #amount="{ amount: quickAmount }">
                   <span class="block text-lg font-semibold tabular-nums">{{ quickAmount }}</span>
-                  <span v-if="quickCampaign(quickAmount)" class="mt-1 flex min-h-[3.25rem] flex-col items-center justify-center gap-1.5">
-                    <CampaignBadge :campaign="quickCampaign(quickAmount)!" />
-                    <span class="break-all text-xs font-medium" :class="quickCampaign(quickAmount)?.kind === 'discount' ? 'text-rose-600 dark:text-rose-300' : 'text-teal-700 dark:text-teal-300'">{{ quickCampaignLabel(quickAmount) }}</span>
-                  </span>
-                  <span v-else-if="activeCampaigns.length" class="mt-1 flex min-h-[3.25rem] items-center justify-center text-xs font-normal text-gray-400">标准充值</span>
+                  <ExtensionSlot name="checkout-amount" :bindings="{ amount: quickAmount }" />
                 </template>
               </AmountInput>
               <p v-if="amountError" class="mt-2 text-xs text-amber-600 dark:text-amber-300">{{ amountError }}</p>
@@ -82,15 +71,7 @@
                 @select="selectedMethod = $event"
               />
             </div>
-            <div v-if="availableCoupons.length > 0 && !selectedCampaign" class="card p-6">
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('userLottery.availableCoupons') }}</p>
-                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('userLottery.couponHint') }}</p>
-                </div>
-                <Select v-model="selectedCouponId" :options="couponOptions('balance')" class="w-72" />
-              </div>
-            </div>
+            <ExtensionSlot name="checkout-discount-selection" :bindings="{ orderType: 'balance' }" />
             <div v-if="validAmount > 0" class="card p-6">
               <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
@@ -101,15 +82,12 @@
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
                   <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(feeAmount) }}</span>
                 </div>
-                <div v-if="feeRate > 0 || selectedCampaign" class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
+                <div v-if="feeRate > 0 || checkoutAdjusted" class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
                   <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.actualPay') }}</span>
-                  <span class="text-lg font-bold text-primary-600 dark:text-primary-400">{{ formatSelectedPaymentAmount(discountedRechargeAmount) }}</span>
+                  <span class="text-lg font-bold text-primary-600 dark:text-primary-400">{{ formatSelectedPaymentAmount(payableRechargeAmount) }}</span>
                 </div>
-                <div v-if="selectedCoupon" class="flex justify-between">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('payment.discountCoupon') }}</span>
-                  <span class="text-emerald-600 dark:text-emerald-400">-{{ formatSelectedPaymentAmount(actualRechargeDiscount) }}</span>
-                </div>
-                <div v-if="balanceRechargeMultiplier !== 1 || selectedCampaign" class="flex justify-between" :class="{ 'border-t border-gray-200 pt-2 dark:border-dark-600': feeRate <= 0 }">
+                <ExtensionSlot name="checkout-discount-summary" :bindings="{ orderType: 'balance' }" />
+                <div v-if="balanceRechargeMultiplier !== 1 || checkoutAdjusted" class="flex justify-between" :class="{ 'border-t border-gray-200 pt-2 dark:border-dark-600': feeRate <= 0 }">
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.creditedBalance') }}</span>
                   <span class="text-gray-900 dark:text-white">${{ creditedAmount.toFixed(2) }}</span>
                 </div>
@@ -123,7 +101,7 @@
                 <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
                 {{ t('common.processing') }}
               </span>
-              <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(discountedRechargeAmount) }}</span>
+              <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(payableRechargeAmount) }}</span>
             </button>
             </template>
           </template>
@@ -190,15 +168,7 @@
                   @select="selectedMethod = $event"
                 />
               </div>
-              <div v-if="availableCoupons.length > 0" class="card p-6">
-                <div class="flex items-center justify-between gap-3">
-                  <div>
-                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('userLottery.availableCoupons') }}</p>
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('userLottery.couponHint') }}</p>
-                  </div>
-                  <Select v-model="selectedCouponId" :options="couponOptions('subscription')" class="w-72" />
-                </div>
-              </div>
+              <ExtensionSlot name="checkout-discount-selection" :bindings="{ orderType: 'subscription' }" />
               <div v-if="feeRate > 0 && selectedPlan.price > 0" class="card p-6">
                 <div class="space-y-2 text-sm">
                   <div class="flex justify-between">
@@ -211,12 +181,9 @@
                   </div>
                   <div class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
                     <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.actualPay') }}</span>
-                    <span class="text-lg font-bold text-primary-600 dark:text-primary-400">{{ formatSelectedPaymentAmount(discountedSubscriptionAmount) }}</span>
+                    <span class="text-lg font-bold text-primary-600 dark:text-primary-400">{{ formatSelectedPaymentAmount(payableSubscriptionAmount) }}</span>
                   </div>
-                  <div v-if="selectedCoupon" class="flex justify-between">
-                    <span class="text-gray-500 dark:text-gray-400">{{ t('payment.discountCoupon') }}</span>
-                    <span class="text-emerald-600 dark:text-emerald-400">-{{ formatSelectedPaymentAmount(actualSubscriptionDiscount) }}</span>
-                  </div>
+                  <ExtensionSlot name="checkout-discount-summary" :bindings="{ orderType: 'subscription' }" />
                 </div>
               </div>
               <button :class="['btn w-full py-3 text-base font-medium', paymentButtonClass]" :disabled="!canSubmitSubscription || submitting" @click="confirmSubscribe">
@@ -224,7 +191,7 @@
                   <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
                   {{ t('common.processing') }}
                 </span>
-                <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(discountedSubscriptionAmount) }}</span>
+                <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(payableSubscriptionAmount) }}</span>
               </button>
               <button class="btn btn-secondary w-full" @click="selectedPlan = null">{{ t('common.cancel') }}</button>
             </template>
@@ -299,17 +266,14 @@
         </div>
       </Transition>
     </Teleport>
-    <CampaignShareDialog :campaign="sharingCampaign" :affiliate-code="campaignAffiliateCode" :sharer="user ? { name: user.username || '一位创作者', avatarUrl: user.avatar_url } : undefined" @close="sharingCampaign = null" />
+    <ExtensionSlot name="checkout-overlay" />
   </AppLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useNow, useIntervalFn } from '@vueuse/core'
-import { campaignAPI, campaignHeadline, campaignStatus, campaignAmounts, automaticCampaign, type RechargeCampaign } from '@/api/rechargeCampaigns'
-import CampaignShareDialog from '@/components/payment/CampaignShareDialog.vue'
-import CampaignBadge from '@/components/payment/CampaignBadge.vue'
-import { getAffiliateDetail } from '@/api/user'
+import { useCheckoutExtensions, useCheckoutAdjustments } from '@/extensions/checkout'
+import ExtensionSlot from '@/extensions/components/ExtensionSlot.vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -323,7 +287,7 @@ import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import { paymentAPI } from '@/api/payment'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
-import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType, UserCoupon } from '@/types/payment'
+import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel, type PeakRateFields } from '@/utils/peak-rate'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AmountInput from '@/components/payment/AmountInput.vue'
@@ -344,7 +308,6 @@ import { platformAccentBarClass, platformBadgeLightClass, platformBadgeClass, pl
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
 import Icon from '@/components/icons/Icon.vue'
-import Select from '@/components/common/Select.vue'
 import { DEFAULT_PAYMENT_CURRENCY, formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 import { planValiditySuffix as validitySuffixOf } from '@/components/payment/validity'
 import type { PaymentMethodOption } from '@/components/payment/PaymentMethodSelector.vue'
@@ -385,9 +348,6 @@ const amount = ref<number | null>(null)
 const selectedMethod = ref('')
 const selectedPlan = ref<SubscriptionPlan | null>(null)
 const previewImage = ref('')
-const availableCoupons = ref<UserCoupon[]>([])
-const selectedCouponId = ref<number | null>(null)
-const selectedCoupon = computed(() => availableCoupons.value.find(coupon => coupon.id === selectedCouponId.value) || null)
 
 const paymentPhase = ref<'select' | 'paying'>('select')
 
@@ -592,44 +552,6 @@ watch(tabs, (available) => {
 
 const visibleMethods = computed(() => getVisibleMethods(checkout.value.methods))
 const enabledMethods = computed(() => Object.keys(visibleMethods.value))
-const campaignNow = useNow({ interval: 1000 })
-const campaigns = ref<RechargeCampaign[]>([])
-const activeCampaigns = computed(() => campaigns.value.filter(a => campaignStatus(a, campaignNow.value.getTime()) === '进行中'))
-const selectedCampaign = computed(() => automaticCampaign(campaigns.value, amount.value ?? 0, campaignNow.value.getTime()))
-const selectedCampaignId = computed(() => selectedCampaign.value?.id ?? null)
-const sharingCampaign = ref<RechargeCampaign | null>(null)
-const campaignError = ref('')
-const campaignLoadFailed = ref(false)
-const campaignAffiliateCode = ref('')
-watch(selectedCampaignId, id => { if(id) selectedCouponId.value = null })
-async function loadCampaigns() {
-  try {
-    campaigns.value = (await campaignAPI.publicList()).data
-    campaignLoadFailed.value = false
-    campaignError.value = ''
-  } catch {
-    campaignLoadFailed.value = true
-    campaignError.value = '活动加载失败，请刷新后重试。'
-  }
-}
-useIntervalFn(() => { if (paymentPhase.value === 'select' && !submitting.value) void loadCampaigns() }, 60000)
-function quickCampaign(value: number) {
-  return automaticCampaign(campaigns.value, value, campaignNow.value.getTime())
-}
-function quickCampaignLabel(value: number) {
-  const activity = quickCampaign(value)
-  const quote = campaignAmounts(activity, value, balanceRechargeMultiplier.value)
-  const fee = feeRate.value > 0 ? Math.ceil(quote.principal * feeRate.value) / 100 : 0
-  return activity?.kind === 'discount'
-    ? `实付 ${formatSelectedPaymentAmount(Math.round((quote.principal + fee) * 100) / 100)}`
-    : `到账 $${quote.credited.toFixed(2)}`
-}
-async function shareCampaign() {
- if (!selectedCampaign.value) return
- if (!selectedCampaign.value.reward_percent) { campaignAffiliateCode.value = ''; sharingCampaign.value = selectedCampaign.value; return }
- try { campaignAffiliateCode.value = (await getAffiliateDetail()).aff_code; sharingCampaign.value = selectedCampaign.value }
- catch { campaignError.value = '无法获取邀请码，请稍后重试。' }
-}
 const validAmount = computed(() => amount.value ?? 0)
 const balanceRechargeMultiplier = computed(() => {
   const multiplier = checkout.value.balance_recharge_multiplier
@@ -640,8 +562,22 @@ const subscriptionUsdToCnyRate = computed(() => {
   const rate = checkout.value.subscription_usd_to_cny_rate
   return Number.isFinite(rate) && rate > 0 ? rate : 0
 })
-const campaignQuote = computed(() => campaignAmounts(selectedCampaign.value, validAmount.value, balanceRechargeMultiplier.value))
-const creditedAmount = computed(() => campaignQuote.value.credited)
+// The upstream quote remains the fallback; plugins do not own native pricing.
+const baseRechargeQuote = computed(() => ({
+  principal: validAmount.value,
+  credited: Math.round(validAmount.value * balanceRechargeMultiplier.value * 100) / 100,
+}))
+const checkoutExtensions = useCheckoutExtensions({
+  amount: validAmount,
+  baseQuote: baseRechargeQuote,
+  balanceMultiplier: () => balanceRechargeMultiplier.value,
+  feeRate: () => feeRate.value,
+  mayRefresh: () => paymentPhase.value === 'select' && !submitting.value,
+  formatPaymentAmount: formatSelectedPaymentAmount,
+  sharer: () => user.value ? { name: user.value.username || '一位创作者', avatarUrl: user.value.avatar_url ?? undefined } : undefined,
+})
+const { quote: rechargeQuote, adjusted: checkoutAdjusted, adjustsAmountLimits } = checkoutExtensions
+const creditedAmount = computed(() => rechargeQuote.value.credited)
 
 // Adaptive grid: center single card, 2-col for 2 plans, 3-col for 3+
 const planGridClass = computed(() => {
@@ -730,7 +666,7 @@ const methodOptions = computed<PaymentMethodOption[]>(() =>
       type,
       display_name: ml?.display_name,
       fee_rate: ml?.fee_rate ?? 0,
-      available: ml?.available !== false && amountFitsMethod(discountedRechargeAmount.value, type),
+      available: ml?.available !== false && amountFitsMethod(payableRechargeAmount.value, type),
     }
   })
 )
@@ -738,44 +674,34 @@ const methodOptions = computed<PaymentMethodOption[]>(() =>
 const feeRate = computed(() => checkout.value?.recharge_fee_rate ?? 0)
 const feeAmount = computed(() =>
   feeRate.value > 0 && validAmount.value > 0
-    ? Math.ceil(((campaignQuote.value.principal * feeRate.value) / 100) * 100) / 100
+    ? Math.ceil(((rechargeQuote.value.principal * feeRate.value) / 100) * 100) / 100
     : 0
 )
 const totalAmount = computed(() =>
   feeRate.value > 0 && validAmount.value > 0
-    ? Math.round((campaignQuote.value.principal + feeAmount.value) * 100) / 100
-    : campaignQuote.value.principal
+    ? Math.round((rechargeQuote.value.principal + feeAmount.value) * 100) / 100
+    : rechargeQuote.value.principal
 )
-const discountedRechargeAmount = computed(() => {
-  if (!selectedCoupon.value) return totalAmount.value
-  const amount = totalAmount.value - selectedCoupon.value.discount_amount
-  return amount < 0.01 ? 0.01 : Math.round(amount * 100) / 100
-})
-const actualRechargeDiscount = computed(() => {
-  if (!selectedCoupon.value) return 0
-  return Math.round((totalAmount.value - discountedRechargeAmount.value) * 100) / 100
-})
-
 const amountError = computed(() => {
   if (validAmount.value <= 0) return ''
   // No method can handle this amount
-  if (!enabledMethods.value.some((m) => amountFitsMethod(discountedRechargeAmount.value, m))) {
+  if (!enabledMethods.value.some((m) => amountFitsMethod(payableRechargeAmount.value, m))) {
     return t('payment.amountNoMethod')
   }
   // Selected method can't handle this amount (but others can)
   const ml = selectedLimit.value
   if (ml) {
-    if (ml.single_min > 0 && discountedRechargeAmount.value < ml.single_min) return t('payment.amountTooLow', { min: formatSelectedPaymentAmount(ml.single_min) })
-    if (ml.single_max > 0 && discountedRechargeAmount.value > ml.single_max) return t('payment.amountTooHigh', { max: formatSelectedPaymentAmount(ml.single_max) })
+    if (ml.single_min > 0 && payableRechargeAmount.value < ml.single_min) return t('payment.amountTooLow', { min: formatSelectedPaymentAmount(ml.single_min) })
+    if (ml.single_max > 0 && payableRechargeAmount.value > ml.single_max) return t('payment.amountTooHigh', { max: formatSelectedPaymentAmount(ml.single_max) })
   }
   return ''
 })
 
 const canSubmit = computed(() =>
   validAmount.value > 0
-    && !campaignLoadFailed.value
-    && (!selectedCampaign.value || (campaignStatus(selectedCampaign.value, campaignNow.value.getTime()) === '进行中' && validAmount.value >= selectedCampaign.value.min_amount))
-    && amountFitsMethod(discountedRechargeAmount.value, selectedMethod.value)
+    && checkoutExtensions.canSubmit.value
+    && checkoutAdjustments.canSubmit.value
+    && amountFitsMethod(payableRechargeAmount.value, selectedMethod.value)
     && selectedLimit.value?.available !== false
 )
 
@@ -803,7 +729,6 @@ function subscriptionTotalAmountForCurrency(value: number, currency: string): nu
 
 // Subscription-specific: method options based on gateway pay amount
 const subMethodOptions = computed<PaymentMethodOption[]>(() => {
-  const price = selectedPlan.value?.price ?? 0
   return enabledMethods.value.map((type) => {
     const ml = visibleMethods.value[type]
     const currency = normalizePaymentCurrency(ml?.currency)
@@ -811,69 +736,39 @@ const subMethodOptions = computed<PaymentMethodOption[]>(() => {
       type,
       display_name: ml?.display_name,
       fee_rate: ml?.fee_rate ?? 0,
-      available: ml?.available !== false && amountFitsMethod(subscriptionTotalAmountForCurrency(price, currency), type),
+      available: ml?.available !== false && amountFitsMethod(checkoutAdjustments.payableFor('subscription', currency), type),
     }
   })
 })
 
-const discountedSubscriptionAmount = computed(() => {
-  if (!selectedCoupon.value) return subTotalAmount.value
-  const amount = subTotalAmount.value - selectedCoupon.value.discount_amount
-  return amount < 0.01 ? 0.01 : Math.round(amount * 100) / 100
+const checkoutAdjustments = useCheckoutAdjustments({
+  orderType: computed(() => activeTab.value === 'recharge' ? 'balance' : 'subscription'),
+  baseAmount: (orderType, currency) => orderType === 'balance' ? totalAmount.value
+    : currency ? subscriptionTotalAmountForCurrency(selectedPlan.value?.price ?? 0, currency) : subTotalAmount.value,
+  orderAmount: orderType => orderType === 'balance' ? rechargeQuote.value.principal : selectedPlan.value?.price ?? 0,
+  projectPayable: (orderType, adjustedAmount, currency = selectedCurrency.value) => {
+    if (orderType === 'subscription') return subscriptionTotalAmountForCurrency(adjustedAmount, currency)
+    const fee = feeRate.value > 0 ? ceilPaymentAmount(adjustedAmount * feeRate.value / 100, currency) : 0
+    return roundPaymentAmount(adjustedAmount + fee, currency)
+  },
+  excludesAdjustments: orderType => orderType === 'balance' && checkoutExtensions.excludesCoupon.value,
+  formatPaymentAmount: formatSelectedPaymentAmount,
 })
-const actualSubscriptionDiscount = computed(() => {
-  if (!selectedCoupon.value) return 0
-  return Math.round((subTotalAmount.value - discountedSubscriptionAmount.value) * 100) / 100
-})
+const payableRechargeAmount = computed(() => checkoutAdjustments.payableFor('balance'))
+const payableSubscriptionAmount = computed(() => checkoutAdjustments.payableFor('subscription'))
 
 const canSubmitSubscription = computed(() =>
   selectedPlan.value !== null
-    && amountFitsMethod(subTotalAmount.value, selectedMethod.value)
+    && checkoutAdjustments.canSubmit.value
+    && amountFitsMethod(payableSubscriptionAmount.value, selectedMethod.value)
     && selectedLimit.value?.available !== false
 )
-
-function couponOptions(orderType: OrderType): Array<{ value: number | null; label: string; disabled?: boolean }> {
-  const options: Array<{ value: number | null; label: string; disabled?: boolean }> = [{ value: null, label: t('userLottery.noCoupon') }]
-  const currentAmount = orderType === 'balance' ? totalAmount.value : subTotalAmount.value
-  availableCoupons.value
-    .filter((coupon) => coupon.status === 'unused' && (coupon.scope === 'universal' || coupon.scope === orderType))
-    .forEach((coupon) => {
-      const thresholdMet = coupon.threshold_amount <= 0 || currentAmount >= coupon.threshold_amount
-      const thresholdLabel = coupon.threshold_amount > 0
-        ? `${t('userLottery.thresholdPrefix')}¥${coupon.threshold_amount.toFixed(2)}`
-        : t('userLottery.couponDirectDiscount')
-      const pendingLabel = !thresholdMet && coupon.threshold_amount > 0
-        ? ` · ${t('userLottery.couponThresholdPending', { amount: coupon.threshold_amount.toFixed(2) })}`
-        : ''
-      options.push({
-        value: coupon.id,
-        label: `${thresholdLabel} -¥${coupon.discount_amount.toFixed(2)} (${coupon.coupon_code})${pendingLabel}`,
-        disabled: !thresholdMet,
-      })
-    })
-  return options
-}
 
 // Auto-switch to first available method when current selection can't handle the amount
 watch(() => [validAmount.value, selectedMethod.value] as const, ([amt, method]) => {
   if (amt <= 0 || amountFitsMethod(amt, method)) return
   const available = enabledMethods.value.find((m) => amountFitsMethod(amt, m))
   if (available) selectedMethod.value = available
-})
-
-// Auto-clear coupon when amount drops below its threshold
-watch(validAmount, (amt) => {
-  if (!selectedCoupon.value) return
-  if (selectedCoupon.value.threshold_amount > 0 && amt < selectedCoupon.value.threshold_amount) {
-    selectedCouponId.value = null
-  }
-})
-
-watch(subTotalAmount, (amt) => {
-  if (!selectedCoupon.value || activeTab.value !== 'subscription') return
-  if (selectedCoupon.value.threshold_amount > 0 && amt < selectedCoupon.value.threshold_amount) {
-    selectedCouponId.value = null
-  }
 })
 
 // Payment button class: follows selected payment method color
@@ -962,10 +857,8 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
     if (options.wechatResumeToken) {
       payload.wechat_resume_token = options.wechatResumeToken
     }
-    if (orderType === 'balance' && selectedCampaignId.value) { payload.campaign_id = selectedCampaignId.value; payload.campaign_revision = selectedCampaign.value?.revision }
-    if (selectedCouponId.value) {
-      payload.user_coupon_id = selectedCouponId.value
-    }
+    checkoutExtensions.prepareOrder(payload)
+    checkoutAdjustments.prepareOrder(payload)
 
     const result = await paymentStore.createOrder(payload) as CreateOrderResult & { resume_token?: string }
     const openWindow = (url: string) => {
@@ -1186,8 +1079,8 @@ async function attemptMobileQrFallback(err: unknown, context: MobileQrFallbackCo
       isMobile: false,
       isWechatBrowser: false,
     })
-    if (context.orderType === 'balance' && selectedCampaignId.value) { payload.campaign_id = selectedCampaignId.value; payload.campaign_revision = selectedCampaign.value?.revision }
-    if (selectedCouponId.value) payload.user_coupon_id = selectedCouponId.value
+    checkoutExtensions.prepareOrder(payload)
+    checkoutAdjustments.prepareOrder(payload)
     const result = await paymentStore.createOrder(payload) as CreateOrderResult & { resume_token?: string }
     const stripeMethod = visibleMethod === 'wxpay' ? 'wechat_pay' : 'alipay'
     const stripeRouteUrl = result.client_secret
@@ -1278,12 +1171,11 @@ async function resumeWechatPaymentFromQuery() {
 }
 
 onMounted(async () => {
-  await loadCampaigns()
+  await checkoutExtensions.initialize()
   try {
     const res = await paymentAPI.getCheckoutInfo()
     checkout.value = res.data
-    const coupons = await paymentAPI.getCoupons({ page: 1, page_size: 100, status: 'unused' })
-    availableCoupons.value = coupons.data.items
+    await checkoutAdjustments.initialize()
     if (enabledMethods.value.length) {
       const order: readonly string[] = METHOD_ORDER
       const sorted = [...enabledMethods.value].sort((a, b) => {

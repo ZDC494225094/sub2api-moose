@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 24 // v24: group model_allowlist field (renamed from models_list_config, enforcing semantics)
+const apiKeyAuthSnapshotVersion = 25 // v25: durable key routing ownership
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -343,6 +343,7 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 		GroupID:         apiKey.GroupID,
 		GroupIDs:        NormalizeAPIKeyGroupIDs(apiKey.GroupID, apiKey.GroupIDs),
 		BillingPriority: NormalizeBillingPriority(apiKey.BillingPriority),
+		RoutingPolicy:   apiKey.RoutingPolicy,
 		Name:            apiKey.Name,
 		Status:          apiKey.Status,
 		IPWhitelist:     apiKey.IPWhitelist,
@@ -469,6 +470,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 		GroupID:         snapshot.GroupID,
 		GroupIDs:        NormalizeAPIKeyGroupIDs(snapshot.GroupID, snapshot.GroupIDs),
 		BillingPriority: NormalizeBillingPriority(snapshot.BillingPriority),
+		RoutingPolicy:   snapshot.RoutingPolicy,
 		Key:             key,
 		Name:            snapshot.Name,
 		Status:          snapshot.Status,

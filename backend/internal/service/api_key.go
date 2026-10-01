@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/multigroupbilling"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 )
 
@@ -17,8 +18,8 @@ const (
 )
 
 const (
-	BillingPriorityBalanceFirst      = "balance_first"
-	BillingPrioritySubscriptionFirst = "subscription_first"
+	BillingPriorityBalanceFirst      = multigroupbilling.BalanceFirst
+	BillingPrioritySubscriptionFirst = multigroupbilling.SubscriptionFirst
 )
 
 // CanvasManagedAPIKeyNamePrefix marks credentials created solely for the
@@ -56,6 +57,7 @@ type APIKey struct {
 	GroupID         *int64
 	GroupIDs        []int64
 	BillingPriority string
+	RoutingPolicy   string // Immutable plugin ownership; not a request-controlled field.
 	Status          string
 	IPWhitelist     []string
 	IPBlacklist     []string
@@ -88,12 +90,7 @@ type APIKey struct {
 }
 
 func NormalizeBillingPriority(priority string) string {
-	switch priority {
-	case BillingPrioritySubscriptionFirst:
-		return BillingPrioritySubscriptionFirst
-	default:
-		return BillingPriorityBalanceFirst
-	}
+	return multigroupbilling.NormalizePriority(priority)
 }
 
 func NormalizeAPIKeyPlatform(platform string) string {
@@ -123,23 +120,7 @@ func DefaultAPIKeyPlatform(platform string) string {
 }
 
 func NormalizeAPIKeyGroupIDs(primary *int64, groupIDs []int64) []int64 {
-	seen := make(map[int64]struct{}, len(groupIDs)+1)
-	out := make([]int64, 0, len(groupIDs)+1)
-	if primary != nil && *primary > 0 {
-		seen[*primary] = struct{}{}
-		out = append(out, *primary)
-	}
-	for _, id := range groupIDs {
-		if id <= 0 {
-			continue
-		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		out = append(out, id)
-	}
-	return out
+	return multigroupbilling.NormalizeGroupIDs(primary, groupIDs)
 }
 
 func (k *APIKey) IsActive() bool {

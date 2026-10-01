@@ -119,7 +119,7 @@ func ApplyMigrations(ctx context.Context, db *sql.DB) error {
 	if db == nil {
 		return errors.New("nil sql db")
 	}
-	return applyMigrationsFS(ctx, db, migrations.FS)
+	return applyMigrationsFS(ctx, db, migrations.FS, builtInExtensionMigrations())
 }
 
 // applyMigrationsFS 是迁移执行的核心实现。
@@ -140,7 +140,10 @@ func ApplyMigrations(ctx context.Context, db *sql.DB) error {
 //   - ctx: 上下文
 //   - db: 数据库连接
 //   - fsys: 包含迁移文件的文件系统（通常是 embed.FS）
-func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS) error {
+func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS, extensions ...extensionMigrationLifecycle) error {
+	if len(extensions) > 1 {
+		return errors.New("only one extension migration lifecycle may be composed")
+	}
 	if db == nil {
 		return errors.New("nil sql db")
 	}
@@ -168,6 +171,12 @@ func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 	// 该表记录所有已应用的迁移及其校验和。
 	if _, err := lockConn.ExecContext(ctx, schemaMigrationsTableDDL); err != nil {
 		return fmt.Errorf("create schema_migrations: %w", err)
+	}
+
+	if len(extensions) == 1 {
+		if err := extensions[0].Prepare(ctx, lockConn); err != nil {
+			return err
+		}
 	}
 
 	// 自动对齐 Atlas 基线（如果检测到 legacy schema_migrations 且缺失 atlas_schema_revisions）。
@@ -284,6 +293,9 @@ func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 		}
 	}
 
+	if len(extensions) == 1 {
+		return extensions[0].Apply(ctx, lockConn)
+	}
 	return nil
 }
 

@@ -1,0 +1,58 @@
+name: Custom extension contracts
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  extension-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+      - name: Verify immutable inventory and upstream host contracts
+        run: node tools/customization-verify.mjs --check
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: custom-extension-contract-report
+          path: .tmp/customization-verification/
+          include-hidden-files: true
+
+  extension-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache-dependency-path: backend/go.sum
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install locked frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Verify extension composition with the native application
+        run: node tools/customization-verify.mjs --full
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: custom-extension-regression-report
+          path: .tmp/customization-verification/
+          include-hidden-files: true

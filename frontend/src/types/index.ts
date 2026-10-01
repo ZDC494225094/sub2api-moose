@@ -763,6 +763,8 @@ export interface ApiKey {
   group_id: number | null
   group_ids?: number[]
   billing_priority?: BillingPriority
+  // Immutable per-key ownership; the multi-group switch only gates new configuration.
+  routing_policy?: 'multigroup-v1' | 'upstream-v1' | string
   status: 'active' | 'inactive' | 'quota_exhausted' | 'expired'
   ip_whitelist: string[]
   ip_blacklist: string[]

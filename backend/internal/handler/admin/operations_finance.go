@@ -13,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (h *DashboardHandler) GetOperationsFinance(c *gin.Context) {
+func (h *OperationsHandler) GetOperationsFinance(c *gin.Context) {
 	start, end, err := parseOperationsReportingRange(c, timezone.Now())
 	if err != nil {
 		response.BadRequest(c, err.Error())
@@ -24,7 +24,7 @@ func (h *DashboardHandler) GetOperationsFinance(c *gin.Context) {
 		response.BadRequest(c, "Date range must not exceed 90 days")
 		return
 	}
-	result, err := h.dashboardService.GetOperationsFinance(c.Request.Context(), start, end)
+	result, err := h.operationsService.GetOperationsFinance(c.Request.Context(), start, end)
 	if err != nil {
 		slog.Error("operations_finance_failed", "error", err)
 		response.Error(c, 500, "Failed to get operations finance")
@@ -33,7 +33,7 @@ func (h *DashboardHandler) GetOperationsFinance(c *gin.Context) {
 	response.Success(c, result)
 }
 
-func (h *DashboardHandler) GetOperationsCustomers(c *gin.Context) {
+func (h *OperationsHandler) GetOperationsCustomers(c *gin.Context) {
 	start, end, err := parseOperationsReportingRange(c, timezone.Now())
 	if err != nil {
 		response.BadRequest(c, err.Error())
@@ -60,7 +60,7 @@ func (h *DashboardHandler) GetOperationsCustomers(c *gin.Context) {
 		response.BadRequest(c, "Invalid segment")
 		return
 	}
-	result, err := h.dashboardService.GetOperationsCustomers(c.Request.Context(), service.OperationsCustomerFilter{
+	result, err := h.operationsService.GetOperationsCustomers(c.Request.Context(), service.OperationsCustomerFilter{
 		Start: start, End: end, Segment: segment, Search: strings.TrimSpace(c.Query("search")), Page: page, PageSize: 20, ChurnDays: churnDays,
 	})
 	if err != nil {

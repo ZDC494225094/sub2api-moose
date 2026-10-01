@@ -31,11 +31,15 @@ func RegisterAdminRoutes(
 	admin.Use(gin.HandlerFunc(auditLog))
 	admin.Use(middleware.AdminComplianceGuard(settingService))
 	{
+		// Business extensions use the existing admin authentication, audit and compliance chain.
+		admin.GET("/custom-extensions", settingService.CustomExtensions().AdminList)
+		admin.PUT("/custom-extensions/:id", settingService.CustomExtensions().AdminUpdate)
+
 		// 部署与运营合规确认
 		registerAdminComplianceRoutes(admin, h)
 
 		// 仪表盘
-		registerDashboardRoutes(admin, h)
+		registerDashboardRoutes(admin, h, settingService)
 
 		// 用户管理
 		registerUserManagementRoutes(admin, h)
@@ -278,7 +282,7 @@ func registerOpsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	}
 }
 
-func registerDashboardRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+func registerDashboardRoutes(admin *gin.RouterGroup, h *handler.Handlers, settingService *service.SettingService) {
 	dashboard := admin.Group("/dashboard")
 	{
 		dashboard.GET("/snapshot-v2", h.Admin.Dashboard.GetSnapshotV2)
@@ -290,13 +294,7 @@ func registerDashboardRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		dashboard.GET("/api-keys-trend", h.Admin.Dashboard.GetAPIKeyUsageTrend)
 		dashboard.GET("/users-trend", h.Admin.Dashboard.GetUserUsageTrend)
 		dashboard.GET("/users-ranking", h.Admin.Dashboard.GetUserSpendingRanking)
-		dashboard.GET("/operations-funnel", h.Admin.Dashboard.GetOperationsFunnel)
-		dashboard.GET("/operations-finance", h.Admin.Dashboard.GetOperationsFinance)
-		dashboard.GET("/operations-customers", h.Admin.Dashboard.GetOperationsCustomers)
-		dashboard.GET("/operations-users", h.Admin.Dashboard.GetOperationsUserDetails)
-		dashboard.GET("/operations-marketing-recipients", h.Admin.Dashboard.ListOperationsMarketingRecipients)
-		dashboard.GET("/operations-marketing-email-records", h.Admin.Dashboard.ListOperationsMarketingEmailRecords)
-		dashboard.POST("/operations-marketing-email", h.Admin.Dashboard.SendOperationsMarketingEmail)
+		registerCustomDashboardRoutes(dashboard, h, settingService.CustomExtensions())
 		dashboard.POST("/users-usage", h.Admin.Dashboard.GetBatchUsersUsage)
 		dashboard.POST("/api-keys-usage", h.Admin.Dashboard.GetBatchAPIKeysUsage)
 		dashboard.GET("/user-breakdown", h.Admin.Dashboard.GetUserBreakdown)

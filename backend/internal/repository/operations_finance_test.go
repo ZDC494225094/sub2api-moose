@@ -52,7 +52,7 @@ func TestOperationsFinanceReadOnlyDatabase(t *testing.T) {
 		paid := latestCreated.Time.In(loc)
 		start = time.Date(paid.Year(), paid.Month(), paid.Day(), 0, 0, 0, 0, loc)
 	}
-	report, err := (&usageLogRepository{sql: db}).GetOperationsFinance(ctx, start, start.AddDate(0, 0, 1))
+	report, err := (&operationsRepository{sql: db}).GetOperationsFinance(ctx, start, start.AddDate(0, 0, 1))
 	require.NoError(t, err)
 	var dailyCost, accountCost, upstreamCost, modelCost float64
 	var dayCount int
@@ -103,7 +103,7 @@ func TestOperationsFinanceReadOnlyDatabase(t *testing.T) {
 	require.InDelta(t, balance, report.CurrentBalance, 0.000001)
 	t.Logf("reconciled %s: credit=%.4f", start.Format("2006-01-02"), credits)
 	for _, segment := range []string{"repeat", "churned", "balance", "paying"} {
-		customers, err := (&usageLogRepository{sql: db}).GetOperationsCustomers(ctx, service.OperationsCustomerFilter{
+		customers, err := (&operationsRepository{sql: db}).GetOperationsCustomers(ctx, service.OperationsCustomerFilter{
 			Start: start.AddDate(0, 0, -29), End: start.AddDate(0, 0, 1), AsOf: now, ChurnDays: 30, Page: 1, PageSize: 20, Segment: segment,
 		})
 		require.NoError(t, err)

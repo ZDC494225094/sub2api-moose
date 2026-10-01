@@ -90,6 +90,7 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 		GroupID:            k.GroupID,
 		GroupIDs:           k.GroupIDs,
 		BillingPriority:    service.NormalizeBillingPriority(k.BillingPriority),
+		RoutingPolicy:      service.APIKeyRoutingPolicyForDisplay(k.RoutingPolicy),
 		Status:             k.Status,
 		IPWhitelist:        k.IPWhitelist,
 		IPBlacklist:        k.IPBlacklist,

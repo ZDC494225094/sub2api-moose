@@ -127,17 +127,27 @@ func (s *PaymentService) cancelCore(ctx context.Context, o *dbent.PaymentOrder, 
 			return checkPaidResultAlreadyPaid, nil
 		}
 	}
-	c, err := s.entClient.PaymentOrder.Update().Where(paymentorder.IDEQ(o.ID), paymentorder.StatusEQ(OrderStatusPending)).SetStatus(fs).Save(ctx)
+	c := 0
+	err := s.withPaymentCouponTransition(ctx, func(txCtx context.Context, client *dbent.Client) error {
+		var err error
+		c, err = client.PaymentOrder.Update().Where(paymentorder.IDEQ(o.ID), paymentorder.StatusEQ(OrderStatusPending)).SetStatus(fs).Save(txCtx)
+		if err != nil {
+			return fmt.Errorf("update order status: %w", err)
+		}
+		if c > 0 && s.couponService != nil {
+			if err := s.couponService.ReleaseCouponReservationByOrderID(txCtx, o.ID); err != nil {
+				return fmt.Errorf("release cancelled order coupon: %w", err)
+			}
+		}
+		return nil
+	})
 	if err != nil {
-		return "", fmt.Errorf("update order status: %w", err)
+		return "", err
 	}
 	if c > 0 {
 		auditAction := "ORDER_CANCELLED"
 		if fs == OrderStatusExpired {
 			auditAction = "ORDER_EXPIRED"
-		}
-		if s.couponService != nil {
-			_ = s.couponService.ReleaseCouponReservationByOrderID(ctx, o.ID)
 		}
 		s.writeAuditLog(ctx, o.ID, auditAction, op, map[string]any{"detail": ad})
 	}

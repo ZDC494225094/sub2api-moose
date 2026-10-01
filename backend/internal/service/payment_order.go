@@ -85,6 +85,7 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 		if err != nil {
 			return nil, err
 		}
+		req.couponQuote = couponResult
 		limitAmount = couponResult.DiscountedAmount
 	}
 	feeRate := cfg.RechargeFeeRate
@@ -130,24 +131,9 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if err != nil {
 		return nil, err
 	}
-	if couponResult != nil && s.couponService != nil {
-		if _, err := s.couponService.ReserveCouponForOrder(ctx, order.ID, ApplyPaymentCouponInput{
-			UserID:       req.UserID,
-			OrderType:    req.OrderType,
-			OrderAmount:  couponResult.OriginalAmount,
-			UserCouponID: req.UserCouponID,
-		}); err != nil {
-			_, _ = s.entClient.PaymentOrder.Delete().Where(paymentorder.IDEQ(order.ID)).Exec(ctx)
-			return nil, err
-		}
-		order.PayAmount = payAmount
-	}
 	resp, err := s.invokeProvider(ctx, order, req, cfg, limitAmount, payAmountStr, payAmount, plan, sel)
 	if err != nil {
-		_, _ = s.entClient.PaymentOrder.UpdateOneID(order.ID).
-			SetStatus(OrderStatusFailed).
-			Save(ctx)
-		return nil, err
+		return nil, s.recordPaymentCreationFailure(ctx, order.ID, err)
 	}
 	return resp, nil
 }
@@ -209,15 +195,9 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		return nil, err
 	}
 	providerSnapshot := buildPaymentOrderProviderSnapshot(sel, req)
-	if req.campaign != nil {
-		if !req.campaign.Campaign.active(time.Now()) {
-			return nil, infraerrors.BadRequest("CAMPAIGN_UNAVAILABLE", "活动已结束，请刷新后重试")
-		}
-		if providerSnapshot == nil {
-			providerSnapshot = map[string]any{}
-		}
-		providerSnapshot["recharge_campaign"] = req.campaign
-		// Eligibility uses order creation time. Keep the normal payment timeout for orders placed near the deadline.
+	providerSnapshot, err = attachRechargeCampaign(providerSnapshot, req.campaign, time.Now())
+	if err != nil {
+		return nil, err
 	}
 	selectedInstanceID := ""
 	selectedProviderKey := ""
@@ -265,6 +245,9 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 	order, err = tx.PaymentOrder.UpdateOneID(order.ID).SetRechargeCode(code).Save(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("set recharge code: %w", err)
+	}
+	if err := s.reserveOrderCoupon(dbent.NewTxContext(ctx, tx), req, order.ID); err != nil {
+		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit order transaction: %w", err)

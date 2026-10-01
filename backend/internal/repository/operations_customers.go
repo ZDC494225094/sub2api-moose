@@ -7,7 +7,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
-func (r *usageLogRepository) GetOperationsCustomers(ctx context.Context, f service.OperationsCustomerFilter) (*service.OperationsCustomersResponse, error) {
+func (r *operationsRepository) GetOperationsCustomers(ctx context.Context, f service.OperationsCustomerFilter) (*service.OperationsCustomersResponse, error) {
 	const query = `WITH paid AS (
   SELECT user_id, count(*) AS total_orders,
    count(*) FILTER (WHERE paid_at >= $1 AND paid_at < $2) AS period_orders,

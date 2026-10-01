@@ -257,11 +257,11 @@ func maxReasoningEffortBillingMultiplier(model, effort string, pricing *ModelPri
 	return 1
 }
 
-func resolvedChannelTimeMultiplier(resolved *ResolvedPricing, at time.Time) float64 {
+func resolvedChannelTimeMultiplier(ctx context.Context, resolved *ResolvedPricing, at time.Time) float64 {
 	if resolved == nil || resolved.Source != PricingSourceChannel || resolved.channelPricing == nil {
 		return 1
 	}
-	return resolved.channelPricing.TimePricing.MultiplierAt(at)
+	return resolved.channelPricing.TimePricing.MultiplierAtWithAdmission(ctx, at)
 }
 
 // ErrModelPricingUnavailable indicates that none of the configured pricing
@@ -1501,7 +1501,7 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 	applyLongCtx := len(resolved.Intervals) == 0 && contextTierPricingEnabled
 
 	breakdown := s.computeTokenBreakdown(pricing, input.Tokens, input.RateMultiplier, input.ServiceTier, applyLongCtx)
-	applyCostBreakdownMultiplier(breakdown, resolvedChannelTimeMultiplier(resolved, input.PricingAt))
+	applyCostBreakdownMultiplier(breakdown, resolvedChannelTimeMultiplier(input.Ctx, resolved, input.PricingAt))
 	applyCostBreakdownMultiplier(breakdown, maxReasoningEffortBillingMultiplier(input.Model, input.ReasoningEffort, pricing))
 	return breakdown, nil
 }

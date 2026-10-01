@@ -12,3 +12,7 @@ dist/
 # 忽略缓存
 .cache/
 .vite/
+
+# Vite transient config bundles may disappear while lint is enumerating files
+*.timestamp-*.mjs
+*.timestamp-*.js

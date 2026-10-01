@@ -35,7 +35,8 @@ vi.mock('vue-router', () => ({
   createWebHistory: vi.fn(() => ({})),
   createRouter: vi.fn(() => ({
     beforeEach: vi.fn((guard: NavigationGuard) => {
-      routerHarness.guard = guard
+      // This suite exercises the host guard; extension guards have real-router tests.
+      if (!routerHarness.guard) routerHarness.guard = guard
     }),
     afterEach: vi.fn(),
     onError: vi.fn(),
@@ -98,6 +99,7 @@ function runGuard(meta: Record<string, unknown>, path: string) {
       fullPath: path,
       name: 'FeatureRoute',
       params: {},
+      query: {},
       meta: { requiresAuth: true, ...meta },
     },
     {},

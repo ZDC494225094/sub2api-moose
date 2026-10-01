@@ -1,0 +1,685 @@
+{
+  "version": 1,
+  "native_equivalent": [
+    "frontend/src/views/HomeView.vue"
+  ],
+  "required_files": [
+    "backend/internal/customize/wiring/providers.go",
+    "backend/internal/handler/custom_extensions.go",
+    "backend/internal/handler/admin/operations_handler.go",
+    "backend/internal/service/operations_service.go",
+    "backend/internal/repository/operations_repository.go",
+    "backend/internal/repository/operations_funnel.go",
+    "frontend/src/extensions/modules/operations-analytics/OperationsFinanceView.vue",
+    "frontend/src/extensions/modules/operations-analytics/api.ts",
+    "frontend/src/extensions/modules/operations-analytics/funnelApi.ts",
+    "frontend/src/extensions/components/ExtensionSlot.vue",
+    "frontend/src/extensions/components/ExtensionMount.vue",
+    "frontend/src/extensions/modules/customer-support/SupportWidget.vue",
+    "frontend/src/extensions/modules/recharge-campaigns/RechargeCampaignTicker.vue",
+    "frontend/src/extensions/checkout.ts",
+    "frontend/src/extensions/route-access.ts",
+    "frontend/src/extensions/modules/marketing/route-access.ts",
+    "frontend/src/extensions/__tests__/historical-access.spec.ts",
+    "backend/internal/service/payment_marketing_refund_safety_test.go",
+    "frontend/src/extensions/modules/marketing/admission.ts",
+    "frontend/src/extensions/modules/marketing/admission.spec.ts",
+    "frontend/src/extensions/modules/marketing/LotteryView.spec.ts",
+    "frontend/src/extensions/modules/marketing/admin-admission.spec.ts",
+    "frontend/src/extensions/modules/marketing/MarketingReadOnlyNotice.vue",
+    "frontend/src/extensions/modules/recharge-campaigns/checkout.ts",
+    "backend/internal/customize/modules/rechargecampaigns/campaign.go",
+    "backend/internal/customize/modules/rechargecampaigns/service.go",
+    "backend/internal/customize/modules/rechargecampaigns/repository.go",
+    "backend/internal/customize/modules/rechargecampaigns/handler.go",
+    "backend/internal/customize/migrations/runner.go",
+    "backend/internal/customize/migrations/sql/marketing-tools/202609260002_adopt_marketing.sql",
+    "backend/internal/customize/migrations/marketing_adoption_test.go",
+    "backend/internal/customize/migrations/sql/extension-host/202609260001_adopt_existing_modules.sql",
+    "backend/internal/repository/custom_extension_migrations.go",
+    "backend/internal/customize/modules/rechargecampaigns/checkout.go",
+    "backend/internal/customize/modules/rechargecampaigns/snapshot.go",
+    "backend/internal/customize/modules/rechargecampaigns/rewards.go",
+    "backend/internal/service/recharge_campaign_bridge_test.go",
+    "backend/internal/customize/modules/rechargecampaigns/checkout_test.go",
+    "backend/internal/customize/modules/rechargecampaigns/rewards_test.go",
+    "backend/internal/customize/modules/marketing/coupon.go",
+    "backend/internal/customize/modules/marketing/admission.go",
+    "backend/internal/customize/modules/marketing/admission_test.go",
+    "backend/internal/customize/modules/marketing/coupon_repository.go",
+    "backend/internal/customize/modules/marketing/coupon_service.go",
+    "backend/internal/customize/modules/marketing/lottery.go",
+    "backend/internal/customize/modules/marketing/lottery_repository.go",
+    "backend/internal/customize/modules/marketing/lottery_service.go",
+    "backend/internal/customize/modules/marketing/host_ports.go",
+    "backend/internal/customize/modules/marketing/coupon_service_test.go",
+    "backend/internal/customize/modules/marketing/lottery_service_test.go",
+    "backend/internal/service/marketing_bridge_test.go",
+    "backend/internal/repository/marketing_tx.go",
+    "backend/internal/repository/marketing_tx_test.go",
+    "backend/internal/service/payment_marketing.go",
+    "backend/internal/service/payment_marketing_test.go",
+    "backend/internal/customize/modules/marketing/handler.go",
+    "backend/internal/customize/modules/marketing/routes.go",
+    "backend/internal/customize/modules/marketing/handler_test.go",
+    "backend/internal/customize/wiring/marketing_test.go",
+    "backend/internal/customize/wiring/marketing_admission.go",
+    "backend/internal/customize/wiring/marketing_admission_test.go",
+    "backend/internal/customize/wiring/marketing_routes_admission_test.go",
+    "frontend/src/extensions/modules/marketing/LotteryView.vue",
+    "frontend/src/extensions/modules/marketing/AdminCouponTemplatesView.vue",
+    "frontend/src/extensions/modules/marketing/AdminLotteryView.vue",
+    "frontend/src/extensions/modules/marketing/api.ts",
+    "frontend/src/extensions/modules/marketing/routes.ts",
+    "frontend/src/extensions/modules/marketing/checkout.ts",
+    "frontend/src/extensions/modules/marketing/api.spec.ts",
+    "frontend/src/extensions/modules/marketing/routes.spec.ts",
+    "frontend/src/extensions/modules/marketing/CouponSelection.vue",
+    "frontend/src/extensions/modules/marketing/CouponSummary.vue",
+    "frontend/src/extensions/modules/marketing/checkout.spec.ts",
+    "backend/internal/service/payment_creation_failure.go",
+    "backend/internal/service/payment_creation_failure_test.go",
+    "backend/internal/service/payment_marketing_refund_test.go",
+    "backend/internal/customize/modules/multigroupbilling/policy.go",
+    "backend/internal/customize/modules/multigroupbilling/policy_test.go",
+    "backend/internal/service/api_key_group_selection.go",
+    "backend/internal/service/api_key_group_selection_test.go",
+    "backend/internal/customize/modules/multigroupbilling/binding.go",
+    "backend/internal/customize/modules/multigroupbilling/binding_test.go",
+    "backend/internal/service/api_key_group_binding.go",
+    "backend/internal/service/api_key_group_binding_test.go",
+    "backend/internal/customize/modules/multigroupbilling/group_lifecycle.go",
+    "backend/internal/customize/modules/multigroupbilling/group_lifecycle_sql.go",
+    "backend/internal/customize/modules/multigroupbilling/group_lifecycle_test.go",
+    "backend/internal/repository/api_key_group_binding.go",
+    "backend/internal/repository/api_key_group_binding_test.go",
+    "backend/internal/customize/modules/multigroupbilling/ownership.go",
+    "backend/internal/customize/modules/multigroupbilling/ownership_test.go",
+    "backend/internal/customize/modules/multigroupbilling/entschema/routing.go",
+    "backend/internal/customize/migrations/sql/multi-group-billing/202609260003_key_routing_ownership.sql",
+    "backend/internal/customize/migrations/key_routing_ownership_test.go",
+    "backend/internal/service/api_key_routing_ownership_test.go",
+    "backend/internal/repository/api_key_routing_ownership_test.go",
+    "backend/internal/customize/modules/multigroupbilling/admission.go",
+    "backend/internal/customize/modules/multigroupbilling/admission_test.go",
+    "backend/internal/customize/wiring/key_routing_admission.go",
+    "backend/internal/customize/wiring/key_routing_admission_test.go",
+    "backend/internal/service/api_key_routing_admission_test.go",
+    "backend/internal/customize/migrations/sql/multi-group-billing/202609290001_adopt_multi_group_billing.sql",
+    "backend/internal/customize/migrations/multi_group_adoption_test.go",
+    "frontend/src/extensions/modules/multi-group-billing/key-routing.ts",
+    "frontend/src/extensions/modules/multi-group-billing/key-routing.spec.ts"
+  ],
+  "forbidden_references": [
+    {
+      "file": "backend/internal/handler/admin/dashboard_handler.go",
+      "patterns": [
+        "Operations",
+        "operationsFunnel",
+        "marketingEmailService"
+      ]
+    },
+    {
+      "file": "backend/internal/service/dashboard_service.go",
+      "patterns": [
+        "OperationsRepository",
+        "OperationsService",
+        "GetOperations",
+        "ListOperations"
+      ]
+    },
+    {
+      "file": "backend/internal/service/usage_log.go",
+      "patterns": [
+        "OperationsFunnel",
+        "OperationsFinance",
+        "OperationsCustomer"
+      ]
+    },
+    {
+      "file": "backend/internal/service/wire.go",
+      "patterns": [
+        "NewOperations",
+        "ProvidePlaygroundRunService,",
+        "NewCouponService,",
+        "NewLotteryService,"
+      ]
+    },
+    {
+      "file": "backend/internal/handler/wire.go",
+      "patterns": [
+        "ProvideAdminDashboardHandler",
+        "NewOperations",
+        "NewPlaygroundHandler,"
+      ]
+    },
+    {
+      "file": "backend/internal/repository/usage_log_repo_custom.go",
+      "patterns": [
+        "GetOperations",
+        "ListOperations",
+        "getOperationsFunnelBase"
+      ]
+    },
+    {
+      "file": "frontend/src/api/admin/dashboard.ts",
+      "patterns": [
+        "Operations",
+        "operations-"
+      ]
+    },
+    {
+      "file": "frontend/src/components/layout/AppHeader.vue",
+      "patterns": [
+        "RechargeCampaignTicker",
+        "CustomerServiceFloat"
+      ]
+    },
+    {
+      "file": "frontend/src/components/layout/AppLayout.vue",
+      "patterns": [
+        "CustomerServiceFloat",
+        "RechargeCampaignTicker"
+      ]
+    },
+    {
+      "file": "frontend/src/views/user/PaymentView.vue",
+      "patterns": [
+        "[Cc]ampaign",
+        "useExtensionStore",
+        "getAffiliateDetail",
+        "@/extensions/modules/",
+        "selectedCoupon",
+        "user_coupon_id",
+        "couponOptions",
+        "UserCoupon",
+        "availableCoupons"
+      ]
+    },
+    {
+      "file": "backend/internal/service/recharge_campaign.go",
+      "patterns": [
+        "SELECT id, config FROM recharge_campaigns",
+        "INSERT INTO recharge_campaigns",
+        "UPDATE recharge_campaigns",
+        "func \\(s \\*PaymentService\\) (List|Save)RechargeCampaign",
+        "SELECT ",
+        "INSERT INTO ",
+        "UPDATE user_affiliates",
+        "decimal\\.",
+        "json\\.(Marshal|Unmarshal)",
+        "func (campaignAmounts|automaticRechargeCampaign)"
+      ]
+    },
+    {
+      "file": "backend/internal/handler/payment_handler.go",
+      "patterns": [
+        "func \\(h \\*PaymentHandler\\) (List|Save)RechargeCampaign"
+      ]
+    },
+    {
+      "file": "backend/internal/handler/admin/payment_handler.go",
+      "patterns": [
+        "func \\(h \\*PaymentHandler\\) (List|Save)RechargeCampaign"
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/rechargecampaigns/checkout.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "github.com/Wei-Shaw/sub2api/internal/customize\""
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/rechargecampaigns/snapshot.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "github.com/Wei-Shaw/sub2api/internal/customize\""
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/rechargecampaigns/rewards.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "github.com/Wei-Shaw/sub2api/internal/customize\""
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/marketing/coupon.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "github.com/Wei-Shaw/sub2api/internal/customize\"",
+        "\\.Tx\\(",
+        "\\.Commit\\(",
+        "\\.Rollback\\("
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/marketing/coupon_repository.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "github.com/Wei-Shaw/sub2api/internal/customize\"",
+        "\\.Tx\\(",
+        "\\.Commit\\(",
+        "\\.Rollback\\("
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/marketing/coupon_service.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "github.com/Wei-Shaw/sub2api/internal/customize\"",
+        "\\.Tx\\(",
+        "\\.Commit\\(",
+        "\\.Rollback\\("
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/marketing/lottery.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "github.com/Wei-Shaw/sub2api/internal/customize\"",
+        "\\.Tx\\(",
+        "\\.Commit\\(",
+        "\\.Rollback\\("
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/marketing/lottery_repository.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "github.com/Wei-Shaw/sub2api/internal/customize\"",
+        "\\.Tx\\(",
+        "\\.Commit\\(",
+        "\\.Rollback\\("
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/marketing/lottery_service.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "github.com/Wei-Shaw/sub2api/internal/customize\"",
+        "\\.Tx\\(",
+        "\\.Commit\\(",
+        "\\.Rollback\\("
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/marketing/host_ports.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "github.com/Wei-Shaw/sub2api/internal/customize\"",
+        "\\.Tx\\(",
+        "\\.Commit\\(",
+        "\\.Rollback\\("
+      ]
+    },
+    {
+      "file": "backend/internal/repository/wire.go",
+      "patterns": [
+        "NewCouponTemplateRepository,",
+        "NewUserCouponRepository,",
+        "NewPaymentOrderDiscountRepository,",
+        "NewLotteryActivityRepository,",
+        "NewLotteryPrizeRepository,",
+        "NewLotteryUserStateRepository,",
+        "NewLotteryChanceLogRepository,",
+        "NewLotteryDrawRecordRepository,",
+        "NewLotteryConsumeProgressRepository,"
+      ]
+    },
+    {
+      "file": "backend/internal/service/marketing_coupon_service.go",
+      "patterns": [
+        "func \\(s \\*CouponService\\)",
+        "validateCouponTemplate",
+        "crypto/rand",
+        "SELECT ",
+        "UPDATE ",
+        "INSERT "
+      ]
+    },
+    {
+      "file": "backend/internal/service/marketing_lottery_service.go",
+      "patterns": [
+        "pickLotteryPrize",
+        "validateLottery",
+        "buildDrawEligibility",
+        "tryGrantDefaultChances",
+        "GetByIDForUpdate",
+        "DecrementStock",
+        "math/rand",
+        "SELECT ",
+        "UPDATE ",
+        "INSERT "
+      ]
+    },
+    {
+      "file": "backend/internal/repository/marketing_coupon_repo.go",
+      "patterns": [
+        "r\\.sql\\.(ExecContext|QueryContext)",
+        "exec := r\\.sql"
+      ]
+    },
+    {
+      "file": "backend/internal/repository/marketing_lottery_repo.go",
+      "patterns": [
+        "r\\.sql\\.(ExecContext|QueryContext)",
+        "exec := r\\.sql"
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/marketing/handler.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/internal/server/middleware",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "github.com/Wei-Shaw/sub2api/internal/customize\""
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/marketing/routes.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/internal/server/middleware",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "github.com/Wei-Shaw/sub2api/internal/customize\""
+      ]
+    },
+    {
+      "file": "backend/internal/handler/payment_handler.go",
+      "patterns": [
+        "couponService",
+        "lotteryService",
+        "\\) (GetMyCoupons|DrawLottery|ListCouponTemplates|ListLotteryActivities)\\("
+      ]
+    },
+    {
+      "file": "backend/internal/handler/admin/payment_handler.go",
+      "patterns": [
+        "couponService",
+        "lotteryService",
+        "\\) (GetMyCoupons|DrawLottery|ListCouponTemplates|ListLotteryActivities)\\("
+      ]
+    },
+    {
+      "file": "backend/internal/server/routes/payment.go",
+      "patterns": [
+        "\"/coupons\"",
+        "\"/coupon-templates\"",
+        "\"/lottery"
+      ]
+    },
+    {
+      "file": "frontend/src/api/payment.ts",
+      "patterns": [
+        "getCoupons\\(",
+        "getActiveLottery\\(",
+        "drawLottery\\(",
+        "getMyDrawRecords\\("
+      ]
+    },
+    {
+      "file": "frontend/src/api/admin/payment.ts",
+      "patterns": [
+        "getCouponTemplates\\(",
+        "createCouponTemplate\\(",
+        "updateCouponTemplate\\(",
+        "getLotteryActivities\\(",
+        "createLotteryActivity\\(",
+        "updateLotteryActivity\\(",
+        "deleteLotteryActivity\\(",
+        "createLotteryPrize\\(",
+        "updateLotteryPrize\\(",
+        "getLotteryDrawRecords\\("
+      ]
+    },
+    {
+      "file": "frontend/src/router/index.ts",
+      "patterns": [
+        "path: '/lottery'",
+        "path: '/admin/orders/coupons'",
+        "path: '/admin/orders/lottery'"
+      ]
+    },
+    {
+      "file": "backend/internal/service/payment_order.go",
+      "patterns": [
+        "SetStatus\\(OrderStatusFailed\\)"
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/multigroupbilling/policy.go",
+      "patterns": [
+        "github\\.com/Wei-Shaw/sub2api/internal/(service|repository|server|handler|customize)\\b",
+        "github\\.com/Wei-Shaw/sub2api/ent\\b"
+      ]
+    },
+    {
+      "file": "backend/internal/service/api_key_service.go",
+      "patterns": [
+        "subscriptionCandidates",
+        "balanceFallbacks",
+        "func \\(s \\*APIKeyService\\) SelectUsableGroupForAPIKey",
+        "func \\(s \\*APIKeyService\\) validateBindableGroupIDs",
+        "requestedPlatform := apiKey.Platform"
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/multigroupbilling/binding.go",
+      "patterns": [
+        "github\\.com/Wei-Shaw/sub2api/internal/(service|repository|server|handler|customize)\\b",
+        "github\\.com/Wei-Shaw/sub2api/ent\\b"
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/multigroupbilling/group_lifecycle.go",
+      "patterns": [
+        "github\\.com/Wei-Shaw/sub2api/internal/(service|repository|server|handler|customize)\\b",
+        "github\\.com/Wei-Shaw/sub2api/ent\\b"
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/multigroupbilling/group_lifecycle_sql.go",
+      "patterns": [
+        "github\\.com/Wei-Shaw/sub2api/internal/(service|repository|server|handler|customize)\\b",
+        "github\\.com/Wei-Shaw/sub2api/ent\\b"
+      ]
+    },
+    {
+      "file": "backend/internal/repository/api_key_repo.go",
+      "patterns": [
+        "func \\(r \\*apiKeyRepository\\) (ClearGroupIDByGroupID|UpdateGroupIDByUserAndGroup)",
+        "func (apiKeyContainsGroupID|removeAPIKeyGroupID|replaceAPIKeyGroupID)",
+        "WITH new_group AS"
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/multigroupbilling/admission.go",
+      "patterns": [
+        "github\\.com/Wei-Shaw/sub2api/internal/(service|repository|server|handler|customize)\\b",
+        "github\\.com/Wei-Shaw/sub2api/ent\\b"
+      ]
+    }
+  ],
+  "required_markers": [
+    {
+      "file": "backend/cmd/server/wire_gen.go",
+      "marker": "wiring.ProvideCouponService("
+    },
+    {
+      "file": "backend/cmd/server/wire_gen.go",
+      "marker": "wiring.ProvideLotteryService("
+    },
+    {
+      "file": "backend/cmd/server/wire_gen.go",
+      "marker": "wiring.ProvideMarketingAdmission(settingRepository)"
+    },
+    {
+      "file": "backend/internal/customize/wiring/providers.go",
+      "marker": "ProvideCouponService,"
+    },
+    {
+      "file": "backend/internal/customize/wiring/providers.go",
+      "marker": "ProvideLotteryService,"
+    },
+    {
+      "file": "backend/cmd/server/wire.go",
+      "marker": "extensionwiring.ProviderSet,"
+    },
+    {
+      "file": "backend/internal/handler/handler.go",
+      "marker": "*ExtensionHandlers"
+    },
+    {
+      "file": "backend/internal/server/routes/custom_extensions.go",
+      "marker": "h.Extensions.Operations.GetOperationsFinance"
+    },
+    {
+      "file": "frontend/src/App.vue",
+      "marker": "<ExtensionSlot name=\"application-overlay\" />"
+    },
+    {
+      "file": "frontend/src/components/layout/AppHeader.vue",
+      "marker": "<ExtensionSlot v-if=\"user\" name=\"header-bottom\" />"
+    },
+    {
+      "file": "frontend/src/components/layout/AppLayout.vue",
+      "marker": "<ExtensionSlot name=\"layout-overlay\" />"
+    },
+    {
+      "file": "frontend/src/views/user/PaymentView.vue",
+      "marker": "useCheckoutExtensions({"
+    },
+    {
+      "file": "backend/internal/service/recharge_campaign.go",
+      "marker": "return s.rechargeCampaignCatalog().Quote(ctx, rechargecampaigns.QuoteInput{"
+    },
+    {
+      "file": "backend/internal/service/recharge_campaign.go",
+      "marker": "return rechargecampaigns.ReverseReward(ctx, client, rechargecampaigns.Refund{"
+    },
+    {
+      "file": "backend/internal/service/payment_order.go",
+      "marker": "attachRechargeCampaign(providerSnapshot, req.campaign, time.Now())"
+    },
+    {
+      "file": "backend/internal/service/marketing_lottery_service.go",
+      "marker": "type LotteryService = marketing.LotteryService[RedeemCode]"
+    },
+    {
+      "file": "backend/internal/service/marketing_lottery_service.go",
+      "marker": "work(dbent.NewTxContext(ctx, tx))"
+    },
+    {
+      "file": "backend/internal/service/marketing_coupon_service.go",
+      "marker": "return marketing.NewCouponService(templates, coupons, discounts)"
+    },
+    {
+      "file": "backend/internal/customize/modules/marketing/lottery_service.go",
+      "marker": "s.transactions.WithinLotteryTransaction(ctx, func(txCtx context.Context) error {"
+    },
+    {
+      "file": "backend/internal/repository/redeem_code_repo.go",
+      "marker": "clientFromContext(ctx, r.client).RedeemCode.Create()"
+    },
+    {
+      "file": "backend/internal/repository/marketing_tx.go",
+      "marker": "return tx.Client()"
+    },
+    {
+      "file": "backend/internal/service/payment_order.go",
+      "marker": "s.reserveOrderCoupon(dbent.NewTxContext(ctx, tx), req, order.ID)"
+    },
+    {
+      "file": "backend/internal/service/marketing_lottery_service.go",
+      "marker": "dbuser.BalanceGTE(-delta)"
+    },
+    {
+      "file": "backend/internal/server/routes/custom_extensions.go",
+      "marker": "h.Marketing.RegisterUserRoutes(group)"
+    },
+    {
+      "file": "backend/internal/server/routes/custom_extensions.go",
+      "marker": "h.Marketing.RegisterAdminRoutes(group)"
+    },
+    {
+      "file": "frontend/src/extensions/routes.ts",
+      "marker": "...marketingRoutes,"
+    },
+    {
+      "file": "backend/internal/service/api_key_group_selection.go",
+      "marker": "multigroupbilling.Select(ctx, &key, host)"
+    },
+    {
+      "file": "backend/internal/service/api_key.go",
+      "marker": "return multigroupbilling.NormalizeGroupIDs(primary, groupIDs)"
+    },
+    {
+      "file": "backend/internal/service/api_key_group_binding.go",
+      "marker": "multigroupbilling.PlanUpdate("
+    },
+    {
+      "file": "backend/internal/service/api_key_group_binding.go",
+      "marker": "multigroupbilling.PlanCreate("
+    },
+    {
+      "file": "backend/internal/repository/api_key_group_binding.go",
+      "marker": "multigroupbilling.ClearGroupBindingsSQL"
+    },
+    {
+      "file": "backend/internal/repository/api_key_group_binding.go",
+      "marker": "multigroupbilling.ReplaceGroupBindingsSQL"
+    },
+    {
+      "file": "backend/internal/repository/api_key_group_binding.go",
+      "marker": "clientFromContext(ctx, r.client)"
+    },
+    {
+      "file": "backend/ent/schema/api_key.go",
+      "marker": "routing.Routing{}"
+    },
+    {
+      "file": "backend/internal/repository/api_key_repo.go",
+      "marker": "SetCustomRoutingPolicy(policy)"
+    },
+    {
+      "file": "backend/internal/service/api_key_group_selection.go",
+      "marker": "multigroupbilling.NativeRouting"
+    },
+    {
+      "file": "backend/cmd/server/wire_gen.go",
+      "marker": "wiring.ProvideKeyRoutingAdmission(settingRepository)"
+    },
+    {
+      "file": "backend/internal/service/wire.go",
+      "marker": "svc.SetRoutingAdmission(routingAdmission)"
+    },
+    {
+      "file": "backend/internal/service/api_key_group_binding.go",
+      "marker": "multigroupbilling.DecideCreate("
+    },
+    {
+      "file": "backend/internal/service/api_key_group_binding.go",
+      "marker": "multigroupbilling.CheckUpdate("
+    },
+    {
+      "file": "backend/internal/service/api_key_service.go",
+      "marker": "RoutingPolicy:   routingPolicy,"
+    },
+    {
+      "file": "frontend/src/views/user/KeysView.vue",
+      "marker": "useMultiGroupAdmission()"
+    }
+  ]
+}

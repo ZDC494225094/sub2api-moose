@@ -310,6 +310,20 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		balanceLowNotifyThreshold = v
 	}
 
+	// Site-customization extension: filter custom UI settings when disabled.
+	customMenuItems := settings[SettingKeyCustomMenuItems]
+	footerFriendLinks := settings[SettingKeyFooterFriendLinks]
+	customEndpoints := settings[SettingKeyCustomEndpoints]
+	if s.siteCustomizationSettingsAdmission != nil {
+		if admission, ok := s.siteCustomizationSettingsAdmission.(interface {
+			ShouldExposeCustomUI(context.Context) bool
+		}); ok && !admission.ShouldExposeCustomUI(ctx) {
+			customMenuItems = ""
+			footerFriendLinks = ""
+			customEndpoints = ""
+		}
+	}
+
 	return &PublicSettings{
 		RegistrationEnabled:                   settings[SettingKeyRegistrationEnabled] == "true",
 		EmailVerifyEnabled:                    emailVerifyEnabled,
@@ -348,8 +362,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		PurchaseSubscriptionURL:               strings.TrimSpace(settings[SettingKeyPurchaseSubscriptionURL]),
 		TableDefaultPageSize:                  tableDefaultPageSize,
 		TablePageSizeOptions:                  tablePageSizeOptions,
-		CustomMenuItems:                       settings[SettingKeyCustomMenuItems],
-		CustomEndpoints:                       settings[SettingKeyCustomEndpoints],
+		CustomMenuItems:                       customMenuItems,
+		CustomEndpoints:                       customEndpoints,
 		LinuxDoOAuthEnabled:                   linuxDoEnabled,
 		DingTalkOAuthEnabled:                  dingTalkEnabled,
 		WeChatOAuthEnabled:                    weChatEnabled,
@@ -373,7 +387,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		HomePricingCompareEnabled:             !isFalseSettingValue(settings[SettingKeyHomePricingCompareEnabled]),
 		HomeDocsEnabled:                       !isFalseSettingValue(settings[SettingKeyHomeDocsEnabled]),
 		FooterContent:                         settings[SettingKeyFooterContent],
-		FooterFriendLinks:                     settings[SettingKeyFooterFriendLinks],
+		FooterFriendLinks:                     footerFriendLinks,
 		MainlandChinaAccessRestrictionEnabled: settings[SettingKeyMainlandChinaAccessRestrictionEnabled] == "true",
 
 		ChannelMonitorEnabled:                !isFalseSettingValue(settings[SettingKeyChannelMonitorEnabled]),

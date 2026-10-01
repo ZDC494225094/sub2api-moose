@@ -9,7 +9,7 @@ import (
 )
 
 type financeRepositoryStub struct {
-	UsageLogRepository
+	OperationsRepository
 	result *OperationsFinanceResponse
 }
 
@@ -37,7 +37,7 @@ func TestOperationsFinanceProfit(t *testing.T) {
 }
 
 func TestOperationsFinanceSummaryDoesNotDoubleCountDimensions(t *testing.T) {
-	s := &DashboardService{usageRepo: financeRepositoryStub{result: &OperationsFinanceResponse{Rows: []OperationsFinanceRow{
+	s := &OperationsService{repository: financeRepositoryStub{result: &OperationsFinanceResponse{Rows: []OperationsFinanceRow{
 		{Dimension: "day", Consumption: 10, Cost: 5, Recharge: 100, Requests: 1, TotalOrders: 5, PaidOrders: 2, ExcludedRecharge: 99},
 		{Dimension: "day", Consumption: 90, Cost: 85, Recharge: 200, Subscription: 200, Requests: 2, TotalOrders: 3, PaidOrders: 1, ExcludedRecharge: 77},
 		{Dimension: "upstream", Consumption: 100, Cost: 90, Requests: 3},

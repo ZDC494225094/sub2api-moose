@@ -346,3 +346,23 @@ func TestOpenAIModelsCacheSeparatesRepresentationsForIdenticalRequests(t *testin
 	require.JSONEq(t, manifestBody, string(manifest.Body))
 	require.EqualValues(t, 2, calls.Load())
 }
+
+// Model a caller which observed a miss (or stale entry), was descheduled,
+// and enters singleflight only after an earlier caller populated the cache.
+func TestRefreshCachedOpenAIModelsLateJoinerRechecksFreshness(t *testing.T) {
+	s := &OpenAIGatewayService{}
+	request := openAIModelsRequest{url: "https://models.example/v1/models", accountID: 2}
+	key := buildOpenAIModelsCacheKey(request)
+	_, state := s.openAIModelsCache.get(key, time.Now())
+	require.Equal(t, openAIModelsCacheMiss, state)
+	cached := &OpenAIModelsResponse{Body: []byte(`{"data":[{"id":"cached"}]}`), ETag: "cached-etag"}
+	s.openAIModelsCache.set(key, cached, time.Now())
+	var calls atomic.Int32
+	result := <-s.refreshCachedOpenAIModels(key, request, func(context.Context, string) (*OpenAIModelsResponse, error) {
+		calls.Add(1)
+		return &OpenAIModelsResponse{Body: []byte(`{"data":[]}`)}, nil
+	})
+	require.NoError(t, result.Err)
+	require.Same(t, cached, result.Val)
+	require.Zero(t, calls.Load())
+}

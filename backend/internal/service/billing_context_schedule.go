@@ -161,7 +161,7 @@ func resolvedTimePricingSchedule(resolved *ResolvedPricing) *TimePricingSchedule
 		// 锚点日必须是工作日（2026-01-05 为周一）：weekdays_only 配置在周末恒为 1，
 		// 锚点落在周末会把时段整组剔除。
 		at := time.Date(2026, time.January, 5, 0, 0, start+1, 0, location)
-		multiplier := resolvedChannelTimeMultiplier(resolved, at)
+		multiplier := resolvedChannelTimeMultiplier(nil, resolved, at)
 		if multiplier == 1 {
 			continue
 		}

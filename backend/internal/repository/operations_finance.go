@@ -32,7 +32,7 @@ const operationsFinanceCashQuery = `
  AND order_type IN ('balance','subscription') AND status IN ($4,$5,$6)
  GROUP BY 1,2`
 
-func (r *usageLogRepository) GetOperationsFinance(ctx context.Context, start, end time.Time) (*service.OperationsFinanceResponse, error) {
+func (r *operationsRepository) GetOperationsFinance(ctx context.Context, start, end time.Time) (*service.OperationsFinanceResponse, error) {
 	// One statement gives all dimensions and inventory the same database snapshot.
 	// Include zero-charge requests: they may still incur upstream costs.
 	const query = `WITH usage AS MATERIALIZED (

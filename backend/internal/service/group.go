@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -10,6 +11,15 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 )
+
+// rateMultiplierAdmission is injected at runtime and checked before applying custom rate multipliers.
+var rateMultiplierAdmission interface{} // billingscheduling.RateMultiplierAdmission
+
+// SetRateMultiplierAdmission injects the admission check for rate multipliers.
+// Called during application initialization.
+func SetRateMultiplierAdmission(admission interface{}) {
+	rateMultiplierAdmission = admission
+}
 
 type OpenAIMessagesDispatchModelConfig = domain.OpenAIMessagesDispatchModelConfig
 type GroupCodexModelsManifestConfig = domain.GroupCodexModelsManifestConfig
@@ -317,6 +327,20 @@ func parseMinutes(hhmm string) (int, bool) {
 //
 // 该方法是纯函数，不读取任何外部状态，便于单测。
 func (g *Group) PeakMultiplierAt(now time.Time) float64 {
+	return g.PeakMultiplierAtWithAdmission(nil, now)
+}
+
+// PeakMultiplierAtWithAdmission 返回指定时刻 now 的高峰因子，并执行准入检查。
+// 当 billing-scheduling 扩展关闭时，返回 1.0（不应用自定义倍率）。
+func (g *Group) PeakMultiplierAtWithAdmission(ctx context.Context, now time.Time) float64 {
+	// Check admission: if extension is disabled, return 1.0 (no custom rate multiplier)
+	if adm, ok := rateMultiplierAdmission.(interface{ AllowRateMultiplier(context.Context) error }); ok && ctx != nil {
+		if err := adm.AllowRateMultiplier(ctx); err != nil {
+			// Extension disabled, fallback to 1.0 (no multiplier enhancement)
+			return 1.0
+		}
+	}
+
 	if g == nil || !g.IsSubscriptionType() || !g.PeakRateEnabled || g.PeakStart == "" || g.PeakEnd == "" {
 		return 1.0
 	}

@@ -43,7 +43,7 @@ func NewLotteryConsumeProgressRepository(db *sql.DB) service.LotteryConsumeProgr
 }
 
 func (r *lotteryActivityRepository) Create(ctx context.Context, item *service.LotteryActivity) error {
-	return scanSingleRow(ctx, r.sql, `
+	return scanSingleRow(ctx, marketingSQL(ctx, r.sql), `
 INSERT INTO lottery_activities (
   name, description, status, default_draw_times, consume_threshold_amount,
   wallet_cost_per_draw, starts_at, ends_at, sort_order
@@ -56,12 +56,12 @@ RETURNING id, created_at, updated_at`, []any{
 }
 
 func (r *lotteryActivityRepository) Delete(ctx context.Context, id int64) error {
-	_, err := r.sql.ExecContext(ctx, `DELETE FROM lottery_activities WHERE id = $1`, id)
+	_, err := marketingSQL(ctx, r.sql).ExecContext(ctx, `DELETE FROM lottery_activities WHERE id = $1`, id)
 	return err
 }
 
 func (r *lotteryActivityRepository) Update(ctx context.Context, item *service.LotteryActivity) error {
-	return scanSingleRow(ctx, r.sql, `
+	return scanSingleRow(ctx, marketingSQL(ctx, r.sql), `
 UPDATE lottery_activities
 SET name = $2,
     description = $3,
@@ -101,7 +101,7 @@ WHERE ` + predicate + ` ORDER BY sort_order ASC, id ASC LIMIT 1`
 	if forUpdate {
 		query += ` FOR UPDATE`
 	}
-	exec := r.sql
+	exec := marketingSQL(ctx, r.sql)
 	item := &service.LotteryActivity{}
 	var startsAt sql.NullTime
 	var endsAt sql.NullTime
@@ -128,7 +128,7 @@ WHERE ` + predicate + ` ORDER BY sort_order ASC, id ASC LIMIT 1`
 }
 
 func (r *lotteryActivityRepository) List(ctx context.Context, params pagination.PaginationParams, filter service.LotteryActivityListFilter) ([]service.LotteryActivity, *pagination.PaginationResult, error) {
-	exec := r.sql
+	exec := marketingSQL(ctx, r.sql)
 	where := []string{"1=1"}
 	args := make([]any, 0, 2)
 	if filter.Status != "" {
@@ -178,7 +178,7 @@ WHERE `+whereClause+fmt.Sprintf(" ORDER BY sort_order ASC, id ASC LIMIT %d OFFSE
 }
 
 func (r *lotteryPrizeRepository) Create(ctx context.Context, item *service.LotteryPrize) error {
-	return scanSingleRow(ctx, r.sql, `
+	return scanSingleRow(ctx, marketingSQL(ctx, r.sql), `
 INSERT INTO lottery_prizes (
   activity_id, name, prize_type, stock, remaining_stock, balance_amount,
   coupon_template_id, display_order, status
@@ -191,7 +191,7 @@ RETURNING id, created_at, updated_at`, []any{
 }
 
 func (r *lotteryPrizeRepository) Update(ctx context.Context, item *service.LotteryPrize) error {
-	return scanSingleRow(ctx, r.sql, `
+	return scanSingleRow(ctx, marketingSQL(ctx, r.sql), `
 UPDATE lottery_prizes
 SET name = $2,
     prize_type = $3,
@@ -210,7 +210,7 @@ RETURNING updated_at`, []any{
 }
 
 func (r *lotteryPrizeRepository) GetByID(ctx context.Context, id int64) (*service.LotteryPrize, error) {
-	exec := r.sql
+	exec := marketingSQL(ctx, r.sql)
 	query := `
 SELECT id, activity_id, name, prize_type, stock, remaining_stock, balance_amount,
        coupon_template_id, display_order, status, created_at, updated_at
@@ -245,7 +245,7 @@ func (r *lotteryPrizeRepository) ListActiveByActivityForUpdate(ctx context.Conte
 }
 
 func (r *lotteryPrizeRepository) listByActivity(ctx context.Context, activityID int64, forUpdate bool) ([]service.LotteryPrize, error) {
-	exec := r.sql
+	exec := marketingSQL(ctx, r.sql)
 	query := `
 SELECT id, activity_id, name, prize_type, stock, remaining_stock, balance_amount,
        coupon_template_id, display_order, status, created_at, updated_at
@@ -283,7 +283,7 @@ ORDER BY display_order ASC, id ASC`
 }
 
 func (r *lotteryPrizeRepository) DecrementStock(ctx context.Context, prizeID int64) error {
-	_, err := r.sql.ExecContext(ctx, `
+	_, err := marketingSQL(ctx, r.sql).ExecContext(ctx, `
 UPDATE lottery_prizes
 SET remaining_stock = remaining_stock - 1,
     updated_at = NOW()
@@ -292,8 +292,28 @@ WHERE id = $1
 	return err
 }
 
+func (r *lotteryUserStateRepository) Get(ctx context.Context, activityID, userID int64) (*service.LotteryUserState, error) {
+	item := &service.LotteryUserState{}
+	err := scanSingleRow(ctx, marketingSQL(ctx, r.sql), `
+SELECT activity_id, user_id, default_granted, available_draw_times, total_granted_times,
+       total_drawn_times, total_wallet_paid_amount, created_at, updated_at
+FROM lottery_user_states
+WHERE activity_id = $1 AND user_id = $2`, []any{activityID, userID},
+		&item.ActivityID, &item.UserID, &item.DefaultGranted, &item.AvailableDrawTimes,
+		&item.TotalGrantedTimes, &item.TotalDrawnTimes, &item.TotalWalletPaidAmount,
+		&item.CreatedAt, &item.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
 func (r *lotteryUserStateRepository) GetOrCreate(ctx context.Context, activityID, userID int64) (*service.LotteryUserState, error) {
-	exec := r.sql
+	exec := marketingSQL(ctx, r.sql)
 	_, err := exec.ExecContext(ctx, `
 INSERT INTO lottery_user_states (activity_id, user_id)
 VALUES ($1,$2)
@@ -318,7 +338,7 @@ WHERE activity_id = $1 AND user_id = $2`, []any{activityID, userID},
 }
 
 func (r *lotteryUserStateRepository) GetOrCreateForUpdate(ctx context.Context, activityID, userID int64) (*service.LotteryUserState, error) {
-	exec := r.sql
+	exec := marketingSQL(ctx, r.sql)
 	_, err := exec.ExecContext(ctx, `
 INSERT INTO lottery_user_states (activity_id, user_id)
 VALUES ($1,$2)
@@ -344,7 +364,7 @@ FOR UPDATE`, []any{activityID, userID},
 }
 
 func (r *lotteryUserStateRepository) Update(ctx context.Context, item *service.LotteryUserState) error {
-	return scanSingleRow(ctx, r.sql, `
+	return scanSingleRow(ctx, marketingSQL(ctx, r.sql), `
 UPDATE lottery_user_states
 SET default_granted = $3,
     available_draw_times = $4,
@@ -371,14 +391,14 @@ RETURNING id, created_at`
 		t := item.CreatedAt.UTC()
 		createdAt = &t
 	}
-	return scanSingleRow(ctx, r.sql, query, []any{
+	return scanSingleRow(ctx, marketingSQL(ctx, r.sql), query, []any{
 		item.ActivityID, item.UserID, item.ChangeAmount, item.BalanceAfter, item.SourceType,
 		item.SourceRefID, item.Notes, createdAt,
 	}, &item.ID, &item.CreatedAt)
 }
 
 func (r *lotteryDrawRecordRepository) Create(ctx context.Context, item *service.LotteryDrawRecord) error {
-	return scanSingleRow(ctx, r.sql, `
+	return scanSingleRow(ctx, marketingSQL(ctx, r.sql), `
 INSERT INTO lottery_draw_records (
   activity_id, user_id, prize_id, prize_name, prize_type, result_code,
   chance_source, wallet_amount, user_coupon_id, reward_reference
@@ -391,7 +411,7 @@ RETURNING id, created_at`, []any{
 }
 
 func (r *lotteryDrawRecordRepository) ListByUser(ctx context.Context, userID int64, activityID int64, params pagination.PaginationParams) ([]service.LotteryDrawRecord, *pagination.PaginationResult, error) {
-	exec := r.sql
+	exec := marketingSQL(ctx, r.sql)
 	where := []string{}
 	args := []any{}
 	if userID > 0 {
@@ -456,7 +476,7 @@ func (r *lotteryDrawRecordRepository) ListRecentByActivity(ctx context.Context, 
 	if limit <= 0 {
 		limit = 20
 	}
-	rows, err := r.sql.QueryContext(ctx, `
+	rows, err := marketingSQL(ctx, r.sql).QueryContext(ctx, `
 SELECT r.id, r.activity_id, r.user_id, r.prize_id, r.prize_name, r.prize_type, r.result_code, r.chance_source,
        r.wallet_amount, r.user_coupon_id, r.reward_reference, r.created_at, u.username, u.email
 FROM lottery_draw_records r
@@ -499,7 +519,7 @@ LIMIT $2`, activityID, limit)
 
 func (r *lotteryDrawRecordRepository) ExistsByActivity(ctx context.Context, activityID int64) (bool, error) {
 	var exists bool
-	err := scanSingleRow(ctx, r.sql, `
+	err := scanSingleRow(ctx, marketingSQL(ctx, r.sql), `
 SELECT EXISTS(
   SELECT 1
   FROM lottery_draw_records
@@ -512,7 +532,7 @@ SELECT EXISTS(
 }
 
 func (r *lotteryConsumeProgressRepository) GetQualifiedAmount(ctx context.Context, activityID, userID int64, threshold float64) (float64, error) {
-	exec := r.sql
+	exec := marketingSQL(ctx, r.sql)
 	var amount float64
 	err := scanSingleRow(ctx, exec, `
 SELECT COALESCE(SUM(pay_amount), 0)

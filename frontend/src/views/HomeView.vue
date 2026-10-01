@@ -491,8 +491,6 @@
       </div>
     </footer>
   </div>
-
-  <CustomerServiceFloat />
 </template>
 
 <script setup lang="ts">
@@ -500,7 +498,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
-import CustomerServiceFloat from '@/components/common/CustomerServiceFloat.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'

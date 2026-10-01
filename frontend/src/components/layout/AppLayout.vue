@@ -20,7 +20,7 @@
       </main>
     </div>
 
-    <CustomerServiceFloat />
+    <ExtensionSlot name="layout-overlay" />
   </div>
 </template>
 
@@ -33,7 +33,7 @@ import { useOnboardingTour } from '@/composables/useOnboardingTour'
 import { useOnboardingStore } from '@/stores/onboarding'
 import AppSidebar from './AppSidebar.vue'
 import AppHeader from './AppHeader.vue'
-import CustomerServiceFloat from '@/components/common/CustomerServiceFloat.vue'
+import ExtensionSlot from '@/extensions/components/ExtensionSlot.vue'
 
 const appStore = useAppStore()
 const authStore = useAuthStore()

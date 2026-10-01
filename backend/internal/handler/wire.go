@@ -171,13 +171,6 @@ func ProvideAdminSettingHandler(settingService *service.SettingService, emailSer
 	return h
 }
 
-// ProvideAdminDashboardHandler creates DashboardHandler and attaches operations marketing tools.
-func ProvideAdminDashboardHandler(dashboardService *service.DashboardService, aggregationService *service.DashboardAggregationService, marketingEmailService *service.OperationsMarketingEmailService) *admin.DashboardHandler {
-	h := admin.NewDashboardHandler(dashboardService, aggregationService)
-	h.SetOperationsMarketingEmailService(marketingEmailService)
-	return h
-}
-
 // ProvideHandlers creates the Handlers struct
 func ProvideHandlers(
 	authHandler *AuthHandler,
@@ -198,7 +191,7 @@ func ProvideHandlers(
 	paymentHandler *PaymentHandler,
 	paymentWebhookHandler *PaymentWebhookHandler,
 	availableChannelHandler *AvailableChannelHandler,
-	playgroundHandler *PlaygroundHandler,
+	extensionHandlers *ExtensionHandlers,
 	modelPlazaHandler *ModelPlazaHandler,
 	asyncImageHandler *AsyncImageHandler,
 	batchImageHandler *BatchImageHandler,
@@ -225,7 +218,7 @@ func ProvideHandlers(
 		Payment:          paymentHandler,
 		PaymentWebhook:   paymentWebhookHandler,
 		AvailableChannel: availableChannelHandler,
-		Playground:       playgroundHandler,
+		Extensions:       extensionHandlers,
 		ModelPlaza:       modelPlazaHandler,
 		AsyncImage:       asyncImageHandler,
 		BatchImage:       batchImageHandler,
@@ -252,13 +245,12 @@ var ProviderSet = wire.NewSet(
 	NewPaymentHandler,
 	NewPaymentWebhookHandler,
 	NewAvailableChannelHandler,
-	NewPlaygroundHandler,
 	NewModelPlazaHandler,
 	NewAsyncImageHandler,
 	ProvideBatchImageHandler,
 
 	// Admin handlers
-	ProvideAdminDashboardHandler,
+	admin.NewDashboardHandler,
 	admin.NewUserHandler,
 	admin.NewGroupHandlerWithConfig,
 	admin.ProvideAccountHandler,

@@ -151,6 +151,8 @@ type SettingService struct {
 	openAIQuotaAutoPauseSettingsSF    singleflight.Group
 	openAIAPIKeyHealthBreakerCache    atomic.Value // *cachedOpenAIAPIKeyHealthBreakerSettings
 
+	siteCustomizationSettingsAdmission interface{} // sitecustomization.SettingsFilterAdmission
+
 	channelMonitorRuntimeListenersMu sync.Mutex
 	channelMonitorRuntimeListeners   []func()
 }
@@ -302,6 +304,12 @@ func (s *SettingService) SetDefaultSubscriptionGroupReader(reader DefaultSubscri
 // SetProxyRepository injects a proxy repo for resolving websearch provider proxy URLs.
 func (s *SettingService) SetProxyRepository(repo ProxyRepository) {
 	s.proxyRepo = repo
+}
+
+// SetSiteCustomizationSettingsAdmission injects the site-customization extension admission
+// for filtering custom UI elements in public settings.
+func (s *SettingService) SetSiteCustomizationSettingsAdmission(admission interface{}) {
+	s.siteCustomizationSettingsAdmission = admission
 }
 
 func (s *SettingService) LoadForwardedClientIPSettings(ctx context.Context) error {

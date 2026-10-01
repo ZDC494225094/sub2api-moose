@@ -70,6 +70,11 @@ func DeletedAt(v time.Time) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldDeletedAt, v))
 }
 
+// CustomRoutingPolicy applies equality check predicate on the "custom_routing_policy" field. It's identical to CustomRoutingPolicyEQ.
+func CustomRoutingPolicy(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldCustomRoutingPolicy, v))
+}
+
 // UserID applies equality check predicate on the "user_id" field. It's identical to UserIDEQ.
 func UserID(v int64) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldUserID, v))
@@ -298,6 +303,71 @@ func DeletedAtIsNil() predicate.APIKey {
 // DeletedAtNotNil applies the NotNil predicate on the "deleted_at" field.
 func DeletedAtNotNil() predicate.APIKey {
 	return predicate.APIKey(sql.FieldNotNull(FieldDeletedAt))
+}
+
+// CustomRoutingPolicyEQ applies the EQ predicate on the "custom_routing_policy" field.
+func CustomRoutingPolicyEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldCustomRoutingPolicy, v))
+}
+
+// CustomRoutingPolicyNEQ applies the NEQ predicate on the "custom_routing_policy" field.
+func CustomRoutingPolicyNEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldCustomRoutingPolicy, v))
+}
+
+// CustomRoutingPolicyIn applies the In predicate on the "custom_routing_policy" field.
+func CustomRoutingPolicyIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldCustomRoutingPolicy, vs...))
+}
+
+// CustomRoutingPolicyNotIn applies the NotIn predicate on the "custom_routing_policy" field.
+func CustomRoutingPolicyNotIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldCustomRoutingPolicy, vs...))
+}
+
+// CustomRoutingPolicyGT applies the GT predicate on the "custom_routing_policy" field.
+func CustomRoutingPolicyGT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldCustomRoutingPolicy, v))
+}
+
+// CustomRoutingPolicyGTE applies the GTE predicate on the "custom_routing_policy" field.
+func CustomRoutingPolicyGTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldCustomRoutingPolicy, v))
+}
+
+// CustomRoutingPolicyLT applies the LT predicate on the "custom_routing_policy" field.
+func CustomRoutingPolicyLT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldCustomRoutingPolicy, v))
+}
+
+// CustomRoutingPolicyLTE applies the LTE predicate on the "custom_routing_policy" field.
+func CustomRoutingPolicyLTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldCustomRoutingPolicy, v))
+}
+
+// CustomRoutingPolicyContains applies the Contains predicate on the "custom_routing_policy" field.
+func CustomRoutingPolicyContains(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContains(FieldCustomRoutingPolicy, v))
+}
+
+// CustomRoutingPolicyHasPrefix applies the HasPrefix predicate on the "custom_routing_policy" field.
+func CustomRoutingPolicyHasPrefix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasPrefix(FieldCustomRoutingPolicy, v))
+}
+
+// CustomRoutingPolicyHasSuffix applies the HasSuffix predicate on the "custom_routing_policy" field.
+func CustomRoutingPolicyHasSuffix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasSuffix(FieldCustomRoutingPolicy, v))
+}
+
+// CustomRoutingPolicyEqualFold applies the EqualFold predicate on the "custom_routing_policy" field.
+func CustomRoutingPolicyEqualFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEqualFold(FieldCustomRoutingPolicy, v))
+}
+
+// CustomRoutingPolicyContainsFold applies the ContainsFold predicate on the "custom_routing_policy" field.
+func CustomRoutingPolicyContainsFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContainsFold(FieldCustomRoutingPolicy, v))
 }
 
 // UserIDEQ applies the EQ predicate on the "user_id" field.

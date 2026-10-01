@@ -67,6 +67,20 @@ func (_c *APIKeyCreate) SetNillableDeletedAt(v *time.Time) *APIKeyCreate {
 	return _c
 }
 
+// SetCustomRoutingPolicy sets the "custom_routing_policy" field.
+func (_c *APIKeyCreate) SetCustomRoutingPolicy(v string) *APIKeyCreate {
+	_c.mutation.SetCustomRoutingPolicy(v)
+	return _c
+}
+
+// SetNillableCustomRoutingPolicy sets the "custom_routing_policy" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableCustomRoutingPolicy(v *string) *APIKeyCreate {
+	if v != nil {
+		_c.SetCustomRoutingPolicy(*v)
+	}
+	return _c
+}
+
 // SetUserID sets the "user_id" field.
 func (_c *APIKeyCreate) SetUserID(v int64) *APIKeyCreate {
 	_c.mutation.SetUserID(v)
@@ -417,6 +431,10 @@ func (_c *APIKeyCreate) defaults() error {
 		v := apikey.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.CustomRoutingPolicy(); !ok {
+		v := apikey.DefaultCustomRoutingPolicy
+		_c.mutation.SetCustomRoutingPolicy(v)
+	}
 	if _, ok := _c.mutation.Platform(); !ok {
 		v := apikey.DefaultPlatform
 		_c.mutation.SetPlatform(v)
@@ -471,6 +489,14 @@ func (_c *APIKeyCreate) check() error {
 	}
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "APIKey.updated_at"`)}
+	}
+	if _, ok := _c.mutation.CustomRoutingPolicy(); !ok {
+		return &ValidationError{Name: "custom_routing_policy", err: errors.New(`ent: missing required field "APIKey.custom_routing_policy"`)}
+	}
+	if v, ok := _c.mutation.CustomRoutingPolicy(); ok {
+		if err := apikey.CustomRoutingPolicyValidator(v); err != nil {
+			return &ValidationError{Name: "custom_routing_policy", err: fmt.Errorf(`ent: validator failed for field "APIKey.custom_routing_policy": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.UserID(); !ok {
 		return &ValidationError{Name: "user_id", err: errors.New(`ent: missing required field "APIKey.user_id"`)}
@@ -580,6 +606,10 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.DeletedAt(); ok {
 		_spec.SetField(apikey.FieldDeletedAt, field.TypeTime, value)
 		_node.DeletedAt = &value
+	}
+	if value, ok := _c.mutation.CustomRoutingPolicy(); ok {
+		_spec.SetField(apikey.FieldCustomRoutingPolicy, field.TypeString, value)
+		_node.CustomRoutingPolicy = value
 	}
 	if value, ok := _c.mutation.Key(); ok {
 		_spec.SetField(apikey.FieldKey, field.TypeString, value)
@@ -1188,6 +1218,9 @@ func (u *APIKeyUpsertOne) UpdateNewValues() *APIKeyUpsertOne {
 	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
 		if _, exists := u.create.mutation.CreatedAt(); exists {
 			s.SetIgnore(apikey.FieldCreatedAt)
+		}
+		if _, exists := u.create.mutation.CustomRoutingPolicy(); exists {
+			s.SetIgnore(apikey.FieldCustomRoutingPolicy)
 		}
 	}))
 	return u
@@ -1874,6 +1907,9 @@ func (u *APIKeyUpsertBulk) UpdateNewValues() *APIKeyUpsertBulk {
 		for _, b := range u.create.builders {
 			if _, exists := b.mutation.CreatedAt(); exists {
 				s.SetIgnore(apikey.FieldCreatedAt)
+			}
+			if _, exists := b.mutation.CustomRoutingPolicy(); exists {
+				s.SetIgnore(apikey.FieldCustomRoutingPolicy)
 			}
 		}
 	}))

@@ -21,6 +21,8 @@ const (
 	FieldUpdatedAt = "updated_at"
 	// FieldDeletedAt holds the string denoting the deleted_at field in the database.
 	FieldDeletedAt = "deleted_at"
+	// FieldCustomRoutingPolicy holds the string denoting the custom_routing_policy field in the database.
+	FieldCustomRoutingPolicy = "custom_routing_policy"
 	// FieldUserID holds the string denoting the user_id field in the database.
 	FieldUserID = "user_id"
 	// FieldKey holds the string denoting the key field in the database.
@@ -104,6 +106,7 @@ var Columns = []string{
 	FieldCreatedAt,
 	FieldUpdatedAt,
 	FieldDeletedAt,
+	FieldCustomRoutingPolicy,
 	FieldUserID,
 	FieldKey,
 	FieldName,
@@ -153,6 +156,10 @@ var (
 	DefaultUpdatedAt func() time.Time
 	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
 	UpdateDefaultUpdatedAt func() time.Time
+	// DefaultCustomRoutingPolicy holds the default value on creation for the "custom_routing_policy" field.
+	DefaultCustomRoutingPolicy string
+	// CustomRoutingPolicyValidator is a validator for the "custom_routing_policy" field. It is called by the builders before save.
+	CustomRoutingPolicyValidator func(string) error
 	// KeyValidator is a validator for the "key" field. It is called by the builders before save.
 	KeyValidator func(string) error
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
@@ -208,6 +215,11 @@ func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByDeletedAt orders the results by the deleted_at field.
 func ByDeletedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDeletedAt, opts...).ToFunc()
+}
+
+// ByCustomRoutingPolicy orders the results by the custom_routing_policy field.
+func ByCustomRoutingPolicy(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCustomRoutingPolicy, opts...).ToFunc()
 }
 
 // ByUserID orders the results by the user_id field.

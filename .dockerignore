@@ -73,6 +73,13 @@ config.local.yaml
 *.log
 logs/
 
+# Local runtime data and generated previews; never part of release inputs.
+/.runtime/
+/.tmp*/
+/dump.rdb
+/generated/
+/frontend/temp-dist/
+
 # Temporary files
 tmp/
 temp/

@@ -119,7 +119,6 @@ func (s *paymentOrderDiscountRepoStub) MarkUsedByOrderID(context.Context, int64,
 }
 
 func TestCouponServiceEvaluateCouponForOrder_UsesActualDiscountWhenClampedToMinimum(t *testing.T) {
-	svc := &CouponService{}
 	coupon := &UserCoupon{
 		ID:              10,
 		UserID:          99,
@@ -129,10 +128,12 @@ func TestCouponServiceEvaluateCouponForOrder_UsesActualDiscountWhenClampedToMini
 		Status:          UserCouponStatusUnused,
 	}
 
-	result, err := svc.evaluateCouponForOrder(coupon, ApplyPaymentCouponInput{
-		UserID:      99,
-		OrderType:   "balance",
-		OrderAmount: 5,
+	svc := newMarketingTestCouponService(nil, &userCouponRepoStubForMarketing{coupon: coupon}, nil)
+	result, err := svc.PreviewCouponForOrder(context.Background(), ApplyPaymentCouponInput{
+		UserCouponID: coupon.ID,
+		UserID:       99,
+		OrderType:    "balance",
+		OrderAmount:  5,
 	})
 	require.NoError(t, err)
 	require.Equal(t, 0.01, result.DiscountedAmount)
@@ -156,7 +157,7 @@ func TestCouponServiceReserveCouponForOrder_ReleasesCouponWhenDiscountRecordCrea
 	discountRepo := &paymentOrderDiscountRepoStub{
 		createErr: errors.New("insert discount failed"),
 	}
-	svc := NewCouponService(&couponTemplateRepoStub{}, userCouponRepo, discountRepo)
+	svc := newMarketingTestCouponService(&couponTemplateRepoStub{}, userCouponRepo, discountRepo)
 
 	result, err := svc.ReserveCouponForOrder(context.Background(), 123, ApplyPaymentCouponInput{
 		UserID:       5,
@@ -187,7 +188,7 @@ func TestCouponServiceReserveCouponForOrder_UsesActualDiscountAmountInReservatio
 		reserveOK: true,
 	}
 	discountRepo := &paymentOrderDiscountRepoStub{}
-	svc := NewCouponService(&couponTemplateRepoStub{}, userCouponRepo, discountRepo)
+	svc := newMarketingTestCouponService(&couponTemplateRepoStub{}, userCouponRepo, discountRepo)
 
 	result, err := svc.ReserveCouponForOrder(context.Background(), 456, ApplyPaymentCouponInput{
 		UserID:       6,
@@ -202,4 +203,8 @@ func TestCouponServiceReserveCouponForOrder_UsesActualDiscountAmountInReservatio
 	require.Equal(t, 4.99, discountRepo.created.DiscountAmount)
 	require.Equal(t, 0.01, discountRepo.created.DiscountedAmount)
 	require.Equal(t, 0, userCouponRepo.releaseCalls)
+}
+
+func (s *paymentOrderDiscountRepoStub) RestoreReservationByOrderID(context.Context, int64, time.Time) (bool, error) {
+	panic("unexpected RestoreReservationByOrderID call")
 }

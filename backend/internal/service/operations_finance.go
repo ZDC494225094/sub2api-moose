@@ -87,13 +87,9 @@ type OperationsFinanceResponse struct {
 	Rows           []OperationsFinanceRow `json:"rows"`
 }
 
-type operationsFinanceReader interface {
-	GetOperationsFinance(context.Context, time.Time, time.Time) (*OperationsFinanceResponse, error)
-}
-
-func (s *DashboardService) GetOperationsFinance(ctx context.Context, start, end time.Time) (*OperationsFinanceResponse, error) {
-	r, ok := s.usageRepo.(operationsFinanceReader)
-	if !ok {
+func (s *OperationsService) GetOperationsFinance(ctx context.Context, start, end time.Time) (*OperationsFinanceResponse, error) {
+	r := s.repository
+	if r == nil {
 		return nil, ErrOperationsFunnelUnsupported
 	}
 	result, err := r.GetOperationsFinance(ctx, start, end)

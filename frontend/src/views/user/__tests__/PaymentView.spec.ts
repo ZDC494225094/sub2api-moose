@@ -1,17 +1,33 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import PaymentView from '../PaymentView.vue'
-import { campaignAPI, type RechargeCampaign } from '@/api/rechargeCampaigns'
+import { createPinia, setActivePinia } from 'pinia'
+import { extensionAPI } from '@/extensions/api'
+import { extensionIds } from '@/extensions/catalog'
+import { useExtensionStore } from '@/extensions/store'
+import { campaignAPI, type RechargeCampaign } from '@/extensions/modules/recharge-campaigns/api'
 import { PAYMENT_RECOVERY_STORAGE_KEY } from '@/components/payment/paymentFlow'
 import { formatPaymentAmount } from '@/components/payment/currency'
 import AmountInput from '@/components/payment/AmountInput.vue'
+import CouponSelection from '@/extensions/modules/marketing/CouponSelection.vue'
+import CouponSummary from '@/extensions/modules/marketing/CouponSummary.vue'
+import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
+import Select from '@/components/common/Select.vue'
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import en from '@/i18n/locales/en'
 import zh from '@/i18n/locales/zh'
 import type { CheckoutInfoResponse, MethodLimit, SubscriptionPlan } from '@/types/payment'
 
-vi.mock('@/api/rechargeCampaigns', async (importOriginal) => ({
-  ...await importOriginal<typeof import('@/api/rechargeCampaigns')>(),
+vi.mock('@/extensions/api', () => ({ extensionAPI: { publicState: vi.fn() } }))
+const extensionFlags = (campaigns: boolean) => ({ data: { enabled: Object.fromEntries(extensionIds.map(id => [id, id === 'recharge-campaigns' ? campaigns : true])) } })
+beforeEach(() => {
+  setActivePinia(createPinia())
+  vi.mocked(extensionAPI.publicState).mockReset().mockResolvedValue(extensionFlags(true) as never)
+  vi.mocked(campaignAPI.publicList).mockClear()
+})
+
+vi.mock('@/extensions/modules/recharge-campaigns/api', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/extensions/modules/recharge-campaigns/api')>(),
   campaignAPI: { publicList: vi.fn().mockResolvedValue({ data: [] }) },
 }))
 
@@ -105,10 +121,11 @@ vi.mock('@/stores', async () => {
   }
 })
 
+vi.mock('@/extensions/modules/marketing/api', () => ({ marketingAPI: { getCoupons } }))
+
 vi.mock('@/api/payment', () => ({
   paymentAPI: {
     getCheckoutInfo,
-    getCoupons,
   },
 }))
 
@@ -229,7 +246,7 @@ function oauthOrderFixture() {
   }
 }
 
-async function mountSubscriptionConfirm(options: Parameters<typeof checkoutInfoWithPlansFixture>[0] = {}) {
+async function mountSubscriptionConfirm(options: Parameters<typeof checkoutInfoWithPlansFixture>[0] = {}, withCoupons = false) {
   vi.useRealTimers()
   routeState.path = '/purchase'
   routeState.query = {
@@ -256,6 +273,7 @@ async function mountSubscriptionConfirm(options: Parameters<typeof checkoutInfoW
         AppLayout: {
           template: '<div><slot /></div>',
         },
+        ...(withCoupons ? { ExtensionSlot: false, ExtensionMount: false, AsyncComponentWrapper: false, CouponSelection: false, CouponSummary: false, Select: false } : {}),
         Teleport: true,
         Transition: false,
       },
@@ -915,7 +933,7 @@ describe('PaymentView recharge campaign checkout', () => {
 
   async function mountCampaign(campaign: RechargeCampaign) {
     vi.mocked(campaignAPI.publicList).mockResolvedValue({ data: [campaign] } as never)
-    const wrapper = shallowMount(PaymentView, { global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, AmountInput: false, CampaignBadge: false, Teleport: true, Transition: false } } })
+    const wrapper = shallowMount(PaymentView, { global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, AmountInput: false, CampaignBadge: false, ExtensionSlot: false, ExtensionMount: false, AsyncComponentWrapper: false, CheckoutAmount: false, CheckoutSummary: false, CheckoutOverlay: false, Teleport: true, Transition: false } } })
     await flushPromises()
     wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', 100)
     await flushPromises()
@@ -925,7 +943,7 @@ describe('PaymentView recharge campaign checkout', () => {
     const wrapper = await mountCampaign(active)
     expect(wrapper.text()).toContain('$110.00')
     expect(wrapper.text()).not.toContain('不参加活动')
-    expect(wrapper.getComponent(AmountInput).text()).toContain('到账 $55.00')
+    await vi.waitFor(() => expect(wrapper.getComponent(AmountInput).text()).toContain('到账 $55.00'))
     expect(wrapper.getComponent(AmountInput).text()).toContain('活动中 · 赠10%')
     const submit = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))!
     expect(submit.attributes('disabled')).toBeUndefined()
@@ -933,12 +951,34 @@ describe('PaymentView recharge campaign checkout', () => {
     expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({ amount: 100, campaign_id: 7, campaign_revision: 'rule-v1', order_type: 'balance' }))
     wrapper.unmount()
   })
+  it('does not load campaigns or submit activity fields while the extension is disabled', async () => {
+    vi.mocked(extensionAPI.publicState).mockResolvedValue(extensionFlags(false) as never)
+    const wrapper = await mountCampaign(active)
+    expect(campaignAPI.publicList).not.toHaveBeenCalled()
+    expect(wrapper.text()).not.toContain('$110.00')
+    const submit = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))!
+    expect(submit.attributes('disabled')).toBeUndefined()
+    await submit.trigger('click'); await flushPromises()
+    expect(createOrder).toHaveBeenCalledWith(expect.not.objectContaining({ campaign_id: 7 }))
+    wrapper.unmount()
+  })
+  it('clears the displayed activity when an administrator disables it during checkout', async () => {
+    const wrapper = await mountCampaign(active)
+    expect(wrapper.text()).toContain('$110.00')
+    vi.mocked(extensionAPI.publicState).mockResolvedValue(extensionFlags(false) as never)
+    await useExtensionStore().refresh(true); await flushPromises()
+    expect(wrapper.text()).not.toContain('$110.00')
+    const submit = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))!
+    await submit.trigger('click'); await flushPromises()
+    expect(createOrder).toHaveBeenCalledWith(expect.not.objectContaining({ campaign_id: 7 }))
+    wrapper.unmount()
+  })
   it('shows 100 credited and 90 payable for a nine-tenths discount', async () => {
     const wrapper = await mountCampaign({ ...active, kind: 'discount', percent: 90 })
     expect(wrapper.text()).toContain('$100.00')
     const submit = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))!
     expect(submit.text()).toContain('90.00')
-    expect(wrapper.getComponent(AmountInput).text()).toContain('实付')
+    await vi.waitFor(() => expect(wrapper.getComponent(AmountInput).text()).toContain('实付'))
     expect(wrapper.getComponent(AmountInput).text()).toContain('活动中 · 9折')
     wrapper.unmount()
   })
@@ -949,5 +989,53 @@ describe('PaymentView recharge campaign checkout', () => {
     await submit.trigger('click'); await flushPromises()
     expect(createOrder).toHaveBeenCalledWith(expect.not.objectContaining({ campaign_id: 7 }))
     wrapper.unmount()
+  })
+})
+
+
+describe('PaymentView real coupon slot integration', () => {
+  beforeEach(() => {
+    appStoreState.setPublicSettings(undefined)
+    vi.mocked(campaignAPI.publicList).mockResolvedValue({ data: [] } as never)
+    getCoupons.mockResolvedValue({ data: { items: [{ id: 71, coupon_code: 'SAVE20', status: 'unused', scope: 'subscription', threshold_amount: 100, discount_amount: 20 }] } })
+  })
+  afterEach(() => getCoupons.mockResolvedValue({ data: { items: [] } }))
+  it('uses discounted per-currency limits, UI totals and original-principal order payload', async () => {
+    const wrapper = await mountSubscriptionConfirm({
+      checkout: { subscription_usd_to_cny_rate: 7, recharge_fee_rate: 10, methods: {
+        stripe: { currency: 'USD', single_min: 0, single_max: 90, daily_limit: 0, daily_used: 0, daily_remaining: 0, fee_rate: 0, available: true },
+      } },
+      method: { currency: 'CNY', single_max: 650 }, plan: { price: 100 },
+    }, true)
+    try {
+      await vi.waitFor(() => expect(wrapper.findComponent(CouponSelection).exists()).toBe(true))
+      const submit = () => wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))!
+      wrapper.getComponent(PaymentMethodSelector).vm.$emit('select', 'wxpay'); await flushPromises()
+      expect(submit().attributes('disabled')).toBeDefined()
+      const selector = wrapper.getComponent(CouponSelection).getComponent(Select)
+      await selector.get('button').trigger('click'); await flushPromises()
+      const option = selector.findAll('[role="option"]').find(item => item.text().includes('SAVE20'))!
+      await option.trigger('click'); await flushPromises()
+      expect(submit().text()).toContain(formatPaymentAmount(616, 'CNY'))
+      expect(submit().attributes('disabled')).toBeUndefined()
+      expect(wrapper.getComponent(PaymentMethodSelector).props('methods').every((method: { available: boolean }) => method.available)).toBe(true)
+      expect(wrapper.getComponent(CouponSummary).text()).toContain(formatPaymentAmount(154, 'CNY'))
+      createOrder.mockRejectedValue({ message: 'stop before provider' })
+      await submit().trigger('click'); await flushPromises()
+      expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({ amount: 100, plan_id: 7, order_type: 'subscription', user_coupon_id: 71 }))
+      wrapper.getComponent(PaymentMethodSelector).vm.$emit('select', 'stripe'); await flushPromises()
+      expect(submit().text()).toContain(formatPaymentAmount(88, 'USD'))
+      expect(submit().attributes('disabled')).toBeUndefined()
+    } finally { wrapper.unmount() }
+  })
+  it('disables a coupon below its principal threshold even when converted payable exceeds it', async () => {
+    const wrapper = await mountSubscriptionConfirm({ checkout: { subscription_usd_to_cny_rate: 7, recharge_fee_rate: 10 }, plan: { price: 99 } }, true)
+    try {
+      await vi.waitFor(() => expect(wrapper.findComponent(CouponSelection).exists()).toBe(true))
+      const selector = wrapper.getComponent(CouponSelection).getComponent(Select)
+      const option = selector.props('options').find((item: { value: number | null }) => item.value === 71)
+      expect(option.disabled).toBe(true)
+      expect(wrapper.getComponent(CouponSummary).text()).toBe('')
+    } finally { wrapper.unmount() }
   })
 })

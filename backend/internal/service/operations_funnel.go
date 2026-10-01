@@ -181,17 +181,9 @@ type OperationsUserDetail struct {
 	SubscriptionMonthlyRemainingUSD float64    `json:"subscription_monthly_remaining_usd"`
 }
 
-type operationsFunnelReader interface {
-	GetOperationsFunnel(ctx context.Context, startTime, endTime time.Time) (*OperationsFunnelStats, error)
-}
-
-type operationsUserDetailReader interface {
-	ListOperationsUserDetails(ctx context.Context, filter OperationsUserDetailFilter) ([]OperationsUserDetail, int64, error)
-}
-
-func (s *DashboardService) GetOperationsFunnel(ctx context.Context, startTime, endTime time.Time) (*OperationsFunnelResponse, error) {
-	reader, ok := s.usageRepo.(operationsFunnelReader)
-	if !ok {
+func (s *OperationsService) GetOperationsFunnel(ctx context.Context, startTime, endTime time.Time) (*OperationsFunnelResponse, error) {
+	reader := s.repository
+	if reader == nil {
 		return nil, ErrOperationsFunnelUnsupported
 	}
 	stats, err := reader.GetOperationsFunnel(ctx, startTime, endTime)
@@ -244,9 +236,9 @@ func (s *DashboardService) GetOperationsFunnel(ctx context.Context, startTime, e
 	}, nil
 }
 
-func (s *DashboardService) ListOperationsUserDetails(ctx context.Context, filter OperationsUserDetailFilter) ([]OperationsUserDetail, int64, error) {
-	reader, ok := s.usageRepo.(operationsUserDetailReader)
-	if !ok {
+func (s *OperationsService) ListOperationsUserDetails(ctx context.Context, filter OperationsUserDetailFilter) ([]OperationsUserDetail, int64, error) {
+	reader := s.repository
+	if reader == nil {
 		return nil, 0, ErrOperationsFunnelUnsupported
 	}
 	filter.Segment = normalizeOperationsUserSegment(filter.Segment)

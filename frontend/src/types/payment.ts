@@ -83,7 +83,7 @@ export interface CheckoutInfoResponse {
 // ==================== Orders ====================
 
 export interface PaymentOrder {
-  recharge_campaign?: { campaign: import('@/api/rechargeCampaigns').RechargeCampaign; principal: number; credited: number; inviter_id: number; reward: number }
+  recharge_campaign?: { campaign: import('@/extensions/modules/recharge-campaigns/api').RechargeCampaign; principal: number; credited: number; inviter_id: number; reward: number }
   id: number
   user_id: number
   amount: number
@@ -407,6 +407,7 @@ export interface LotteryOverview {
     required_threshold_amount: number
     wallet_draw_enabled: boolean
     can_draw_with_wallet: boolean
+    pending_default_draw_times?: number
     block_reason?: string
   }
   recent_winners?: Array<{

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useCustomExtensionRuntime } from '@/extensions/runtime'
+import { useSiteCustomizationAdmission } from '@/extensions/modules/site-customization'
+import ExtensionSlot from '@/extensions/components/ExtensionSlot.vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import Toast from '@/components/common/Toast.vue'
@@ -17,6 +20,7 @@ import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 import { resolveSiteBillingMode } from '@/utils/siteBillingMode'
 
 const router = useRouter()
+useCustomExtensionRuntime(router)
 const route = useRoute()
 const appStore = useAppStore()
 const authStore = useAuthStore()
@@ -25,6 +29,7 @@ const announcementStore = useAnnouncementStore()
 const adminComplianceStore = useAdminComplianceStore()
 const adminSettingsStore = useAdminSettingsStore()
 const mainlandChinaAccessDecisionResolved = ref(false)
+const siteCustomizationEnabled = useSiteCustomizationAdmission()
 
 function redirectMainlandChinaAccessRestriction(): void {
   const redirectPath = resolveMainlandChinaAccessRestrictionRedirect(
@@ -53,8 +58,8 @@ watch(
 
 function updateDocumentTitle() {
   const customMenuItems = [
-    ...(appStore.cachedPublicSettings?.custom_menu_items ?? []),
-    ...(authStore.isAdmin ? adminSettingsStore.customMenuItems : []),
+    ...(siteCustomizationEnabled.value ? (appStore.cachedPublicSettings?.custom_menu_items ?? []) : []),
+    ...(authStore.isAdmin && siteCustomizationEnabled.value ? adminSettingsStore.customMenuItems : []),
   ]
   document.title = resolveRouteDocumentTitle(route, appStore.siteName, customMenuItems, {
     billingMode: resolveSiteBillingMode(appStore.cachedPublicSettings),
@@ -83,6 +88,7 @@ watch(
     () => appStore.cachedPublicSettings?.payment_balance_disabled,
     () => authStore.isAdmin,
     () => adminSettingsStore.customMenuItems,
+    siteCustomizationEnabled,
   ],
   updateDocumentTitle,
   { deep: true }
@@ -197,6 +203,7 @@ onMounted(async () => {
 <template>
   <NavigationProgress v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
   <RouterView />
+  <ExtensionSlot name="application-overlay" />
   <Toast v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
   <AnnouncementPopup v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
   <AdminComplianceDialog v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />

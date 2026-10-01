@@ -112,55 +112,56 @@ const (
 // APIKeyMutation represents an operation that mutates the APIKey nodes in the graph.
 type APIKeyMutation struct {
 	config
-	op                 Op
-	typ                string
-	id                 *int64
-	created_at         *time.Time
-	updated_at         *time.Time
-	deleted_at         *time.Time
-	key                *string
-	name               *string
-	platform           *string
-	group_ids          *[]int64
-	appendgroup_ids    []int64
-	billing_priority   *string
-	status             *string
-	last_used_at       *time.Time
-	ip_whitelist       *[]string
-	appendip_whitelist []string
-	ip_blacklist       *[]string
-	appendip_blacklist []string
-	quota              *float64
-	addquota           *float64
-	quota_used         *float64
-	addquota_used      *float64
-	expires_at         *time.Time
-	rate_limit_5h      *float64
-	addrate_limit_5h   *float64
-	rate_limit_1d      *float64
-	addrate_limit_1d   *float64
-	rate_limit_7d      *float64
-	addrate_limit_7d   *float64
-	usage_5h           *float64
-	addusage_5h        *float64
-	usage_1d           *float64
-	addusage_1d        *float64
-	usage_7d           *float64
-	addusage_7d        *float64
-	window_5h_start    *time.Time
-	window_1d_start    *time.Time
-	window_7d_start    *time.Time
-	clearedFields      map[string]struct{}
-	user               *int64
-	cleareduser        bool
-	group              *int64
-	clearedgroup       bool
-	usage_logs         map[int64]struct{}
-	removedusage_logs  map[int64]struct{}
-	clearedusage_logs  bool
-	done               bool
-	oldValue           func(context.Context) (*APIKey, error)
-	predicates         []predicate.APIKey
+	op                    Op
+	typ                   string
+	id                    *int64
+	created_at            *time.Time
+	updated_at            *time.Time
+	deleted_at            *time.Time
+	custom_routing_policy *string
+	key                   *string
+	name                  *string
+	platform              *string
+	group_ids             *[]int64
+	appendgroup_ids       []int64
+	billing_priority      *string
+	status                *string
+	last_used_at          *time.Time
+	ip_whitelist          *[]string
+	appendip_whitelist    []string
+	ip_blacklist          *[]string
+	appendip_blacklist    []string
+	quota                 *float64
+	addquota              *float64
+	quota_used            *float64
+	addquota_used         *float64
+	expires_at            *time.Time
+	rate_limit_5h         *float64
+	addrate_limit_5h      *float64
+	rate_limit_1d         *float64
+	addrate_limit_1d      *float64
+	rate_limit_7d         *float64
+	addrate_limit_7d      *float64
+	usage_5h              *float64
+	addusage_5h           *float64
+	usage_1d              *float64
+	addusage_1d           *float64
+	usage_7d              *float64
+	addusage_7d           *float64
+	window_5h_start       *time.Time
+	window_1d_start       *time.Time
+	window_7d_start       *time.Time
+	clearedFields         map[string]struct{}
+	user                  *int64
+	cleareduser           bool
+	group                 *int64
+	clearedgroup          bool
+	usage_logs            map[int64]struct{}
+	removedusage_logs     map[int64]struct{}
+	clearedusage_logs     bool
+	done                  bool
+	oldValue              func(context.Context) (*APIKey, error)
+	predicates            []predicate.APIKey
 }
 
 var _ ent.Mutation = (*APIKeyMutation)(nil)
@@ -380,6 +381,42 @@ func (m *APIKeyMutation) DeletedAtCleared() bool {
 func (m *APIKeyMutation) ResetDeletedAt() {
 	m.deleted_at = nil
 	delete(m.clearedFields, apikey.FieldDeletedAt)
+}
+
+// SetCustomRoutingPolicy sets the "custom_routing_policy" field.
+func (m *APIKeyMutation) SetCustomRoutingPolicy(s string) {
+	m.custom_routing_policy = &s
+}
+
+// CustomRoutingPolicy returns the value of the "custom_routing_policy" field in the mutation.
+func (m *APIKeyMutation) CustomRoutingPolicy() (r string, exists bool) {
+	v := m.custom_routing_policy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCustomRoutingPolicy returns the old "custom_routing_policy" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldCustomRoutingPolicy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCustomRoutingPolicy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCustomRoutingPolicy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCustomRoutingPolicy: %w", err)
+	}
+	return oldValue.CustomRoutingPolicy, nil
+}
+
+// ResetCustomRoutingPolicy resets all changes to the "custom_routing_policy" field.
+func (m *APIKeyMutation) ResetCustomRoutingPolicy() {
+	m.custom_routing_policy = nil
 }
 
 // SetUserID sets the "user_id" field.
@@ -1677,7 +1714,7 @@ func (m *APIKeyMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *APIKeyMutation) Fields() []string {
-	fields := make([]string, 0, 26)
+	fields := make([]string, 0, 27)
 	if m.created_at != nil {
 		fields = append(fields, apikey.FieldCreatedAt)
 	}
@@ -1686,6 +1723,9 @@ func (m *APIKeyMutation) Fields() []string {
 	}
 	if m.deleted_at != nil {
 		fields = append(fields, apikey.FieldDeletedAt)
+	}
+	if m.custom_routing_policy != nil {
+		fields = append(fields, apikey.FieldCustomRoutingPolicy)
 	}
 	if m.user != nil {
 		fields = append(fields, apikey.FieldUserID)
@@ -1770,6 +1810,8 @@ func (m *APIKeyMutation) Field(name string) (ent.Value, bool) {
 		return m.UpdatedAt()
 	case apikey.FieldDeletedAt:
 		return m.DeletedAt()
+	case apikey.FieldCustomRoutingPolicy:
+		return m.CustomRoutingPolicy()
 	case apikey.FieldUserID:
 		return m.UserID()
 	case apikey.FieldKey:
@@ -1831,6 +1873,8 @@ func (m *APIKeyMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldUpdatedAt(ctx)
 	case apikey.FieldDeletedAt:
 		return m.OldDeletedAt(ctx)
+	case apikey.FieldCustomRoutingPolicy:
+		return m.OldCustomRoutingPolicy(ctx)
 	case apikey.FieldUserID:
 		return m.OldUserID(ctx)
 	case apikey.FieldKey:
@@ -1906,6 +1950,13 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetDeletedAt(v)
+		return nil
+	case apikey.FieldCustomRoutingPolicy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCustomRoutingPolicy(v)
 		return nil
 	case apikey.FieldUserID:
 		v, ok := value.(int64)
@@ -2287,6 +2338,9 @@ func (m *APIKeyMutation) ResetField(name string) error {
 		return nil
 	case apikey.FieldDeletedAt:
 		m.ResetDeletedAt()
+		return nil
+	case apikey.FieldCustomRoutingPolicy:
+		m.ResetCustomRoutingPolicy()
 		return nil
 	case apikey.FieldUserID:
 		m.ResetUserID()

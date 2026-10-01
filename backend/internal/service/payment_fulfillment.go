@@ -193,7 +193,7 @@ func (s *PaymentService) alreadyProcessed(ctx context.Context, o *dbent.PaymentO
 	}
 	switch cur.Status {
 	case OrderStatusCompleted:
-		return s.consumePaymentCoupon(ctx, cur.ID)
+		return s.repairCompletedOrderCoupon(ctx, cur)
 	case OrderStatusRefunded:
 		return nil
 	case OrderStatusFailed, OrderStatusPaid, OrderStatusRecharging:
@@ -232,7 +232,7 @@ func (s *PaymentService) ExecuteBalanceFulfillment(ctx context.Context, oid int6
 		return infraerrors.NotFound("NOT_FOUND", "order not found")
 	}
 	if o.Status == OrderStatusCompleted {
-		return s.consumePaymentCoupon(ctx, o.ID)
+		return s.repairCompletedOrderCoupon(ctx, o)
 	}
 	if psIsRefundStatus(o.Status) {
 		return infraerrors.BadRequest("INVALID_STATUS", "refund-related order cannot fulfill")
@@ -246,6 +246,10 @@ func (s *PaymentService) ExecuteBalanceFulfillment(ctx context.Context, oid int6
 	}
 	if lease == nil {
 		return nil
+	}
+	if err := s.reconcilePaidOrderCoupon(ctx, o); err != nil {
+		s.markFailed(ctx, oid, lease, err)
+		return err
 	}
 	if err := s.doBalance(ctx, o, lease); err != nil {
 		s.markFailed(ctx, oid, lease, err)
@@ -404,24 +408,30 @@ func (s *PaymentService) markCompleted(ctx context.Context, o *dbent.PaymentOrde
 	if lease == nil {
 		return errors.New("missing payment fulfillment lease")
 	}
-	now := time.Now()
-	updated, err := s.entClient.PaymentOrder.Update().Where(
-		paymentorder.IDEQ(o.ID),
-		paymentorder.StatusEQ(OrderStatusRecharging),
-		paymentorder.UpdatedAtEQ(lease.version),
-	).SetStatus(OrderStatusCompleted).SetCompletedAt(now).Save(ctx)
+	updated := 0
+	err := s.withPaymentCouponTransition(ctx, func(txCtx context.Context, client *dbent.Client) error {
+		var err error
+		updated, err = client.PaymentOrder.Update().Where(
+			paymentorder.IDEQ(o.ID), paymentorder.StatusEQ(OrderStatusRecharging),
+			paymentorder.UpdatedAtEQ(lease.version),
+		).SetStatus(OrderStatusCompleted).SetCompletedAt(time.Now()).Save(txCtx)
+		if err != nil {
+			return fmt.Errorf("mark completed: %w", err)
+		}
+		if updated == 0 {
+			current, getErr := client.PaymentOrder.Get(txCtx, o.ID)
+			if getErr != nil || current.Status != OrderStatusCompleted {
+				return infraerrors.Conflict("CONFLICT", "fulfillment lease was lost before completion")
+			}
+			return s.repairCompletedOrderCoupon(txCtx, current)
+		}
+		return s.consumePaymentCoupon(txCtx, o.ID)
+	})
 	if err != nil {
-		return fmt.Errorf("mark completed: %w", err)
+		return err
 	}
 	if updated == 0 {
-		current, getErr := s.entClient.PaymentOrder.Get(ctx, o.ID)
-		if getErr == nil && current.Status == OrderStatusCompleted {
-			return s.consumePaymentCoupon(ctx, o.ID)
-		}
-		return infraerrors.Conflict("CONFLICT", "fulfillment lease was lost before completion")
-	}
-	if err := s.consumePaymentCoupon(ctx, o.ID); err != nil {
-		return err
+		return nil
 	}
 	if !s.hasAuditLog(ctx, o.ID, auditAction) {
 		s.writeAuditLog(ctx, o.ID, auditAction, "system", map[string]any{
@@ -430,16 +440,6 @@ func (s *PaymentService) markCompleted(ctx context.Context, o *dbent.PaymentOrde
 			"payAmount":      o.PayAmount,
 		})
 		s.dispatchPaymentFulfillmentNotification(o, auditAction)
-	}
-	return nil
-}
-
-func (s *PaymentService) consumePaymentCoupon(ctx context.Context, orderID int64) error {
-	if s == nil || s.couponService == nil {
-		return nil
-	}
-	if err := s.couponService.ConsumeReservedCouponByOrderID(ctx, orderID); err != nil {
-		return fmt.Errorf("consume reserved coupon: %w", err)
 	}
 	return nil
 }
@@ -527,7 +527,7 @@ func (s *PaymentService) ExecuteSubscriptionFulfillment(ctx context.Context, oid
 		return infraerrors.NotFound("NOT_FOUND", "order not found")
 	}
 	if o.Status == OrderStatusCompleted {
-		return s.consumePaymentCoupon(ctx, o.ID)
+		return s.repairCompletedOrderCoupon(ctx, o)
 	}
 	if psIsRefundStatus(o.Status) {
 		return infraerrors.BadRequest("INVALID_STATUS", "refund-related order cannot fulfill")
@@ -544,6 +544,10 @@ func (s *PaymentService) ExecuteSubscriptionFulfillment(ctx context.Context, oid
 	}
 	if lease == nil {
 		return nil
+	}
+	if err := s.reconcilePaidOrderCoupon(ctx, o); err != nil {
+		s.markFailed(ctx, oid, lease, err)
+		return err
 	}
 	if err := s.doSub(ctx, o, lease); err != nil {
 		s.markFailed(ctx, oid, lease, err)
@@ -961,9 +965,8 @@ func (s *PaymentService) markFailed(ctx context.Context, oid int64, lease *payme
 		slog.Error("mark FAILED", "orderID", oid, "error", e)
 	}
 	if c > 0 {
-		if s.couponService != nil {
-			_ = s.couponService.ReleaseCouponReservationByOrderID(ctx, oid)
-		}
+		// A fulfillment failure is not a payment cancellation. This order may
+		// be retried at its discounted paid amount; retain its coupon claim.
 		s.writeAuditLog(ctx, oid, "FULFILLMENT_FAILED", "system", map[string]any{"reason": r})
 	}
 }

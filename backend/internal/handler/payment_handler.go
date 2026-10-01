@@ -10,7 +10,6 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -22,17 +21,13 @@ import (
 type PaymentHandler struct {
 	paymentService *service.PaymentService
 	configService  *service.PaymentConfigService
-	couponService  *service.CouponService
-	lotteryService *service.LotteryService
 }
 
 // NewPaymentHandler creates a new PaymentHandler.
-func NewPaymentHandler(paymentService *service.PaymentService, configService *service.PaymentConfigService, couponService *service.CouponService, lotteryService *service.LotteryService) *PaymentHandler {
+func NewPaymentHandler(paymentService *service.PaymentService, configService *service.PaymentConfigService) *PaymentHandler {
 	return &PaymentHandler{
 		paymentService: paymentService,
 		configService:  configService,
-		couponService:  couponService,
-		lotteryService: lotteryService,
 	}
 }
 
@@ -157,97 +152,6 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 		AlipayForceQRCode:             cfg.AlipayForceQRCode,
 		AlipayMobilePrecreateDeepLink: alipayMobilePrecreateDeepLink,
 	})
-}
-
-func (h *PaymentHandler) GetMyCoupons(c *gin.Context) {
-	subject, ok := requireAuth(c)
-	if !ok {
-		return
-	}
-	if h.couponService == nil {
-		response.Success(c, []service.UserCoupon{})
-		return
-	}
-	page, pageSize := response.ParsePagination(c)
-	items, total, err := h.couponService.ListUserCoupons(c.Request.Context(), subject.UserID, paginationParams(page, pageSize), service.UserCouponListFilter{
-		Status: strings.TrimSpace(c.Query("status")),
-		Scope:  strings.TrimSpace(c.Query("scope")),
-	})
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	response.Paginated(c, items, total.Total, page, pageSize)
-}
-
-func (h *PaymentHandler) GetActiveLottery(c *gin.Context) {
-	subject, ok := requireAuth(c)
-	if !ok {
-		return
-	}
-	if h.lotteryService == nil {
-		response.Success(c, gin.H{})
-		return
-	}
-	overview, err := h.lotteryService.GetActiveOverview(c.Request.Context(), subject.UserID)
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	response.Success(c, overview)
-}
-
-func (h *PaymentHandler) ListMyDrawRecords(c *gin.Context) {
-	subject, ok := requireAuth(c)
-	if !ok {
-		return
-	}
-	if h.lotteryService == nil {
-		response.Success(c, gin.H{"items": []any{}, "total": 0})
-		return
-	}
-	activityIDStr := c.Query("activity_id")
-	var activityID int64
-	if activityIDStr != "" {
-		activityID, _ = strconv.ParseInt(activityIDStr, 10, 64)
-	}
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	records, pg, err := h.lotteryService.ListUserDrawRecords(c.Request.Context(), subject.UserID, activityID, pagination.PaginationParams{Page: page, PageSize: pageSize})
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	response.Success(c, gin.H{"items": records, "total": pg.Total, "page": pg.Page, "page_size": pg.PageSize})
-}
-
-func (h *PaymentHandler) DrawLottery(c *gin.Context) {
-	subject, ok := requireAuth(c)
-	if !ok {
-		return
-	}
-	if h.lotteryService == nil {
-		response.InternalError(c, "lottery service not configured")
-		return
-	}
-	var req struct {
-		ActivityID int64 `json:"activity_id" binding:"required,gt=0"`
-		UseWallet  bool  `json:"use_wallet"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
-	}
-	result, err := h.lotteryService.Draw(c.Request.Context(), service.LotteryDrawInput{
-		ActivityID: req.ActivityID,
-		UserID:     subject.UserID,
-		UseWallet:  req.UseWallet,
-	})
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	response.Success(c, result)
 }
 
 type checkoutInfoResponse struct {
@@ -804,11 +708,4 @@ func sanitizePaymentOrderForResponse(order *dbent.PaymentOrder) *PaymentOrderRes
 
 func isWeChatBrowser(c *gin.Context) bool {
 	return strings.Contains(strings.ToLower(c.GetHeader("User-Agent")), "micromessenger")
-}
-
-func paginationParams(page, pageSize int) pagination.PaginationParams {
-	return pagination.PaginationParams{
-		Page:     page,
-		PageSize: pageSize,
-	}
 }

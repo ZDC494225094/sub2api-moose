@@ -391,7 +391,7 @@
           <p>支持额度策略、模型路由、私有化部署和多账号稳定调度。</p>
         </div>
         <a v-if="customerServiceLink" class="primary-btn enterprise-contact" :href="customerServiceLink" target="_blank" rel="noopener noreferrer">联系我们 <Icon name="externalLink" size="sm" /></a>
-        <button v-else class="primary-btn enterprise-contact" type="button" @click="customerServiceFloat?.openPanel()">联系我们 <Icon name="chat" size="sm" /></button>
+        <button v-else-if="extensions.enabled('customer-support')" class="primary-btn enterprise-contact" type="button" @click="customerServiceFloat?.openPanel()">联系我们 <Icon name="chat" size="sm" /></button>
       </section>
 
       <footer class="home-footer" aria-label="首页页脚">
@@ -458,7 +458,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAppStore, useAuthStore } from '@/stores'
-import CustomerServiceFloat from '@/components/common/CustomerServiceFloat.vue'
+import CustomerServiceFloat from '@/extensions/modules/customer-support/SupportWidget.vue'
+import { useExtensionStore } from '@/extensions/store'
 import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import Icon from '@/components/icons/Icon.vue'
@@ -552,6 +553,7 @@ const infiniteCanvasHomeEnabled = computed(() =>
 )
 const contactInfo = computed(() => appStore.cachedPublicSettings?.contact_info || appStore.contactInfo || '')
 const customerServiceLink = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.customer_service_link || ''))
+const extensions = useExtensionStore()
 const customerServiceFloat = ref<InstanceType<typeof CustomerServiceFloat> | null>(null)
 const footerContent = computed(() => appStore.cachedPublicSettings?.footer_content?.trim() || siteSubtitle.value)
 const footerFriendLinks = computed(() => {

@@ -313,6 +313,7 @@ type APIKeyService struct {
 	cache                     APIKeyCache
 	rateLimitCacheInvalid     RateLimitCacheInvalidator // optional: invalidate Redis rate limit cache
 	billingBalanceResolver    APIKeyBalanceResolver     // optional: live balance for multi-group runtime routing
+	routingAdmission          APIKeyRoutingAdmission    // optional: nil keeps new keys upstream-routed
 	concurrencyService        *ConcurrencyService
 	cfg                       *config.Config
 	authCacheL1               *ristretto.Cache
@@ -485,30 +486,6 @@ func (s *APIKeyService) canUserBindGroup(ctx context.Context, user *User, group 
 	return user.CanBindGroup(group.ID, group.IsExclusive)
 }
 
-func (s *APIKeyService) validateBindableGroupIDs(ctx context.Context, user *User, requestedPlatform string, groupIDs []int64) (string, error) {
-	platform := NormalizeAPIKeyPlatform(requestedPlatform)
-	if strings.TrimSpace(requestedPlatform) != "" && platform == "" {
-		return "", ErrInvalidAPIKeyPlatform
-	}
-	for _, groupID := range NormalizeAPIKeyGroupIDs(nil, groupIDs) {
-		group, err := s.groupRepo.GetByID(ctx, groupID)
-		if err != nil {
-			return "", fmt.Errorf("get group: %w", err)
-		}
-		if !s.canUserBindGroup(ctx, user, group) {
-			return "", ErrGroupNotAllowed
-		}
-		groupPlatform := DefaultAPIKeyPlatform(group.Platform)
-		if platform == "" {
-			platform = groupPlatform
-		}
-		if groupPlatform != platform {
-			return "", ErrAPIKeyGroupPlatformMismatch
-		}
-	}
-	return DefaultAPIKeyPlatform(platform), nil
-}
-
 // Create 创建API Key
 func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIKeyRequest) (*APIKey, error) {
 	if err := validateCreateAPIKeyRequest(req); err != nil {
@@ -534,15 +511,12 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		}
 	}
 
-	groupIDs := NormalizeAPIKeyGroupIDs(req.GroupID, req.GroupIDs)
-	platform, err := s.validateBindableGroupIDs(ctx, user, req.Platform, groupIDs)
+	binding, routingPolicy, err := s.prepareAPIKeyBinding(ctx, user, req)
 	if err != nil {
 		return nil, err
 	}
-	if req.GroupID == nil && len(groupIDs) > 0 {
-		gid := groupIDs[0]
-		req.GroupID = &gid
-	}
+	groupIDs, platform := binding.GroupIDs, binding.Platform
+	req.GroupID = binding.Primary
 
 	var key string
 
@@ -588,6 +562,7 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		GroupID:         req.GroupID,
 		GroupIDs:        groupIDs,
 		BillingPriority: NormalizeBillingPriority(req.BillingPriority),
+		RoutingPolicy:   routingPolicy,
 		Status:          StatusActive,
 		IPWhitelist:     req.IPWhitelist,
 		IPBlacklist:     req.IPBlacklist,
@@ -852,43 +827,8 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		fields.Name = true
 	}
 
-	if req.GroupID != nil || req.GroupIDsSet || req.Platform != nil {
-		user, err := s.userRepo.GetByID(ctx, userID)
-		if err != nil {
-			return nil, fmt.Errorf("get user: %w", err)
-		}
-		groupIDs := NormalizeAPIKeyGroupIDs(apiKey.GroupID, apiKey.GroupIDs)
-		requestedPlatform := apiKey.Platform
-		if req.GroupID != nil || req.GroupIDsSet {
-			groupIDs = NormalizeAPIKeyGroupIDs(req.GroupID, req.GroupIDs)
-			if req.Platform == nil {
-				requestedPlatform = ""
-			}
-		}
-		if req.Platform != nil {
-			requestedPlatform = *req.Platform
-		}
-		platform, err := s.validateBindableGroupIDs(ctx, user, requestedPlatform, groupIDs)
-		if err != nil {
-			return nil, err
-		}
-		apiKey.Platform = platform
-		apiKey.GroupIDs = groupIDs
-		fields.Platform = true
-		if req.GroupID != nil {
-			apiKey.GroupID = req.GroupID
-		} else if req.GroupIDsSet {
-			if len(groupIDs) > 0 {
-				gid := groupIDs[0]
-				apiKey.GroupID = &gid
-			} else {
-				apiKey.GroupID = nil
-			}
-		}
-		if req.GroupID != nil || req.GroupIDsSet {
-			fields.GroupID = true
-			fields.GroupIDs = true
-		}
+	if err := s.applyAPIKeyBindingUpdate(ctx, userID, apiKey, req, &fields); err != nil {
+		return nil, err
 	}
 
 	if req.BillingPriority != nil {
@@ -1241,126 +1181,6 @@ func (s *APIKeyService) GetUserGroupRates(ctx context.Context, userID int64) (ma
 		return nil, fmt.Errorf("get user group rates: %w", err)
 	}
 	return rates, nil
-}
-
-type APIKeyGroupSelection struct {
-	Group        *Group
-	Subscription *UserSubscription
-}
-
-func (s *APIKeyService) SelectUsableGroupForAPIKey(ctx context.Context, apiKey *APIKey, subscriptionSvc *SubscriptionService) (*APIKeyGroupSelection, error) {
-	if apiKey == nil {
-		return nil, ErrAPIKeyNotFound
-	}
-	groupIDs := NormalizeAPIKeyGroupIDs(apiKey.GroupID, apiKey.GroupIDs)
-	if len(groupIDs) == 0 {
-		return &APIKeyGroupSelection{Group: nil}, nil
-	}
-
-	type candidate struct {
-		group *Group
-		sub   *UserSubscription
-	}
-	var balanceCandidates []candidate
-	var subscriptionCandidates []candidate
-	var balanceFallbacks []candidate
-	var subscriptionFallbacks []candidate
-	var unavailableFallbacks []candidate
-	var balanceKnown bool
-	var balanceValue float64
-	hasPositiveBalance := func() bool {
-		if balanceKnown {
-			return balanceValue > 0
-		}
-		balanceKnown = true
-		if s.billingBalanceResolver != nil && apiKey.UserID > 0 {
-			if balance, err := s.billingBalanceResolver.GetUserBalance(ctx, apiKey.UserID); err == nil {
-				balanceValue = balance
-				if apiKey.User != nil {
-					apiKey.User.Balance = balance
-				}
-				return balanceValue > 0
-			}
-		}
-		if apiKey.User == nil {
-			balanceValue = 1
-			return true
-		}
-		balanceValue = apiKey.User.Balance
-		return balanceValue > 0
-	}
-
-	for _, groupID := range groupIDs {
-		group, err := s.resolveAPIKeyCandidateGroup(ctx, apiKey, groupID)
-		if err != nil || group == nil {
-			continue
-		}
-		groupPlatform := DefaultAPIKeyPlatform(group.Platform)
-		keyPlatform := NormalizeAPIKeyPlatform(apiKey.Platform)
-		if keyPlatform == "" {
-			keyPlatform = groupPlatform
-			apiKey.Platform = keyPlatform
-		}
-		if groupPlatform != keyPlatform {
-			continue
-		}
-		if !group.IsActive() {
-			unavailableFallbacks = append(unavailableFallbacks, candidate{group: group})
-			continue
-		}
-		if group.IsSubscriptionType() {
-			subscriptionFallbacks = append(subscriptionFallbacks, candidate{group: group})
-			if subscriptionSvc == nil {
-				continue
-			}
-			subs, err := subscriptionSvc.ListUsableSubscriptionsForGroup(ctx, apiKey.UserID, group)
-			if err != nil || len(subs) == 0 {
-				continue
-			}
-			sub := subs[0]
-			subscriptionCandidates = append(subscriptionCandidates, candidate{group: group, sub: &sub})
-			continue
-		}
-		balanceFallbacks = append(balanceFallbacks, candidate{group: group})
-	}
-
-	if len(balanceFallbacks) > 0 {
-		// Only pay the live-balance lookup cost when it can change routing to a
-		// subscription group. Pure balance keys are checked by billing preflight.
-		if len(subscriptionFallbacks) == 0 || hasPositiveBalance() {
-			balanceCandidates = append(balanceCandidates, balanceFallbacks...)
-		}
-	}
-
-	ordered := balanceCandidates
-	if NormalizeBillingPriority(apiKey.BillingPriority) == BillingPrioritySubscriptionFirst {
-		ordered = append(subscriptionCandidates, balanceCandidates...)
-	} else {
-		ordered = append(balanceCandidates, subscriptionCandidates...)
-	}
-	if len(ordered) == 0 {
-		if NormalizeBillingPriority(apiKey.BillingPriority) == BillingPrioritySubscriptionFirst {
-			ordered = append(subscriptionFallbacks, balanceFallbacks...)
-		} else {
-			ordered = append(balanceFallbacks, subscriptionFallbacks...)
-		}
-	}
-	if len(ordered) == 0 {
-		ordered = unavailableFallbacks
-	}
-	if len(ordered) == 0 {
-		return nil, ErrNoUsableAPIKeyGroup
-	}
-	apiKey.GroupID = &ordered[0].group.ID
-	apiKey.Group = ordered[0].group
-	return &APIKeyGroupSelection{Group: ordered[0].group, Subscription: ordered[0].sub}, nil
-}
-
-func (s *APIKeyService) resolveAPIKeyCandidateGroup(ctx context.Context, apiKey *APIKey, groupID int64) (*Group, error) {
-	if apiKey != nil && apiKey.Group != nil && apiKey.Group.ID == groupID {
-		return apiKey.Group, nil
-	}
-	return s.groupRepo.GetByIDLite(ctx, groupID)
 }
 
 // CheckAPIKeyQuotaAndExpiry checks if the API key is valid for use (not expired, quota not exhausted)

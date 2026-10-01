@@ -1,0 +1,3622 @@
+{
+  "version": 1,
+  "upstream_base": "aea725f2ea644d5592d0bbb1d63b607efa7e200a",
+  "customized_head": "d754fe1dc34a881b48f374eb5b873a45e17854f8",
+  "purpose": "Path-loss detection during gradual isolation. File presence is not a semantic equivalence proof; ownership classification and runtime validation are tracked separately.",
+  "files": [
+    {
+      "path": ".dockerignore",
+      "original_change": "M"
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "original_change": "M"
+    },
+    {
+      "path": ".gitignore",
+      "original_change": "M"
+    },
+    {
+      "path": ".runtime/frontend-port.txt",
+      "original_change": "A"
+    },
+    {
+      "path": ".runtime/redis.runtime.conf",
+      "original_change": "A"
+    },
+    {
+      "path": "Dockerfile",
+      "original_change": "M"
+    },
+    {
+      "path": "RECHARGE_CAMPAIGNS.md",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/cmd/server/VERSION",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/cmd/server/wire_gen.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/account.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/account/account.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/account/where.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/account_create.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/account_query.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/account_update.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/accountupstreamgroup.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/ent/accountupstreamgroup/accountupstreamgroup.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/ent/accountupstreamgroup/where.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/ent/accountupstreamgroup_create.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/ent/accountupstreamgroup_delete.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/ent/accountupstreamgroup_query.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/ent/accountupstreamgroup_update.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/ent/apikey.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/apikey/apikey.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/apikey/where.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/apikey_create.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/apikey_update.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/client.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/ent.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/group.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/group/group.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/group/where.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/group_create.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/group_update.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/hook/hook.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/intercept/intercept.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/migrate/schema.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/mutation.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/paymentorder.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/paymentorder/paymentorder.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/paymentorder/where.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/paymentorder_create.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/paymentorder_update.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/predicate/predicate.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/redeemcode.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/redeemcode/redeemcode.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/redeemcode/where.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/redeemcode_create.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/redeemcode_update.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/redeemcodebatchusage.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/ent/redeemcodebatchusage/redeemcodebatchusage.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/ent/redeemcodebatchusage/where.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/ent/redeemcodebatchusage_create.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/ent/redeemcodebatchusage_delete.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/ent/redeemcodebatchusage_query.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/ent/redeemcodebatchusage_update.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/ent/runtime/runtime.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/schema/account.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/schema/account_upstream_group.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/ent/schema/api_key.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/schema/group.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/schema/payment_order.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/schema/redeem_code.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/schema/redeem_code_batch_usage.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/ent/schema/subscription_plan.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/schema/user_subscription.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/subscriptionplan.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/subscriptionplan/subscriptionplan.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/subscriptionplan/where.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/subscriptionplan_create.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/subscriptionplan_update.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/ent/tx.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/go.sum",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/config/config.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/config/config_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/domain/constants.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/account_codex_import.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/account_data.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/account_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/account_handler_sort_order_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/handler/admin/account_handler_upstream_groups_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/handler/admin/admin_service_stub_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/channel_monitor_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/dashboard_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/dashboard_handler_request_type_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/dashboard_query_cache.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/dashboard_snapshot_v2_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/grok_oauth_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/group_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/openai_oauth_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/operations_finance.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/handler/admin/operations_finance_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/handler/admin/payment_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/payment_handler_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/recharge_campaign_handler.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/handler/admin/redeem_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/setting_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/setting_handler_audit.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/setting_handler_mainland_china_access_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/handler/admin/setting_handler_update.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/subscription_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/usage_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/usage_handler_request_type_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/user_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/admin/user_handler_batch_actions_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/handler/announcement_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/api_key_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/api_key_upstream_platform_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/handler/auth_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/auth_wechat_oauth.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/dto/account_mapper_redact_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/dto/channel_monitor.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/dto/mappers.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/dto/mappers_usage_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/dto/public_settings_injection_schema_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/dto/settings.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/dto/types.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/gateway_handler_chat_completions.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/gateway_handler_warmup_intercept_unit_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/gemini_v1beta_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/gemini_video_operation_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/handler/grok_media.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/model_plaza_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/openai_account_selection_error.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/handler/openai_gateway_handler_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/payment_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/payment_handler_resume_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/playground_handler.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/handler/playground_handler_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/handler/recharge_campaign_handler.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/handler/setting_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/setting_handler_public_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/usage_handler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/handler/wire.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/pkg/antigravity/request_transformer.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/pkg/antigravity/request_transformer_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/pkg/apicompat/anthropic_responses_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/pkg/apicompat/responses_to_anthropic_request.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/pkg/geo/china_ipv4.txt",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/pkg/geo/china_ipv6.txt",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/pkg/geo/mainland_china.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/pkg/geo/mainland_china_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/pkg/imagemime/sniff.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/pkg/openai/instructions_gpt5_2.txt",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/pkg/usagestats/usage_log_types.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/account_repo.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/account_repo_integration_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/account_repo_sort_integration_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/account_repo_upstream_billing_probe_cas_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/account_repo_upstream_billing_probe_update_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/affiliate_repo.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/api_key_repo.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/billing_cache.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/channel_monitor_repo.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/concurrency_cache.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/fixtures_integration_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/group_repo.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/marketing_coupon_repo.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/repository/marketing_lottery_repo.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/repository/migrations_runner.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/migrations_runner_extra_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/migrations_schema_integration_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/operations_customers.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/repository/operations_finance.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/repository/operations_finance_payment_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/repository/operations_finance_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/repository/playground_video_asset_repo.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/repository/redeem_code_repo.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/redeem_code_repo_integration_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/scheduler_cache.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/security_secret_bootstrap.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/security_secret_bootstrap_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/usage_log_repo.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/usage_log_repo_custom.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/repository/usage_log_repo_query.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/usage_log_repo_stats.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/usage_log_repo_trend.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/user_subscription_repo.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/repository/wire.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/server/api_contract_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/server/middleware/api_key_auth.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/server/middleware/api_key_auth_google.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/server/middleware/api_key_auth_google_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/server/middleware/api_key_auth_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/server/middleware/security_headers.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/server/middleware/security_headers_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/server/routes/admin.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/server/routes/auth.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/server/routes/gateway.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/server/routes/gateway_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/server/routes/payment.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/server/routes/user.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/account.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/account_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/account_upstream_group.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/account_upstream_group_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/account_usage_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/account_usage_service_batch_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/admin_account.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/admin_account_sort_order_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/admin_account_upstream_billing_probe_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/admin_account_upstream_groups.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/admin_account_upstream_groups_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/admin_group.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/admin_group_billing_rate_sync_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/admin_group_duplicate.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/admin_group_duplicate_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/admin_redeem_marketing_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/admin_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/admin_service_apikey_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/admin_service_delete_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/admin_user.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/announcement_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/api_key.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/api_key_auth_cache.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/api_key_auth_cache_impl.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/api_key_auth_cache_version_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/api_key_platform_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/api_key_selection_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/api_key_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/api_key_service_cache_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/billing_cache_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/billing_cache_service_singleflight_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/billing_cache_service_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/billing_cache_service_user_platform_quota_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/billing_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/billing_service_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/channel.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/channel_monitor_aggregator.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/channel_monitor_checker.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/channel_monitor_const.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/channel_monitor_types.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/channel_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/channel_service_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/channel_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/content_moderation_runtime_cache_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/domain_constants.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/gateway_anthropic_apikey_passthrough_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/gateway_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/gateway_usage_billing.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/gemini_messages_compat_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/gemini_messages_compat_service_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/gemini_sse_comment_compat_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/grok_media.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/grok_media_video_billing_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/group.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/marketing_coupon.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/marketing_coupon_repository.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/marketing_coupon_service.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/marketing_coupon_service_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/marketing_lottery.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/marketing_lottery_repository.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/marketing_lottery_service.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/marketing_lottery_service_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/model_plaza_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/model_plaza_service_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/model_pricing_resolver.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/notification_email_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/notification_email_service_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/openai_account_scheduler.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/openai_alpha_search_billing_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/openai_compatible_video.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/openai_compatible_video_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/openai_gateway_grok_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/openai_gateway_record_usage_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/openai_gateway_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/openai_gateway_usage.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/openai_image_dimensions.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/openai_images.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/openai_images_actual_size_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/openai_images_responses.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/openai_images_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/operations_customers.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/operations_customers_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/operations_finance.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/operations_finance_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/operations_funnel.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/operations_funnel_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/operations_marketing_email.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/payment_config_plans.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/payment_config_plans_validation_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/payment_config_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/payment_fulfillment.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/payment_fulfillment_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/payment_order.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/payment_order_admin_list_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/payment_order_lifecycle.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/payment_refund.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/payment_resume_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/payment_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/payment_stats.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/payment_stats_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/playground_run_service.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/playground_run_service_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/playground_video_asset.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/ratelimit_service_ollama_429_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/recharge_campaign.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/recharge_campaign_postgres_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/recharge_campaign_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/redeem_code.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/redeem_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/redeem_service_redeem_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/registration_proof.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/registration_proof_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/scheduler_cache.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/scheduler_snapshot_hydration_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/scheduler_snapshot_outbox_cleanup_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/scheduler_snapshot_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/setting_parse.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/setting_public.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/setting_service_public_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/setting_update.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/settings_view.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/subscription_assign_idempotency_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/subscription_calculate_progress_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/subscription_expiry_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/subscription_expiry_service_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/subscription_multi.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/internal/service/subscription_renewal_lock_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/subscription_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/upstream_billing_probe.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/upstream_billing_probe_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/usage_log.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/usage_service.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/user_service_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/user_subscription.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/user_subscription_daily_quota_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/user_subscription_port.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/vertex_service_account.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/vertex_service_account_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/video_billing_resolution.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/service/wire.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/web/embed_on.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/internal/web/embed_test.go",
+      "original_change": "M"
+    },
+    {
+      "path": "backend/migrations/138_marketing_lottery_coupon.sql",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/migrations/145_subscription_multi_instance_api_key_groups.sql",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/migrations/146_api_key_platform.sql",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/migrations/147_payment_order_subscription_id.sql",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/migrations/159_operations_marketing_email_records.sql",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/migrations/174_add_account_sort_order.sql",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/migrations/175_add_account_upstream_group.sql",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/migrations/176_clear_inferred_account_upstream_groups.sql",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/migrations/177_create_account_upstream_group_directory.sql",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/migrations/185_group_billing_rate_sync.sql",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/migrations/191_playground_video_asset_urls.sql",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/migrations/194_marketing_redeem_codes.sql",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/migrations/239_custom_api_key_platform_sync.sql",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/migrations/240_recharge_campaigns.sql",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/migrations/account_upstream_group_migration_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "backend/migrations/group_billing_rate_sync_migration_test.go",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/.gitignore",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/CHANGELOG.md",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/LICENSE",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/README.md",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/VERSION",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/.gitignore",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/README.md",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/agent-instructions.md",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/bun.lock",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/codex-server.md",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/package-lock.json",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/package.json",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/agent/claude.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/agent/codex-client.test.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/agent/codex-client.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/agent/codex-event-history.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/agent/codex-history.test.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/agent/codex-history.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/agent/codex-protocol.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/agent/codex.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/agent/message-metadata.test.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/agent/message-metadata.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/agent/types.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/canvas/operations.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/canvas/schemas.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/canvas/session.test.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/canvas/session.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/canvas/tools.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/canvas/types.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/config.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/index.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/server/http.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/server/mcp.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/skills/store.test.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/skills/store.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/utils/date.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/utils/logger.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/utils/value.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/src/version-check.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/canvas-agent/tsconfig.json",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/.editorconfig",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/.prettierignore",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/.prettierrc.json",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/bun.lock",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/components.json",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/docker-entrypoint.sh",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/index.html",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/package-lock.json",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/package.json",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/postcss.config.mjs",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/public/config.js",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/public/icons/claude.svg",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/public/icons/deepseek.svg",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/public/icons/doubao.svg",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/public/icons/gemini.svg",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/public/icons/glm.svg",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/public/icons/grok.svg",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/public/icons/linuxdo.svg",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/public/icons/meta.svg",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/public/icons/minimax.svg",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/public/icons/mistral.svg",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/public/icons/openai.svg",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/public/icons/qwen.svg",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/public/logo.svg",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/public/theme-init.js",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/agent/agent-canvas-reference-preview.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/agent/agent-chat-composer.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/agent/agent-chat-inline-tokens.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/agent/agent-chat-message.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/agent/agent-chat-prompt-input.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/agent/agent-chat.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/agent/agent-connect-view.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/agent/agent-event-formatters.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/agent/agent-history-view.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/agent/agent-log-view.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/agent/agent-panel-tabs.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/agent/agent-panel.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/agent/agent-scroll-to-bottom.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/agent/agent-skills-view.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/agent/local-agent-panel.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/audio-settings-panel.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/asset-picker-modal.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-audio-settings-popover.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-config-composer.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-config-node-panel.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-connections.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-context-menu.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-create-menus.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-delete-projects-dialog.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-image-count-control.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-image-settings-popover.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-image-toolbar-settings-modal.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-image-toolbar-tools.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-mini-map.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-node-angle-dialog.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-node-crop-dialog.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-node-generation.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-node-hover-toolbar.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-node-mask-edit-dialog.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-node-prompt-panel.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-node-split-dialog.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-node-upscale-dialog.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-node.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-plugin-manager-modal.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-project-card.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-prompt-chip-input.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-prompt-library.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-refresh-shell.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-resource-mention-textarea.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-side-panel.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-size-picker.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-text-settings-popover.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-toolbar.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-top-bar.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-video-settings-popover.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/canvas-zoom-controls.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/infinite-canvas.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/nodes/builtin-nodes.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/canvas/use-image-editor-viewport.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/image-generation-pending.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/image-settings-panel.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/layout/analytics-tracker.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/layout/app-config-modal.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/layout/app-providers.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/layout/app-top-nav.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/layout/channel-editor-drawer.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/layout/client-root-init.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/layout/config-local-storage.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/layout/config-prompt-sources.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/layout/github-link.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/layout/mobile-nav-drawer.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/layout/model-script-editor.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/layout/model-select-modal.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/layout/prompt-source-content-modal.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/layout/prompt-source-editor-drawer.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/layout/user-status-actions.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/layout/version-release-modal.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/model-picker.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/prompts/prompt-card.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/prompts/prompt-select-dialog.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/prompts/use-prompt-list.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/text-settings-panel.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/ui/animated-theme-toggler.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/ui/dia-text-reveal.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/ui/select.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/components/video-settings-panel.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/constant/canvas.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/constant/env.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/constant/navigation-tools.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/constant/runtime-config.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/hooks/use-copy-text.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/hooks/use-prompt-source-scheduler.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/hooks/use-version-check.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/i18n/index.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/i18n/locales/en-US.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/i18n/locales/zh-CN.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/layouts/user-layout.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/agent/agent-site-tools.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/analytics.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/app-theme.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/audio-generation.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/canvas-billing.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/canvas-theme.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/canvas/canvas-agent-ops.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/canvas/canvas-event-bus.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/canvas/canvas-export.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/canvas/canvas-generation-helpers.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/canvas/canvas-image-data.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/canvas/canvas-node-factory.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/canvas/canvas-node-geometry.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/canvas/canvas-node-size.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/canvas/canvas-resource-references.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/canvas/node-registry.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/canvas/plugin-loader.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/canvas/plugin-node-context.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/canvas/plugin-registry.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/canvas/plugin-runtime.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/image-reference-prompt.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/image-utils.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/keyboard-event.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/localforage-storage.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/release.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/seedance-video.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/utils.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/lib/zip.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/main.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/pages/assets/asset-transfer.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/pages/assets/index.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/pages/canvas/hooks/use-agent-bridge.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/pages/canvas/hooks/use-plugin-host.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/pages/canvas/index.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/pages/canvas/project.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/pages/config/index.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/pages/home/index.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/pages/image/index.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/pages/not-found/index.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/pages/prompts/components/prompt-detail-dialog.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/pages/prompts/index.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/pages/video/index.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/router.tsx",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/api/audio.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/api/canvas-agent.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/api/canvas.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/api/image.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/api/model-plugin.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/api/prompt-source-presets.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/api/prompt-source-runtime.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/api/prompts.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/api/request.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/api/video.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/app-sync.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/canvas-run-registry.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/config-file.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/file-storage.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/image-storage.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/local-storage-usage.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/services/webdav-sync.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/stores/canvas/use-canvas-store.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/stores/canvas/use-canvas-ui-store.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/stores/canvas/use-plugin-store.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/stores/use-agent-skill-store.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/stores/use-agent-store.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/stores/use-asset-store.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/stores/use-branding-store.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/stores/use-canvas-side-panel-store.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/stores/use-config-store.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/stores/use-prompt-source-store.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/stores/use-theme-store.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/stores/use-user-store.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/stores/use-workbench-agent-store.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/styles/globals.css",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/types/canvas-export.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/types/canvas-plugin.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/types/canvas.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/types/image.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/types/media.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/src/vite-env.d.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/tsconfig.json",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/vercel.json",
+      "original_change": "A"
+    },
+    {
+      "path": "canvas/web/vite.config.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "deploy/.env.example",
+      "original_change": "M"
+    },
+    {
+      "path": "deploy/config.example.yaml",
+      "original_change": "M"
+    },
+    {
+      "path": "deploy/docker-compose.dev.yml",
+      "original_change": "M"
+    },
+    {
+      "path": "deploy/docker-compose.local.yml",
+      "original_change": "M"
+    },
+    {
+      "path": "deploy/docker-compose.standalone.yml",
+      "original_change": "M"
+    },
+    {
+      "path": "deploy/docker-compose.yml",
+      "original_change": "M"
+    },
+    {
+      "path": "docs/PLAYGROUND_GPT_IMAGE_2_API.md",
+      "original_change": "A"
+    },
+    {
+      "path": "docs/channel-monitor-v2-safe-defaults.md",
+      "original_change": "M"
+    },
+    {
+      "path": "docs/upstream-v0.2.7-merge.md",
+      "original_change": "A"
+    },
+    {
+      "path": "dump.rdb",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/package.json",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/pnpm-lock.yaml",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/public/logo.png",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/App.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/api/__tests__/admin.users.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/api/__tests__/client.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/api/__tests__/playground.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/api/__tests__/rechargeCampaigns.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/api/admin/accounts.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/api/admin/channelMonitor.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/api/admin/dashboard.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/api/admin/groups.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/api/admin/operationsFinance.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/api/admin/payment.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/api/admin/settings.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/api/admin/usage.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/api/admin/users.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/api/auth.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/api/client.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/api/keys.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/api/modelPlaza.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/api/payment.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/api/playground.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/api/rechargeCampaigns.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/api/usage.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/account/BulkEditAccountModal.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/account/BulkSetUpstreamGroupModal.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/account/CreateAccountModal.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/account/EditAccountModal.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/account/UpstreamGroupField.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/account/__tests__/BulkEditAccountModal.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/account/__tests__/BulkSetUpstreamGroupModal.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/account/__tests__/CreateAccountModal.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/account/__tests__/CreateAccountModal.upstreamGroup.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/account/__tests__/EditAccountModal.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/account/__tests__/credentialsBuilder.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/admin/account/AccountBulkActionsBar.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/admin/account/__tests__/AccountBulkActionsBar.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/admin/channel/__tests__/types.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/admin/channel/types.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/admin/group/GroupAccountsModal.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/admin/group/GroupBillingRateSyncFields.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/admin/group/__tests__/GroupBillingRateSyncFields.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/admin/monitor/MonitorPrimaryModelCell.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/admin/payment/DailyRevenueChart.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/admin/payment/DailyUserChart.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/admin/payment/OrderStatsCards.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/admin/usage/UsageFilters.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/admin/usage/UsageTable.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/admin/usage/__tests__/UsageTable.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/admin/user/UserBalanceHistoryModal.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/common/AnnouncementBell.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/common/AnnouncementPopup.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/common/CustomerServiceFloat.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/common/DataTable.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/common/PlatformTypeBadge.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/common/__tests__/AnnouncementBell.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/common/__tests__/AnnouncementPopup.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/common/__tests__/CustomerServiceFloat.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/common/__tests__/DataTable.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/common/__tests__/PlatformTypeBadge.grok.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/icons/Icon.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/icons/registry.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/keys/BulkEditKeysModal.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/keys/__tests__/BulkEditKeysModal.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/layout/AppHeader.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/layout/AppLayout.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/layout/AppSidebar.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/layout/RechargeCampaignTicker.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/layout/__tests__/RechargeCampaignTicker.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/modelPlaza/PlazaGroupSection.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/modelPlaza/PlazaModelPricingTable.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/modelPlaza/__tests__/PlazaModelPricingTable.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/payment/AmountInput.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/payment/CampaignBadge.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/payment/CampaignGlobe.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/payment/CampaignShareDialog.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/components/payment/OrderTable.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/payment/SubscriptionPlanCard.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/components/payment/campaignPoster.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/design-preview/assets/hero-ai.png",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/design-preview/index.html",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/AnnouncementPanel.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/PREMIUM_HOME_TASK.md",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/PremiumDocsView.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/PremiumHomeView.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/ProviderNetwork.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/__tests__/AnnouncementPanel.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/__tests__/globe-decal-geometry.spec.js",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/__tests__/globe-land.spec.js",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/api.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/assets/docs/ccswitch-1.png",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/assets/docs/ccswitch-2.png",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/assets/docs/ccswitch-3.png",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/assets/google-logo.png",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/assets/hero-ai.png",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/gateway-home.css",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/gateway-motion.css",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/globe-decal-geometry.js",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/globe-land-points.json",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/globe-land.js",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/premium-home-globe.d.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/premium-home-globe.js",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/premium-home.css",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/features/premium-home/runtime/useHomeMotion.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/i18n/locales/en/admin/accounts.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/i18n/locales/en/admin/channels.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/i18n/locales/en/admin/overview.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/i18n/locales/en/admin/resources.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/i18n/locales/en/admin/settings.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/i18n/locales/en/common.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/i18n/locales/en/custom.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/i18n/locales/en/dashboard.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/i18n/locales/en/index.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/i18n/locales/merge.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/i18n/locales/zh/admin/accounts.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/i18n/locales/zh/admin/channels.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/i18n/locales/zh/admin/overview.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/i18n/locales/zh/admin/resources.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/i18n/locales/zh/admin/settings.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/i18n/locales/zh/common.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/i18n/locales/zh/custom.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/i18n/locales/zh/dashboard.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/i18n/locales/zh/index.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/main.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/router/__tests__/mainlandChinaAccessRestriction.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/router/index.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/router/mainlandChinaAccessRestriction.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/stores/__tests__/announcements.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/stores/__tests__/app.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/stores/announcements.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/stores/app.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/types/index.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/types/payment.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/utils/__tests__/accountProvider.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/utils/__tests__/localDate.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/utils/__tests__/playgroundBoardTools.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/utils/__tests__/playgroundImageTools.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/utils/__tests__/playgroundPersistence.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/utils/__tests__/playgroundRunTools.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/utils/__tests__/playgroundVideoModelRules.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/utils/__tests__/registrationProof.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/utils/accountProvider.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/utils/billingMode.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/utils/featureFlags.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/utils/localDate.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/utils/playgroundBoardTools.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/utils/playgroundImageTools.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/utils/playgroundPersistence.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/utils/playgroundRunTools.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/utils/playgroundVideoModelRules.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/utils/registrationProof.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/utils/registrationProof.worker.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/HomeView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/__tests__/HomeView.compact.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/AccountsView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/ChannelsView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/GroupsView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/OperationsFinanceView.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/admin/RedeemView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/SettingsView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/SubscriptionsView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/UsageView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/UsersView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/__tests__/AccountsView.bulkEdit.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/__tests__/AccountsView.reorder.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/admin/__tests__/GroupsView.billingRateSync.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/admin/__tests__/GroupsView.codexManifest.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/__tests__/GroupsView.columnSettings.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/__tests__/GroupsView.duplicate.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/__tests__/GroupsView.peakRate.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/admin/__tests__/OperationsCustomers.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/admin/__tests__/OperationsFinanceView.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/admin/__tests__/OperationsRecords.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/admin/__tests__/SettingsView.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/__tests__/UsageView.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/__tests__/UsersView.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/__tests__/operationsFinanceMetrics.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/admin/components/OperationsCustomers.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/admin/components/OperationsPaymentBreakdown.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/admin/components/OperationsRecords.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/admin/operationsFinanceMetrics.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/admin/orders/AdminCouponTemplatesView.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/admin/orders/AdminLotteryView.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/admin/orders/AdminOrdersView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/orders/AdminPaymentDashboardView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/orders/AdminPaymentPlansView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/admin/orders/AdminRechargeCampaignsView.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/admin/orders/PlanEditDialog.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/auth/EmailVerifyView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/auth/LoginView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/auth/RegisterView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/public/MainlandChinaAccessRestrictedView.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/public/__tests__/MainlandChinaAccessRestrictedView.spec.ts",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/user/CustomPageView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/user/KeysView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/user/LotteryView.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/user/PaymentView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/user/PlaygroundView.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/user/RechargeCampaignLandingView.vue",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/src/views/user/RedeemView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/user/SubscriptionsView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/user/UsageView.vue",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/user/__tests__/KeysView.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/user/__tests__/PaymentView.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/src/views/user/__tests__/UsageView.spec.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/temp-dist/logo.png",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/test-model-recognition.js",
+      "original_change": "A"
+    },
+    {
+      "path": "frontend/tsconfig.node.json",
+      "original_change": "M"
+    },
+    {
+      "path": "frontend/vite.config.ts",
+      "original_change": "M"
+    },
+    {
+      "path": "generated/edit_20260813_122316_uocd.png",
+      "original_change": "A"
+    },
+    {
+      "path": "generated/img_20260813_122011_zc9k.png",
+      "original_change": "A"
+    },
+    {
+      "path": "启动命令.txt",
+      "original_change": "A"
+    }
+  ],
+  "relocations": [
+    {
+      "from": "frontend/src/api/admin/operationsFinance.ts",
+      "to": [
+        "frontend/src/extensions/modules/operations-analytics/api.ts"
+      ]
+    },
+    {
+      "from": "frontend/src/components/common/CustomerServiceFloat.vue",
+      "to": [
+        "frontend/src/extensions/modules/customer-support/CustomerServiceFloat.vue"
+      ]
+    },
+    {
+      "from": "frontend/src/components/common/__tests__/CustomerServiceFloat.spec.ts",
+      "to": [
+        "frontend/src/extensions/modules/customer-support/__tests__/CustomerServiceFloat.spec.ts"
+      ]
+    },
+    {
+      "from": "frontend/src/components/layout/RechargeCampaignTicker.vue",
+      "to": [
+        "frontend/src/extensions/modules/recharge-campaigns/RechargeCampaignTicker.vue"
+      ]
+    },
+    {
+      "from": "frontend/src/components/layout/__tests__/RechargeCampaignTicker.spec.ts",
+      "to": [
+        "frontend/src/extensions/modules/recharge-campaigns/__tests__/RechargeCampaignTicker.spec.ts"
+      ]
+    },
+    {
+      "from": "frontend/src/views/admin/OperationsFinanceView.vue",
+      "to": [
+        "frontend/src/extensions/modules/operations-analytics/OperationsFinanceView.vue"
+      ]
+    },
+    {
+      "from": "frontend/src/views/admin/__tests__/OperationsCustomers.spec.ts",
+      "to": [
+        "frontend/src/extensions/modules/operations-analytics/__tests__/OperationsCustomers.spec.ts"
+      ]
+    },
+    {
+      "from": "frontend/src/views/admin/__tests__/OperationsFinanceView.spec.ts",
+      "to": [
+        "frontend/src/extensions/modules/operations-analytics/__tests__/OperationsFinanceView.spec.ts"
+      ]
+    },
+    {
+      "from": "frontend/src/views/admin/__tests__/OperationsRecords.spec.ts",
+      "to": [
+        "frontend/src/extensions/modules/operations-analytics/__tests__/OperationsRecords.spec.ts"
+      ]
+    },
+    {
+      "from": "frontend/src/views/admin/__tests__/operationsFinanceMetrics.spec.ts",
+      "to": [
+        "frontend/src/extensions/modules/operations-analytics/__tests__/operationsFinanceMetrics.spec.ts"
+      ]
+    },
+    {
+      "from": "frontend/src/views/admin/components/OperationsCustomers.vue",
+      "to": [
+        "frontend/src/extensions/modules/operations-analytics/components/OperationsCustomers.vue"
+      ]
+    },
+    {
+      "from": "frontend/src/views/admin/components/OperationsPaymentBreakdown.vue",
+      "to": [
+        "frontend/src/extensions/modules/operations-analytics/components/OperationsPaymentBreakdown.vue"
+      ]
+    },
+    {
+      "from": "frontend/src/views/admin/components/OperationsRecords.vue",
+      "to": [
+        "frontend/src/extensions/modules/operations-analytics/components/OperationsRecords.vue"
+      ]
+    },
+    {
+      "from": "frontend/src/views/admin/operationsFinanceMetrics.ts",
+      "to": [
+        "frontend/src/extensions/modules/operations-analytics/operationsFinanceMetrics.ts"
+      ]
+    },
+    {
+      "from": "frontend/src/api/rechargeCampaigns.ts",
+      "to": [
+        "frontend/src/extensions/modules/recharge-campaigns/api.ts"
+      ]
+    },
+    {
+      "from": "frontend/src/api/__tests__/rechargeCampaigns.spec.ts",
+      "to": [
+        "frontend/src/extensions/modules/recharge-campaigns/__tests__/api.spec.ts"
+      ]
+    },
+    {
+      "from": "frontend/src/views/admin/orders/AdminRechargeCampaignsView.vue",
+      "to": [
+        "frontend/src/extensions/modules/recharge-campaigns/AdminRechargeCampaignsView.vue"
+      ]
+    },
+    {
+      "from": "frontend/src/views/user/RechargeCampaignLandingView.vue",
+      "to": [
+        "frontend/src/extensions/modules/recharge-campaigns/RechargeCampaignLandingView.vue"
+      ]
+    },
+    {
+      "from": "frontend/src/components/payment/CampaignBadge.vue",
+      "to": [
+        "frontend/src/extensions/modules/recharge-campaigns/CampaignBadge.vue"
+      ]
+    },
+    {
+      "from": "frontend/src/components/payment/CampaignGlobe.vue",
+      "to": [
+        "frontend/src/extensions/modules/recharge-campaigns/CampaignGlobe.vue"
+      ]
+    },
+    {
+      "from": "frontend/src/components/payment/CampaignShareDialog.vue",
+      "to": [
+        "frontend/src/extensions/modules/recharge-campaigns/CampaignShareDialog.vue"
+      ]
+    },
+    {
+      "from": "frontend/src/components/payment/campaignPoster.ts",
+      "to": [
+        "frontend/src/extensions/modules/recharge-campaigns/campaignPoster.ts"
+      ]
+    },
+    {
+      "from": "backend/internal/handler/recharge_campaign_handler.go",
+      "to": [
+        "backend/internal/customize/modules/rechargecampaigns/handler.go"
+      ]
+    },
+    {
+      "from": "backend/internal/handler/admin/recharge_campaign_handler.go",
+      "to": [
+        "backend/internal/customize/modules/rechargecampaigns/handler.go"
+      ]
+    },
+    {
+      "from": "frontend/src/views/user/LotteryView.vue",
+      "to": [
+        "frontend/src/extensions/modules/marketing/LotteryView.vue"
+      ],
+      "reason": "Relocate complete marketing page into module; preserve behavior and use module-owned HTTP client methods."
+    },
+    {
+      "from": "frontend/src/views/admin/orders/AdminCouponTemplatesView.vue",
+      "to": [
+        "frontend/src/extensions/modules/marketing/AdminCouponTemplatesView.vue"
+      ],
+      "reason": "Relocate complete marketing page into module; preserve behavior and use module-owned HTTP client methods."
+    },
+    {
+      "from": "frontend/src/views/admin/orders/AdminLotteryView.vue",
+      "to": [
+        "frontend/src/extensions/modules/marketing/AdminLotteryView.vue"
+      ],
+      "reason": "Relocate complete marketing page into module; preserve behavior and use module-owned HTTP client methods."
+    }
+  ],
+  "extractions": [
+    {
+      "from": "backend/internal/handler/admin/dashboard_handler.go",
+      "to": [
+        "backend/internal/handler/admin/operations_handler.go"
+      ],
+      "reason": "Move operations handlers/cache/date validation out of native dashboard; retain canvas filter compatibility."
+    },
+    {
+      "from": "backend/internal/repository/usage_log_repo_custom.go",
+      "to": [
+        "backend/internal/repository/operations_funnel.go",
+        "backend/internal/repository/operations_repository.go"
+      ],
+      "reason": "Separate read-only operations SQL from native usage repository methods."
+    },
+    {
+      "from": "frontend/src/api/admin/dashboard.ts",
+      "to": [
+        "frontend/src/extensions/modules/operations-analytics/funnelApi.ts"
+      ],
+      "reason": "Retain historical funnel and marketing HTTP contracts without extending upstream dashboardAPI."
+    },
+    {
+      "from": "frontend/src/views/HomeView.vue",
+      "to": [
+        "frontend/src/extensions/slots.ts",
+        "frontend/src/extensions/modules/customer-support/SupportWidget.vue"
+      ],
+      "reason": "Restore HomeView exactly to upstream and mount support through a runtime-gated application overlay."
+    },
+    {
+      "from": "frontend/src/views/user/PaymentView.vue",
+      "to": [
+        "frontend/src/extensions/checkout.ts",
+        "frontend/src/extensions/modules/recharge-campaigns/checkout.ts",
+        "frontend/src/extensions/modules/recharge-campaigns/CheckoutSummary.vue",
+        "frontend/src/extensions/modules/recharge-campaigns/CheckoutAmount.vue",
+        "frontend/src/extensions/modules/recharge-campaigns/CheckoutOverlay.vue",
+        "frontend/src/extensions/modules/marketing/checkout.ts",
+        "frontend/src/extensions/modules/marketing/CouponSelection.vue",
+        "frontend/src/extensions/modules/marketing/CouponSummary.vue"
+      ],
+      "reason": "Campaign and coupon UI, eligibility, discount rules and order fields are module-owned through generic checkout ports. Host retains native quote fallback and gateway currency/fee projection; marketing remains pending until admission/drain lifecycle is isolated."
+    },
+    {
+      "from": "backend/internal/service/recharge_campaign.go",
+      "to": [
+        "backend/internal/customize/modules/rechargecampaigns/campaign.go",
+        "backend/internal/customize/modules/rechargecampaigns/service.go",
+        "backend/internal/customize/modules/rechargecampaigns/repository.go",
+        "backend/internal/customize/modules/rechargecampaigns/checkout.go",
+        "backend/internal/customize/modules/rechargecampaigns/snapshot.go",
+        "backend/internal/customize/modules/rechargecampaigns/rewards.go"
+      ],
+      "reason": "Campaign catalog, quoting, immutable snapshot and reward SQL are extension-owned; the host retains activation/order-type checks, native amounts and transaction/idempotency ownership."
+    },
+    {
+      "from": "backend/internal/service/recharge_campaign_test.go",
+      "to": [
+        "backend/internal/customize/modules/rechargecampaigns/checkout_test.go",
+        "backend/internal/customize/modules/rechargecampaigns/rewards_test.go"
+      ],
+      "reason": "Move existing pure rule regressions with the module and extend quote/snapshot/reward SQL coverage; retain host switch, order and retry tests."
+    },
+    {
+      "from": "backend/internal/service/marketing_coupon.go",
+      "to": [
+        "backend/internal/customize/modules/marketing/coupon.go"
+      ],
+      "reason": "Marketing rules and DTO/repository contracts are owned by the extension module. The original path remains a compatibility alias or narrow host transaction/wallet/redeem adapter; no switch is advertised until routes, frontend and admission/drain lifecycle are isolated."
+    },
+    {
+      "from": "backend/internal/service/marketing_coupon_repository.go",
+      "to": [
+        "backend/internal/customize/modules/marketing/coupon_repository.go"
+      ],
+      "reason": "Marketing rules and DTO/repository contracts are owned by the extension module. The original path remains a compatibility alias or narrow host transaction/wallet/redeem adapter; no switch is advertised until routes, frontend and admission/drain lifecycle are isolated."
+    },
+    {
+      "from": "backend/internal/service/marketing_coupon_service.go",
+      "to": [
+        "backend/internal/customize/modules/marketing/coupon_service.go"
+      ],
+      "reason": "Marketing rules and DTO/repository contracts are owned by the extension module. The original path remains a compatibility alias or narrow host transaction/wallet/redeem adapter; no switch is advertised until routes, frontend and admission/drain lifecycle are isolated."
+    },
+    {
+      "from": "backend/internal/service/marketing_lottery.go",
+      "to": [
+        "backend/internal/customize/modules/marketing/lottery.go"
+      ],
+      "reason": "Marketing rules and DTO/repository contracts are owned by the extension module. The original path remains a compatibility alias or narrow host transaction/wallet/redeem adapter; no switch is advertised until routes, frontend and admission/drain lifecycle are isolated."
+    },
+    {
+      "from": "backend/internal/service/marketing_lottery_repository.go",
+      "to": [
+        "backend/internal/customize/modules/marketing/lottery_repository.go"
+      ],
+      "reason": "Marketing rules and DTO/repository contracts are owned by the extension module. The original path remains a compatibility alias or narrow host transaction/wallet/redeem adapter; no switch is advertised until routes, frontend and admission/drain lifecycle are isolated."
+    },
+    {
+      "from": "backend/internal/service/marketing_lottery_service.go",
+      "to": [
+        "backend/internal/customize/modules/marketing/lottery_service.go",
+        "backend/internal/customize/modules/marketing/host_ports.go"
+      ],
+      "reason": "Marketing rules and DTO/repository contracts are owned by the extension module. The original path remains a compatibility alias or narrow host transaction/wallet/redeem adapter; no switch is advertised until routes, frontend and admission/drain lifecycle are isolated."
+    },
+    {
+      "from": "backend/internal/handler/payment_handler.go",
+      "to": [
+        "backend/internal/customize/modules/marketing/handler.go"
+      ],
+      "reason": "Marketing user/admin HTTP methods move verbatim into a generic module handler with host identity injection; native payment handlers no longer depend on coupon or lottery services. Existing API envelopes and authentication scopes are retained."
+    },
+    {
+      "from": "backend/internal/handler/admin/payment_handler.go",
+      "to": [
+        "backend/internal/customize/modules/marketing/handler.go"
+      ],
+      "reason": "Marketing user/admin HTTP methods move verbatim into a generic module handler with host identity injection; native payment handlers no longer depend on coupon or lottery services. Existing API envelopes and authentication scopes are retained."
+    },
+    {
+      "from": "backend/internal/server/routes/payment.go",
+      "to": [
+        "backend/internal/customize/modules/marketing/routes.go"
+      ],
+      "reason": "All fourteen marketing endpoints are registered by the module through extension-only helpers inside the existing host security groups, with no public marketing registration and no premature switch."
+    },
+    {
+      "from": "frontend/src/api/payment.ts",
+      "to": [
+        "frontend/src/extensions/modules/marketing/api.ts"
+      ],
+      "reason": "Marketing HTTP methods and route definitions live in module; preserve endpoint contracts and host authentication/payment metadata."
+    },
+    {
+      "from": "frontend/src/api/admin/payment.ts",
+      "to": [
+        "frontend/src/extensions/modules/marketing/api.ts"
+      ],
+      "reason": "Marketing HTTP methods and route definitions live in module; preserve endpoint contracts and host authentication/payment metadata."
+    },
+    {
+      "from": "frontend/src/router/index.ts",
+      "to": [
+        "frontend/src/extensions/modules/marketing/routes.ts"
+      ],
+      "reason": "Marketing HTTP methods and route definitions live in module; preserve endpoint contracts and host authentication/payment metadata."
+    },
+    {
+      "from": "backend/internal/service/api_key.go",
+      "to": [
+        "backend/internal/customize/modules/multigroupbilling/policy.go"
+      ],
+      "reason": "Custom group ID and billing priority normalization now delegate to the independent multigroupbilling policy; host entity fields and protocol normalization remain compatibility-owned."
+    },
+    {
+      "from": "backend/internal/service/api_key_service.go",
+      "to": [
+        "backend/internal/customize/modules/multigroupbilling/policy.go",
+        "backend/internal/service/api_key_group_selection.go"
+      ],
+      "reason": "Candidate ordering, preference and fallback rules move to the module through opaque generic host ports. Host keeps entity/auth-cache adaptation and native error mapping. Pending remains until new-key admission and historical compatibility are complete."
+    },
+    {
+      "from": "backend/internal/service/api_key_service.go",
+      "to": [
+        "backend/internal/customize/modules/multigroupbilling/binding.go",
+        "backend/internal/service/api_key_group_binding.go"
+      ],
+      "reason": "Create/update binding input planning moves into the module; host adapter retains protocol and permission validation and exact update field masks. Module remains pending until historical ownership and admission are implemented."
+    },
+    {
+      "from": "backend/internal/repository/api_key_repo.go",
+      "to": [
+        "backend/internal/customize/modules/multigroupbilling/group_lifecycle.go",
+        "backend/internal/customize/modules/multigroupbilling/group_lifecycle_sql.go",
+        "backend/internal/repository/api_key_group_binding.go"
+      ],
+      "reason": "Group removal/replacement rules and existing PostgreSQL bulk statements move to multigroupbilling. Host repository adapter preserves transaction-aware Ent fallback, host protocol defaults, affected counts and error propagation. No SQL migration or runtime switch change."
+    },
+    {
+      "from": "backend/ent/schema/api_key.go",
+      "to": [
+        "backend/internal/customize/modules/multigroupbilling/entschema/routing.go",
+        "backend/internal/customize/modules/multigroupbilling/ownership.go"
+      ],
+      "reason": "Durable immutable routing ownership is defined by the module schema mixin. Existing keys and pending-stage creation remain legacy; native keys bypass custom selection. Admission remains pending, with no runtime switch enabled."
+    }
+  ]
+}

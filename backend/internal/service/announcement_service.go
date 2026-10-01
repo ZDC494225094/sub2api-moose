@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/sitecustomization"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 )
@@ -16,6 +17,7 @@ type AnnouncementService struct {
 	readRepo         AnnouncementReadRepository
 	userRepo         UserRepository
 	userSubRepo      UserSubscriptionRepository
+	admission        sitecustomization.AnnouncementAdmission
 }
 
 func NewAnnouncementService(
@@ -30,6 +32,11 @@ func NewAnnouncementService(
 		userRepo:         userRepo,
 		userSubRepo:      userSubRepo,
 	}
+}
+
+// SetAnnouncementAdmission injects the site-customization extension admission.
+func (s *AnnouncementService) SetAnnouncementAdmission(admission sitecustomization.AnnouncementAdmission) {
+	s.admission = admission
 }
 
 type CreateAnnouncementInput struct {
@@ -71,6 +78,13 @@ type AnnouncementUserReadStatus struct {
 func (s *AnnouncementService) Create(ctx context.Context, input *CreateAnnouncementInput) (*Announcement, error) {
 	if input == nil {
 		return nil, ErrAnnouncementNilInput
+	}
+
+	// Site-customization extension admission: reject new announcements when disabled.
+	if s.admission != nil {
+		if err := s.admission.CheckCreate(ctx); err != nil {
+			return nil, err
+		}
 	}
 
 	if !isJSONTimeInRange(input.StartsAt) || !isJSONTimeInRange(input.EndsAt) {

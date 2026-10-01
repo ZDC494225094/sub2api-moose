@@ -54,24 +54,26 @@ type AdminUser struct {
 }
 
 type APIKey struct {
-	ID              int64      `json:"id"`
-	UserID          int64      `json:"user_id"`
-	Key             string     `json:"key"`
-	Name            string     `json:"name"`
-	Platform        string     `json:"platform"`
-	GroupID         *int64     `json:"group_id"`
-	GroupIDs        []int64    `json:"group_ids"`
-	BillingPriority string     `json:"billing_priority"`
-	Status          string     `json:"status"`
-	IPWhitelist     []string   `json:"ip_whitelist"`
-	IPBlacklist     []string   `json:"ip_blacklist"`
-	LastUsedAt      *time.Time `json:"last_used_at"`
-	LastUsedIP      *string    `json:"last_used_ip"`
-	Quota           float64    `json:"quota"`      // Quota limit in USD (0 = unlimited)
-	QuotaUsed       float64    `json:"quota_used"` // Used quota amount in USD
-	ExpiresAt       *time.Time `json:"expires_at"` // Expiration time (nil = never expires)
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
+	ID              int64   `json:"id"`
+	UserID          int64   `json:"user_id"`
+	Key             string  `json:"key"`
+	Name            string  `json:"name"`
+	Platform        string  `json:"platform"`
+	GroupID         *int64  `json:"group_id"`
+	GroupIDs        []int64 `json:"group_ids"`
+	BillingPriority string  `json:"billing_priority"`
+	// RoutingPolicy is immutable per-key ownership: multigroup-v1 or upstream-v1.
+	RoutingPolicy string     `json:"routing_policy"`
+	Status        string     `json:"status"`
+	IPWhitelist   []string   `json:"ip_whitelist"`
+	IPBlacklist   []string   `json:"ip_blacklist"`
+	LastUsedAt    *time.Time `json:"last_used_at"`
+	LastUsedIP    *string    `json:"last_used_ip"`
+	Quota         float64    `json:"quota"`      // Quota limit in USD (0 = unlimited)
+	QuotaUsed     float64    `json:"quota_used"` // Used quota amount in USD
+	ExpiresAt     *time.Time `json:"expires_at"` // Expiration time (nil = never expires)
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 	// CurrentConcurrency is the real-time active request count for this API key.
 	CurrentConcurrency int `json:"current_concurrency"`
 
