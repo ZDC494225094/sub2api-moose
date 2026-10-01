@@ -25,6 +25,11 @@ type billingSchedulingAdmission struct {
 	lookup func(string) (customize.Manifest, bool)
 }
 
+var (
+	_ service.RateMultiplierAdmission = (*billingSchedulingAdmission)(nil)
+	_ service.TimePricingAdmission    = (*billingSchedulingAdmission)(nil)
+)
+
 // AllowRateMultiplier checks if custom rate multipliers are allowed.
 func (a *billingSchedulingAdmission) AllowRateMultiplier(ctx context.Context) error {
 	return a.checkEnabled(ctx)
@@ -82,8 +87,8 @@ func ProvideBillingSchedulingAdmission(settings service.SettingRepository) Billi
 	return BillingSchedulingAdmission{impl: impl}
 }
 
-// Unwrap returns the underlying admission implementation as interface{}.
-func (w BillingSchedulingAdmission) Unwrap() interface{} {
+// Unwrap returns the underlying admission implementation as any.
+func (w BillingSchedulingAdmission) Unwrap() any {
 	return w.impl
 }
 

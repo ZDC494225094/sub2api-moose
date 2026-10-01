@@ -2,7 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { useExtensionStore } from '../../store'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { computed, defineComponent, h, nextTick, ref } from 'vue'
-import { mount, type VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import type { CreateOrderRequest, OrderType, UserCoupon } from '@/types/payment'
 import { composeCheckoutAdjustments, type CheckoutAdjustmentContext } from '../../checkout'
 import { createCouponCheckout, useCouponCheckout } from './checkout'
@@ -104,13 +104,83 @@ describe('coupon checkout contribution', () => {
     const { host, controller, admission } = harness()
     admission.value = false; await host.initialize()
     expect(marketingAPI.getCoupons).not.toHaveBeenCalled()
-    admission.value = true
     let resolve!: (value: never) => void
     vi.mocked(marketingAPI.getCoupons).mockReturnValueOnce(new Promise(done => { resolve = done }))
+    admission.value = true
     const pending = host.initialize(); admission.value = false
     resolve({ data: { items: [{ id: 7 }] } } as never); await pending
     expect(controller.coupons.value).toEqual([])
     expect(host.payableFor('balance')).toBe(110)
+  })
+  it('waits for checkout initialization and reloads automatically after an initially disabled state', async () => {
+    const { host, controller, admission } = harness()
+    admission.value = false; admission.value = true
+    expect(marketingAPI.getCoupons).not.toHaveBeenCalled()
+    admission.value = false; await host.initialize()
+    expect(marketingAPI.getCoupons).not.toHaveBeenCalled()
+    admission.value = true; await flushPromises()
+    expect(marketingAPI.getCoupons).toHaveBeenCalledTimes(1)
+    expect(controller.coupons.value.map(coupon => coupon.id)).toEqual([7])
+    expect(controller.selectedId.value).toBeNull()
+  })
+  it('deduplicates initialization and an automatic recovery load', async () => {
+    const { host, admission } = harness()
+    admission.value = false; await host.initialize()
+    let resolve!: (value: never) => void
+    vi.mocked(marketingAPI.getCoupons).mockReturnValueOnce(new Promise(done => { resolve = done }))
+    admission.value = true
+    const first = host.initialize(), second = host.initialize()
+    expect(marketingAPI.getCoupons).toHaveBeenCalledTimes(1)
+    resolve({ data: { items: [] } } as never); await Promise.all([first, second])
+  })
+  it.each(['older-first', 'newer-first'])('ignores a pre-disable response after rapid re-enable (%s)', async completionOrder => {
+    const { host, controller, admission } = harness()
+    let resolveOld!: (value: never) => void
+    let resolveNew!: (value: never) => void
+    vi.mocked(marketingAPI.getCoupons)
+      .mockReturnValueOnce(new Promise(done => { resolveOld = done }))
+      .mockReturnValueOnce(new Promise(done => { resolveNew = done }))
+    const oldRequest = host.initialize()
+    admission.value = false; admission.value = true
+    const newRequest = host.initialize()
+    expect(marketingAPI.getCoupons).toHaveBeenCalledTimes(2)
+    const oldResponse = { data: { items: [{ id: 1 }] } } as never
+    const newResponse = { data: { items: [{ id: 2 }] } } as never
+    if (completionOrder === 'older-first') {
+      resolveOld(oldResponse); await oldRequest
+      expect(controller.coupons.value).toEqual([])
+      // Completing the stale request must not clear the newer in-flight read.
+      const joined = host.initialize()
+      expect(marketingAPI.getCoupons).toHaveBeenCalledTimes(2)
+      resolveNew(newResponse); await Promise.all([joined, newRequest])
+    } else {
+      resolveNew(newResponse); await newRequest
+      resolveOld(oldResponse); await oldRequest
+    }
+    expect(controller.coupons.value.map(coupon => coupon.id)).toEqual([2])
+    expect(controller.selectedId.value).toBeNull()
+  })
+  it('contains a failed background reload and retries on the next recovery', async () => {
+    const { host, controller, admission } = harness()
+    admission.value = false; await host.initialize()
+    vi.mocked(marketingAPI.getCoupons).mockRejectedValueOnce(new Error('offline'))
+    admission.value = true; await flushPromises()
+    expect(controller.coupons.value).toEqual([])
+    expect(host.payableFor('balance')).toBe(110)
+    admission.value = false; admission.value = true; await flushPromises()
+    expect(marketingAPI.getCoupons).toHaveBeenCalledTimes(2)
+    expect(controller.coupons.value.map(coupon => coupon.id)).toEqual([7])
+  })
+  it('ignores a late response and stops reloading after checkout unmounts', async () => {
+    const { host, controller, admission, wrapper } = harness()
+    let resolve!: (value: never) => void
+    vi.mocked(marketingAPI.getCoupons).mockReturnValueOnce(new Promise(done => { resolve = done }))
+    const pending = host.initialize()
+    wrapper.unmount()
+    resolve({ data: { items: [{ id: 7 }] } } as never); await pending
+    admission.value = false; admission.value = true; await host.initialize()
+    expect(marketingAPI.getCoupons).toHaveBeenCalledTimes(1)
+    expect(controller.coupons.value).toEqual([])
   })
   it('rejects conflicting replacements without mutating requests', () => {
     const { ctx } = harness(); const prepareOrder = vi.fn()
@@ -129,7 +199,8 @@ describe('managed marketing checkout integration', () => {
     await host.initialize()
     expect(marketingAPI.getCoupons).not.toHaveBeenCalled()
     store.flags = { 'marketing-tools': true }
-    await host.initialize()
+    await flushPromises()
+    expect(marketingAPI.getCoupons).toHaveBeenCalledTimes(1)
     controller.selectedId.value = 7
     expect(host.payableFor('balance')).toBe(88)
     const enabled = order(); host.prepareOrder(enabled)
@@ -147,5 +218,20 @@ describe('managed marketing checkout integration', () => {
     expect(host.payableFor('balance')).toBe(110)
     store.flags = {}
     expect(controller.admission.value).toBe(false)
+  })
+  it('reloads options when unavailable shared extension state recovers', async () => {
+    setActivePinia(createPinia())
+    const store = useExtensionStore()
+    const { host, controller } = harness(false, true)
+    await host.initialize()
+    store.flags = { 'marketing-tools': true }; await flushPromises()
+    controller.selectedId.value = 7
+    store.flags = {}
+    expect(controller.selectedId.value).toBeNull()
+    vi.mocked(marketingAPI.getCoupons).mockResolvedValueOnce({ data: { items: [] } } as never)
+    store.flags = { 'marketing-tools': true }; await flushPromises()
+    expect(marketingAPI.getCoupons).toHaveBeenCalledTimes(2)
+    expect(controller.coupons.value).toEqual([])
+    expect(host.payableFor('balance')).toBe(110)
   })
 })

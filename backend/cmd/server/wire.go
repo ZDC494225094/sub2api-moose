@@ -59,10 +59,28 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 		// Cleanup function provider
 		provideCleanup,
 
-		// Application struct
-		wire.Struct(new(Application), "Server", "PromptAudit", "PluginManager", "Cleanup"),
+		// Application composition also requires the extension runtime admission.
+		provideApplication,
 	)
 	return nil, nil
+}
+
+// provideApplication consumes the billing admission so Wire cannot discard its
+// runtime registration as an unused provider. It must be installed before the
+// application is returned to main and begins accepting requests.
+func provideApplication(
+	server *http.Server,
+	promptAudit *securityaudit.PromptService,
+	pluginManager *service.PluginManager,
+	cleanup func(),
+	_ extensionwiring.BillingSchedulingAdmission,
+) *Application {
+	return &Application{
+		Server:        server,
+		PromptAudit:   promptAudit,
+		PluginManager: pluginManager,
+		Cleanup:       cleanup,
+	}
 }
 
 func providePrivacyClientFactory() service.PrivacyClientFactory {

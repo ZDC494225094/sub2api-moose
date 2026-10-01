@@ -24,9 +24,9 @@
             />
           </div>
           <EndpointPopover
-            v-if="publicSettings?.api_base_url || (publicSettings?.custom_endpoints?.length ?? 0) > 0"
+            v-if="publicSettings?.api_base_url || customEndpoints.length > 0"
             :api-base-url="publicSettings?.api_base_url || ''"
-            :custom-endpoints="publicSettings?.custom_endpoints || []"
+            :custom-endpoints="customEndpoints"
           />
           <div v-if="selectedIds.length" class="flex flex-wrap items-center gap-3 text-sm">
             <span class="text-gray-600 dark:text-gray-300">
@@ -1336,7 +1336,7 @@
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 
 const { t, locale } = useI18n()
-import { keysAPI, authAPI, usageAPI, userGroupsAPI } from '@/api'
+import { keysAPI, usageAPI, userGroupsAPI } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import BulkEditKeysModal from '@/components/keys/BulkEditKeysModal.vue'
@@ -1354,7 +1354,8 @@ import BulkEditKeysModal from '@/components/keys/BulkEditKeysModal.vue'
 	import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 	import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import { allowedBillingPriorities, canAddGroup, keyRoutingMode, keyRoutingNotice, originalGroupIds, useMultiGroupAdmission } from '@/extensions/modules/multi-group-billing/key-routing'
-	import type { ApiKey, BillingPriority, Group, PublicSettings, SubscriptionType, GroupPlatform, UpdateApiKeyRequest } from '@/types'
+import { useSiteCustomizationAdmission } from '@/extensions/modules/site-customization'
+	import type { ApiKey, BillingPriority, Group, SubscriptionType, GroupPlatform, UpdateApiKeyRequest } from '@/types'
 import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
@@ -1544,7 +1545,9 @@ const pendingCcsRow = ref<ApiKey | null>(null)
 const selectedKey = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
 const groupSelectorKeyId = ref<number | null>(null)
-const publicSettings = ref<PublicSettings | null>(null)
+const publicSettings = computed(() => appStore.cachedPublicSettings)
+const siteCustomizationEnabled = useSiteCustomizationAdmission()
+const customEndpoints = computed(() => siteCustomizationEnabled.value ? publicSettings.value?.custom_endpoints ?? [] : [])
 const dropdownRef = ref<HTMLElement | null>(null)
 const columnDropdownRef = ref<HTMLElement | null>(null)
 const dropdownPosition = ref<{ top?: number; bottom?: number; left: number } | null>(null)
@@ -1981,7 +1984,7 @@ const loadUserGroupRates = async () => {
 
 const loadPublicSettings = async () => {
   try {
-    publicSettings.value = await authAPI.getPublicSettings()
+    await appStore.fetchPublicSettings()
   } catch (error) {
     console.error('Failed to load public settings:', error)
   }

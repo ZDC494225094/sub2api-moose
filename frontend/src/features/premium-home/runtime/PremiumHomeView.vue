@@ -460,6 +460,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import { useAppStore, useAuthStore } from '@/stores'
 import CustomerServiceFloat from '@/extensions/modules/customer-support/SupportWidget.vue'
 import { useExtensionStore } from '@/extensions/store'
+import { useSiteCustomizationAdmission } from '@/extensions/modules/site-customization'
 import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import Icon from '@/components/icons/Icon.vue'
@@ -554,9 +555,11 @@ const infiniteCanvasHomeEnabled = computed(() =>
 const contactInfo = computed(() => appStore.cachedPublicSettings?.contact_info || appStore.contactInfo || '')
 const customerServiceLink = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.customer_service_link || ''))
 const extensions = useExtensionStore()
+const siteCustomizationEnabled = useSiteCustomizationAdmission()
 const customerServiceFloat = ref<InstanceType<typeof CustomerServiceFloat> | null>(null)
 const footerContent = computed(() => appStore.cachedPublicSettings?.footer_content?.trim() || siteSubtitle.value)
 const footerFriendLinks = computed(() => {
+  if (!siteCustomizationEnabled.value) return []
   const links = appStore.cachedPublicSettings?.footer_friend_links || []
   return links
     .map((link) => ({

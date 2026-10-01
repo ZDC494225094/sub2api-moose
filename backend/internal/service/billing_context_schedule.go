@@ -131,14 +131,14 @@ func (s *BillingService) ResolveContextPricingSchedule(ctx context.Context, reso
 	tiers = mergeEqualContextTiers(tiers)
 	applyContextTierLabels(tiers, plan)
 
-	return &ContextPricingSchedule{Basis: ContextPricingBasisWholeRequest, Tiers: tiers, TimePricing: resolvedTimePricingSchedule(resolved)}, nil
+	return &ContextPricingSchedule{Basis: ContextPricingBasisWholeRequest, Tiers: tiers, TimePricing: resolvedTimePricingSchedule(ctx, resolved)}, nil
 }
 
 // resolvedTimePricingSchedule 列出计费会生效的分时倍率时段。
 // 时段来自解析到的渠道定价配置，每个时段的倍率用计费自己的 resolvedChannelTimeMultiplier
 // 在时段内取值：定价来源不是渠道（分组价卡覆盖）、配置非法等情况下计费按 1 计，
 // 这里也就自然得到"无分时"。倍率为 1 的时段不列出。
-func resolvedTimePricingSchedule(resolved *ResolvedPricing) *TimePricingSchedule {
+func resolvedTimePricingSchedule(ctx context.Context, resolved *ResolvedPricing) *TimePricingSchedule {
 	if resolved == nil || resolved.channelPricing == nil || resolved.channelPricing.TimePricing == nil {
 		return nil
 	}
@@ -161,7 +161,7 @@ func resolvedTimePricingSchedule(resolved *ResolvedPricing) *TimePricingSchedule
 		// 锚点日必须是工作日（2026-01-05 为周一）：weekdays_only 配置在周末恒为 1，
 		// 锚点落在周末会把时段整组剔除。
 		at := time.Date(2026, time.January, 5, 0, 0, start+1, 0, location)
-		multiplier := resolvedChannelTimeMultiplier(nil, resolved, at)
+		multiplier := resolvedChannelTimeMultiplier(ctx, resolved, at)
 		if multiplier == 1 {
 			continue
 		}

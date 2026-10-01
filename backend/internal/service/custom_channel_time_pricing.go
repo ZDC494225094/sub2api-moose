@@ -12,12 +12,17 @@ import (
 
 var channelTimePricingLocations sync.Map
 
-// timePricingAdmission is injected at runtime and checked before applying time-based pricing.
-var timePricingAdmission interface{} // billingscheduling.TimePricingAdmission
+// TimePricingAdmission is the host port for channel time-pricing admission.
+type TimePricingAdmission interface {
+	AllowTimePricing(context.Context) error
+}
+
+// timePricingAdmission is configured once during application initialization.
+var timePricingAdmission TimePricingAdmission
 
 // SetTimePricingAdmission injects the admission check for time-based pricing.
 // Called during application initialization.
-func SetTimePricingAdmission(admission interface{}) {
+func SetTimePricingAdmission(admission TimePricingAdmission) {
 	timePricingAdmission = admission
 }
 
@@ -40,25 +45,29 @@ func validateChannelTimePricing(config *ChannelTimePricing) error {
 }
 
 // MultiplierAt 返回 at 对应的分时倍率。无配置或脏配置均安全降级为 1。
-// 不执行准入检查（保持向后兼容）。新代码应使用 MultiplierAtWithAdmission。
+// 已装配准入时仍执行扩展开关检查；有请求上下文的调用方应使用 MultiplierAtWithAdmission。
 func (config *ChannelTimePricing) MultiplierAt(at time.Time) float64 {
-	return config.MultiplierAtWithAdmission(nil, at)
+	return config.MultiplierAtWithAdmission(context.Background(), at)
 }
 
 // MultiplierAtWithAdmission 返回 at 对应的分时倍率。无配置或脏配置均安全降级为 1。
 // 当 billing-scheduling 扩展关闭时，返回 1.0（不应用分时定价）。
 func (config *ChannelTimePricing) MultiplierAtWithAdmission(ctx context.Context, at time.Time) float64 {
+	if config == nil || len(config.Periods) == 0 || at.IsZero() {
+		return 1.0
+	}
+
 	// Check admission: if extension is disabled, return 1.0 (no time pricing)
-	if adm, ok := timePricingAdmission.(interface{ AllowTimePricing(context.Context) error }); ok && ctx != nil {
-		if err := adm.AllowTimePricing(ctx); err != nil {
+	if timePricingAdmission != nil {
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		if err := timePricingAdmission.AllowTimePricing(ctx); err != nil {
 			// Extension disabled, fallback to standard pricing (no time differentiation)
 			return 1.0
 		}
 	}
 
-	if config == nil || len(config.Periods) == 0 || at.IsZero() {
-		return 1.0
-	}
 	if err := validateChannelTimePricing(config); err != nil {
 		return 1.0
 	}

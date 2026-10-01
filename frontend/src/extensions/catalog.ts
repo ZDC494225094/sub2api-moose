@@ -12,6 +12,8 @@ export const extensionPaths = {
   'marketing-tools': ['/lottery', '/admin/orders/coupons', '/admin/orders/lottery'],
   // Key routing ownership is per key; the switch only gates new configuration.
   'multi-group-billing': [],
+  // Backend pricing admission only; no navigation routes are owned.
+  'billing-scheduling': [],
 } as const
 
 export type ExtensionId = keyof typeof extensionPaths

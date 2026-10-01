@@ -1555,3 +1555,32 @@ func TestPaymentMarketingCompletedRepairNeverReissuesRights(t *testing.T) {
 		}
 	}
 }
+
+type paidRecoveryCoupons struct{ orderCouponProbe }
+
+func (r *paidRecoveryCoupons) GetByID(ctx context.Context, id int64) (*UserCoupon, error) {
+	require.NotNil(r.t, dbent.TxFromContext(ctx))
+	copy := r.coupon
+	return &copy, nil
+}
+
+type paidRecoveryDiscounts struct {
+	PaymentOrderDiscountRepository
+	t        *testing.T
+	fail     bool
+	couponID int64
+}
+
+func (r *paidRecoveryDiscounts) GetByOrderID(ctx context.Context, id int64) (*PaymentOrderDiscount, error) {
+	require.NotNil(r.t, dbent.TxFromContext(ctx))
+	return &PaymentOrderDiscount{OrderID: id, UserCouponID: &r.couponID, Status: OrderDiscountStatusReleased}, nil
+}
+func (r *paidRecoveryDiscounts) RestoreReservationByOrderID(ctx context.Context, id int64, at time.Time) (bool, error) {
+	tx := dbent.TxFromContext(ctx)
+	require.NotNil(r.t, tx)
+	if r.fail {
+		return false, errors.New("snapshot recovery failed")
+	}
+	_, err := tx.Client().ExecContext(ctx, "INSERT INTO marketing_order_probe(kind, order_id) VALUES ('discount', ?)", id)
+	return err == nil, err
+}
