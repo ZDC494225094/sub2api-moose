@@ -1194,10 +1194,11 @@ func inferLegacySignupSource(email string) string {
 }
 
 func (s *AuthService) validateRegistrationEmailPolicy(ctx context.Context, email string) error {
-	if s.settingService == nil {
-		return nil
+	policy, err := s.settingService.registrationAccessSettings(ctx)
+	if err != nil {
+		return err
 	}
-	whitelist := s.settingService.GetRegistrationEmailSuffixWhitelist(ctx)
+	whitelist := policy.EmailWhitelist
 	if !IsRegistrationEmailSuffixAllowed(email, whitelist) {
 		return buildEmailSuffixNotAllowedError(whitelist)
 	}
@@ -1208,11 +1209,12 @@ func (s *AuthService) validateRegistrationEmailPolicy(ctx context.Context, email
 // 非白名单域名默认直接拒绝（严格白名单模式）；仅当域名限量注册开关开启时，
 // 非白名单域名每个最多允许一个账户。
 func (s *AuthService) validateRegistrationEmailQuota(ctx context.Context, email string) error {
-	if s.settingService == nil {
-		return nil
+	policy, err := s.settingService.registrationAccessSettings(ctx)
+	if err != nil {
+		return err
 	}
-	whitelist := s.settingService.GetRegistrationEmailSuffixWhitelist(ctx)
-	quotaEnabled := IsRegistrationEmailSuffixLimited(email, whitelist) && s.settingService.IsRegistrationEmailDomainQuotaEnabled(ctx)
+	whitelist := policy.EmailWhitelist
+	quotaEnabled := IsRegistrationEmailSuffixLimited(email, whitelist) && policy.DomainQuota
 	decision := accesspolicy.EvaluateRegistrationEmail(email, whitelist, quotaEnabled)
 	if !decision.Allowed {
 		return buildEmailSuffixNotAllowedError(whitelist)
@@ -1245,11 +1247,12 @@ func (s *AuthService) createUserWithRegistrationEmailGuard(ctx context.Context, 
 	if s == nil || s.userRepo == nil {
 		return ErrServiceUnavailable
 	}
-	whitelist := []string{}
-	if s.settingService != nil {
-		whitelist = s.settingService.GetRegistrationEmailSuffixWhitelist(ctx)
+	policy, err := s.settingService.registrationAccessSettings(ctx)
+	if err != nil {
+		return err
 	}
-	quotaEnabled := IsRegistrationEmailSuffixLimited(user.Email, whitelist) && s.settingService != nil && s.settingService.IsRegistrationEmailDomainQuotaEnabled(ctx)
+	whitelist := policy.EmailWhitelist
+	quotaEnabled := IsRegistrationEmailSuffixLimited(user.Email, whitelist) && policy.DomainQuota
 	decision := accesspolicy.EvaluateRegistrationEmail(user.Email, whitelist, quotaEnabled)
 	// Re-evaluate on write: preflight is not authorization across setting changes.
 	if !decision.Allowed {

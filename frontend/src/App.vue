@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AccessPolicyBoundary from '@/extensions/modules/access-policy/AccessPolicyBoundary.vue'
 import { useCustomExtensionRuntime } from '@/extensions/runtime'
 import { useSiteCustomizationAdmission } from '@/extensions/modules/site-customization'
 import ExtensionSlot from '@/extensions/components/ExtensionSlot.vue'
@@ -29,7 +30,26 @@ const announcementStore = useAnnouncementStore()
 const adminComplianceStore = useAdminComplianceStore()
 const adminSettingsStore = useAdminSettingsStore()
 const mainlandChinaAccessDecisionResolved = ref(false)
+const accessPolicyLoading = ref(true)
+async function refreshAccessPolicy(): Promise<void> {
+  accessPolicyLoading.value = true
+  mainlandChinaAccessDecisionResolved.value = false
+  try {
+    const settings = await appStore.fetchPublicSettings(true)
+    mainlandChinaAccessDecisionResolved.value = settings != null
+  } catch {
+    // Never mount protected pages from stale injected/cached settings after failure.
+    mainlandChinaAccessDecisionResolved.value = false
+  } finally {
+    accessPolicyLoading.value = false
+  }
+}
 const siteCustomizationEnabled = useSiteCustomizationAdmission()
+const accessPolicyPageReady = computed(() => mainlandChinaAccessDecisionResolved.value && (
+  appStore.cachedPublicSettings?.mainland_china_access_restricted !== true ||
+  appStore.cachedPublicSettings?.mainland_china_access_restriction_enabled !== true ||
+  route.path === MAINLAND_CHINA_ACCESS_RESTRICTED_PATH
+))
 
 function redirectMainlandChinaAccessRestriction(): void {
   const redirectPath = resolveMainlandChinaAccessRestrictionRedirect(
@@ -192,8 +212,7 @@ onMounted(async () => {
   // Load public settings into appStore (will be cached for other components)
   // SSR-injected settings deliberately omit the request-specific IP decision.
   // Refresh once after mounting so this browser receives its own result.
-  const settings = await appStore.fetchPublicSettings(true)
-  mainlandChinaAccessDecisionResolved.value = settings !== null
+  await refreshAccessPolicy()
 
   // Re-resolve document title now that site settings are available
   updateDocumentTitle()
@@ -201,10 +220,12 @@ onMounted(async () => {
 </script>
 
 <template>
-  <NavigationProgress v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
-  <RouterView />
-  <ExtensionSlot name="application-overlay" />
-  <Toast v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
-  <AnnouncementPopup v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
-  <AdminComplianceDialog v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
+  <AccessPolicyBoundary :resolved="accessPolicyPageReady" :loading="accessPolicyLoading" :setup="route.path === '/setup'" @retry="refreshAccessPolicy">
+    <NavigationProgress v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
+    <RouterView />
+    <ExtensionSlot name="application-overlay" />
+    <Toast v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
+    <AnnouncementPopup v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
+    <AdminComplianceDialog v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
+  </AccessPolicyBoundary>
 </template>

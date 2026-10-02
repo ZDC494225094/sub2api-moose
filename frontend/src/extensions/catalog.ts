@@ -15,6 +15,12 @@ export const extensionPaths = {
   // Backend-only pricing/scheduling gates; no page interception.
   'billing-scheduling': [],
   'admin-efficiency': [],
+  // Configuration admission only; persisted security rules are always enforced.
+  'access-policy': [],
+  // New media submissions only; historical task pages must remain accessible.
+  'media-gateway': [],
+  // Issuance policy only; existing subscriptions and redeem pages remain available.
+  'subscription-extensions': [],
 } as const
 
 export type ExtensionId = keyof typeof extensionPaths

@@ -8,6 +8,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/mediagateway"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -313,6 +315,10 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	modelName, action, err := parseGeminiModelAction(strings.TrimPrefix(c.Param("modelAction"), "/"))
 	if err != nil {
 		googleError(c, http.StatusNotFound, err.Error())
+		return
+	}
+	if err := h.settingService.CheckMediaGatewayAdmission(c.Request.Context(), mediagateway.GeminiOperation(action)); err != nil {
+		googleError(c, infraerrors.Code(err), infraerrors.Message(err))
 		return
 	}
 	// URL 里的模型名最终会被拼进上游 /v1beta/models/{model}:{action}，

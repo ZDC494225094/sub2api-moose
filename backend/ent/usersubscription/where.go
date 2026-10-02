@@ -55,6 +55,11 @@ func IDLTE(id int64) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldLTE(FieldID, id))
 }
 
+// CustomSubscriptionPolicy applies equality check predicate on the "custom_subscription_policy" field. It's identical to CustomSubscriptionPolicyEQ.
+func CustomSubscriptionPolicy(v string) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldCustomSubscriptionPolicy, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldEQ(FieldCreatedAt, v))
@@ -138,6 +143,71 @@ func AssignedAt(v time.Time) predicate.UserSubscription {
 // Notes applies equality check predicate on the "notes" field. It's identical to NotesEQ.
 func Notes(v string) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldEQ(FieldNotes, v))
+}
+
+// CustomSubscriptionPolicyEQ applies the EQ predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyEQ(v string) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyNEQ applies the NEQ predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyNEQ(v string) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNEQ(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyIn applies the In predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyIn(vs ...string) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldIn(FieldCustomSubscriptionPolicy, vs...))
+}
+
+// CustomSubscriptionPolicyNotIn applies the NotIn predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyNotIn(vs ...string) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNotIn(FieldCustomSubscriptionPolicy, vs...))
+}
+
+// CustomSubscriptionPolicyGT applies the GT predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyGT(v string) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGT(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyGTE applies the GTE predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyGTE(v string) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGTE(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyLT applies the LT predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyLT(v string) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLT(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyLTE applies the LTE predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyLTE(v string) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLTE(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyContains applies the Contains predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyContains(v string) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldContains(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyHasPrefix applies the HasPrefix predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyHasPrefix(v string) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldHasPrefix(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyHasSuffix applies the HasSuffix predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyHasSuffix(v string) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldHasSuffix(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyEqualFold applies the EqualFold predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyEqualFold(v string) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEqualFold(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyContainsFold applies the ContainsFold predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyContainsFold(v string) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldContainsFold(FieldCustomSubscriptionPolicy, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

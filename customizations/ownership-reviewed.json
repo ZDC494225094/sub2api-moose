@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "reviewed_at": "2026-09-26",
+  "reviewed_at": "2026-10-02",
   "baseline": "aea725f2ea644d5592d0bbb1d63b607efa7e200a",
-  "note": "Exact-path ownership review of the 70 previously unmatched paths. This records responsibility and pending extraction, not runtime isolation or complete semantic coverage of regex-classified files. Original inventory remains unchanged.",
+  "note": "Exact-path ownership review, including the original 70 unmatched paths and Stage32 Seedance host seam. Records responsibility and host compatibility boundaries, not complete semantic coverage of regex-classified files. Original inventory remains unchanged.",
   "reviews": [
     {
       "paths": [
@@ -494,6 +494,17 @@
       "kind": "shared-host",
       "evidence": "Adds display_purchase_count editing/defaults/payload for plan presentation.",
       "next_step": "Keep display-only sales count separate from real transaction counts and subscription entitlements."
+    },
+    {
+      "paths": [
+        "backend/internal/service/seedance.go"
+      ],
+      "owners": [
+        "media-gateway"
+      ],
+      "kind": "shared-host",
+      "evidence": "Stage32 replaces Seedance endpoint constants and IsSeedance classification with the independent mediagateway endpoint registry; host retains namespaced task ownership, protocol transport and settlement. Seedance create flows through media admission; status/delete drain.",
+      "next_step": "Keep protocol compatibility tests and historical task ownership when updating the host; no new blanket media gate on retained work."
     }
   ]
 }

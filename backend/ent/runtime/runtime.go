@@ -1814,8 +1814,17 @@ func init() {
 	proxyDescExpiryWarnDays := proxyFields[10].Descriptor()
 	// proxy.DefaultExpiryWarnDays holds the default value on creation for the expiry_warn_days field.
 	proxy.DefaultExpiryWarnDays = proxyDescExpiryWarnDays.Default.(int)
+	redeemcodeMixin := schema.RedeemCode{}.Mixin()
+	redeemcodeMixinFields0 := redeemcodeMixin[0].Fields()
+	_ = redeemcodeMixinFields0
 	redeemcodeFields := schema.RedeemCode{}.Fields()
 	_ = redeemcodeFields
+	// redeemcodeDescCustomSubscriptionPolicy is the schema descriptor for custom_subscription_policy field.
+	redeemcodeDescCustomSubscriptionPolicy := redeemcodeMixinFields0[0].Descriptor()
+	// redeemcode.DefaultCustomSubscriptionPolicy holds the default value on creation for the custom_subscription_policy field.
+	redeemcode.DefaultCustomSubscriptionPolicy = redeemcodeDescCustomSubscriptionPolicy.Default.(string)
+	// redeemcode.CustomSubscriptionPolicyValidator is a validator for the "custom_subscription_policy" field. It is called by the builders before save.
+	redeemcode.CustomSubscriptionPolicyValidator = redeemcodeDescCustomSubscriptionPolicy.Validators[0].(func(string) error)
 	// redeemcodeDescCode is the schema descriptor for code field.
 	redeemcodeDescCode := redeemcodeFields[0].Descriptor()
 	// redeemcode.CodeValidator is a validator for the "code" field. It is called by the builders before save.
@@ -2567,20 +2576,28 @@ func init() {
 	// userplatformquota.DefaultMonthlyUsageUsd holds the default value on creation for the monthly_usage_usd field.
 	userplatformquota.DefaultMonthlyUsageUsd = userplatformquotaDescMonthlyUsageUsd.Default.(float64)
 	usersubscriptionMixin := schema.UserSubscription{}.Mixin()
-	usersubscriptionMixinHooks1 := usersubscriptionMixin[1].Hooks()
-	usersubscription.Hooks[0] = usersubscriptionMixinHooks1[0]
-	usersubscriptionMixinInters1 := usersubscriptionMixin[1].Interceptors()
-	usersubscription.Interceptors[0] = usersubscriptionMixinInters1[0]
+	usersubscriptionMixinHooks2 := usersubscriptionMixin[2].Hooks()
+	usersubscription.Hooks[0] = usersubscriptionMixinHooks2[0]
+	usersubscriptionMixinInters2 := usersubscriptionMixin[2].Interceptors()
+	usersubscription.Interceptors[0] = usersubscriptionMixinInters2[0]
 	usersubscriptionMixinFields0 := usersubscriptionMixin[0].Fields()
 	_ = usersubscriptionMixinFields0
+	usersubscriptionMixinFields1 := usersubscriptionMixin[1].Fields()
+	_ = usersubscriptionMixinFields1
 	usersubscriptionFields := schema.UserSubscription{}.Fields()
 	_ = usersubscriptionFields
+	// usersubscriptionDescCustomSubscriptionPolicy is the schema descriptor for custom_subscription_policy field.
+	usersubscriptionDescCustomSubscriptionPolicy := usersubscriptionMixinFields0[0].Descriptor()
+	// usersubscription.DefaultCustomSubscriptionPolicy holds the default value on creation for the custom_subscription_policy field.
+	usersubscription.DefaultCustomSubscriptionPolicy = usersubscriptionDescCustomSubscriptionPolicy.Default.(string)
+	// usersubscription.CustomSubscriptionPolicyValidator is a validator for the "custom_subscription_policy" field. It is called by the builders before save.
+	usersubscription.CustomSubscriptionPolicyValidator = usersubscriptionDescCustomSubscriptionPolicy.Validators[0].(func(string) error)
 	// usersubscriptionDescCreatedAt is the schema descriptor for created_at field.
-	usersubscriptionDescCreatedAt := usersubscriptionMixinFields0[0].Descriptor()
+	usersubscriptionDescCreatedAt := usersubscriptionMixinFields1[0].Descriptor()
 	// usersubscription.DefaultCreatedAt holds the default value on creation for the created_at field.
 	usersubscription.DefaultCreatedAt = usersubscriptionDescCreatedAt.Default.(func() time.Time)
 	// usersubscriptionDescUpdatedAt is the schema descriptor for updated_at field.
-	usersubscriptionDescUpdatedAt := usersubscriptionMixinFields0[1].Descriptor()
+	usersubscriptionDescUpdatedAt := usersubscriptionMixinFields1[1].Descriptor()
 	// usersubscription.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	usersubscription.DefaultUpdatedAt = usersubscriptionDescUpdatedAt.Default.(func() time.Time)
 	// usersubscription.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

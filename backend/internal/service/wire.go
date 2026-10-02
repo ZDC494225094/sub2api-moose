@@ -926,7 +926,7 @@ var ProviderSet = wire.NewSet(
 	NewTurnstileService,
 	NewTencentCaptchaService,
 	NewAliyunCaptchaService,
-	NewSubscriptionService,
+	ProvideSubscriptionService,
 	wire.Bind(new(DefaultSubscriptionAssigner), new(*SubscriptionService)),
 	ProvideConcurrencyService,
 	ProvideUserMessageQueueService,
@@ -1068,4 +1068,11 @@ func ProvideChannelMonitorV2Aggregator(repo ChannelMonitorV2Repository, db *sql.
 	}
 	aggregator.Start()
 	return aggregator
+}
+
+// ProvideSubscriptionService binds durable issuance admission without coupling the constructor to settings.
+func ProvideSubscriptionService(groupRepo GroupRepository, userSubRepo UserSubscriptionRepository, billingCache *BillingCacheService, client *dbent.Client, cfg *config.Config, admission SubscriptionIssuanceAdmission) *SubscriptionService {
+	svc := NewSubscriptionService(groupRepo, userSubRepo, billingCache, client, cfg)
+	svc.issuanceAdmission = admission
+	return svc
 }

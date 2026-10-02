@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/accesspolicy"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 )
 
@@ -258,6 +259,10 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 	settings, err := s.settingRepo.GetMultiple(ctx, keys)
 	if err != nil {
 		return nil, fmt.Errorf("get public settings: %w", err)
+	}
+	// Do not publish a false security decision when persisted configuration is corrupt.
+	if _, err := accesspolicy.ParseSettings(settings); err != nil {
+		return nil, err
 	}
 
 	linuxDoEnabled := false

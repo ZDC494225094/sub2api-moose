@@ -3767,6 +3767,75 @@
         "frontend/src/extensions/modules/admin-efficiency/GroupAccountsModal.vue"
       ],
       "reason": "Stage30 admin-efficiency policies and UI extracted behind narrow ports; host authorization, native validation, atomic writes and API compatibility retained."
+    },
+    {
+      "from": "backend/internal/service/setting_features.go",
+      "to": [
+        "backend/internal/customize/modules/accesspolicy/settings.go",
+        "backend/internal/service/access_policy.go"
+      ],
+      "reason": "Stage31: configuration-only admission, fail-closed security settings and request-specific page boundary. Existing security enforcement is independent of the business switch."
+    },
+    {
+      "from": "backend/internal/service/registration_proof.go",
+      "to": [
+        "backend/internal/customize/modules/accesspolicy/settings.go"
+      ],
+      "reason": "Stage31: configuration-only admission, fail-closed security settings and request-specific page boundary. Existing security enforcement is independent of the business switch."
+    },
+    {
+      "from": "frontend/src/views/admin/SettingsView.vue",
+      "to": [
+        "frontend/src/extensions/modules/access-policy/configuration.ts"
+      ],
+      "reason": "Stage31: configuration-only admission, fail-closed security settings and request-specific page boundary. Existing security enforcement is independent of the business switch."
+    },
+    {
+      "from": "frontend/src/App.vue",
+      "to": [
+        "frontend/src/extensions/modules/access-policy/AccessPolicyBoundary.vue"
+      ],
+      "reason": "Stage31: configuration-only admission, fail-closed security settings and request-specific page boundary. Existing security enforcement is independent of the business switch."
+    },
+    {
+      "from": "backend/internal/service/grok_media.go",
+      "to": [
+        "backend/internal/customize/modules/mediagateway/endpoint.go",
+        "backend/internal/service/media_gateway.go"
+      ],
+      "reason": "Stage32: extract media endpoint registry and new-work admission; retain task ownership, scheduling and settlement in host adapters."
+    },
+    {
+      "from": "backend/internal/handler/openai_gateway_handler.go",
+      "to": [
+        "backend/internal/customize/modules/mediagateway/responses.go",
+        "backend/internal/handler/media_gateway.go"
+      ],
+      "reason": "Stage32: Grok Responses HTTP and WebSocket media admission without restricting native text or passive client tools."
+    },
+    {
+      "from": "backend/internal/service/subscription_service.go",
+      "to": [
+        "backend/internal/customize/modules/subscriptionextensions/policy.go",
+        "backend/internal/service/subscription_issuance.go",
+        "backend/internal/repository/subscription_ownership.go"
+      ],
+      "reason": "Stage33: durable independent/native issuance policy with transactional native-owner locking; preserve historical independent grants."
+    },
+    {
+      "from": "backend/internal/service/payment_fulfillment.go",
+      "to": [
+        "backend/internal/customize/modules/subscriptionextensions/policy.go",
+        "backend/internal/service/subscription_policy_fulfillment_test.go"
+      ],
+      "reason": "Stage33: freeze order and code policy at creation; fulfill from persisted ownership independent of live toggle."
+    },
+    {
+      "from": "backend/ent/schema/user_subscription.go",
+      "to": [
+        "backend/internal/customize/modules/subscriptionextensions/entschema/issuance.go"
+      ],
+      "reason": "Stage33: immutable issuance schema contribution; additive independent migration and non-unique ownership index."
     }
   ]
 }

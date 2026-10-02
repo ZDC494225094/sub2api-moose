@@ -27,6 +27,7 @@ func (r *redeemCodeRepository) Create(ctx context.Context, code *service.RedeemC
 	created, err := clientFromContext(ctx, r.client).RedeemCode.Create().
 		SetCode(code.Code).
 		SetType(code.Type).
+		SetCustomSubscriptionPolicy(subscriptionPolicyOrLegacy(code.CustomSubscriptionPolicy)).
 		SetNillableBatchID(code.BatchID).
 		SetValue(code.Value).
 		SetStatus(code.Status).
@@ -55,6 +56,7 @@ func (r *redeemCodeRepository) CreateBatch(ctx context.Context, codes []service.
 		b := r.client.RedeemCode.Create().
 			SetCode(c.Code).
 			SetType(c.Type).
+			SetCustomSubscriptionPolicy(subscriptionPolicyOrLegacy(c.CustomSubscriptionPolicy)).
 			SetNillableBatchID(c.BatchID).
 			SetValue(c.Value).
 			SetStatus(c.Status).
@@ -445,19 +447,20 @@ func redeemCodeEntityToService(m *dbent.RedeemCode) *service.RedeemCode {
 		return nil
 	}
 	out := &service.RedeemCode{
-		ID:           m.ID,
-		Code:         m.Code,
-		Type:         m.Type,
-		BatchID:      m.BatchID,
-		Value:        m.Value,
-		Status:       m.Status,
-		UsedBy:       m.UsedBy,
-		UsedAt:       m.UsedAt,
-		Notes:        derefString(m.Notes),
-		CreatedAt:    m.CreatedAt,
-		ExpiresAt:    m.ExpiresAt,
-		GroupID:      m.GroupID,
-		ValidityDays: m.ValidityDays,
+		ID:                       m.ID,
+		CustomSubscriptionPolicy: m.CustomSubscriptionPolicy,
+		Code:                     m.Code,
+		Type:                     m.Type,
+		BatchID:                  m.BatchID,
+		Value:                    m.Value,
+		Status:                   m.Status,
+		UsedBy:                   m.UsedBy,
+		UsedAt:                   m.UsedAt,
+		Notes:                    derefString(m.Notes),
+		CreatedAt:                m.CreatedAt,
+		ExpiresAt:                m.ExpiresAt,
+		GroupID:                  m.GroupID,
+		ValidityDays:             m.ValidityDays,
 	}
 	if m.Edges.User != nil {
 		out.User = userEntityToService(m.Edges.User)

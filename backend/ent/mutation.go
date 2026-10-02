@@ -40284,29 +40284,30 @@ func (m *ProxyMutation) ResetEdge(name string) error {
 // RedeemCodeMutation represents an operation that mutates the RedeemCode nodes in the graph.
 type RedeemCodeMutation struct {
 	config
-	op               Op
-	typ              string
-	id               *int64
-	code             *string
-	_type            *string
-	batch_id         *string
-	value            *float64
-	addvalue         *float64
-	status           *string
-	used_at          *time.Time
-	notes            *string
-	created_at       *time.Time
-	expires_at       *time.Time
-	validity_days    *int
-	addvalidity_days *int
-	clearedFields    map[string]struct{}
-	user             *int64
-	cleareduser      bool
-	group            *int64
-	clearedgroup     bool
-	done             bool
-	oldValue         func(context.Context) (*RedeemCode, error)
-	predicates       []predicate.RedeemCode
+	op                         Op
+	typ                        string
+	id                         *int64
+	custom_subscription_policy *string
+	code                       *string
+	_type                      *string
+	batch_id                   *string
+	value                      *float64
+	addvalue                   *float64
+	status                     *string
+	used_at                    *time.Time
+	notes                      *string
+	created_at                 *time.Time
+	expires_at                 *time.Time
+	validity_days              *int
+	addvalidity_days           *int
+	clearedFields              map[string]struct{}
+	user                       *int64
+	cleareduser                bool
+	group                      *int64
+	clearedgroup               bool
+	done                       bool
+	oldValue                   func(context.Context) (*RedeemCode, error)
+	predicates                 []predicate.RedeemCode
 }
 
 var _ ent.Mutation = (*RedeemCodeMutation)(nil)
@@ -40405,6 +40406,42 @@ func (m *RedeemCodeMutation) IDs(ctx context.Context) ([]int64, error) {
 	default:
 		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
 	}
+}
+
+// SetCustomSubscriptionPolicy sets the "custom_subscription_policy" field.
+func (m *RedeemCodeMutation) SetCustomSubscriptionPolicy(s string) {
+	m.custom_subscription_policy = &s
+}
+
+// CustomSubscriptionPolicy returns the value of the "custom_subscription_policy" field in the mutation.
+func (m *RedeemCodeMutation) CustomSubscriptionPolicy() (r string, exists bool) {
+	v := m.custom_subscription_policy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCustomSubscriptionPolicy returns the old "custom_subscription_policy" field's value of the RedeemCode entity.
+// If the RedeemCode object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RedeemCodeMutation) OldCustomSubscriptionPolicy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCustomSubscriptionPolicy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCustomSubscriptionPolicy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCustomSubscriptionPolicy: %w", err)
+	}
+	return oldValue.CustomSubscriptionPolicy, nil
+}
+
+// ResetCustomSubscriptionPolicy resets all changes to the "custom_subscription_policy" field.
+func (m *RedeemCodeMutation) ResetCustomSubscriptionPolicy() {
+	m.custom_subscription_policy = nil
 }
 
 // SetCode sets the "code" field.
@@ -41058,7 +41095,10 @@ func (m *RedeemCodeMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *RedeemCodeMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 13)
+	if m.custom_subscription_policy != nil {
+		fields = append(fields, redeemcode.FieldCustomSubscriptionPolicy)
+	}
 	if m.code != nil {
 		fields = append(fields, redeemcode.FieldCode)
 	}
@@ -41103,6 +41143,8 @@ func (m *RedeemCodeMutation) Fields() []string {
 // schema.
 func (m *RedeemCodeMutation) Field(name string) (ent.Value, bool) {
 	switch name {
+	case redeemcode.FieldCustomSubscriptionPolicy:
+		return m.CustomSubscriptionPolicy()
 	case redeemcode.FieldCode:
 		return m.Code()
 	case redeemcode.FieldType:
@@ -41136,6 +41178,8 @@ func (m *RedeemCodeMutation) Field(name string) (ent.Value, bool) {
 // database failed.
 func (m *RedeemCodeMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
 	switch name {
+	case redeemcode.FieldCustomSubscriptionPolicy:
+		return m.OldCustomSubscriptionPolicy(ctx)
 	case redeemcode.FieldCode:
 		return m.OldCode(ctx)
 	case redeemcode.FieldType:
@@ -41169,6 +41213,13 @@ func (m *RedeemCodeMutation) OldField(ctx context.Context, name string) (ent.Val
 // type.
 func (m *RedeemCodeMutation) SetField(name string, value ent.Value) error {
 	switch name {
+	case redeemcode.FieldCustomSubscriptionPolicy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCustomSubscriptionPolicy(v)
+		return nil
 	case redeemcode.FieldCode:
 		v, ok := value.(string)
 		if !ok {
@@ -41368,6 +41419,9 @@ func (m *RedeemCodeMutation) ClearField(name string) error {
 // It returns an error if the field is not defined in the schema.
 func (m *RedeemCodeMutation) ResetField(name string) error {
 	switch name {
+	case redeemcode.FieldCustomSubscriptionPolicy:
+		m.ResetCustomSubscriptionPolicy()
+		return nil
 	case redeemcode.FieldCode:
 		m.ResetCode()
 		return nil
@@ -57583,39 +57637,40 @@ func (m *UserPlatformQuotaMutation) ResetEdge(name string) error {
 // UserSubscriptionMutation represents an operation that mutates the UserSubscription nodes in the graph.
 type UserSubscriptionMutation struct {
 	config
-	op                      Op
-	typ                     string
-	id                      *int64
-	created_at              *time.Time
-	updated_at              *time.Time
-	deleted_at              *time.Time
-	starts_at               *time.Time
-	expires_at              *time.Time
-	status                  *string
-	daily_window_start      *time.Time
-	weekly_window_start     *time.Time
-	monthly_window_start    *time.Time
-	daily_usage_usd         *float64
-	adddaily_usage_usd      *float64
-	weekly_usage_usd        *float64
-	addweekly_usage_usd     *float64
-	monthly_usage_usd       *float64
-	addmonthly_usage_usd    *float64
-	assigned_at             *time.Time
-	notes                   *string
-	clearedFields           map[string]struct{}
-	user                    *int64
-	cleareduser             bool
-	group                   *int64
-	clearedgroup            bool
-	assigned_by_user        *int64
-	clearedassigned_by_user bool
-	usage_logs              map[int64]struct{}
-	removedusage_logs       map[int64]struct{}
-	clearedusage_logs       bool
-	done                    bool
-	oldValue                func(context.Context) (*UserSubscription, error)
-	predicates              []predicate.UserSubscription
+	op                         Op
+	typ                        string
+	id                         *int64
+	custom_subscription_policy *string
+	created_at                 *time.Time
+	updated_at                 *time.Time
+	deleted_at                 *time.Time
+	starts_at                  *time.Time
+	expires_at                 *time.Time
+	status                     *string
+	daily_window_start         *time.Time
+	weekly_window_start        *time.Time
+	monthly_window_start       *time.Time
+	daily_usage_usd            *float64
+	adddaily_usage_usd         *float64
+	weekly_usage_usd           *float64
+	addweekly_usage_usd        *float64
+	monthly_usage_usd          *float64
+	addmonthly_usage_usd       *float64
+	assigned_at                *time.Time
+	notes                      *string
+	clearedFields              map[string]struct{}
+	user                       *int64
+	cleareduser                bool
+	group                      *int64
+	clearedgroup               bool
+	assigned_by_user           *int64
+	clearedassigned_by_user    bool
+	usage_logs                 map[int64]struct{}
+	removedusage_logs          map[int64]struct{}
+	clearedusage_logs          bool
+	done                       bool
+	oldValue                   func(context.Context) (*UserSubscription, error)
+	predicates                 []predicate.UserSubscription
 }
 
 var _ ent.Mutation = (*UserSubscriptionMutation)(nil)
@@ -57714,6 +57769,42 @@ func (m *UserSubscriptionMutation) IDs(ctx context.Context) ([]int64, error) {
 	default:
 		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
 	}
+}
+
+// SetCustomSubscriptionPolicy sets the "custom_subscription_policy" field.
+func (m *UserSubscriptionMutation) SetCustomSubscriptionPolicy(s string) {
+	m.custom_subscription_policy = &s
+}
+
+// CustomSubscriptionPolicy returns the value of the "custom_subscription_policy" field in the mutation.
+func (m *UserSubscriptionMutation) CustomSubscriptionPolicy() (r string, exists bool) {
+	v := m.custom_subscription_policy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCustomSubscriptionPolicy returns the old "custom_subscription_policy" field's value of the UserSubscription entity.
+// If the UserSubscription object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserSubscriptionMutation) OldCustomSubscriptionPolicy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCustomSubscriptionPolicy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCustomSubscriptionPolicy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCustomSubscriptionPolicy: %w", err)
+	}
+	return oldValue.CustomSubscriptionPolicy, nil
+}
+
+// ResetCustomSubscriptionPolicy resets all changes to the "custom_subscription_policy" field.
+func (m *UserSubscriptionMutation) ResetCustomSubscriptionPolicy() {
+	m.custom_subscription_policy = nil
 }
 
 // SetCreatedAt sets the "created_at" field.
@@ -58648,7 +58739,10 @@ func (m *UserSubscriptionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserSubscriptionMutation) Fields() []string {
-	fields := make([]string, 0, 17)
+	fields := make([]string, 0, 18)
+	if m.custom_subscription_policy != nil {
+		fields = append(fields, usersubscription.FieldCustomSubscriptionPolicy)
+	}
 	if m.created_at != nil {
 		fields = append(fields, usersubscription.FieldCreatedAt)
 	}
@@ -58708,6 +58802,8 @@ func (m *UserSubscriptionMutation) Fields() []string {
 // schema.
 func (m *UserSubscriptionMutation) Field(name string) (ent.Value, bool) {
 	switch name {
+	case usersubscription.FieldCustomSubscriptionPolicy:
+		return m.CustomSubscriptionPolicy()
 	case usersubscription.FieldCreatedAt:
 		return m.CreatedAt()
 	case usersubscription.FieldUpdatedAt:
@@ -58751,6 +58847,8 @@ func (m *UserSubscriptionMutation) Field(name string) (ent.Value, bool) {
 // database failed.
 func (m *UserSubscriptionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
 	switch name {
+	case usersubscription.FieldCustomSubscriptionPolicy:
+		return m.OldCustomSubscriptionPolicy(ctx)
 	case usersubscription.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	case usersubscription.FieldUpdatedAt:
@@ -58794,6 +58892,13 @@ func (m *UserSubscriptionMutation) OldField(ctx context.Context, name string) (e
 // type.
 func (m *UserSubscriptionMutation) SetField(name string, value ent.Value) error {
 	switch name {
+	case usersubscription.FieldCustomSubscriptionPolicy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCustomSubscriptionPolicy(v)
+		return nil
 	case usersubscription.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -59040,6 +59145,9 @@ func (m *UserSubscriptionMutation) ClearField(name string) error {
 // It returns an error if the field is not defined in the schema.
 func (m *UserSubscriptionMutation) ResetField(name string) error {
 	switch name {
+	case usersubscription.FieldCustomSubscriptionPolicy:
+		m.ResetCustomSubscriptionPolicy()
+		return nil
 	case usersubscription.FieldCreatedAt:
 		m.ResetCreatedAt()
 		return nil

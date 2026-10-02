@@ -44,6 +44,10 @@ func (s *SettingService) UpdateSettingsOmitting(ctx context.Context, settings *S
 	}
 	omitted.dropFrom(updates)
 
+	if err := s.checkAccessPolicyConfiguration(ctx, updates); err != nil {
+		return err
+	}
+
 	if err := s.settingRepo.SetMultiple(ctx, updates); err != nil {
 		return err
 	}
@@ -73,6 +77,10 @@ func (s *SettingService) UpdateSettingsWithAuthSourceDefaultsOmitting(ctx contex
 		updates[key] = value
 	}
 	omitted.dropFrom(updates)
+
+	if err := s.checkAccessPolicyConfiguration(ctx, updates); err != nil {
+		return err
+	}
 
 	if err := s.settingRepo.SetMultiple(ctx, updates); err != nil {
 		return err

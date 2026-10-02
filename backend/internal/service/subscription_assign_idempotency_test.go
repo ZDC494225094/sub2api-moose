@@ -334,6 +334,7 @@ func TestAssignSubscriptionCreatesAdditionalInstanceWhenSameGroupExists(t *testi
 	})
 
 	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	svc.issuanceAdmission = subscriptionPolicyAdmissionFunc(func(context.Context) (string, error) { return "independent-v1", nil })
 	sub, err := svc.AssignSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       1001,
 		GroupID:      1,
@@ -373,6 +374,7 @@ func TestAssignSubscriptionDifferentNotesStillCreatesAdditionalInstance(t *testi
 	})
 
 	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	svc.issuanceAdmission = subscriptionPolicyAdmissionFunc(func(context.Context) (string, error) { return "independent-v1", nil })
 	sub, err := svc.AssignSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       2001,
 		GroupID:      1,
@@ -416,6 +418,7 @@ func TestBulkAssignSubscriptionCreatesIndependentInstancesForAllUsers(t *testing
 	})
 
 	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	svc.issuanceAdmission = subscriptionPolicyAdmissionFunc(func(context.Context) (string, error) { return "independent-v1", nil })
 	result, err := svc.BulkAssignSubscription(context.Background(), &BulkAssignSubscriptionInput{
 		UserIDs:      []int64{1, 2, 3},
 		GroupID:      1,
@@ -462,6 +465,7 @@ func TestBulkAssignSubscriptionCreatesIndependentInstanceWhenExpiredMatchExists(
 	})
 
 	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	svc.issuanceAdmission = subscriptionPolicyAdmissionFunc(func(context.Context) (string, error) { return "independent-v1", nil })
 	before := time.Now()
 	result, err := svc.BulkAssignSubscription(context.Background(), &BulkAssignSubscriptionInput{
 		UserIDs:      []int64{4},
@@ -505,6 +509,7 @@ func TestAssignSubscriptionKeepsWorkingWhenIdempotencyStoreUnavailable(t *testin
 	})
 
 	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	svc.issuanceAdmission = subscriptionPolicyAdmissionFunc(func(context.Context) (string, error) { return "independent-v1", nil })
 	sub, err := svc.AssignSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       9001,
 		GroupID:      1,
@@ -522,6 +527,7 @@ func TestAssignSubscriptionGroupTypeValidation(t *testing.T) {
 	}
 	subRepo := newSubscriptionUserSubRepoStub()
 	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	svc.issuanceAdmission = subscriptionPolicyAdmissionFunc(func(context.Context) (string, error) { return "independent-v1", nil })
 
 	_, err := svc.AssignSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       1,
@@ -554,6 +560,7 @@ func TestAssignOrExtendSubscriptionCreatesIndependentInstancesForSameGroup(t *te
 	})
 
 	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	svc.issuanceAdmission = subscriptionPolicyAdmissionFunc(func(context.Context) (string, error) { return "independent-v1", nil })
 	created, reused, err := svc.AssignOrExtendSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       901,
 		GroupID:      1,

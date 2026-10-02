@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/subscriptionextensions"
 	"log/slog"
 	"math"
 	"strconv"
@@ -620,12 +621,17 @@ func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, 
 	}
 
 	if !alreadyAssigned && assignedSubscription == nil {
+		policy, policyErr := subscriptionextensions.FromSnapshot(o.ProviderSnapshot)
+		if policyErr != nil {
+			return policyErr
+		}
 		assignedSubscription, _, err = s.subscriptionSvc.assignOrExtendSubscription(txCtx, &AssignSubscriptionInput{
-			UserID:       o.UserID,
-			GroupID:      groupID,
-			ValidityDays: days,
-			AssignedBy:   0,
-			Notes:        orderNote,
+			issuancePolicy: policy,
+			UserID:         o.UserID,
+			GroupID:        groupID,
+			ValidityDays:   days,
+			AssignedBy:     0,
+			Notes:          orderNote,
 		}, true)
 		if err != nil {
 			return fmt.Errorf("assign subscription: %w", err)

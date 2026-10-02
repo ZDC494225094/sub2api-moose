@@ -115,18 +115,26 @@
   {
     "id": "subscription-extensions",
     "name": "订阅与兑换增强",
-    "description": "多订阅、有效期、兑换及订单履约增强。",
-    "managed": false,
-    "disable_behavior": "待提取权益策略接口；历史权益不能随开关失效。",
-    "paths": []
+    "description": "持久化订阅发放策略；独立多份订阅与上游单实例续期可切换，订单和兑换码冻结归属。",
+    "managed": true,
+    "disable_behavior": "新分配采用上游单实例幂等分配/续期；历史独立订阅、已创建订单及兑换码按原策略履约，已发生用量和账单不重算。",
+    "paths": [],
+    "gates": [
+      "subscription-issuance"
+    ]
   },
   {
     "id": "media-gateway",
     "name": "视频与媒体协议扩展",
-    "description": "OpenAI 视频、Grok、Veo 等网关适配及计费增强。",
-    "managed": false,
-    "disable_behavior": "待按上游协议适配边界拆分，并保留异步任务的状态查询和结算。",
-    "paths": []
+    "description": "视频、Grok 图片与语音协议的独立任务准入和端点注册；保留宿主鉴权、调度、持久化归属及计费。",
+    "managed": true,
+    "disable_behavior": "停止新建/编辑/扩展视频、Grok 图片生成、语音合成/识别及新实时语音连接；保留旧任务查询、下载、取消和结算，已准入请求继续完成。原生文本和 OpenAI 图片接口不受影响。",
+    "paths": [],
+    "gates": [
+      "media-task-submit",
+      "media-voice-submit",
+      "gemini-video-submit"
+    ]
   },
   {
     "id": "admin-efficiency",
@@ -156,9 +164,12 @@
   {
     "id": "access-policy",
     "name": "访问与注册策略增强",
-    "description": "注册凭证 v1、邮箱白名单/域名额度/别名去重规则及区域页面访问判断已提取独立模块；宿主保留鉴权、设置和原子数据库守卫。",
-    "managed": false,
-    "disable_behavior": "安全规则仍按原安全设置执行，不受普通业务开关影响；安全配置读取故障策略及可安全关闭契约尚待完成，暂不可切换。",
-    "paths": []
+    "description": "注册凭证、邮箱域名额度与别名去重、区域页面访问规则独立模块；宿主保留鉴权、设置和原子数据库守卫。",
+    "managed": true,
+    "disable_behavior": "关闭后禁止修改二开安全配置；安全规则仍按原安全设置执行，旧凭证继续校验，配置读取失败拒绝注册及页面放行。停用已有规则须先在安全设置中明确关闭，再关闭插件。原生邮箱白名单仍可管理。",
+    "paths": [],
+    "gates": [
+      "access-policy-configuration-write"
+    ]
   }
 ]

@@ -1,6 +1,7 @@
 package schema
 
 import (
+	subscriptionentschema "github.com/Wei-Shaw/sub2api/internal/customize/modules/subscriptionextensions/entschema"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
@@ -28,6 +29,7 @@ func (UserSubscription) Annotations() []schema.Annotation {
 
 func (UserSubscription) Mixin() []ent.Mixin {
 	return []ent.Mixin{
+		subscriptionentschema.Issuance{},
 		mixins.TimeMixin{},
 		mixins.SoftDeleteMixin{},
 	}

@@ -336,12 +336,12 @@ func (_q *RedeemCodeQuery) WithGroup(opts ...func(*GroupQuery)) *RedeemCodeQuery
 // Example:
 //
 //	var v []struct {
-//		Code string `json:"code,omitempty"`
+//		CustomSubscriptionPolicy string `json:"custom_subscription_policy,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.RedeemCode.Query().
-//		GroupBy(redeemcode.FieldCode).
+//		GroupBy(redeemcode.FieldCustomSubscriptionPolicy).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
 func (_q *RedeemCodeQuery) GroupBy(field string, fields ...string) *RedeemCodeGroupBy {
@@ -359,11 +359,11 @@ func (_q *RedeemCodeQuery) GroupBy(field string, fields ...string) *RedeemCodeGr
 // Example:
 //
 //	var v []struct {
-//		Code string `json:"code,omitempty"`
+//		CustomSubscriptionPolicy string `json:"custom_subscription_policy,omitempty"`
 //	}
 //
 //	client.RedeemCode.Query().
-//		Select(redeemcode.FieldCode).
+//		Select(redeemcode.FieldCustomSubscriptionPolicy).
 //		Scan(ctx, &v)
 func (_q *RedeemCodeQuery) Select(fields ...string) *RedeemCodeSelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)

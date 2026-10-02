@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
@@ -30,6 +31,7 @@ func (r *userSubscriptionRepository) Create(ctx context.Context, sub *service.Us
 	client := clientFromContext(ctx, r.client)
 	builder := client.UserSubscription.Create().
 		SetUserID(sub.UserID).
+		SetCustomSubscriptionPolicy(subscriptionPolicyOrLegacy(sub.CustomSubscriptionPolicy)).
 		SetGroupID(sub.GroupID).
 		SetExpiresAt(sub.ExpiresAt).
 		SetNillableDailyWindowStart(sub.DailyWindowStart).
@@ -661,24 +663,25 @@ func userSubscriptionEntityToServiceWithStatusMapping(m *dbent.UserSubscription,
 		status = service.SubscriptionStatusRevoked
 	}
 	out := &service.UserSubscription{
-		ID:                 m.ID,
-		UserID:             m.UserID,
-		GroupID:            m.GroupID,
-		StartsAt:           m.StartsAt,
-		ExpiresAt:          m.ExpiresAt,
-		Status:             status,
-		DailyWindowStart:   m.DailyWindowStart,
-		WeeklyWindowStart:  m.WeeklyWindowStart,
-		MonthlyWindowStart: m.MonthlyWindowStart,
-		DailyUsageUSD:      m.DailyUsageUsd,
-		WeeklyUsageUSD:     m.WeeklyUsageUsd,
-		MonthlyUsageUSD:    m.MonthlyUsageUsd,
-		AssignedBy:         m.AssignedBy,
-		AssignedAt:         m.AssignedAt,
-		Notes:              derefString(m.Notes),
-		CreatedAt:          m.CreatedAt,
-		UpdatedAt:          m.UpdatedAt,
-		DeletedAt:          m.DeletedAt,
+		ID:                       m.ID,
+		CustomSubscriptionPolicy: m.CustomSubscriptionPolicy,
+		UserID:                   m.UserID,
+		GroupID:                  m.GroupID,
+		StartsAt:                 m.StartsAt,
+		ExpiresAt:                m.ExpiresAt,
+		Status:                   status,
+		DailyWindowStart:         m.DailyWindowStart,
+		WeeklyWindowStart:        m.WeeklyWindowStart,
+		MonthlyWindowStart:       m.MonthlyWindowStart,
+		DailyUsageUSD:            m.DailyUsageUsd,
+		WeeklyUsageUSD:           m.WeeklyUsageUsd,
+		MonthlyUsageUSD:          m.MonthlyUsageUsd,
+		AssignedBy:               m.AssignedBy,
+		AssignedAt:               m.AssignedAt,
+		Notes:                    derefString(m.Notes),
+		CreatedAt:                m.CreatedAt,
+		UpdatedAt:                m.UpdatedAt,
+		DeletedAt:                m.DeletedAt,
 	}
 	if m.Edges.User != nil {
 		out.User = userEntityToService(m.Edges.User)

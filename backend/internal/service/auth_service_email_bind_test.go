@@ -607,7 +607,8 @@ func TestAuthServiceBindEmailIdentity_RevokesExistingAccessAndRefreshTokens(t *t
 		},
 	}
 	emailService := service.NewEmailService(nil, cache)
-	svc := service.NewAuthService(nil, userRepo, nil, refreshTokenCache, cfg, nil, emailService, nil, nil, nil, nil, nil, nil)
+	settingService := service.NewSettingService(&emailBindSettingRepoStub{values: map[string]string{}}, cfg)
+	svc := service.NewAuthService(nil, userRepo, nil, refreshTokenCache, cfg, settingService, emailService, nil, nil, nil, nil, nil, nil)
 
 	oldTokenPair, err := svc.GenerateTokenPair(ctx, &service.User{
 		ID:           41,

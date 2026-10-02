@@ -50,7 +50,7 @@ func TestAdminEfficiencyAdoptionDefaultsAndLedgerRollback(t *testing.T) {
 WHEN NEW.module_id='admin-efficiency' BEGIN SELECT RAISE(ABORT,'admin ledger failed'); END`)
 			require.ErrorContains(t, (Runner{}).Apply(ctx, conn), "admin ledger failed")
 			require.NotContains(t, flags(t, conn), customize.Key("admin-efficiency"))
-			require.Zero(t, recorded(t, conn))
+			require.Equal(t, 1, recorded(t, conn)) // Earlier access-policy migration commits independently.
 			execute(t, conn, "DROP TRIGGER reject_admin_ledger")
 			require.NoError(t, (Runner{}).Apply(ctx, conn))
 			require.Equal(t, map[bool]string{false: "false", true: "true"}[legacy], flags(t, conn)[customize.Key("admin-efficiency")])

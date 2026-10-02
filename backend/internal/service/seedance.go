@@ -8,21 +8,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/mediagateway"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
 const (
-	SeedanceEndpointCreate           GrokMediaEndpoint        = "seedance_create"
-	SeedanceEndpointStatus           GrokMediaEndpoint        = "seedance_status"
-	SeedanceEndpointDelete           GrokMediaEndpoint        = "seedance_delete"
+	SeedanceEndpointCreate           GrokMediaEndpoint        = mediagateway.SeedanceCreate
+	SeedanceEndpointStatus           GrokMediaEndpoint        = mediagateway.SeedanceStatus
+	SeedanceEndpointDelete           GrokMediaEndpoint        = mediagateway.SeedanceDelete
 	OpenAIEndpointCapabilitySeedance OpenAIEndpointCapability = "seedance"
 )
-
-func (e GrokMediaEndpoint) IsSeedance() bool {
-	return e == SeedanceEndpointCreate || e == SeedanceEndpointStatus || e == SeedanceEndpointDelete
-}
 
 // SeedanceTaskKey isolates ownership and billing keys from other video providers.
 func SeedanceTaskKey(id string) string { return "seedance:" + strings.TrimSpace(id) }

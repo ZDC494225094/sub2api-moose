@@ -19,6 +19,8 @@ type RedeemCode struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID int64 `json:"id,omitempty"`
+	// Durable subscription issuance ownership; never derived from live toggle during fulfillment
+	CustomSubscriptionPolicy string `json:"custom_subscription_policy,omitempty"`
 	// Code holds the value of the "code" field.
 	Code string `json:"code,omitempty"`
 	// Type holds the value of the "type" field.
@@ -91,7 +93,7 @@ func (*RedeemCode) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case redeemcode.FieldID, redeemcode.FieldUsedBy, redeemcode.FieldGroupID, redeemcode.FieldValidityDays:
 			values[i] = new(sql.NullInt64)
-		case redeemcode.FieldCode, redeemcode.FieldType, redeemcode.FieldBatchID, redeemcode.FieldStatus, redeemcode.FieldNotes:
+		case redeemcode.FieldCustomSubscriptionPolicy, redeemcode.FieldCode, redeemcode.FieldType, redeemcode.FieldBatchID, redeemcode.FieldStatus, redeemcode.FieldNotes:
 			values[i] = new(sql.NullString)
 		case redeemcode.FieldUsedAt, redeemcode.FieldCreatedAt, redeemcode.FieldExpiresAt:
 			values[i] = new(sql.NullTime)
@@ -116,6 +118,12 @@ func (_m *RedeemCode) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field id", value)
 			}
 			_m.ID = int64(value.Int64)
+		case redeemcode.FieldCustomSubscriptionPolicy:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field custom_subscription_policy", values[i])
+			} else if value.Valid {
+				_m.CustomSubscriptionPolicy = value.String
+			}
 		case redeemcode.FieldCode:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field code", values[i])
@@ -240,6 +248,9 @@ func (_m *RedeemCode) String() string {
 	var builder strings.Builder
 	builder.WriteString("RedeemCode(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
+	builder.WriteString("custom_subscription_policy=")
+	builder.WriteString(_m.CustomSubscriptionPolicy)
+	builder.WriteString(", ")
 	builder.WriteString("code=")
 	builder.WriteString(_m.Code)
 	builder.WriteString(", ")

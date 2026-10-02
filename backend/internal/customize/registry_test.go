@@ -64,7 +64,7 @@ func TestCatalogAndDefaultDisabled(t *testing.T) {
 			require.Nil(t, state.Enabled)
 		}
 	}
-	require.Equal(t, 11, count)
+	require.Equal(t, 14, count)
 }
 
 func TestPersistentIndependentSwitchesAcrossManagers(t *testing.T) {
@@ -87,12 +87,12 @@ func TestPersistentIndependentSwitchesAcrossManagers(t *testing.T) {
 	require.Len(t, store.values, 2)
 }
 
-func TestInvalidUnknownPendingAndFailedUpdates(t *testing.T) {
+func TestInvalidUnknownAndFailedUpdates(t *testing.T) {
 	ctx := context.Background()
 	store := newStore()
 	m := NewManager(store)
 	require.Error(t, m.SetEnabled(ctx, "../anything", false))
-	require.Error(t, m.SetEnabled(ctx, "access-policy", false))
+	require.Error(t, m.SetEnabled(ctx, "unknown-module", false))
 	require.Empty(t, store.values)
 	store.err = errors.New("private database error")
 	require.Error(t, m.SetEnabled(ctx, "playground", false))
@@ -172,7 +172,7 @@ func TestStateHTTPContracts(t *testing.T) {
 		r.ServeHTTP(w, httptest.NewRequest("PUT", "/admin/playground", strings.NewReader(body)))
 		require.Equal(t, 400, w.Code)
 	}
-	for id, code := range map[string]int{"playground": 200, "marketing-tools": 200, "multi-group-billing": 200, "billing-scheduling": 200, "site-customization": 200, "access-policy": 409, "unknown": 404} {
+	for id, code := range map[string]int{"playground": 200, "marketing-tools": 200, "multi-group-billing": 200, "billing-scheduling": 200, "site-customization": 200, "access-policy": 200, "subscription-extensions": 200, "media-gateway": 200, "unknown": 404} {
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, httptest.NewRequest("PUT", "/admin/"+id, strings.NewReader(`{"enabled":false}`)))
 		require.Equal(t, code, w.Code)
@@ -238,24 +238,20 @@ func TestDisabledHomeKeepsReferralQuery(t *testing.T) {
 	require.Equal(t, "no-store", w.Header().Get("Cache-Control"))
 }
 
-// Persisted false values cannot turn security enforcement into a business switch.
-func TestAccessPolicyCannotBeToggledBeforeSafeDisableContract(t *testing.T) {
+// The switch controls configuration admission, not request enforcement.
+func TestAccessPolicySwitchDoesNotGateSecurityEndpoints(t *testing.T) {
 	store := newStore()
-	store.values[Key("access-policy")] = "false"
 	m := NewManager(store)
-	for _, enabled := range []bool{false, true} {
-		require.Error(t, m.SetEnabled(context.Background(), "access-policy", enabled))
+	for _, enabled := range []bool{true, false, true} {
+		require.NoError(t, m.SetEnabled(context.Background(), "access-policy", enabled))
+		got, err := m.Enabled(context.Background(), "access-policy")
+		require.NoError(t, err)
+		require.Equal(t, enabled, got)
 	}
-	states, err := m.List(context.Background())
-	require.NoError(t, err)
-	for _, state := range states {
-		if state.ID == "access-policy" {
-			require.False(t, state.Managed)
-			require.Nil(t, state.Enabled)
-			return
-		}
+	for _, path := range []string{"/api/v1/auth/register", "/api/v1/auth/registration-proof", "/api/v1/settings/public", "/access-restricted"} {
+		require.Empty(t, RequestExtension("POST", path))
+		require.Empty(t, RequestExtension("GET", path))
 	}
-	t.Fatal("access-policy missing from pending inventory")
 }
 
 func TestAdminEfficiencySwitchPreservesHistoricalPaths(t *testing.T) {

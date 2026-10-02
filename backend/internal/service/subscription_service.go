@@ -48,6 +48,7 @@ type SubscriptionService struct {
 	userSubRepo         UserSubscriptionRepository
 	billingCacheService *BillingCacheService
 	entClient           *dbent.Client
+	issuanceAdmission   SubscriptionIssuanceAdmission
 
 	// L1 缓存：加速中间件热路径的订阅查询
 	subCacheL1     *ristretto.Cache
@@ -204,17 +205,18 @@ func (s *SubscriptionService) invalidateSubscriptionByID(subscriptionID int64) e
 
 // AssignSubscriptionInput 分配订阅输入
 type AssignSubscriptionInput struct {
-	UserID       int64
-	GroupID      int64
-	ValidityDays int
-	AssignedBy   int64
-	Notes        string
+	issuancePolicy string // internal, persisted policy from an admitted order/code
+	UserID         int64
+	GroupID        int64
+	ValidityDays   int
+	AssignedBy     int64
+	Notes          string
 }
 
 // AssignSubscription 分配订阅给用户。
-// 同一用户可以持有多份同组订阅；每次分配都创建独立的时间和额度窗口。
+// 按插件发放策略创建独立实例，或使用上游幂等分配语义。
 func (s *SubscriptionService) AssignSubscription(ctx context.Context, input *AssignSubscriptionInput) (*UserSubscription, error) {
-	sub, _, err := s.AssignOrExtendSubscription(ctx, input)
+	sub, _, err := s.assignSubscriptionWithReuse(ctx, input)
 	if err != nil {
 		return nil, err
 	}
@@ -222,35 +224,13 @@ func (s *SubscriptionService) AssignSubscription(ctx context.Context, input *Ass
 }
 
 // AssignOrExtendSubscription 分配订阅（用于兑换码、购买等场景）。
-// 每次分配都会创建一条独立订阅记录；同一用户可同时持有多份同组订阅，
-// 每份订阅独立计算有效期和额度窗口。
+// 新请求选择当前策略；已创建订单/兑换码使用持久化策略，不读取实时开关。
 func (s *SubscriptionService) AssignOrExtendSubscription(ctx context.Context, input *AssignSubscriptionInput) (*UserSubscription, bool, error) {
 	return s.assignOrExtendSubscription(ctx, input, false)
 }
 
 func (s *SubscriptionService) assignOrExtendSubscription(ctx context.Context, input *AssignSubscriptionInput, deferCacheInvalidation bool) (*UserSubscription, bool, error) {
-	group, err := s.groupRepo.GetByID(ctx, input.GroupID)
-	if err != nil {
-		return nil, false, fmt.Errorf("group not found: %w", err)
-	}
-	if !group.IsSubscriptionType() {
-		return nil, false, ErrGroupNotSubscriptionType
-	}
-
-	// Custom behavior: every assignment creates an independent subscription window.
-	sub, err := s.createSubscription(ctx, input)
-	if err != nil {
-		return nil, false, err
-	}
-	s.maybeInvalidateAssignmentCaches(input.UserID, input.GroupID, deferCacheInvalidation)
-	if !deferCacheInvalidation && s.billingCacheService != nil {
-		go func(subID int64) {
-			cacheCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			_ = s.billingCacheService.InvalidateSubscriptionByID(cacheCtx, subID)
-		}(sub.ID)
-	}
-	return sub, false, nil
+	return s.assignWithPolicy(ctx, input, false, deferCacheInvalidation)
 }
 
 func (s *SubscriptionService) maybeInvalidateAssignmentCaches(userID, groupID int64, deferred bool) {
@@ -409,18 +389,19 @@ func (s *SubscriptionService) createSubscription(ctx context.Context, input *Ass
 	dailyWindowStart := timezone.StartOfDay(now)
 
 	sub := &UserSubscription{
-		UserID:             input.UserID,
-		GroupID:            input.GroupID,
-		StartsAt:           now,
-		ExpiresAt:          expiresAt,
-		Status:             SubscriptionStatusActive,
-		DailyWindowStart:   &dailyWindowStart,
-		WeeklyWindowStart:  &now,
-		MonthlyWindowStart: &now,
-		AssignedAt:         now,
-		Notes:              input.Notes,
-		CreatedAt:          now,
-		UpdatedAt:          now,
+		CustomSubscriptionPolicy: input.issuancePolicy,
+		UserID:                   input.UserID,
+		GroupID:                  input.GroupID,
+		StartsAt:                 now,
+		ExpiresAt:                expiresAt,
+		Status:                   SubscriptionStatusActive,
+		DailyWindowStart:         &dailyWindowStart,
+		WeeklyWindowStart:        &now,
+		MonthlyWindowStart:       &now,
+		AssignedAt:               now,
+		Notes:                    input.Notes,
+		CreatedAt:                now,
+		UpdatedAt:                now,
 	}
 	// 只有当 AssignedBy > 0 时才设置（0 表示系统分配，如兑换码）
 	if input.AssignedBy > 0 {
@@ -457,6 +438,13 @@ type BulkAssignResult struct {
 
 // BulkAssignSubscription 批量分配订阅
 func (s *SubscriptionService) BulkAssignSubscription(ctx context.Context, input *BulkAssignSubscriptionInput) (*BulkAssignResult, error) {
+	if input == nil {
+		return nil, ErrSubscriptionNilInput
+	}
+	policy, err := s.NewSubscriptionPolicy(ctx)
+	if err != nil {
+		return nil, err
+	}
 	result := &BulkAssignResult{
 		Subscriptions: make([]UserSubscription, 0),
 		Errors:        make([]string, 0),
@@ -465,11 +453,12 @@ func (s *SubscriptionService) BulkAssignSubscription(ctx context.Context, input 
 
 	for _, userID := range input.UserIDs {
 		sub, reused, err := s.assignSubscriptionWithReuse(ctx, &AssignSubscriptionInput{
-			UserID:       userID,
-			GroupID:      input.GroupID,
-			ValidityDays: input.ValidityDays,
-			AssignedBy:   input.AssignedBy,
-			Notes:        input.Notes,
+			issuancePolicy: policy,
+			UserID:         userID,
+			GroupID:        input.GroupID,
+			ValidityDays:   input.ValidityDays,
+			AssignedBy:     input.AssignedBy,
+			Notes:          input.Notes,
 		})
 		if err != nil {
 			result.FailedCount++
@@ -492,7 +481,7 @@ func (s *SubscriptionService) BulkAssignSubscription(ctx context.Context, input 
 }
 
 func (s *SubscriptionService) assignSubscriptionWithReuse(ctx context.Context, input *AssignSubscriptionInput) (*UserSubscription, bool, error) {
-	return s.assignOrExtendSubscription(ctx, input, false)
+	return s.assignWithPolicy(ctx, input, true, false)
 }
 
 func detectAssignSemanticConflict(existing *UserSubscription, input *AssignSubscriptionInput) (string, bool) {

@@ -56,6 +56,7 @@ func TestAssignOrExtendSubscription_ExpiredDailyCardCreatesIndependentOneTimeQuo
 		Notes:              "old",
 	})
 	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	svc.issuanceAdmission = subscriptionPolicyAdmissionFunc(func(context.Context) (string, error) { return "independent-v1", nil })
 
 	renewed, reused, err := svc.AssignOrExtendSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       200,
@@ -101,6 +102,7 @@ func TestAssignOrExtendSubscription_ExpiredSubscriptionCreatesIndependentInstanc
 		Notes:     "same",
 	})
 	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	svc.issuanceAdmission = subscriptionPolicyAdmissionFunc(func(context.Context) (string, error) { return "independent-v1", nil })
 
 	created, reused, err := svc.AssignOrExtendSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       201,

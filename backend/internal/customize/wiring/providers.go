@@ -26,6 +26,7 @@ var ProviderSet = wire.NewSet(
 	handler.NewExtensionHandlers,
 	ProvideMarketingAdmission,
 	ProvideKeyRoutingAdmission,
+	ProvideSubscriptionIssuance,
 	ProvideSiteCustomizationAdmission,
 	ProvideBillingSchedulingAdmission,
 	ProvideCouponService,

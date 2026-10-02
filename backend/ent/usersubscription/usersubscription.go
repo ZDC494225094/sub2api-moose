@@ -15,6 +15,8 @@ const (
 	Label = "user_subscription"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
+	// FieldCustomSubscriptionPolicy holds the string denoting the custom_subscription_policy field in the database.
+	FieldCustomSubscriptionPolicy = "custom_subscription_policy"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
@@ -92,6 +94,7 @@ const (
 // Columns holds all SQL columns for usersubscription fields.
 var Columns = []string{
 	FieldID,
+	FieldCustomSubscriptionPolicy,
 	FieldCreatedAt,
 	FieldUpdatedAt,
 	FieldDeletedAt,
@@ -129,6 +132,10 @@ func ValidColumn(column string) bool {
 var (
 	Hooks        [1]ent.Hook
 	Interceptors [1]ent.Interceptor
+	// DefaultCustomSubscriptionPolicy holds the default value on creation for the "custom_subscription_policy" field.
+	DefaultCustomSubscriptionPolicy string
+	// CustomSubscriptionPolicyValidator is a validator for the "custom_subscription_policy" field. It is called by the builders before save.
+	CustomSubscriptionPolicyValidator func(string) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -155,6 +162,11 @@ type OrderOption func(*sql.Selector)
 // ByID orders the results by the id field.
 func ByID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldID, opts...).ToFunc()
+}
+
+// ByCustomSubscriptionPolicy orders the results by the custom_subscription_policy field.
+func ByCustomSubscriptionPolicy(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCustomSubscriptionPolicy, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

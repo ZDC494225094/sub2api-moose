@@ -25,6 +25,8 @@ func fixture(t *testing.T) *sql.Conn {
 	t.Cleanup(func() { _ = conn.Close(); _ = db.Close() })
 	execute(t, conn, "CREATE TABLE schema_migrations (filename TEXT PRIMARY KEY, checksum TEXT NOT NULL)")
 	execute(t, conn, "CREATE TABLE api_keys (id INTEGER PRIMARY KEY)")
+	execute(t, conn, "CREATE TABLE user_subscriptions (id INTEGER PRIMARY KEY, user_id INTEGER, group_id INTEGER)")
+	execute(t, conn, "CREATE TABLE redeem_codes (id INTEGER PRIMARY KEY)")
 	return conn
 }
 func execute(t *testing.T, conn *sql.Conn, statement string, args ...any) {
@@ -84,17 +86,18 @@ func TestInstallationProvenanceAndDefaultFlags(t *testing.T) {
 			createSettings(t, conn)
 			require.NoError(t, (Runner{}).Apply(ctx, conn))
 			got := flags(t, conn)
-			require.Len(t, got, 9, "only separately adopted modules get flags")
+			require.Len(t, got, 12, "only separately adopted modules get flags")
 			for _, id := range []string{"premium-home", "playground", "infinite-canvas", "operations-analytics", "recharge-campaigns", "customer-support"} {
 				require.Equal(t, tc.enabled, got[customize.Key(id)], id)
 			}
 			require.Equal(t, tc.enabled, got[customize.Key("marketing-tools")])
 			require.Equal(t, tc.enabled, got[customize.Key("multi-group-billing")])
 			require.Equal(t, tc.enabled, got[customize.Key("admin-efficiency")])
-			require.Equal(t, 5, recorded(t, conn))
+			require.Equal(t, tc.enabled, got[customize.Key("access-policy")])
+			require.Equal(t, 8, recorded(t, conn))
 			require.NoError(t, (Runner{}).Apply(ctx, conn))
 			require.Equal(t, got, flags(t, conn))
-			require.Equal(t, 5, recorded(t, conn))
+			require.Equal(t, 8, recorded(t, conn))
 			var original string
 			require.NoError(t, conn.QueryRowContext(ctx, "SELECT checksum FROM schema_migrations WHERE filename='239_custom_api_key_platform_sync.sql'").Scan(&original))
 			require.Equal(t, "unchanged", original, "do not rewrite host history")
@@ -133,13 +136,13 @@ func TestFailedHostAdoptionRollsBackItsFlagsAndCanRetry(t *testing.T) {
       WHEN NEW.key = 'custom_extensions.recharge-campaigns.enabled'
       BEGIN SELECT RAISE(FAIL, 'fixture write failed'); END`)
 	require.ErrorContains(t, (Runner{}).Apply(ctx, conn), "fixture write failed")
-	// Each module commits independently; the alphabetically earlier admin migration survives.
-	require.Equal(t, map[string]string{customize.Key("admin-efficiency"): "false"}, flags(t, conn))
-	require.Equal(t, 1, recorded(t, conn))
+	// Each module commits independently; the alphabetically earlier access and admin migrations survive.
+	require.Equal(t, map[string]string{customize.Key("access-policy"): "false", customize.Key("admin-efficiency"): "false"}, flags(t, conn))
+	require.Equal(t, 2, recorded(t, conn))
 	execute(t, conn, "DROP TRIGGER reject_campaign")
 	require.NoError(t, (Runner{}).Apply(ctx, conn))
-	require.Len(t, flags(t, conn), 9)
-	require.Equal(t, 5, recorded(t, conn))
+	require.Len(t, flags(t, conn), 12)
+	require.Equal(t, 8, recorded(t, conn))
 }
 
 func TestCustomMigrationChecksumAndLineEndingStability(t *testing.T) {
@@ -157,8 +160,8 @@ func TestCustomMigrationChecksumAndLineEndingStability(t *testing.T) {
 	require.NoError(t, applyFS(ctx, conn, crlf))
 	changed := fstest.MapFS{name: &fstest.MapFile{Data: []byte(lf + "\n-- changed historical migration")}}
 	require.ErrorContains(t, applyFS(ctx, conn, changed), "checksum mismatch")
-	require.Equal(t, 5, recorded(t, conn))
-	require.Len(t, flags(t, conn), 9)
+	require.Equal(t, 8, recorded(t, conn))
+	require.Len(t, flags(t, conn), 12)
 }
 
 func TestMigrationRegistrationAndMissingProvenanceFailClosed(t *testing.T) {

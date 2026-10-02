@@ -1,3 +1,6 @@
+import { useExtensionStore } from '@/extensions/store';
+import { accessPolicyConfigurationKeys } from '@/extensions/modules/access-policy/configuration';
+import '@/extensions/__tests__/accessPolicyEnabledFixture';
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
@@ -744,6 +747,24 @@ describe("admin SettingsView payment visible method controls", () => {
         expect.objectContaining({ ...menuItems[1], hide_open_button: false }),
       ],
     }));
+    wrapper.unmount();
+  });
+
+  it("omits stale custom security edits when the module closes while settings are open", async () => {
+    getSettings.mockResolvedValue({ ...baseSettingsResponse, registration_proof_enabled: true, registration_proof_difficulty: 20, mainland_china_access_restriction_enabled: true, registration_email_domain_quota_enabled: true });
+    const wrapper = mountView();
+    await flushPromises();
+    useExtensionStore().flags = { 'access-policy': false };
+    await flushPromises();
+    expect(wrapper.text()).toContain('已配置的限制继续生效');
+    expect(wrapper.get('input[type="range"]').attributes('disabled')).toBeDefined();
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    const payload = updateSettings.mock.calls[0][0];
+    for (const key of accessPolicyConfigurationKeys) expect(payload).not.toHaveProperty(key);
+    expect(payload).toHaveProperty('registration_email_suffix_whitelist');
+    expect(payload).toHaveProperty('site_name');
     wrapper.unmount();
   });
 

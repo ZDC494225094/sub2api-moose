@@ -1288,6 +1288,14 @@ func (s *adminServiceImpl) GenerateRedeemCodes(ctx context.Context, input *Gener
 		batchID = &id
 	}
 
+	policy := ""
+	if input.Type == RedeemTypeSubscription {
+		var err error
+		policy, err = s.settingService.NewSubscriptionPolicy(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
 	codes := make([]RedeemCode, 0, input.Count)
 	for i := 0; i < input.Count; i++ {
 		codeValue, err := GenerateRedeemCode()
@@ -1295,12 +1303,13 @@ func (s *adminServiceImpl) GenerateRedeemCodes(ctx context.Context, input *Gener
 			return nil, err
 		}
 		code := RedeemCode{
-			Code:      codeValue,
-			Type:      input.Type,
-			BatchID:   batchID,
-			Value:     input.Value,
-			Status:    StatusUnused,
-			ExpiresAt: input.ExpiresAt,
+			CustomSubscriptionPolicy: policy,
+			Code:                     codeValue,
+			Type:                     input.Type,
+			BatchID:                  batchID,
+			Value:                    input.Value,
+			Status:                   StatusUnused,
+			ExpiresAt:                input.ExpiresAt,
 		}
 		// 订阅类型专用字段
 		if input.Type == RedeemTypeSubscription {

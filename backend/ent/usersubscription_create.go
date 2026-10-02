@@ -25,6 +25,20 @@ type UserSubscriptionCreate struct {
 	conflict []sql.ConflictOption
 }
 
+// SetCustomSubscriptionPolicy sets the "custom_subscription_policy" field.
+func (_c *UserSubscriptionCreate) SetCustomSubscriptionPolicy(v string) *UserSubscriptionCreate {
+	_c.mutation.SetCustomSubscriptionPolicy(v)
+	return _c
+}
+
+// SetNillableCustomSubscriptionPolicy sets the "custom_subscription_policy" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableCustomSubscriptionPolicy(v *string) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetCustomSubscriptionPolicy(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *UserSubscriptionCreate) SetCreatedAt(v time.Time) *UserSubscriptionCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -312,6 +326,10 @@ func (_c *UserSubscriptionCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *UserSubscriptionCreate) defaults() error {
+	if _, ok := _c.mutation.CustomSubscriptionPolicy(); !ok {
+		v := usersubscription.DefaultCustomSubscriptionPolicy
+		_c.mutation.SetCustomSubscriptionPolicy(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		if usersubscription.DefaultCreatedAt == nil {
 			return fmt.Errorf("ent: uninitialized usersubscription.DefaultCreatedAt (forgotten import ent/runtime?)")
@@ -354,6 +372,14 @@ func (_c *UserSubscriptionCreate) defaults() error {
 
 // check runs all checks and user-defined validators on the builder.
 func (_c *UserSubscriptionCreate) check() error {
+	if _, ok := _c.mutation.CustomSubscriptionPolicy(); !ok {
+		return &ValidationError{Name: "custom_subscription_policy", err: errors.New(`ent: missing required field "UserSubscription.custom_subscription_policy"`)}
+	}
+	if v, ok := _c.mutation.CustomSubscriptionPolicy(); ok {
+		if err := usersubscription.CustomSubscriptionPolicyValidator(v); err != nil {
+			return &ValidationError{Name: "custom_subscription_policy", err: fmt.Errorf(`ent: validator failed for field "UserSubscription.custom_subscription_policy": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "UserSubscription.created_at"`)}
 	}
@@ -425,6 +451,10 @@ func (_c *UserSubscriptionCreate) createSpec() (*UserSubscription, *sqlgraph.Cre
 		_spec = sqlgraph.NewCreateSpec(usersubscription.Table, sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64))
 	)
 	_spec.OnConflict = _c.conflict
+	if value, ok := _c.mutation.CustomSubscriptionPolicy(); ok {
+		_spec.SetField(usersubscription.FieldCustomSubscriptionPolicy, field.TypeString, value)
+		_node.CustomSubscriptionPolicy = value
+	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(usersubscription.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
@@ -555,7 +585,7 @@ func (_c *UserSubscriptionCreate) createSpec() (*UserSubscription, *sqlgraph.Cre
 // of the `INSERT` statement. For example:
 //
 //	client.UserSubscription.Create().
-//		SetCreatedAt(v).
+//		SetCustomSubscriptionPolicy(v).
 //		OnConflict(
 //			// Update the row with the new values
 //			// the was proposed for insertion.
@@ -564,7 +594,7 @@ func (_c *UserSubscriptionCreate) createSpec() (*UserSubscription, *sqlgraph.Cre
 //		// Override some of the fields with custom
 //		// update values.
 //		Update(func(u *ent.UserSubscriptionUpsert) {
-//			SetCreatedAt(v+v).
+//			SetCustomSubscriptionPolicy(v+v).
 //		}).
 //		Exec(ctx)
 func (_c *UserSubscriptionCreate) OnConflict(opts ...sql.ConflictOption) *UserSubscriptionUpsertOne {
@@ -857,6 +887,9 @@ func (u *UserSubscriptionUpsert) ClearNotes() *UserSubscriptionUpsert {
 func (u *UserSubscriptionUpsertOne) UpdateNewValues() *UserSubscriptionUpsertOne {
 	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
 	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.CustomSubscriptionPolicy(); exists {
+			s.SetIgnore(usersubscription.FieldCustomSubscriptionPolicy)
+		}
 		if _, exists := u.create.mutation.CreatedAt(); exists {
 			s.SetIgnore(usersubscription.FieldCreatedAt)
 		}
@@ -1313,7 +1346,7 @@ func (_c *UserSubscriptionCreateBulk) ExecX(ctx context.Context) {
 //		// Override some of the fields with custom
 //		// update values.
 //		Update(func(u *ent.UserSubscriptionUpsert) {
-//			SetCreatedAt(v+v).
+//			SetCustomSubscriptionPolicy(v+v).
 //		}).
 //		Exec(ctx)
 func (_c *UserSubscriptionCreateBulk) OnConflict(opts ...sql.ConflictOption) *UserSubscriptionUpsertBulk {
@@ -1354,6 +1387,9 @@ func (u *UserSubscriptionUpsertBulk) UpdateNewValues() *UserSubscriptionUpsertBu
 	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
 	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
 		for _, b := range u.create.builders {
+			if _, exists := b.mutation.CustomSubscriptionPolicy(); exists {
+				s.SetIgnore(usersubscription.FieldCustomSubscriptionPolicy)
+			}
 			if _, exists := b.mutation.CreatedAt(); exists {
 				s.SetIgnore(usersubscription.FieldCreatedAt)
 			}

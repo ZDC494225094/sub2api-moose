@@ -10,6 +10,9 @@
 
       <!-- Settings Form -->
       <form v-else @submit.prevent="saveSettings" class="space-y-6" novalidate>
+        <p v-if="!accessPolicyConfigurationEnabled" role="status" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+          {{ localText('访问策略插件已关闭或状态未知：二开安全配置暂不可修改，已配置的限制继续生效。原生设置仍可保存。', 'Access-policy extension is off or unavailable: custom security settings are read-only. Existing rules remain enforced; native settings can still be saved.') }}
+        </p>
         <!-- Tab Navigation -->
         <div class="settings-tabs-shell">
           <nav
@@ -1548,7 +1551,7 @@
                   </p>
                 </div>
                 <Toggle
-                  v-model="form.registration_email_domain_quota_enabled"
+                  v-model="form.registration_email_domain_quota_enabled" :disabled="!accessPolicyConfigurationEnabled"
                 />
               </div>
 
@@ -1861,7 +1864,7 @@
                     {{ t("admin.settings.registrationProof.enabledHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.registration_proof_enabled" />
+                <Toggle v-model="form.registration_proof_enabled" :disabled="!accessPolicyConfigurationEnabled" />
               </div>
 
               <div
@@ -1878,6 +1881,7 @@
                 </div>
                 <input
                   v-model.number="form.registration_proof_difficulty"
+                  :disabled="!accessPolicyConfigurationEnabled"
                   type="range"
                   min="16"
                   max="24"
@@ -6741,7 +6745,7 @@
                       {{ localText("根据访问 IP 对中国大陆访客显示 HTTP 451 提示；仅影响网页界面，不拦截 API 或模型请求。", "Show an HTTP 451 notice to mainland China visitors by IP. This only affects the web interface, not API or model requests.") }}
                     </p>
                   </div>
-                  <Toggle v-model="form.mainland_china_access_restriction_enabled" />
+                  <Toggle v-model="form.mainland_china_access_restriction_enabled" :disabled="!accessPolicyConfigurationEnabled" />
                 </div>
 
               </div>
@@ -9239,6 +9243,8 @@
 </template>
 
 <script setup lang="ts">
+import { admitAccessPolicySettings, useAccessPolicyConfigurationAdmission } from '@/extensions/modules/access-policy/configuration';
+const accessPolicyConfigurationEnabled = useAccessPolicyConfigurationAdmission();
 import { ref, reactive, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { adminAPI } from "@/api";
@@ -12155,7 +12161,7 @@ async function saveSettings() {
     appendAuthSourceDefaultsToUpdateRequest(payload, authSourceDefaults);
 
     const updated = await settingsStepUp.run(() =>
-      adminAPI.settings.updateSettings(payload),
+      adminAPI.settings.updateSettings(admitAccessPolicySettings(payload, accessPolicyConfigurationEnabled.value)),
     );
     for (const [key, value] of Object.entries(updated)) {
       if (key === "openai_fast_policy_settings") continue;

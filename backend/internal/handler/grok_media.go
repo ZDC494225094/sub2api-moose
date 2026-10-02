@@ -93,6 +93,10 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		return
 	}
 
+	if !h.admitMediaGateway(c, endpoint.Operation()) {
+		return
+	}
+
 	reqLog := requestLogger(
 		c,
 		"handler.openai_gateway.grok_media",

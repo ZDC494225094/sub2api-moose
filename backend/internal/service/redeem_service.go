@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/subscriptionextensions"
+	"log"
 	"strings"
 	"time"
 
@@ -237,6 +239,14 @@ func (s *RedeemService) GenerateCodes(ctx context.Context, req GenerateCodesRequ
 		batchID = &id
 	}
 
+	policy := ""
+	if codeType == RedeemTypeSubscription {
+		var err error
+		policy, err = s.subscriptionService.NewSubscriptionPolicy(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
 	codes := make([]RedeemCode, 0, req.Count)
 	for i := 0; i < req.Count; i++ {
 		code, err := s.GenerateRandomCode()
@@ -245,11 +255,12 @@ func (s *RedeemService) GenerateCodes(ctx context.Context, req GenerateCodesRequ
 		}
 
 		codes = append(codes, RedeemCode{
-			Code:    code,
-			Type:    codeType,
-			BatchID: batchID,
-			Value:   value,
-			Status:  StatusUnused,
+			CustomSubscriptionPolicy: policy,
+			Code:                     code,
+			Type:                     codeType,
+			BatchID:                  batchID,
+			Value:                    value,
+			Status:                   StatusUnused,
 		})
 	}
 
@@ -288,6 +299,13 @@ func (s *RedeemService) CreateCode(ctx context.Context, code *RedeemCode) error 
 		return ErrRedeemCodeExpired
 	}
 
+	if code.Type == RedeemTypeSubscription {
+		policy, err := s.subscriptionService.NewSubscriptionPolicy(ctx)
+		if err != nil {
+			return err
+		}
+		code.CustomSubscriptionPolicy = policy
+	}
 	if err := s.redeemRepo.Create(ctx, code); err != nil {
 		return fmt.Errorf("create redeem code: %w", err)
 	}
@@ -529,6 +547,7 @@ func (s *RedeemService) redeem(ctx context.Context, userID int64, code string, r
 	}
 
 	// 执行兑换逻辑（兑换码已被锁定，此时可安全操作）
+	var issuedSubscriptionID int64
 	switch redeemCode.Type {
 	case RedeemTypeBalance, RedeemTypeMarketing:
 		amount := redeemCode.Value
@@ -557,6 +576,10 @@ func (s *RedeemService) redeem(ctx context.Context, userID int64, code string, r
 		}
 
 	case RedeemTypeSubscription:
+		policy, policyErr := subscriptionextensions.Resolve(redeemCode.CustomSubscriptionPolicy)
+		if policyErr != nil {
+			return nil, policyErr
+		}
 		validityDays := redeemCode.ValidityDays
 		if validityDays < 0 {
 			// 负数天数：缩短订阅，减到 0 则取消订阅
@@ -567,13 +590,17 @@ func (s *RedeemService) redeem(ctx context.Context, userID int64, code string, r
 			if validityDays == 0 {
 				validityDays = 30
 			}
-			_, _, err := s.subscriptionService.AssignOrExtendSubscription(txCtx, &AssignSubscriptionInput{
-				UserID:       userID,
-				GroupID:      *redeemCode.GroupID,
-				ValidityDays: validityDays,
-				AssignedBy:   0, // 系统分配
-				Notes:        fmt.Sprintf("通过兑换码 %s 兑换", redeemCode.Code),
-			})
+			assigned, _, err := s.subscriptionService.assignOrExtendSubscription(txCtx, &AssignSubscriptionInput{
+				issuancePolicy: policy,
+				UserID:         userID,
+				GroupID:        *redeemCode.GroupID,
+				ValidityDays:   validityDays,
+				AssignedBy:     0, // 系统分配
+				Notes:          fmt.Sprintf("通过兑换码 %s 兑换", redeemCode.Code),
+			}, true)
+			if err == nil && assigned != nil {
+				issuedSubscriptionID = assigned.ID
+			}
 			if err != nil {
 				return nil, fmt.Errorf("assign or extend subscription: %w", err)
 			}
@@ -590,6 +617,12 @@ func (s *RedeemService) redeem(ctx context.Context, userID int64, code string, r
 
 	// 事务提交成功后失效缓存
 	s.invalidateRedeemCaches(ctx, userID, redeemCode)
+	if issuedSubscriptionID > 0 {
+		s.subscriptionService.InvalidateSubCache(userID, *redeemCode.GroupID)
+		if err := s.subscriptionService.invalidateSubscriptionByID(issuedSubscriptionID); err != nil {
+			log.Printf("Warning: redeemed subscription %d committed but cache invalidation failed: %v", issuedSubscriptionID, err)
+		}
+	}
 
 	// 余额类正数兑换码触发邀请返利（best-effort，失败不影响兑换结果）
 	if redeemCode.Type == RedeemTypeBalance && redeemCode.Value > 0 {

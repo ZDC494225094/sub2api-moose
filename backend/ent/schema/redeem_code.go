@@ -1,6 +1,7 @@
 package schema
 
 import (
+	subscriptionentschema "github.com/Wei-Shaw/sub2api/internal/customize/modules/subscriptionextensions/entschema"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
@@ -32,6 +33,8 @@ func (RedeemCode) Annotations() []schema.Annotation {
 		entsql.Annotation{Table: "redeem_codes"},
 	}
 }
+
+func (RedeemCode) Mixin() []ent.Mixin { return []ent.Mixin{subscriptionentschema.Issuance{}} }
 
 func (RedeemCode) Fields() []ent.Field {
 	return []ent.Field{

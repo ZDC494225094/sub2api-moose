@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/mediagateway"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
@@ -544,6 +545,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	imageIntent := service.IsExplicitImageGenerationIntent("/v1/responses", reqModel, body)
 	if imageIntent && !service.GroupAllowsImageGeneration(apiKey.Group) {
 		h.errorResponse(c, http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage())
+		return
+	}
+	if openAICompatibleRequestPlatform(c.Request.Context(), apiKey) == service.PlatformGrok && !h.admitMediaGateway(c, mediagateway.ResponsesOperation(body)) {
 		return
 	}
 	var imageReleaseFunc func()
@@ -2437,6 +2441,12 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, service.ImageGenerationPermissionMessage())
 		return
 	}
+	if openAICompatibleRequestPlatform(c.Request.Context(), apiKey) == service.PlatformGrok {
+		if err := h.gatewayService.CheckMediaGatewayAdmission(c.Request.Context(), mediagateway.ResponsesOperation(firstMessage)); err != nil {
+			closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, "media generation is unavailable")
+			return
+		}
+	}
 
 	// The first response.create frame is available here, so explicit IDs are
 	// checked directly and body-derived sessions use the coarse scope gate.
@@ -2807,6 +2817,12 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				if !gjson.ValidBytes(payload) {
 					return service.NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", errors.New("invalid json"))
 				}
+				if requestPlatform == service.PlatformGrok {
+					if err := h.gatewayService.CheckMediaGatewayAdmission(ctx, mediagateway.ResponsesOperation(payload)); err != nil {
+						return service.NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "media generation is unavailable", err)
+					}
+				}
+
 				model := strings.TrimSpace(originalModel)
 				if model == "" {
 					model = strings.TrimSpace(gjson.GetBytes(payload, "model").String())

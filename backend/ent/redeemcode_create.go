@@ -24,6 +24,20 @@ type RedeemCodeCreate struct {
 	conflict []sql.ConflictOption
 }
 
+// SetCustomSubscriptionPolicy sets the "custom_subscription_policy" field.
+func (_c *RedeemCodeCreate) SetCustomSubscriptionPolicy(v string) *RedeemCodeCreate {
+	_c.mutation.SetCustomSubscriptionPolicy(v)
+	return _c
+}
+
+// SetNillableCustomSubscriptionPolicy sets the "custom_subscription_policy" field if the given value is not nil.
+func (_c *RedeemCodeCreate) SetNillableCustomSubscriptionPolicy(v *string) *RedeemCodeCreate {
+	if v != nil {
+		_c.SetCustomSubscriptionPolicy(*v)
+	}
+	return _c
+}
+
 // SetCode sets the "code" field.
 func (_c *RedeemCodeCreate) SetCode(v string) *RedeemCodeCreate {
 	_c.mutation.SetCode(v)
@@ -243,6 +257,10 @@ func (_c *RedeemCodeCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *RedeemCodeCreate) defaults() {
+	if _, ok := _c.mutation.CustomSubscriptionPolicy(); !ok {
+		v := redeemcode.DefaultCustomSubscriptionPolicy
+		_c.mutation.SetCustomSubscriptionPolicy(v)
+	}
 	if _, ok := _c.mutation.GetType(); !ok {
 		v := redeemcode.DefaultType
 		_c.mutation.SetType(v)
@@ -267,6 +285,14 @@ func (_c *RedeemCodeCreate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_c *RedeemCodeCreate) check() error {
+	if _, ok := _c.mutation.CustomSubscriptionPolicy(); !ok {
+		return &ValidationError{Name: "custom_subscription_policy", err: errors.New(`ent: missing required field "RedeemCode.custom_subscription_policy"`)}
+	}
+	if v, ok := _c.mutation.CustomSubscriptionPolicy(); ok {
+		if err := redeemcode.CustomSubscriptionPolicyValidator(v); err != nil {
+			return &ValidationError{Name: "custom_subscription_policy", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.custom_subscription_policy": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.Code(); !ok {
 		return &ValidationError{Name: "code", err: errors.New(`ent: missing required field "RedeemCode.code"`)}
 	}
@@ -332,6 +358,10 @@ func (_c *RedeemCodeCreate) createSpec() (*RedeemCode, *sqlgraph.CreateSpec) {
 		_spec = sqlgraph.NewCreateSpec(redeemcode.Table, sqlgraph.NewFieldSpec(redeemcode.FieldID, field.TypeInt64))
 	)
 	_spec.OnConflict = _c.conflict
+	if value, ok := _c.mutation.CustomSubscriptionPolicy(); ok {
+		_spec.SetField(redeemcode.FieldCustomSubscriptionPolicy, field.TypeString, value)
+		_node.CustomSubscriptionPolicy = value
+	}
 	if value, ok := _c.mutation.Code(); ok {
 		_spec.SetField(redeemcode.FieldCode, field.TypeString, value)
 		_node.Code = value
@@ -413,7 +443,7 @@ func (_c *RedeemCodeCreate) createSpec() (*RedeemCode, *sqlgraph.CreateSpec) {
 // of the `INSERT` statement. For example:
 //
 //	client.RedeemCode.Create().
-//		SetCode(v).
+//		SetCustomSubscriptionPolicy(v).
 //		OnConflict(
 //			// Update the row with the new values
 //			// the was proposed for insertion.
@@ -422,7 +452,7 @@ func (_c *RedeemCodeCreate) createSpec() (*RedeemCode, *sqlgraph.CreateSpec) {
 //		// Override some of the fields with custom
 //		// update values.
 //		Update(func(u *ent.RedeemCodeUpsert) {
-//			SetCode(v+v).
+//			SetCustomSubscriptionPolicy(v+v).
 //		}).
 //		Exec(ctx)
 func (_c *RedeemCodeCreate) OnConflict(opts ...sql.ConflictOption) *RedeemCodeUpsertOne {
@@ -649,6 +679,9 @@ func (u *RedeemCodeUpsert) AddValidityDays(v int) *RedeemCodeUpsert {
 func (u *RedeemCodeUpsertOne) UpdateNewValues() *RedeemCodeUpsertOne {
 	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
 	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.CustomSubscriptionPolicy(); exists {
+			s.SetIgnore(redeemcode.FieldCustomSubscriptionPolicy)
+		}
 		if _, exists := u.create.mutation.CreatedAt(); exists {
 			s.SetIgnore(redeemcode.FieldCreatedAt)
 		}
@@ -1028,7 +1061,7 @@ func (_c *RedeemCodeCreateBulk) ExecX(ctx context.Context) {
 //		// Override some of the fields with custom
 //		// update values.
 //		Update(func(u *ent.RedeemCodeUpsert) {
-//			SetCode(v+v).
+//			SetCustomSubscriptionPolicy(v+v).
 //		}).
 //		Exec(ctx)
 func (_c *RedeemCodeCreateBulk) OnConflict(opts ...sql.ConflictOption) *RedeemCodeUpsertBulk {
@@ -1069,6 +1102,9 @@ func (u *RedeemCodeUpsertBulk) UpdateNewValues() *RedeemCodeUpsertBulk {
 	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
 	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
 		for _, b := range u.create.builders {
+			if _, exists := b.mutation.CustomSubscriptionPolicy(); exists {
+				s.SetIgnore(redeemcode.FieldCustomSubscriptionPolicy)
+			}
 			if _, exists := b.mutation.CreatedAt(); exists {
 				s.SetIgnore(redeemcode.FieldCreatedAt)
 			}

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/mediagateway"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/gin-gonic/gin"
@@ -24,16 +25,16 @@ import (
 	"github.com/tidwall/sjson"
 )
 
-type GrokMediaEndpoint string
+type GrokMediaEndpoint = mediagateway.Endpoint
 
 const (
-	GrokMediaEndpointImagesGenerations GrokMediaEndpoint = "images_generations"
-	GrokMediaEndpointImagesEdits       GrokMediaEndpoint = "images_edits"
-	GrokMediaEndpointVideosGenerations GrokMediaEndpoint = "videos_generations"
-	GrokMediaEndpointVideosEdits       GrokMediaEndpoint = "videos_edits"
-	GrokMediaEndpointVideosExtensions  GrokMediaEndpoint = "videos_extensions"
-	GrokMediaEndpointVideoStatus       GrokMediaEndpoint = "video_status"
-	GrokMediaEndpointVideoContent      GrokMediaEndpoint = "video_content"
+	GrokMediaEndpointImagesGenerations GrokMediaEndpoint = mediagateway.ImagesGenerations
+	GrokMediaEndpointImagesEdits       GrokMediaEndpoint = mediagateway.ImagesEdits
+	GrokMediaEndpointVideosGenerations GrokMediaEndpoint = mediagateway.VideosGenerations
+	GrokMediaEndpointVideosEdits       GrokMediaEndpoint = mediagateway.VideosEdits
+	GrokMediaEndpointVideosExtensions  GrokMediaEndpoint = mediagateway.VideosExtensions
+	GrokMediaEndpointVideoStatus       GrokMediaEndpoint = mediagateway.VideoStatus
+	GrokMediaEndpointVideoContent      GrokMediaEndpoint = mediagateway.VideoContent
 	grokVideoRModel                                      = "grok-video-r"
 	grokVideoRChatCompletionsEndpoint                    = "/v1/chat/completions"
 
@@ -42,26 +43,6 @@ const (
 )
 
 var grokVideoRURLPattern = regexp.MustCompile(`https?://[^\s<>"']+`)
-
-func (e GrokMediaEndpoint) RequiresRequestBody() bool {
-	return !e.IsVideoLookupRequest()
-}
-
-func (e GrokMediaEndpoint) IsVideoLookupRequest() bool {
-	return e == GrokMediaEndpointVideoStatus || e == GrokMediaEndpointVideoContent || e == SeedanceEndpointStatus || e == SeedanceEndpointDelete
-}
-
-func (e GrokMediaEndpoint) IsGenerationRequest() bool {
-	if e == SeedanceEndpointCreate {
-		return true
-	}
-	switch e {
-	case GrokMediaEndpointImagesGenerations, GrokMediaEndpointImagesEdits, GrokMediaEndpointVideosGenerations, GrokMediaEndpointVideosEdits, GrokMediaEndpointVideosExtensions:
-		return true
-	default:
-		return false
-	}
-}
 
 type GrokMediaRequestInfo struct {
 	Model           string
@@ -115,13 +96,6 @@ func (r GrokMediaRequestInfo) ModerationBody() []byte {
 		return nil
 	}
 	return body
-}
-
-func (e GrokMediaEndpoint) httpMethod() string {
-	if e.IsVideoLookupRequest() {
-		return http.MethodGet
-	}
-	return http.MethodPost
 }
 
 func ExtractGrokMediaModel(contentType string, body []byte) string {
@@ -848,7 +822,7 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 	}
 	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
 	defer releaseUpstreamCtx()
-	upstreamReq, err := http.NewRequestWithContext(upstreamCtx, endpoint.httpMethod(), targetURL, bodyReader)
+	upstreamReq, err := http.NewRequestWithContext(upstreamCtx, endpoint.HTTPMethod(), targetURL, bodyReader)
 	if err != nil {
 		return nil, err
 	}

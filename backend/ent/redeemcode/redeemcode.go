@@ -14,6 +14,8 @@ const (
 	Label = "redeem_code"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
+	// FieldCustomSubscriptionPolicy holds the string denoting the custom_subscription_policy field in the database.
+	FieldCustomSubscriptionPolicy = "custom_subscription_policy"
 	// FieldCode holds the string denoting the code field in the database.
 	FieldCode = "code"
 	// FieldType holds the string denoting the type field in the database.
@@ -63,6 +65,7 @@ const (
 // Columns holds all SQL columns for redeemcode fields.
 var Columns = []string{
 	FieldID,
+	FieldCustomSubscriptionPolicy,
 	FieldCode,
 	FieldType,
 	FieldBatchID,
@@ -88,6 +91,10 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultCustomSubscriptionPolicy holds the default value on creation for the "custom_subscription_policy" field.
+	DefaultCustomSubscriptionPolicy string
+	// CustomSubscriptionPolicyValidator is a validator for the "custom_subscription_policy" field. It is called by the builders before save.
+	CustomSubscriptionPolicyValidator func(string) error
 	// CodeValidator is a validator for the "code" field. It is called by the builders before save.
 	CodeValidator func(string) error
 	// DefaultType holds the default value on creation for the "type" field.
@@ -114,6 +121,11 @@ type OrderOption func(*sql.Selector)
 // ByID orders the results by the id field.
 func ByID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldID, opts...).ToFunc()
+}
+
+// ByCustomSubscriptionPolicy orders the results by the custom_subscription_policy field.
+func ByCustomSubscriptionPolicy(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCustomSubscriptionPolicy, opts...).ToFunc()
 }
 
 // ByCode orders the results by the code field.

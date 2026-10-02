@@ -55,6 +55,11 @@ func IDLTE(id int64) predicate.RedeemCode {
 	return predicate.RedeemCode(sql.FieldLTE(FieldID, id))
 }
 
+// CustomSubscriptionPolicy applies equality check predicate on the "custom_subscription_policy" field. It's identical to CustomSubscriptionPolicyEQ.
+func CustomSubscriptionPolicy(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEQ(FieldCustomSubscriptionPolicy, v))
+}
+
 // Code applies equality check predicate on the "code" field. It's identical to CodeEQ.
 func Code(v string) predicate.RedeemCode {
 	return predicate.RedeemCode(sql.FieldEQ(FieldCode, v))
@@ -113,6 +118,71 @@ func GroupID(v int64) predicate.RedeemCode {
 // ValidityDays applies equality check predicate on the "validity_days" field. It's identical to ValidityDaysEQ.
 func ValidityDays(v int) predicate.RedeemCode {
 	return predicate.RedeemCode(sql.FieldEQ(FieldValidityDays, v))
+}
+
+// CustomSubscriptionPolicyEQ applies the EQ predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyEQ(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEQ(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyNEQ applies the NEQ predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyNEQ(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNEQ(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyIn applies the In predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyIn(vs ...string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldIn(FieldCustomSubscriptionPolicy, vs...))
+}
+
+// CustomSubscriptionPolicyNotIn applies the NotIn predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyNotIn(vs ...string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNotIn(FieldCustomSubscriptionPolicy, vs...))
+}
+
+// CustomSubscriptionPolicyGT applies the GT predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyGT(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldGT(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyGTE applies the GTE predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyGTE(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldGTE(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyLT applies the LT predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyLT(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldLT(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyLTE applies the LTE predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyLTE(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldLTE(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyContains applies the Contains predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyContains(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldContains(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyHasPrefix applies the HasPrefix predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyHasPrefix(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldHasPrefix(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyHasSuffix applies the HasSuffix predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyHasSuffix(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldHasSuffix(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyEqualFold applies the EqualFold predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyEqualFold(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEqualFold(FieldCustomSubscriptionPolicy, v))
+}
+
+// CustomSubscriptionPolicyContainsFold applies the ContainsFold predicate on the "custom_subscription_policy" field.
+func CustomSubscriptionPolicyContainsFold(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldContainsFold(FieldCustomSubscriptionPolicy, v))
 }
 
 // CodeEQ applies the EQ predicate on the "code" field.

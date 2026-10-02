@@ -143,7 +143,43 @@
     "backend/internal/customize/migrations/sql/admin-efficiency/202610020001_adopt_admin_efficiency.sql",
     "backend/internal/customize/migrations/admin_efficiency_adoption_test.go",
     "frontend/src/extensions/useAdminEfficiency.ts",
-    "backend/internal/service/admin_efficiency_paths_test.go"
+    "backend/internal/service/admin_efficiency_paths_test.go",
+    "backend/internal/customize/modules/accesspolicy/settings.go",
+    "backend/internal/customize/modules/accesspolicy/settings_test.go",
+    "backend/internal/customize/modules/accesspolicy/README.md",
+    "backend/internal/service/access_policy.go",
+    "backend/internal/service/access_policy_test.go",
+    "backend/internal/handler/admin/access_policy_settings_test.go",
+    "backend/internal/customize/migrations/sql/access-policy/202610020001_adopt_access_policy.sql",
+    "backend/internal/customize/migrations/access_policy_adoption_test.go",
+    "frontend/src/extensions/modules/access-policy/configuration.ts",
+    "frontend/src/extensions/modules/access-policy/AccessPolicyBoundary.vue",
+    "frontend/src/extensions/modules/access-policy/__tests__/configuration.spec.ts",
+    "frontend/src/extensions/modules/access-policy/__tests__/AccessPolicyBoundary.spec.ts",
+    "frontend/src/extensions/modules/access-policy/__tests__/AppAccessPolicy.spec.ts",
+    "backend/internal/customize/modules/mediagateway/README.md",
+    "backend/internal/customize/modules/mediagateway/admission.go",
+    "backend/internal/customize/modules/mediagateway/admission_test.go",
+    "backend/internal/customize/modules/mediagateway/endpoint.go",
+    "backend/internal/customize/modules/mediagateway/responses.go",
+    "backend/internal/customize/modules/mediagateway/responses_test.go",
+    "backend/internal/service/media_gateway.go",
+    "backend/internal/handler/media_gateway.go",
+    "backend/internal/handler/media_gateway_test.go",
+    "backend/internal/customize/migrations/sql/media-gateway/202610020002_adopt_media_gateway.sql",
+    "backend/internal/customize/migrations/media_gateway_adoption_test.go",
+    "backend/internal/customize/modules/subscriptionextensions/README.md",
+    "backend/internal/customize/modules/subscriptionextensions/policy.go",
+    "backend/internal/customize/modules/subscriptionextensions/policy_test.go",
+    "backend/internal/customize/modules/subscriptionextensions/entschema/issuance.go",
+    "backend/internal/customize/wiring/subscription_issuance.go",
+    "backend/internal/service/subscription_issuance.go",
+    "backend/internal/service/subscription_issuance_test.go",
+    "backend/internal/service/subscription_policy_fulfillment_test.go",
+    "backend/internal/repository/subscription_ownership.go",
+    "backend/internal/repository/subscription_ownership_test.go",
+    "backend/internal/customize/migrations/sql/subscription-extensions/202610020003_subscription_ownership.sql",
+    "backend/internal/customize/migrations/subscription_ownership_test.go"
   ],
   "forbidden_references": [
     {
@@ -766,6 +802,61 @@
         "@/extensions/store",
         "useExtensionStore"
       ]
+    },
+    {
+      "file": "backend/internal/customize/modules/accesspolicy/settings.go",
+      "patterns": [
+        "github\\.com/Wei-Shaw/sub2api/internal/(service|repository|server|handler)\\b",
+        "github\\.com/Wei-Shaw/sub2api/ent\\b",
+        "customize.NewManager"
+      ]
+    },
+    {
+      "file": "backend/internal/service/setting_features.go",
+      "patterns": [
+        "func \\(s \\*SettingService\\) IsRegistrationEmailDomainQuotaEnabled",
+        "func \\(s \\*SettingService\\) GetRegistrationEmailSuffixWhitelist"
+      ]
+    },
+    {
+      "file": "backend/internal/service/registration_proof.go",
+      "patterns": [
+        "func \\(s \\*SettingService\\) IsRegistrationProofEnabled",
+        "func \\(s \\*SettingService\\) GetRegistrationProofDifficulty",
+        "CustomExtensions\\("
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/mediagateway/admission.go",
+      "patterns": [
+        "github\\.com/Wei-Shaw/sub2api/internal/(service|repository|server|handler)\\b",
+        "github\\.com/Wei-Shaw/sub2api/ent\\b",
+        "customize.NewManager"
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/mediagateway/endpoint.go",
+      "patterns": [
+        "github\\.com/Wei-Shaw/sub2api/internal/(service|repository|server|handler)\\b",
+        "github\\.com/Wei-Shaw/sub2api/ent\\b",
+        "customize.NewManager"
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/mediagateway/responses.go",
+      "patterns": [
+        "github\\.com/Wei-Shaw/sub2api/internal/(service|repository|server|handler)\\b",
+        "github\\.com/Wei-Shaw/sub2api/ent\\b",
+        "customize.NewManager"
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/subscriptionextensions/policy.go",
+      "patterns": [
+        "github\\.com/Wei-Shaw/sub2api/internal/(service|repository|server|handler)\\b",
+        "github\\.com/Wei-Shaw/sub2api/ent\\b",
+        "customize.NewManager"
+      ]
     }
   ],
   "required_markers": [
@@ -1088,6 +1179,94 @@
     {
       "file": "frontend/src/components/account/EditAccountModal.vue",
       "marker": "if (!adminEfficiencyEnabled.value) delete admittedPayload.upstream_group"
+    },
+    {
+      "file": "backend/internal/service/access_policy.go",
+      "marker": "accesspolicy.CheckConfigurationChange("
+    },
+    {
+      "file": "backend/internal/service/access_policy.go",
+      "marker": "accesspolicy.ReadSettings("
+    },
+    {
+      "file": "backend/internal/service/setting_update.go",
+      "marker": "s.checkAccessPolicyConfiguration(ctx, updates)"
+    },
+    {
+      "file": "backend/internal/service/setting_public.go",
+      "marker": "accesspolicy.ParseSettings(settings)"
+    },
+    {
+      "file": "backend/internal/service/auth_service.go",
+      "marker": "s.settingService.registrationAccessSettings(ctx)"
+    },
+    {
+      "file": "backend/internal/service/registration_proof.go",
+      "marker": "s.settingService.registrationAccessSettings(ctx)"
+    },
+    {
+      "file": "frontend/src/App.vue",
+      "marker": "await appStore.fetchPublicSettings(true)"
+    },
+    {
+      "file": "frontend/src/App.vue",
+      "marker": "<AccessPolicyBoundary :resolved=\"accessPolicyPageReady\""
+    },
+    {
+      "file": "frontend/src/views/admin/SettingsView.vue",
+      "marker": "admitAccessPolicySettings(payload, accessPolicyConfigurationEnabled.value)"
+    },
+    {
+      "file": "backend/internal/handler/gemini_v1beta_handler.go",
+      "marker": "mediagateway.GeminiOperation(action)"
+    },
+    {
+      "file": "backend/internal/handler/grok_audio.go",
+      "marker": "mediagateway.VoiceOperation(c.Request.Method)"
+    },
+    {
+      "file": "backend/internal/handler/openai_gateway_handler.go",
+      "marker": "mediagateway.ResponsesOperation(payload)"
+    },
+    {
+      "file": "backend/internal/handler/openai_gateway_handler.go",
+      "marker": "mediagateway.ResponsesOperation(firstMessage)"
+    },
+    {
+      "file": "backend/internal/handler/openai_gateway_handler.go",
+      "marker": "mediagateway.ResponsesOperation(body)"
+    },
+    {
+      "file": "backend/internal/service/media_gateway.go",
+      "marker": "mediagateway.CheckAdmission("
+    },
+    {
+      "file": "backend/internal/service/subscription_issuance.go",
+      "marker": "repo.LockSubscriptionOwner(txCtx, input.UserID)"
+    },
+    {
+      "file": "backend/internal/service/subscription_issuance.go",
+      "marker": "repo.FindNativeForAssignment(txCtx, input.UserID, input.GroupID)"
+    },
+    {
+      "file": "backend/internal/service/payment_order.go",
+      "marker": "subscriptionextensions.WithSnapshot(providerSnapshot, policy)"
+    },
+    {
+      "file": "backend/internal/service/payment_fulfillment.go",
+      "marker": "subscriptionextensions.FromSnapshot(o.ProviderSnapshot)"
+    },
+    {
+      "file": "backend/internal/service/redeem_service.go",
+      "marker": "subscriptionextensions.Resolve(redeemCode.CustomSubscriptionPolicy)"
+    },
+    {
+      "file": "backend/ent/schema/user_subscription.go",
+      "marker": "subscriptionentschema.Issuance"
+    },
+    {
+      "file": "backend/ent/schema/redeem_code.go",
+      "marker": "subscriptionentschema.Issuance"
     }
   ]
 }

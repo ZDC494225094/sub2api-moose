@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/subscriptionextensions"
 	"log/slog"
 	"math"
 	"net/url"
@@ -195,6 +196,16 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		return nil, err
 	}
 	providerSnapshot := buildPaymentOrderProviderSnapshot(sel, req)
+	if plan != nil {
+		policy, policyErr := s.subscriptionSvc.NewSubscriptionPolicy(ctx)
+		if policyErr != nil {
+			return nil, policyErr
+		}
+		providerSnapshot, policyErr = subscriptionextensions.WithSnapshot(providerSnapshot, policy)
+		if policyErr != nil {
+			return nil, policyErr
+		}
+	}
 	providerSnapshot, err = attachRechargeCampaign(providerSnapshot, req.campaign, time.Now())
 	if err != nil {
 		return nil, err

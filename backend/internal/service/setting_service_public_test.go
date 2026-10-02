@@ -57,7 +57,7 @@ func TestSettingService_GetPublicSettings_ExposesRegistrationEmailSuffixWhitelis
 		values: map[string]string{
 			SettingKeyRegistrationEnabled:              "true",
 			SettingKeyEmailVerifyEnabled:               "true",
-			SettingKeyRegistrationEmailSuffixWhitelist: `["@EXAMPLE.com"," @foo.bar ","*.EDU.CN","@invalid_domain",""]`,
+			SettingKeyRegistrationEmailSuffixWhitelist: `["@EXAMPLE.com"," @foo.bar ","*.EDU.CN"]`,
 		},
 	}
 	svc := NewSettingService(repo, &config.Config{})
@@ -317,6 +317,17 @@ func TestSettingService_GetPublicSettings_PaymentBalanceDisabledStrictTrue(t *te
 			payload, ok := raw.(*PublicSettingsInjectionPayload)
 			require.True(t, ok)
 			require.Equal(t, tc.want, payload.PaymentBalanceDisabled)
+		})
+	}
+}
+
+func TestSettingService_GetPublicSettings_RejectsCorruptAccessPolicy(t *testing.T) {
+	for _, key := range []string{SettingKeyRegistrationEmailSuffixWhitelist, SettingKeyRegistrationProofEnabled, SettingKeyRegistrationEmailDomainQuotaEnabled, SettingKeyMainlandChinaAccessRestrictionEnabled} {
+		t.Run(key, func(t *testing.T) {
+			svc := NewSettingService(&settingPublicRepoStub{values: map[string]string{key: "corrupt"}}, &config.Config{})
+			settings, err := svc.GetPublicSettings(context.Background())
+			require.Error(t, err)
+			require.Nil(t, settings)
 		})
 	}
 }

@@ -408,12 +408,12 @@ func (_q *UserSubscriptionQuery) WithUsageLogs(opts ...func(*UsageLogQuery)) *Us
 // Example:
 //
 //	var v []struct {
-//		CreatedAt time.Time `json:"created_at,omitempty"`
+//		CustomSubscriptionPolicy string `json:"custom_subscription_policy,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.UserSubscription.Query().
-//		GroupBy(usersubscription.FieldCreatedAt).
+//		GroupBy(usersubscription.FieldCustomSubscriptionPolicy).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
 func (_q *UserSubscriptionQuery) GroupBy(field string, fields ...string) *UserSubscriptionGroupBy {
@@ -431,11 +431,11 @@ func (_q *UserSubscriptionQuery) GroupBy(field string, fields ...string) *UserSu
 // Example:
 //
 //	var v []struct {
-//		CreatedAt time.Time `json:"created_at,omitempty"`
+//		CustomSubscriptionPolicy string `json:"custom_subscription_policy,omitempty"`
 //	}
 //
 //	client.UserSubscription.Query().
-//		Select(usersubscription.FieldCreatedAt).
+//		Select(usersubscription.FieldCustomSubscriptionPolicy).
 //		Scan(ctx, &v)
 func (_q *UserSubscriptionQuery) Select(fields ...string) *UserSubscriptionSelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)
