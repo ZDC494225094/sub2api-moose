@@ -964,13 +964,7 @@ export interface UpdateGroupRequest {
 export type AccountPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'kimi' | 'zhipu' | 'deepseek' | 'minimax' | 'opencode_go'
 export type AccountType = 'oauth' | 'setup-token' | 'apikey' | 'upstream' | 'bedrock' | 'service_account'
 
-export interface AccountUpstreamGroup {
-  id: number
-  key: string
-  name: string
-  account_count: number
-  sort_order: number
-}
+export type { AccountUpstreamGroup } from '@/extensions/modules/admin-efficiency/types'
 export type OAuthAddMethod = 'oauth' | 'setup-token'
 export type ProxyProtocol = 'http' | 'https' | 'socks5' | 'socks5h'
 

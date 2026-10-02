@@ -1,3 +1,4 @@
+import '@/extensions/__tests__/adminEfficiencyEnabledFixture'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { mount } from '@vue/test-utils'

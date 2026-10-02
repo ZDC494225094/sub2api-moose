@@ -16,6 +16,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/accesspolicy"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 
@@ -1211,16 +1212,14 @@ func (s *AuthService) validateRegistrationEmailQuota(ctx context.Context, email 
 		return nil
 	}
 	whitelist := s.settingService.GetRegistrationEmailSuffixWhitelist(ctx)
-	if !IsRegistrationEmailSuffixLimited(email, whitelist) {
-		return nil
-	}
-	if !s.settingService.IsRegistrationEmailDomainQuotaEnabled(ctx) {
+	quotaEnabled := IsRegistrationEmailSuffixLimited(email, whitelist) && s.settingService.IsRegistrationEmailDomainQuotaEnabled(ctx)
+	decision := accesspolicy.EvaluateRegistrationEmail(email, whitelist, quotaEnabled)
+	if !decision.Allowed {
 		return buildEmailSuffixNotAllowedError(whitelist)
 	}
-
-	domain := RegistrationEmailDomain(email)
+	domain := decision.LimitedDomain
 	if domain == "" {
-		return buildEmailSuffixNotAllowedError(whitelist)
+		return nil
 	}
 	quotaRepo, ok := s.userRepo.(RegistrationEmailDomainRepository)
 	if !ok {
@@ -1250,16 +1249,15 @@ func (s *AuthService) createUserWithRegistrationEmailGuard(ctx context.Context, 
 	if s.settingService != nil {
 		whitelist = s.settingService.GetRegistrationEmailSuffixWhitelist(ctx)
 	}
-	domain := RegistrationEmailDomain(user.Email)
-	if !IsRegistrationEmailSuffixLimited(user.Email, whitelist) {
-		return s.userRepo.CreateWithEmailAliasGuard(ctx, user)
-	}
-	// 开关关闭时非白名单域名在校验阶段已被拒绝；此处兜底防御设置竞态变更。
-	if s.settingService == nil || !s.settingService.IsRegistrationEmailDomainQuotaEnabled(ctx) {
+	quotaEnabled := IsRegistrationEmailSuffixLimited(user.Email, whitelist) && s.settingService != nil && s.settingService.IsRegistrationEmailDomainQuotaEnabled(ctx)
+	decision := accesspolicy.EvaluateRegistrationEmail(user.Email, whitelist, quotaEnabled)
+	// Re-evaluate on write: preflight is not authorization across setting changes.
+	if !decision.Allowed {
 		return buildEmailSuffixNotAllowedError(whitelist)
 	}
+	domain := decision.LimitedDomain
 	if domain == "" {
-		return buildEmailSuffixNotAllowedError(whitelist)
+		return s.userRepo.CreateWithEmailAliasGuard(ctx, user)
 	}
 	quotaRepo, ok := s.userRepo.(RegistrationEmailDomainRepository)
 	if !ok {

@@ -3617,6 +3617,156 @@
         "backend/internal/customize/modules/multigroupbilling/ownership.go"
       ],
       "reason": "Durable immutable routing ownership is defined by the module schema mixin. Existing keys and pending-stage creation remain legacy; native keys bypass custom selection. Admission remains pending, with no runtime switch enabled."
+    },
+    {
+      "from": "backend/internal/service/registration_proof.go",
+      "to": [
+        "backend/internal/customize/modules/accesspolicy/registration_proof.go"
+      ],
+      "reason": "Access-policy rules extracted without adding a business disable switch; host security settings, token format and atomic registration guards remain authoritative."
+    },
+    {
+      "from": "backend/internal/service/registration_email_policy.go",
+      "to": [
+        "backend/internal/customize/modules/accesspolicy/registration_email_policy.go"
+      ],
+      "reason": "Access-policy rules extracted without adding a business disable switch; host security settings, token format and atomic registration guards remain authoritative."
+    },
+    {
+      "from": "backend/internal/service/registration_email_alias.go",
+      "to": [
+        "backend/internal/customize/modules/accesspolicy/registration_email_alias.go"
+      ],
+      "reason": "Access-policy rules extracted without adding a business disable switch; host security settings, token format and atomic registration guards remain authoritative."
+    },
+    {
+      "from": "backend/internal/service/auth_service.go",
+      "to": [
+        "backend/internal/customize/modules/accesspolicy/registration_email_admission.go"
+      ],
+      "reason": "Access-policy rules extracted without adding a business disable switch; host security settings, token format and atomic registration guards remain authoritative."
+    },
+    {
+      "from": "backend/internal/handler/setting_handler.go",
+      "to": [
+        "backend/internal/customize/modules/accesspolicy/site_access.go"
+      ],
+      "reason": "Access-policy rules extracted without adding a business disable switch; host security settings, token format and atomic registration guards remain authoritative."
+    },
+    {
+      "from": "frontend/src/utils/registrationProof.ts",
+      "to": [
+        "frontend/src/extensions/modules/access-policy/registrationProof.ts",
+        "frontend/src/extensions/modules/access-policy/registrationProof.worker.ts"
+      ],
+      "reason": "Access-policy rules extracted without adding a business disable switch; host security settings, token format and atomic registration guards remain authoritative."
+    },
+    {
+      "from": "frontend/src/utils/registrationEmailPolicy.ts",
+      "to": [
+        "frontend/src/extensions/modules/access-policy/registrationEmailPolicy.ts"
+      ],
+      "reason": "Access-policy rules extracted without adding a business disable switch; host security settings, token format and atomic registration guards remain authoritative."
+    },
+    {
+      "from": "frontend/src/router/mainlandChinaAccessRestriction.ts",
+      "to": [
+        "frontend/src/extensions/modules/access-policy/mainlandChinaAccessRestriction.ts"
+      ],
+      "reason": "Access-policy rules extracted without adding a business disable switch; host security settings, token format and atomic registration guards remain authoritative."
+    },
+    {
+      "from": "backend/internal/service/account_service.go",
+      "to": [
+        "backend/internal/customize/modules/adminefficiency/upstream_group_ports.go"
+      ],
+      "reason": "Admin-efficiency module owns custom policies and UI behind narrow ports. Stage30 adds fail-closed write admission, preserves history and native CRUD, and enables the managed switch."
+    },
+    {
+      "from": "backend/internal/service/account_upstream_group.go",
+      "to": [
+        "backend/internal/customize/modules/adminefficiency/upstream_group.go"
+      ],
+      "reason": "Admin-efficiency module owns custom policies and UI behind narrow ports. Stage30 adds fail-closed write admission, preserves history and native CRUD, and enables the managed switch."
+    },
+    {
+      "from": "backend/internal/service/admin_account_upstream_groups.go",
+      "to": [
+        "backend/internal/customize/modules/adminefficiency/upstream_group_directory.go"
+      ],
+      "reason": "Admin-efficiency module owns custom policies and UI behind narrow ports. Stage30 adds fail-closed write admission, preserves history and native CRUD, and enables the managed switch."
+    },
+    {
+      "from": "frontend/src/api/admin/accounts.ts",
+      "to": [
+        "frontend/src/extensions/modules/admin-efficiency/upstreamGroupsApi.ts",
+        "frontend/src/extensions/modules/admin-efficiency/managementApi.ts"
+      ],
+      "reason": "Admin-efficiency module owns custom policies and UI behind narrow ports. Stage30 adds fail-closed write admission, preserves history and native CRUD, and enables the managed switch."
+    },
+    {
+      "from": "frontend/src/types/index.ts",
+      "to": [
+        "frontend/src/extensions/modules/admin-efficiency/types.ts"
+      ],
+      "reason": "Admin-efficiency module owns custom policies and UI behind narrow ports. Stage30 adds fail-closed write admission, preserves history and native CRUD, and enables the managed switch."
+    },
+    {
+      "from": "frontend/src/components/account/UpstreamGroupField.vue",
+      "to": [
+        "frontend/src/extensions/modules/admin-efficiency/UpstreamGroupField.vue"
+      ],
+      "reason": "Admin-efficiency module owns custom policies and UI behind narrow ports. Stage30 adds fail-closed write admission, preserves history and native CRUD, and enables the managed switch."
+    },
+    {
+      "from": "frontend/src/components/account/BulkSetUpstreamGroupModal.vue",
+      "to": [
+        "frontend/src/extensions/modules/admin-efficiency/BulkSetUpstreamGroupModal.vue"
+      ],
+      "reason": "Admin-efficiency module owns custom policies and UI behind narrow ports. Stage30 adds fail-closed write admission, preserves history and native CRUD, and enables the managed switch."
+    },
+    {
+      "from": "backend/internal/service/admin_account.go",
+      "to": [
+        "backend/internal/customize/modules/adminefficiency/account_sort.go",
+        "backend/internal/customize/modules/adminefficiency/admission.go"
+      ],
+      "reason": "Stage30 admin-efficiency policies and UI extracted behind narrow ports; host authorization, native validation, atomic writes and API compatibility retained."
+    },
+    {
+      "from": "backend/internal/service/admin_group.go",
+      "to": [
+        "backend/internal/customize/modules/adminefficiency/group_accounts.go"
+      ],
+      "reason": "Stage30 admin-efficiency policies and UI extracted behind narrow ports; host authorization, native validation, atomic writes and API compatibility retained."
+    },
+    {
+      "from": "backend/internal/handler/admin/user_handler.go",
+      "to": [
+        "backend/internal/customize/modules/adminefficiency/batch_users.go"
+      ],
+      "reason": "Stage30 admin-efficiency policies and UI extracted behind narrow ports; host authorization, native validation, atomic writes and API compatibility retained."
+    },
+    {
+      "from": "frontend/src/api/admin/groups.ts",
+      "to": [
+        "frontend/src/extensions/modules/admin-efficiency/managementApi.ts"
+      ],
+      "reason": "Stage30 admin-efficiency policies and UI extracted behind narrow ports; host authorization, native validation, atomic writes and API compatibility retained."
+    },
+    {
+      "from": "frontend/src/api/admin/users.ts",
+      "to": [
+        "frontend/src/extensions/modules/admin-efficiency/managementApi.ts"
+      ],
+      "reason": "Stage30 admin-efficiency policies and UI extracted behind narrow ports; host authorization, native validation, atomic writes and API compatibility retained."
+    },
+    {
+      "from": "frontend/src/components/admin/group/GroupAccountsModal.vue",
+      "to": [
+        "frontend/src/extensions/modules/admin-efficiency/GroupAccountsModal.vue"
+      ],
+      "reason": "Stage30 admin-efficiency policies and UI extracted behind narrow ports; host authorization, native validation, atomic writes and API compatibility retained."
     }
   ]
 }

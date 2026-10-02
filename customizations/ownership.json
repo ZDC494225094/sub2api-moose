@@ -128,6 +128,9 @@
   {
     "id": "admin-efficiency",
     "patterns": [
+      "^backend/internal/service/admin_efficiency",
+      "^backend/internal/customize/modules/adminefficiency/",
+      "^frontend/src/extensions/modules/admin-efficiency/",
       "account",
       "[Aa]ccount",
       "[Gg]roup",
@@ -140,6 +143,8 @@
   {
     "id": "site-customization",
     "patterns": [
+      "^backend/internal/customize/modules/sitecustomization/",
+      "^frontend/src/extensions/modules/site-customization/",
       "[Ss]etting",
       "setting_",
       "[Ff]ooter",
@@ -152,6 +157,8 @@
   {
     "id": "access-policy",
     "patterns": [
+      "^backend/internal/customize/modules/accesspolicy/",
+      "^frontend/src/extensions/modules/access-policy/",
       "[Aa]uth",
       "[Ll]ogin",
       "[Rr]egister",

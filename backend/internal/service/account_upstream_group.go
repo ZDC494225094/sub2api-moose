@@ -1,20 +1,10 @@
 package service
 
-import (
-	"strings"
-	"unicode/utf8"
+import "github.com/Wei-Shaw/sub2api/internal/customize/modules/adminefficiency"
 
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-)
+const AccountUpstreamGroupMaxLength = adminefficiency.AccountUpstreamGroupMaxLength
 
-const AccountUpstreamGroupMaxLength = 100
-
-// NormalizeAccountUpstreamGroup trims an explicit upstream group label and
-// enforces the same character limit as the database column.
+// NormalizeAccountUpstreamGroup is the compatibility seam for all account write paths.
 func NormalizeAccountUpstreamGroup(value string) (string, error) {
-	normalized := strings.TrimSpace(value)
-	if utf8.RuneCountInString(normalized) > AccountUpstreamGroupMaxLength {
-		return "", infraerrors.BadRequest("ACCOUNT_UPSTREAM_GROUP_TOO_LONG", "upstream_group must be at most 100 characters")
-	}
-	return normalized, nil
+	return adminefficiency.NormalizeAccountUpstreamGroup(value)
 }

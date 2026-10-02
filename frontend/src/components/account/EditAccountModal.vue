@@ -2997,6 +2997,7 @@
       </div>
 
       <UpstreamGroupField
+        :disabled="!adminEfficiencyEnabled"
         v-model="form.upstream_group"
         :groups="upstreamGroups"
         :loading="upstreamGroupsLoading"
@@ -3065,6 +3066,8 @@
 </template>
 
 <script setup lang="ts">
+import { useAdminEfficiency } from '@/extensions/useAdminEfficiency'
+const adminEfficiencyEnabled = useAdminEfficiency()
 import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
@@ -5004,7 +5007,10 @@ const persistGrokMediaEligibility = async (accountID: number, updatedAccount: Ac
 const submitUpdateAccount = async (accountID: number, updatePayload: Record<string, unknown>) => {
   submitting.value = true
   try {
-    let updatedAccount = await adminAPI.accounts.update(accountID, withAntigravityConfirmFlag(updatePayload))
+    // Confirmation may outlive the extension state that produced this payload.
+    const admittedPayload = { ...updatePayload }
+    if (!adminEfficiencyEnabled.value) delete admittedPayload.upstream_group
+    let updatedAccount = await adminAPI.accounts.update(accountID, withAntigravityConfirmFlag(admittedPayload))
     updatedAccount = await persistGrokMediaEligibility(accountID, updatedAccount)
     appStore.showSuccess(t('admin.accounts.accountUpdated'))
     emit('updated', updatedAccount)
@@ -5051,7 +5057,8 @@ const handleSubmit = async () => {
   }
 
   const updatePayload: Record<string, unknown> = { ...form }
-  updatePayload.upstream_group = form.upstream_group.trim()
+  if (adminEfficiencyEnabled.value) updatePayload.upstream_group = form.upstream_group.trim()
+  else delete updatePayload.upstream_group
   try {
     // 后端期望 proxy_id: 0 表示清除代理，而不是 null
     if (updatePayload.proxy_id === null) {

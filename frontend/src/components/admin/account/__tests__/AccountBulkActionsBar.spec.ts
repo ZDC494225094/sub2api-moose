@@ -12,7 +12,7 @@ vi.mock('vue-i18n', () => ({
 describe('AccountBulkActionsBar', () => {
   it('emits set-upstream-group for selected accounts', async () => {
     const wrapper = mount(AccountBulkActionsBar, {
-      props: {
+      props: { adminEfficiencyEnabled: true,
         selectedIds: [1],
         totalResults: 1,
         selectingAll: false,
@@ -27,7 +27,7 @@ describe('AccountBulkActionsBar', () => {
 
   it('allows selecting all results before any row is selected', async () => {
     const wrapper = mount(AccountBulkActionsBar, {
-      props: {
+      props: { adminEfficiencyEnabled: true,
         selectedIds: [],
         totalResults: 45,
         selectingAll: false,
@@ -46,7 +46,7 @@ describe('AccountBulkActionsBar', () => {
 
   it('preserves the upstream billing probe action from v0.1.166', async () => {
     const wrapper = mount(AccountBulkActionsBar, {
-      props: {
+      props: { adminEfficiencyEnabled: true,
         selectedIds: [1],
         totalResults: 45,
         selectingAll: false,

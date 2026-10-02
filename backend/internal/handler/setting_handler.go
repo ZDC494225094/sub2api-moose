@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/accesspolicy"
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/geo"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
@@ -135,7 +135,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 
 		RiskControlEnabled: settings.RiskControlEnabled,
 
-		MainlandChinaAccessRestricted: settings.MainlandChinaAccessRestrictionEnabled && geo.IsMainlandChina(ip.GetClientIP(c)),
+		MainlandChinaAccessRestricted: accesspolicy.MainlandChinaAccessRestricted(settings.MainlandChinaAccessRestrictionEnabled, ip.GetClientIP(c)),
 
 		AllowUserViewErrorRequests: settings.AllowUserViewErrorRequests,
 	})

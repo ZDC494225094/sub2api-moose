@@ -33,7 +33,7 @@ func TestMarketingAdoptionIsSeparateFromFrozenV1(t *testing.T) {
 			require.Equal(t, 1, recorded(t, conn))
 			require.NoError(t, (Runner{}).Apply(ctx, conn))
 			current := flags(t, conn)
-			require.Len(t, current, 8)
+			require.Len(t, current, 9)
 			want := "false"
 			if legacy {
 				want = "true"
@@ -42,7 +42,7 @@ func TestMarketingAdoptionIsSeparateFromFrozenV1(t *testing.T) {
 			for key, value := range v1 {
 				require.Equal(t, value, current[key])
 			}
-			require.Equal(t, 4, recorded(t, conn))
+			require.Equal(t, 5, recorded(t, conn))
 		})
 	}
 }
@@ -69,7 +69,7 @@ func TestMarketingAdoptionPreservesChoicesAndDeletedFlags(t *testing.T) {
 				require.NoError(t, (Runner{}).Prepare(ctx, conn))
 				require.NoError(t, (Runner{}).Apply(ctx, conn))
 				require.NotContains(t, flags(t, conn), key)
-				require.Equal(t, 4, recorded(t, conn))
+				require.Equal(t, 5, recorded(t, conn))
 			})
 		}
 	}
@@ -85,11 +85,11 @@ func TestMarketingAdoptionLedgerFailureRollsBackOnlyItsMigration(t *testing.T) {
 	execute(t, conn, `CREATE TRIGGER reject_marketing_ledger BEFORE INSERT ON custom_extension_schema_migrations
  WHEN NEW.module_id='marketing-tools' BEGIN SELECT RAISE(ABORT,'marketing ledger failed'); END`)
 	require.ErrorContains(t, (Runner{}).Apply(ctx, conn), "marketing ledger failed")
-	require.Equal(t, 1, recorded(t, conn))
-	require.Len(t, flags(t, conn), 6)
+	require.Equal(t, 2, recorded(t, conn))
+	require.Len(t, flags(t, conn), 7)
 	require.NotContains(t, flags(t, conn), customize.Key("marketing-tools"))
 	execute(t, conn, "DROP TRIGGER reject_marketing_ledger")
 	require.NoError(t, (Runner{}).Apply(ctx, conn))
 	require.Equal(t, "true", flags(t, conn)[customize.Key("marketing-tools")])
-	require.Equal(t, 4, recorded(t, conn))
+	require.Equal(t, 5, recorded(t, conn))
 }

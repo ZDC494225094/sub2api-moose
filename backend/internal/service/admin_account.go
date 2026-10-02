@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/adminefficiency"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -37,11 +38,11 @@ func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int,
 
 // UpdateAccountSortOrders updates the display-only ordering used by the admin account list.
 func (s *adminServiceImpl) UpdateAccountSortOrders(ctx context.Context, updates []AccountSortOrderUpdate) error {
-	repo, ok := s.accountRepo.(AccountSortOrderRepository)
-	if !ok {
-		return infraerrors.InternalServer("ACCOUNT_SORT_ORDER_UNAVAILABLE", "account sort order repository is not configured")
+	if err := s.requireAdminEfficiency(ctx); err != nil {
+		return err
 	}
-	return repo.UpdateSortOrders(ctx, updates)
+	repo, _ := s.accountRepo.(AccountSortOrderRepository)
+	return adminefficiency.SortAccounts(ctx, repo, updates)
 }
 
 func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilter(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, error) {
@@ -335,6 +336,9 @@ func (s *adminServiceImpl) DuplicateAccount(ctx context.Context, id int64, actor
 	if err := NormalizeOpenCodeGoProtocolRulesCredentials(input.Credentials); err != nil {
 		return nil, err
 	}
+	if err := s.checkUpstreamGroupChange(ctx, "", strings.TrimSpace(input.UpstreamGroup)); err != nil {
+		return nil, err
+	}
 	duplicate, err := buildAccountForCreate(input, accountExtra)
 	if err != nil {
 		return nil, err
@@ -491,6 +495,9 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 }
 
 func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error) {
+	if err := s.checkUpstreamGroupChange(ctx, "", strings.TrimSpace(input.UpstreamGroup)); err != nil {
+		return nil, err
+	}
 	accountExtra, err := normalizeOpenAILongContextBillingExtra(input.Platform, input.Extra)
 	if err != nil {
 		return nil, err
@@ -590,6 +597,15 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if input.UpstreamGroup != nil {
+		upstreamGroup, err := NormalizeAccountUpstreamGroup(*input.UpstreamGroup)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.checkUpstreamGroupChange(ctx, account.UpstreamGroup, upstreamGroup); err != nil {
+			return nil, err
+		}
 	}
 	var normalizedExtra map[string]any
 	if input.Extra != nil {
@@ -990,6 +1006,11 @@ func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, upd
 // BulkUpdateAccounts updates multiple accounts in one request.
 // It merges credentials/extra keys instead of overwriting the whole object.
 func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUpdateAccountsInput) (*BulkUpdateAccountsResult, error) {
+	if input.UpstreamGroup != nil {
+		if err := s.requireAdminEfficiency(ctx); err != nil {
+			return nil, err
+		}
+	}
 	// Managed probe/session state may only enter through dedicated typed endpoints.
 	input.Extra = sanitizedCodexFingerprintExtraUpdates(input.Extra)
 	input.Extra = stripOpenAIAutoResetCreditManagedExtra(input.Extra, true)
@@ -1489,6 +1510,9 @@ func (s *adminServiceImpl) CreateShadow(ctx context.Context, parentID int64, opt
 	priority := opts.Priority
 	if priority <= 0 {
 		priority = parent.Priority
+	}
+	if err := s.checkUpstreamGroupChange(ctx, "", parent.UpstreamGroup); err != nil {
+		return nil, err
 	}
 	shadow := &Account{
 		Name:            name,

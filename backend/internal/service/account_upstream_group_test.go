@@ -56,7 +56,7 @@ func (s *accountUpstreamGroupPersistenceRepoStub) Update(_ context.Context, acco
 
 func TestAccountServiceCreateNormalizesUpstreamGroup(t *testing.T) {
 	repo := newAccountUpstreamGroupPersistenceRepoStub("")
-	svc := NewAccountService(repo, nil)
+	svc := NewAccountService(repo, nil, enabledAdminEfficiencyReader{})
 
 	account, err := svc.Create(context.Background(), CreateAccountRequest{
 		Name:          "general-create",
@@ -73,7 +73,7 @@ func TestAccountServiceCreateNormalizesUpstreamGroup(t *testing.T) {
 
 func TestAccountServiceCreateRejectsOverlongUnicodeUpstreamGroup(t *testing.T) {
 	repo := newAccountUpstreamGroupPersistenceRepoStub("")
-	svc := NewAccountService(repo, nil)
+	svc := NewAccountService(repo, nil, enabledAdminEfficiencyReader{})
 
 	account, err := svc.Create(context.Background(), CreateAccountRequest{
 		Name:          "general-create",
@@ -100,7 +100,7 @@ func TestAccountServiceUpdateNormalizesAndClearsUpstreamGroup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := newAccountUpstreamGroupPersistenceRepoStub("Old Group")
-			svc := NewAccountService(repo, nil)
+			svc := NewAccountService(repo, nil, enabledAdminEfficiencyReader{})
 			value := tt.value
 
 			account, err := svc.Update(context.Background(), repo.account.ID, UpdateAccountRequest{
@@ -117,7 +117,7 @@ func TestAccountServiceUpdateNormalizesAndClearsUpstreamGroup(t *testing.T) {
 
 func TestAccountServiceUpdateRejectsOverlongUnicodeUpstreamGroup(t *testing.T) {
 	repo := newAccountUpstreamGroupPersistenceRepoStub("Old Group")
-	svc := NewAccountService(repo, nil)
+	svc := NewAccountService(repo, nil, enabledAdminEfficiencyReader{})
 	value := strings.Repeat("界", AccountUpstreamGroupMaxLength+1)
 
 	account, err := svc.Update(context.Background(), repo.account.ID, UpdateAccountRequest{
@@ -132,7 +132,7 @@ func TestAccountServiceUpdateRejectsOverlongUnicodeUpstreamGroup(t *testing.T) {
 
 func TestAdminServiceCreateAccountNormalizesUpstreamGroup(t *testing.T) {
 	repo := newAccountUpstreamGroupPersistenceRepoStub("")
-	svc := &adminServiceImpl{accountRepo: repo}
+	svc := &adminServiceImpl{settingService: enabledAdminEfficiencySettings(), accountRepo: repo}
 
 	account, err := svc.CreateAccount(context.Background(), &CreateAccountInput{
 		Name:                 "admin-create",
@@ -150,7 +150,7 @@ func TestAdminServiceCreateAccountNormalizesUpstreamGroup(t *testing.T) {
 
 func TestAdminServiceCreateAccountRejectsOverlongUnicodeUpstreamGroup(t *testing.T) {
 	repo := newAccountUpstreamGroupPersistenceRepoStub("")
-	svc := &adminServiceImpl{accountRepo: repo}
+	svc := &adminServiceImpl{settingService: enabledAdminEfficiencySettings(), accountRepo: repo}
 
 	account, err := svc.CreateAccount(context.Background(), &CreateAccountInput{
 		Name:                 "admin-create",
@@ -178,7 +178,7 @@ func TestAdminServiceUpdateAccountNormalizesAndClearsUpstreamGroup(t *testing.T)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := newAccountUpstreamGroupPersistenceRepoStub("Old Group")
-			svc := &adminServiceImpl{accountRepo: repo}
+			svc := &adminServiceImpl{settingService: enabledAdminEfficiencySettings(), accountRepo: repo}
 			value := tt.value
 
 			account, err := svc.UpdateAccount(context.Background(), repo.account.ID, &UpdateAccountInput{
@@ -195,7 +195,7 @@ func TestAdminServiceUpdateAccountNormalizesAndClearsUpstreamGroup(t *testing.T)
 
 func TestAdminServiceUpdateAccountRejectsOverlongUnicodeUpstreamGroup(t *testing.T) {
 	repo := newAccountUpstreamGroupPersistenceRepoStub("Old Group")
-	svc := &adminServiceImpl{accountRepo: repo}
+	svc := &adminServiceImpl{settingService: enabledAdminEfficiencySettings(), accountRepo: repo}
 	value := strings.Repeat("界", AccountUpstreamGroupMaxLength+1)
 
 	account, err := svc.UpdateAccount(context.Background(), repo.account.ID, &UpdateAccountInput{

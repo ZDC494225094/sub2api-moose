@@ -208,6 +208,7 @@
       </template>
       <template #table>
         <AccountBulkActionsBar
+          :admin-efficiency-enabled="adminEfficiencyEnabled"
           :selected-ids="selIds"
           :total-results="pagination.total"
           :selecting-all="selectingAllResults"
@@ -234,7 +235,7 @@
           row-key="id"
           :row-group="accountViewMode === 'upstream' ? getAccountUpstreamKey : undefined"
           :row-group-expanded="accountViewMode === 'upstream' ? isUpstreamGroupExpanded : undefined"
-          :row-draggable="!savingSortOrder"
+          :row-draggable="adminEfficiencyEnabled && !savingSortOrder"
           drag-handle-selector=".account-drag-handle"
           :row-class="getAccountRowClass"
           :server-side-sort="true"
@@ -325,7 +326,7 @@
                 {{ t('admin.accounts.upstreamPageCount', { count: rows.length }) }}
               </span>
               <div
-                v-if="hasManagedUpstreamGroup(String(groupKey), rows)"
+                v-if="adminEfficiencyEnabled && hasManagedUpstreamGroup(String(groupKey), rows)"
                 class="flex shrink-0 items-center gap-0.5"
               >
                 <button
@@ -641,7 +642,7 @@
       @updated="handleBulkUpstreamGroupUpdated"
     />
     <BaseDialog
-      :show="showRenameUpstreamGroup"
+      :show="showRenameUpstreamGroup && adminEfficiencyEnabled"
       :title="t('admin.accounts.renameUpstreamGroupTitle')"
       width="normal"
       @close="closeRenameUpstreamGroup"
@@ -692,6 +693,8 @@
 </template>
 
 <script setup lang="ts">
+import { useAdminEfficiency } from '@/extensions/useAdminEfficiency'
+const adminEfficiencyEnabled = useAdminEfficiency()
 import { ref, reactive, computed, onMounted, onUnmounted, toRaw, watch } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
@@ -1490,6 +1493,7 @@ const closeRenameUpstreamGroup = () => {
 }
 
 const renameUpstreamGroup = async () => {
+  if (!adminEfficiencyEnabled.value) return
   const target = renameUpstreamGroupTarget.value
   const name = renameUpstreamGroupName.value.trim()
   if (!target || !name) return
@@ -1515,6 +1519,7 @@ const renameUpstreamGroup = async () => {
 }
 
 const moveUpstreamGroup = async (groupKey: string, rows: Account[], direction: number) => {
+  if (!adminEfficiencyEnabled.value) return
   if (!canMoveUpstreamGroup(groupKey, rows, direction)) return
   const group = getManagedUpstreamGroup(groupKey, rows)
   if (!group) return
@@ -1835,6 +1840,7 @@ const handleAccountDragOver = (account: Account) => {
 }
 
 const reorderAccountScope = async (source: Account, target: Account) => {
+  if (!adminEfficiencyEnabled.value) return
   if (savingSortOrder.value || source.id === target.id) return
   if (accountViewMode.value === 'upstream' && getAccountUpstreamKey(source) !== getAccountUpstreamKey(target)) {
     appStore.showError(t('admin.accounts.crossUpstreamDragBlocked'))
@@ -2738,6 +2744,7 @@ const handleBulkUpdated = () => {
 }
 
 const openBulkSetUpstreamGroup = async () => {
+  if (!adminEfficiencyEnabled.value) return
   if (selIds.value.length === 0) return
   showBulkSetUpstreamGroup.value = true
   await loadUpstreamGroups()

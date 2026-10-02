@@ -1,3 +1,6 @@
+import { useExtensionStore } from '@/extensions/store'
+import ExtensionModal from '@/extensions/modules/admin-efficiency/BulkSetUpstreamGroupModal.vue'
+import '@/extensions/__tests__/adminEfficiencyEnabledFixture'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
@@ -21,7 +24,8 @@ vi.mock('@/api/admin', () => ({
   }
 }))
 
-vi.mock('vue-i18n', () => ({
+vi.mock('vue-i18n', async () => ({
+  ...await vi.importActual<typeof import('vue-i18n')>('vue-i18n'),
   useI18n: () => ({
     t: (key: string) => key
   })
@@ -123,4 +127,21 @@ describe('BulkSetUpstreamGroupModal', () => {
     expect(appStore.showError).toHaveBeenCalledWith('request failed')
     consoleError.mockRestore()
   })
+  it('fails closed for unknown flags and revokes an already open dialog write port', async () => {
+    const store = useExtensionStore()
+    store.flags = {}
+    const wrapper = mountModal()
+    expect(wrapper.find('#bulk-set-upstream-group-form').exists()).toBe(false)
+    store.flags = { 'admin-efficiency': true }
+    await flushPromises()
+    expect(wrapper.find('#bulk-set-upstream-group-form').exists()).toBe(true)
+    const update = wrapper.getComponent(ExtensionModal).props('updateAccounts')
+    store.flags = { 'admin-efficiency': false }
+    await flushPromises()
+    expect(wrapper.find('#bulk-set-upstream-group-form').exists()).toBe(false)
+    await expect(update([1], { upstream_group: 'blocked' })).rejects.toThrow()
+    expect(adminAPI.accounts.bulkUpdate).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
 })

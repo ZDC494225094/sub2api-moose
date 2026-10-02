@@ -1,3 +1,5 @@
+import { useExtensionStore } from '@/extensions/store'
+import '@/extensions/__tests__/adminEfficiencyEnabledFixture'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
@@ -242,9 +244,7 @@ describe('admin UsersView', () => {
       items: [createAdminUser({ id: page === 2 ? 43 : 42 })],
       total: 2, page, page_size: 20, pages: 2
     }))
-    deleteUser.mockImplementation(async (id: number) => {
-      if (failedIds.includes(id)) throw new Error('Cannot delete user')
-    })
+    batchDeleteUsers.mockResolvedValue({ affected: deleted, skipped: failedIds.map(user_id => ({ user_id, reason: 'Cannot delete user' })) })
     const wrapper = mountBulkDeleteView()
     await flushPromises()
     await wrapper.get('[data-test="select-42"]').trigger('click')
@@ -257,7 +257,8 @@ describe('admin UsersView', () => {
     await wrapper.get('[data-test="confirm-delete"]').trigger('click')
     await flushPromises()
 
-    expect(deleteUser.mock.calls).toEqual([[42], [43]])
+    expect(batchDeleteUsers).toHaveBeenCalledWith([42, 43])
+    expect(deleteUser).not.toHaveBeenCalled()
     expect(wrapper.get('[data-test="selected-keys"]').text()).toBe(remaining)
     expect(wrapper.find('[data-test="delete-dialog"]').exists()).toBe(false)
     if (deleted) {
@@ -277,7 +278,7 @@ describe('admin UsersView', () => {
       total: 2, page: 1, page_size: 20, pages: 1
     })
     let finishDelete!: () => void
-    deleteUser.mockImplementation(() => new Promise<void>(resolve => { finishDelete = resolve }))
+    batchDeleteUsers.mockImplementation(() => new Promise(resolve => { finishDelete = () => resolve({ affected: 1, skipped: [] }) }))
     const wrapper = mountBulkDeleteView()
     await flushPromises()
     await wrapper.get('[data-test="select-42"]').trigger('click')
@@ -288,7 +289,8 @@ describe('admin UsersView', () => {
     finishDelete()
     await flushPromises()
 
-    expect(deleteUser.mock.calls).toEqual([[42]])
+    expect(batchDeleteUsers).toHaveBeenCalledWith([42])
+    expect(deleteUser).not.toHaveBeenCalled()
     expect(wrapper.get('[data-test="selected-keys"]').text()).toBe('43')
     wrapper.unmount()
   })
@@ -564,7 +566,56 @@ describe('admin UsersView', () => {
     await wrapper.get('[data-test="confirm-action"]').trigger('click')
     await flushPromises()
 
-    expect(deleteUser).toHaveBeenCalledWith(42)
+    expect(batchDeleteUsers).toHaveBeenCalledWith([42])
+    expect(deleteUser).not.toHaveBeenCalled()
     expect(wrapper.get('[data-test="selected-keys"]').text()).toBe('')
   })
+  it.each(['disable', 'delete'])('revokes pending batch %s without falling back to native deletion', async (action) => {
+    const wrapper = mount(UsersView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: {
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+          },
+          DataTable: DataTableStub,
+          Pagination: true,
+          ConfirmDialog: ConfirmDialogStub,
+          EmptyState: true,
+          GroupBadge: true,
+          Select: true,
+          UserAttributesConfigModal: true,
+          UserConcurrencyCell: true,
+          UserCreateModal: true,
+          UserEditModal: true,
+          BulkEditUserModal: BulkEditUserModalStub,
+          UserPlatformQuotaModal: true,
+          UserApiKeysModal: true,
+          UserAllowedGroupsModal: true,
+          UserBalanceModal: true,
+          UserBalanceHistoryModal: true,
+          GroupReplaceModal: true,
+          Icon: true,
+          Teleport: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await wrapper.get('[data-test="select-42"]').trigger('click')
+    await wrapper.get(`[data-test="bulk-${action}-users"]`).trigger('click')
+    useExtensionStore().flags = { 'admin-efficiency': false }
+    await flushPromises()
+    expect(wrapper.find('[data-test="bulk-disable-users"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="bulk-delete-users"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="bulk-edit-limits"]').exists()).toBe(true)
+    await wrapper.get('[data-test="confirm-action"]').trigger('click')
+    await flushPromises()
+    expect(batchDisableUsers).not.toHaveBeenCalled()
+    expect(batchDeleteUsers).not.toHaveBeenCalled()
+    expect(deleteUser).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-test="selected-keys"]').text()).toBe('42')
+    wrapper.unmount()
+  })
+
 })

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/adminefficiency"
 	"math"
 	"net/http"
 	"strings"
@@ -1294,26 +1295,29 @@ func (s *adminServiceImpl) GetGroupAccounts(ctx context.Context, groupID int64) 
 }
 
 func (s *adminServiceImpl) UpdateGroupAccounts(ctx context.Context, groupID int64, accountIDs []int64) ([]Account, error) {
+	return adminefficiency.ReplaceGroupAccounts(ctx, s.settingService.CustomExtensions(), groupID, accountIDs, adminefficiency.GroupAccountPorts[Account]{
+		Validate: s.validateReplacementGroupAccounts,
+		Replace: func(ctx context.Context, id int64, ids []int64) error {
+			repo, err := s.accountGroupManagementRepo()
+			if err != nil {
+				return err
+			}
+			return repo.ReplaceGroupAccounts(ctx, id, ids)
+		},
+		List: s.GetGroupAccounts,
+	})
+}
+
+// Native platform/OAuth safety stays in the host, shared with its account model.
+func (s *adminServiceImpl) validateReplacementGroupAccounts(ctx context.Context, groupID int64, uniqueIDs []int64) error {
 	group, err := s.groupRepo.GetByID(ctx, groupID)
 	if err != nil {
-		return nil, err
-	}
-	uniqueIDs := make([]int64, 0, len(accountIDs))
-	seen := make(map[int64]struct{}, len(accountIDs))
-	for _, accountID := range accountIDs {
-		if accountID <= 0 {
-			continue
-		}
-		if _, ok := seen[accountID]; ok {
-			continue
-		}
-		seen[accountID] = struct{}{}
-		uniqueIDs = append(uniqueIDs, accountID)
+		return err
 	}
 	if len(uniqueIDs) > 0 {
 		accounts, err := s.accountRepo.GetByIDs(ctx, uniqueIDs)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		accountsByID := make(map[int64]*Account, len(accounts))
 		for _, account := range accounts {
@@ -1324,24 +1328,17 @@ func (s *adminServiceImpl) UpdateGroupAccounts(ctx context.Context, groupID int6
 		for _, accountID := range uniqueIDs {
 			account := accountsByID[accountID]
 			if account == nil {
-				return nil, infraerrors.Newf(http.StatusBadRequest, "ACCOUNT_NOT_FOUND", "account %d not found", accountID)
+				return infraerrors.Newf(http.StatusBadRequest, "ACCOUNT_NOT_FOUND", "account %d not found", accountID)
 			}
 			if group.Platform != "" && account.Platform != group.Platform {
-				return nil, infraerrors.Newf(http.StatusBadRequest, "ACCOUNT_PLATFORM_MISMATCH", "account %d platform mismatch: expected %s, got %s", accountID, group.Platform, account.Platform)
+				return infraerrors.Newf(http.StatusBadRequest, "ACCOUNT_PLATFORM_MISMATCH", "account %d platform mismatch: expected %s, got %s", accountID, group.Platform, account.Platform)
 			}
 			if group.RequireOAuthOnly && isOAuthOnlyGroupPlatform(group.Platform) && account.Type == AccountTypeAPIKey {
-				return nil, infraerrors.Newf(http.StatusBadRequest, "GROUP_OAUTH_ONLY", "group %s only allows OAuth accounts", group.Name)
+				return infraerrors.Newf(http.StatusBadRequest, "GROUP_OAUTH_ONLY", "group %s only allows OAuth accounts", group.Name)
 			}
 		}
 	}
-	repo, err := s.accountGroupManagementRepo()
-	if err != nil {
-		return nil, err
-	}
-	if err := repo.ReplaceGroupAccounts(ctx, groupID, uniqueIDs); err != nil {
-		return nil, err
-	}
-	return repo.ListGroupAccounts(ctx, groupID)
+	return nil
 }
 
 func (s *adminServiceImpl) accountGroupManagementRepo() (accountGroupManagementRepository, error) {

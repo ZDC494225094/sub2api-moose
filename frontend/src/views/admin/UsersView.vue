@@ -253,7 +253,7 @@
             </button>
 
             <button
-              v-if="selectedCount > 0"
+              v-if="adminEfficiencyEnabled && selectedCount > 0"
               class="btn btn-secondary flex-1 md:flex-initial"
               data-test="bulk-disable-users"
               :disabled="batchActionLoading"
@@ -264,7 +264,7 @@
             </button>
 
             <button
-              v-if="selectedCount > 0"
+              v-if="adminEfficiencyEnabled && selectedCount > 0"
               class="btn btn-danger flex-1 md:flex-initial"
               data-test="bulk-delete-users"
               :disabled="bulkDeleting"
@@ -812,6 +812,8 @@
 </template>
 
 <script setup lang="ts">
+import { useAdminEfficiency } from '@/extensions/useAdminEfficiency'
+const adminEfficiencyEnabled = useAdminEfficiency()
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
@@ -1840,6 +1842,7 @@ const requestBatchAction = (action: 'disable') => {
 }
 
 const confirmBatchAction = async () => {
+  if (!adminEfficiencyEnabled.value) return
   const action = pendingBatchAction.value
   if (!action || batchActionLoading.value) return
 
@@ -1870,27 +1873,25 @@ const confirmBatchAction = async () => {
 }
 
 const confirmBulkDelete = async () => {
+  if (!adminEfficiencyEnabled.value || bulkDeleting.value) return
   const ids = bulkDeleteIds.value
+  if (ids.length > 500) { appStore.showError(t('admin.users.batchActions.tooMany')); return }
   bulkDeleteIds.value = []
+  if (!ids.length) return
   bulkDeleting.value = true
-  const deletedIds: number[] = []
-  for (const id of ids) {
-    try {
-      await adminAPI.users.delete(id)
-      deletedIds.push(id)
-    } catch (error) {
-      console.error('Error deleting user:', error)
+  try {
+    const result = await adminAPI.users.batchDelete(ids)
+    const skipped = new Set(result.skipped.map(item => item.user_id))
+    removeSelectedIds(ids.filter(id => !skipped.has(id)))
+    if (result.affected > 0) {
+      appStore.showSuccess(t('admin.users.bulkDelete.success', { count: result.affected }))
+      pagination.page = 1
     }
-  }
-  removeSelectedIds(deletedIds)
-  if (deletedIds.length > 0) {
-    appStore.showSuccess(t('admin.users.bulkDelete.success', { count: deletedIds.length }))
-    pagination.page = 1
-  }
-  const failed = ids.length - deletedIds.length
-  if (failed > 0) appStore.showError(t('admin.users.bulkDelete.failed', { count: failed }))
-  await loadUsers()
-  bulkDeleting.value = false
+    if (skipped.size) appStore.showError(t('admin.users.bulkDelete.failed', { count: skipped.size }))
+    await loadUsers()
+  } catch (error: any) {
+    appStore.showError(error.response?.data?.detail || t('admin.users.batchActions.deleteFailed'))
+  } finally { bulkDeleting.value = false }
 }
 
 const handleDeposit = (user: AdminUser) => {

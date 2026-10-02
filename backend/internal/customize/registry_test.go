@@ -64,7 +64,7 @@ func TestCatalogAndDefaultDisabled(t *testing.T) {
 			require.Nil(t, state.Enabled)
 		}
 	}
-	require.Equal(t, 8, count)
+	require.Equal(t, 11, count)
 }
 
 func TestPersistentIndependentSwitchesAcrossManagers(t *testing.T) {
@@ -92,7 +92,7 @@ func TestInvalidUnknownPendingAndFailedUpdates(t *testing.T) {
 	store := newStore()
 	m := NewManager(store)
 	require.Error(t, m.SetEnabled(ctx, "../anything", false))
-	require.Error(t, m.SetEnabled(ctx, "billing-scheduling", false))
+	require.Error(t, m.SetEnabled(ctx, "access-policy", false))
 	require.Empty(t, store.values)
 	store.err = errors.New("private database error")
 	require.Error(t, m.SetEnabled(ctx, "playground", false))
@@ -172,7 +172,7 @@ func TestStateHTTPContracts(t *testing.T) {
 		r.ServeHTTP(w, httptest.NewRequest("PUT", "/admin/playground", strings.NewReader(body)))
 		require.Equal(t, 400, w.Code)
 	}
-	for id, code := range map[string]int{"playground": 200, "marketing-tools": 200, "multi-group-billing": 200, "billing-scheduling": 409, "unknown": 404} {
+	for id, code := range map[string]int{"playground": 200, "marketing-tools": 200, "multi-group-billing": 200, "billing-scheduling": 200, "site-customization": 200, "access-policy": 409, "unknown": 404} {
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, httptest.NewRequest("PUT", "/admin/"+id, strings.NewReader(`{"enabled":false}`)))
 		require.Equal(t, code, w.Code)
@@ -236,4 +236,38 @@ func TestDisabledHomeKeepsReferralQuery(t *testing.T) {
 	require.Equal(t, http.StatusTemporaryRedirect, w.Code)
 	require.Equal(t, "/home?aff=ref123", w.Header().Get("Location"))
 	require.Equal(t, "no-store", w.Header().Get("Cache-Control"))
+}
+
+// Persisted false values cannot turn security enforcement into a business switch.
+func TestAccessPolicyCannotBeToggledBeforeSafeDisableContract(t *testing.T) {
+	store := newStore()
+	store.values[Key("access-policy")] = "false"
+	m := NewManager(store)
+	for _, enabled := range []bool{false, true} {
+		require.Error(t, m.SetEnabled(context.Background(), "access-policy", enabled))
+	}
+	states, err := m.List(context.Background())
+	require.NoError(t, err)
+	for _, state := range states {
+		if state.ID == "access-policy" {
+			require.False(t, state.Managed)
+			require.Nil(t, state.Enabled)
+			return
+		}
+	}
+	t.Fatal("access-policy missing from pending inventory")
+}
+
+func TestAdminEfficiencySwitchPreservesHistoricalPaths(t *testing.T) {
+	store := newStore()
+	m := NewManager(store)
+	for _, enabled := range []bool{true, false, true} {
+		require.NoError(t, m.SetEnabled(context.Background(), "admin-efficiency", enabled))
+		got, err := m.Enabled(context.Background(), "admin-efficiency")
+		require.NoError(t, err)
+		require.Equal(t, enabled, got)
+	}
+	for _, path := range []string{"/admin/accounts", "/admin/groups", "/admin/users", "/api/v1/admin/accounts/upstream-groups", "/api/v1/admin/groups/1/accounts"} {
+		require.Empty(t, RequestExtension("GET", path))
+	}
 }

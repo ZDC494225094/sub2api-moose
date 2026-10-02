@@ -108,7 +108,42 @@
     "backend/internal/customize/migrations/sql/multi-group-billing/202609290001_adopt_multi_group_billing.sql",
     "backend/internal/customize/migrations/multi_group_adoption_test.go",
     "frontend/src/extensions/modules/multi-group-billing/key-routing.ts",
-    "frontend/src/extensions/modules/multi-group-billing/key-routing.spec.ts"
+    "frontend/src/extensions/modules/multi-group-billing/key-routing.spec.ts",
+    "backend/internal/customize/modules/accesspolicy/registration_email_admission.go",
+    "backend/internal/customize/modules/accesspolicy/registration_email_alias.go",
+    "backend/internal/customize/modules/accesspolicy/registration_email_policy.go",
+    "backend/internal/customize/modules/accesspolicy/registration_proof.go",
+    "backend/internal/customize/modules/accesspolicy/site_access.go",
+    "frontend/src/extensions/modules/access-policy/mainlandChinaAccessRestriction.ts",
+    "frontend/src/extensions/modules/access-policy/registrationEmailPolicy.ts",
+    "frontend/src/extensions/modules/access-policy/registrationProof.ts",
+    "frontend/src/extensions/modules/access-policy/registrationProof.worker.ts",
+    "backend/internal/customize/modules/adminefficiency/upstream_group.go",
+    "backend/internal/customize/modules/adminefficiency/upstream_group_ports.go",
+    "backend/internal/customize/modules/adminefficiency/upstream_group_directory.go",
+    "backend/internal/customize/modules/adminefficiency/upstream_group_directory_test.go",
+    "frontend/src/extensions/modules/admin-efficiency/types.ts",
+    "frontend/src/extensions/modules/admin-efficiency/upstreamGroupsApi.ts",
+    "frontend/src/extensions/modules/admin-efficiency/UpstreamGroupField.vue",
+    "frontend/src/extensions/modules/admin-efficiency/BulkSetUpstreamGroupModal.vue",
+    "frontend/src/extensions/modules/admin-efficiency/upstreamGroupsApi.spec.ts",
+    "frontend/src/extensions/modules/admin-efficiency/UpstreamGroupField.spec.ts",
+    "frontend/src/extensions/modules/admin-efficiency/BulkSetUpstreamGroupModal.spec.ts",
+    "backend/internal/customize/modules/adminefficiency/admission.go",
+    "backend/internal/customize/modules/adminefficiency/account_sort.go",
+    "backend/internal/customize/modules/adminefficiency/batch_users.go",
+    "backend/internal/customize/modules/adminefficiency/group_accounts.go",
+    "backend/internal/customize/modules/adminefficiency/management_test.go",
+    "frontend/src/extensions/modules/admin-efficiency/managementApi.ts",
+    "frontend/src/extensions/modules/admin-efficiency/managementApi.spec.ts",
+    "frontend/src/extensions/modules/admin-efficiency/GroupAccountsModal.vue",
+    "frontend/src/extensions/modules/admin-efficiency/GroupAccountsModal.spec.ts",
+    "backend/internal/service/admin_efficiency.go",
+    "backend/internal/service/admin_efficiency_test.go",
+    "backend/internal/customize/migrations/sql/admin-efficiency/202610020001_adopt_admin_efficiency.sql",
+    "backend/internal/customize/migrations/admin_efficiency_adoption_test.go",
+    "frontend/src/extensions/useAdminEfficiency.ts",
+    "backend/internal/service/admin_efficiency_paths_test.go"
   ],
   "forbidden_references": [
     {
@@ -510,6 +545,227 @@
         "github\\.com/Wei-Shaw/sub2api/internal/(service|repository|server|handler|customize)\\b",
         "github\\.com/Wei-Shaw/sub2api/ent\\b"
       ]
+    },
+    {
+      "file": "backend/internal/customize/modules/accesspolicy/registration_email_admission.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "customize.NewManager",
+        "custom_extensions\\."
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/accesspolicy/registration_email_alias.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "customize.NewManager",
+        "custom_extensions\\."
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/accesspolicy/registration_email_policy.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "customize.NewManager",
+        "custom_extensions\\."
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/accesspolicy/registration_proof.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "customize.NewManager",
+        "custom_extensions\\."
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/accesspolicy/site_access.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "customize.NewManager",
+        "custom_extensions\\."
+      ]
+    },
+    {
+      "file": "frontend/src/extensions/modules/access-policy/mainlandChinaAccessRestriction.ts",
+      "patterns": [
+        "useExtensionsStore",
+        "extensions/store"
+      ]
+    },
+    {
+      "file": "frontend/src/extensions/modules/access-policy/registrationEmailPolicy.ts",
+      "patterns": [
+        "useExtensionsStore",
+        "extensions/store"
+      ]
+    },
+    {
+      "file": "frontend/src/extensions/modules/access-policy/registrationProof.ts",
+      "patterns": [
+        "useExtensionsStore",
+        "extensions/store"
+      ]
+    },
+    {
+      "file": "frontend/src/extensions/modules/access-policy/registrationProof.worker.ts",
+      "patterns": [
+        "useExtensionsStore",
+        "extensions/store"
+      ]
+    },
+    {
+      "file": "backend/internal/service/registration_proof.go",
+      "patterns": [
+        "crypto/hmac",
+        "crypto/sha256",
+        "type registrationProofPayload"
+      ]
+    },
+    {
+      "file": "backend/internal/service/registration_email_policy.go",
+      "patterns": [
+        "regexp.MustCompile",
+        "publicsuffix.EffectiveTLDPlusOne"
+      ]
+    },
+    {
+      "file": "backend/internal/service/registration_email_alias.go",
+      "patterns": [
+        "gmailFamilyDomains",
+        "strings.ReplaceAll"
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/adminefficiency/upstream_group.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/internal/repository",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "customize.NewManager"
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/adminefficiency/upstream_group_ports.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/internal/repository",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "customize.NewManager"
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/adminefficiency/upstream_group_directory.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/internal/repository",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "customize.NewManager"
+      ]
+    },
+    {
+      "file": "frontend/src/extensions/modules/admin-efficiency/types.ts",
+      "patterns": [
+        "@/api/admin",
+        "@/components/account",
+        "useExtensionsStore"
+      ]
+    },
+    {
+      "file": "frontend/src/extensions/modules/admin-efficiency/upstreamGroupsApi.ts",
+      "patterns": [
+        "@/api/admin",
+        "@/components/account",
+        "useExtensionsStore"
+      ]
+    },
+    {
+      "file": "frontend/src/extensions/modules/admin-efficiency/UpstreamGroupField.vue",
+      "patterns": [
+        "@/api/admin",
+        "@/components/account",
+        "useExtensionsStore"
+      ]
+    },
+    {
+      "file": "frontend/src/extensions/modules/admin-efficiency/BulkSetUpstreamGroupModal.vue",
+      "patterns": [
+        "@/api/admin",
+        "@/components/account",
+        "useExtensionsStore"
+      ]
+    },
+    {
+      "file": "backend/internal/service/admin_account_upstream_groups.go",
+      "patterns": [
+        "infraerrors\\.",
+        "make\\(map",
+        "NormalizeAccountUpstreamGroup\\("
+      ]
+    },
+    {
+      "file": "backend/internal/service/account_upstream_group.go",
+      "patterns": [
+        "strings\\.",
+        "utf8\\."
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/adminefficiency/admission.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/internal/repository",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "customize.NewManager"
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/adminefficiency/account_sort.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/internal/repository",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "customize.NewManager"
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/adminefficiency/batch_users.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/internal/repository",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "customize.NewManager"
+      ]
+    },
+    {
+      "file": "backend/internal/customize/modules/adminefficiency/group_accounts.go",
+      "patterns": [
+        "github.com/Wei-Shaw/sub2api/internal/service",
+        "github.com/Wei-Shaw/sub2api/internal/repository",
+        "github.com/Wei-Shaw/sub2api/ent",
+        "customize.NewManager"
+      ]
+    },
+    {
+      "file": "frontend/src/extensions/modules/admin-efficiency/managementApi.ts",
+      "patterns": [
+        "@/api/admin",
+        "@/extensions/store",
+        "useExtensionStore"
+      ]
+    },
+    {
+      "file": "frontend/src/extensions/modules/admin-efficiency/GroupAccountsModal.vue",
+      "patterns": [
+        "@/api/admin",
+        "@/extensions/store",
+        "useExtensionStore"
+      ]
     }
   ],
   "required_markers": [
@@ -680,6 +936,158 @@
     {
       "file": "frontend/src/views/user/KeysView.vue",
       "marker": "useMultiGroupAdmission()"
+    },
+    {
+      "file": "backend/internal/service/registration_proof.go",
+      "marker": "accesspolicy.VerifyRegistrationProof("
+    },
+    {
+      "file": "backend/internal/service/registration_proof.go",
+      "marker": "accesspolicy.CreateRegistrationProofChallenge("
+    },
+    {
+      "file": "backend/internal/service/auth_service.go",
+      "marker": "accesspolicy.EvaluateRegistrationEmail("
+    },
+    {
+      "file": "backend/internal/service/auth_service.go",
+      "marker": "quotaRepo.CreateWithEmailAliasGuardAndDomainLimit(ctx, user, domain)"
+    },
+    {
+      "file": "backend/internal/handler/setting_handler.go",
+      "marker": "accesspolicy.MainlandChinaAccessRestricted("
+    },
+    {
+      "file": "frontend/src/utils/registrationProof.ts",
+      "marker": "export * from '@/extensions/modules/access-policy/registrationProof'"
+    },
+    {
+      "file": "frontend/src/router/mainlandChinaAccessRestriction.ts",
+      "marker": "export * from '@/extensions/modules/access-policy/mainlandChinaAccessRestriction'"
+    },
+    {
+      "file": "backend/internal/service/admin_account_upstream_groups.go",
+      "marker": "adminefficiency.NewDirectory(reader, renamer, sorter)"
+    },
+    {
+      "file": "backend/internal/service/account_service.go",
+      "marker": "type AccountUpstreamGroup = adminefficiency.AccountUpstreamGroup"
+    },
+    {
+      "file": "backend/internal/service/account_upstream_group.go",
+      "marker": "adminefficiency.NormalizeAccountUpstreamGroup(value)"
+    },
+    {
+      "file": "frontend/src/api/admin/accounts.ts",
+      "marker": "from '@/extensions/modules/admin-efficiency/upstreamGroupsApi'"
+    },
+    {
+      "file": "frontend/src/components/account/BulkSetUpstreamGroupModal.vue",
+      "marker": ":update-accounts=\"updateAccounts\""
+    },
+    {
+      "file": "frontend/src/components/account/UpstreamGroupField.vue",
+      "marker": "export { default } from '@/extensions/modules/admin-efficiency/UpstreamGroupField.vue'"
+    },
+    {
+      "file": "frontend/src/types/index.ts",
+      "marker": "export type { AccountUpstreamGroup } from '@/extensions/modules/admin-efficiency/types'"
+    },
+    {
+      "file": "backend/internal/service/admin_efficiency.go",
+      "marker": "adminefficiency.CheckWrite(ctx, s.settingService.CustomExtensions())"
+    },
+    {
+      "file": "backend/internal/service/admin_efficiency.go",
+      "marker": "adminefficiency.CheckUpstreamGroupChange(ctx, s.settingService.CustomExtensions(), before, after)"
+    },
+    {
+      "file": "backend/internal/service/admin_account.go",
+      "marker": "s.requireAdminEfficiency(ctx)"
+    },
+    {
+      "file": "backend/internal/service/admin_account.go",
+      "marker": "s.checkUpstreamGroupChange(ctx, account.UpstreamGroup, upstreamGroup)"
+    },
+    {
+      "file": "backend/internal/service/admin_account.go",
+      "marker": "s.checkUpstreamGroupChange(ctx, \"\", parent.UpstreamGroup)"
+    },
+    {
+      "file": "backend/internal/service/admin_account.go",
+      "marker": "adminefficiency.SortAccounts("
+    },
+    {
+      "file": "backend/internal/service/account_service.go",
+      "marker": "adminefficiency.CheckUpstreamGroupChange("
+    },
+    {
+      "file": "backend/internal/service/admin_account_upstream_groups.go",
+      "marker": "s.requireAdminEfficiency(ctx)"
+    },
+    {
+      "file": "backend/internal/service/admin_group.go",
+      "marker": "adminefficiency.ReplaceGroupAccounts("
+    },
+    {
+      "file": "backend/internal/service/admin_group.go",
+      "marker": "Validate: s.validateReplacementGroupAccounts"
+    },
+    {
+      "file": "backend/internal/handler/admin/user_handler.go",
+      "marker": "adminefficiency.CheckWrite("
+    },
+    {
+      "file": "backend/internal/handler/admin/user_handler.go",
+      "marker": "adminefficiency.RunBatchUserAction("
+    },
+    {
+      "file": "frontend/src/api/admin/groups.ts",
+      "marker": "from '@/extensions/modules/admin-efficiency/managementApi'"
+    },
+    {
+      "file": "frontend/src/api/admin/users.ts",
+      "marker": "from '@/extensions/modules/admin-efficiency/managementApi'"
+    },
+    {
+      "file": "frontend/src/api/admin/accounts.ts",
+      "marker": "from '@/extensions/modules/admin-efficiency/managementApi'"
+    },
+    {
+      "file": "frontend/src/components/admin/group/GroupAccountsModal.vue",
+      "marker": ":enabled=\"enabled\""
+    },
+    {
+      "file": "frontend/src/components/admin/group/GroupAccountsModal.vue",
+      "marker": ":list-accounts=\"listAccounts\""
+    },
+    {
+      "file": "frontend/src/components/admin/group/GroupAccountsModal.vue",
+      "marker": ":update-account=\"updateAccount\""
+    },
+    {
+      "file": "frontend/src/views/admin/UsersView.vue",
+      "marker": "adminAPI.users.batchDelete(ids)"
+    },
+    {
+      "file": "frontend/src/views/admin/UsersView.vue",
+      "marker": "if (!adminEfficiencyEnabled.value || bulkDeleting.value) return"
+    },
+    {
+      "file": "frontend/src/views/admin/AccountsView.vue",
+      "marker": "useAdminEfficiency()"
+    },
+    {
+      "file": "frontend/src/views/admin/GroupsView.vue",
+      "marker": "useAdminEfficiency()"
+    },
+    {
+      "file": "frontend/src/components/account/CreateAccountModal.vue",
+      "marker": "if (!adminEfficiencyEnabled.value) delete admittedPayload.upstream_group"
+    },
+    {
+      "file": "frontend/src/components/account/EditAccountModal.vue",
+      "marker": "if (!adminEfficiencyEnabled.value) delete admittedPayload.upstream_group"
     }
   ]
 }

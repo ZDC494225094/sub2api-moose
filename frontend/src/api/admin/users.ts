@@ -1,3 +1,6 @@
+import { batchDisable, batchDelete } from '@/extensions/modules/admin-efficiency/managementApi'
+export { batchDisable, batchDelete }
+export type { BatchUserActionSkipped, BatchUserActionResponse } from '@/extensions/modules/admin-efficiency/managementApi'
 /**
  * Admin Users API endpoints
  * Handles user management for administrators
@@ -55,15 +58,9 @@ export interface BatchUpdateUserLimitsResponse {
   affected: number
 }
 
-export interface BatchUserActionSkipped {
-  user_id: number
-  reason: string
-}
 
-export interface BatchUserActionResponse {
-  affected: number
-  skipped: BatchUserActionSkipped[]
-}
+
+
 
 /**
  * List all users with pagination
@@ -217,20 +214,10 @@ export async function batchUpdateLimits(
 }
 
 /** Disable multiple users in one request. Protected admin users are returned as skipped. */
-export async function batchDisable(userIds: number[]): Promise<BatchUserActionResponse> {
-  const { data } = await apiClient.post<BatchUserActionResponse>('/admin/users/batch-disable', {
-    user_ids: userIds
-  })
-  return data
-}
+
 
 /** Delete multiple users in one request. Protected admin users are returned as skipped. */
-export async function batchDelete(userIds: number[]): Promise<BatchUserActionResponse> {
-  const { data } = await apiClient.post<BatchUserActionResponse>('/admin/users/batch-delete', {
-    user_ids: userIds
-  })
-  return data
-}
+
 
 /**
  * Toggle user status

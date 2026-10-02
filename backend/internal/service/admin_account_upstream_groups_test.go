@@ -45,7 +45,7 @@ func TestAdminServiceListAccountUpstreamGroupsUsesPersistentDirectory(t *testing
 		{ID: 3, Key: "hi-code", Name: "hi-code", AccountCount: 4, SortOrder: 10},
 		{ID: 9, Key: "official", Name: "Official", AccountCount: 0, SortOrder: 20},
 	}
-	svc := &adminServiceImpl{accountRepo: &accountUpstreamGroupDirectoryRepoStub{groups: want}}
+	svc := &adminServiceImpl{settingService: enabledAdminEfficiencySettings(), accountRepo: &accountUpstreamGroupDirectoryRepoStub{groups: want}}
 
 	got, err := svc.ListAccountUpstreamGroups(context.Background())
 
@@ -55,7 +55,7 @@ func TestAdminServiceListAccountUpstreamGroupsUsesPersistentDirectory(t *testing
 
 func TestAdminServiceListAccountUpstreamGroupsReturnsRepositoryError(t *testing.T) {
 	repoErr := errors.New("list upstream groups failed")
-	svc := &adminServiceImpl{accountRepo: &accountUpstreamGroupDirectoryRepoStub{listErr: repoErr}}
+	svc := &adminServiceImpl{settingService: enabledAdminEfficiencySettings(), accountRepo: &accountUpstreamGroupDirectoryRepoStub{listErr: repoErr}}
 
 	groups, err := svc.ListAccountUpstreamGroups(context.Background())
 
@@ -64,7 +64,7 @@ func TestAdminServiceListAccountUpstreamGroupsReturnsRepositoryError(t *testing.
 }
 
 func TestAdminServiceListAccountUpstreamGroupsRequiresCapableRepository(t *testing.T) {
-	svc := &adminServiceImpl{accountRepo: &accountUpstreamGroupUnsupportedRepoStub{}}
+	svc := &adminServiceImpl{settingService: enabledAdminEfficiencySettings(), accountRepo: &accountUpstreamGroupUnsupportedRepoStub{}}
 
 	groups, err := svc.ListAccountUpstreamGroups(context.Background())
 
@@ -76,7 +76,7 @@ func TestAdminServiceRenameAccountUpstreamGroupNormalizesName(t *testing.T) {
 	repo := &accountUpstreamGroupDirectoryRepoStub{
 		renameResult: &AccountUpstreamGroup{ID: 3, Key: "hi-code", Name: "hi-code"},
 	}
-	svc := &adminServiceImpl{accountRepo: repo}
+	svc := &adminServiceImpl{settingService: enabledAdminEfficiencySettings(), accountRepo: repo}
 
 	group, err := svc.RenameAccountUpstreamGroup(context.Background(), 3, "  hi-code  ")
 
@@ -88,7 +88,7 @@ func TestAdminServiceRenameAccountUpstreamGroupNormalizesName(t *testing.T) {
 
 func TestAdminServiceRenameAccountUpstreamGroupRejectsBlankName(t *testing.T) {
 	repo := &accountUpstreamGroupDirectoryRepoStub{}
-	svc := &adminServiceImpl{accountRepo: repo}
+	svc := &adminServiceImpl{settingService: enabledAdminEfficiencySettings(), accountRepo: repo}
 
 	_, err := svc.RenameAccountUpstreamGroup(context.Background(), 3, "  ")
 
@@ -98,7 +98,7 @@ func TestAdminServiceRenameAccountUpstreamGroupRejectsBlankName(t *testing.T) {
 
 func TestAdminServiceUpdateAccountUpstreamGroupSortOrdersValidatesAndDelegates(t *testing.T) {
 	repo := &accountUpstreamGroupDirectoryRepoStub{}
-	svc := &adminServiceImpl{accountRepo: repo}
+	svc := &adminServiceImpl{settingService: enabledAdminEfficiencySettings(), accountRepo: repo}
 	updates := []AccountUpstreamGroupSortOrderUpdate{
 		{ID: 3, SortOrder: 10},
 		{ID: 9, SortOrder: 20},
@@ -112,7 +112,7 @@ func TestAdminServiceUpdateAccountUpstreamGroupSortOrdersValidatesAndDelegates(t
 
 func TestAdminServiceUpdateAccountUpstreamGroupSortOrdersRejectsDuplicateIDs(t *testing.T) {
 	repo := &accountUpstreamGroupDirectoryRepoStub{}
-	svc := &adminServiceImpl{accountRepo: repo}
+	svc := &adminServiceImpl{settingService: enabledAdminEfficiencySettings(), accountRepo: repo}
 
 	err := svc.UpdateAccountUpstreamGroupSortOrders(context.Background(), []AccountUpstreamGroupSortOrderUpdate{
 		{ID: 3, SortOrder: 10},
@@ -121,4 +121,23 @@ func TestAdminServiceUpdateAccountUpstreamGroupSortOrdersRejectsDuplicateIDs(t *
 
 	require.Equal(t, "ACCOUNT_UPSTREAM_GROUP_SORT_DUPLICATE", infraerrors.Reason(err))
 	require.Empty(t, repo.sortUpdates)
+}
+
+type readOnlyUpstreamGroupRepoStub struct{ AccountRepository }
+
+func (*readOnlyUpstreamGroupRepoStub) ListUpstreamGroups(context.Context) ([]AccountUpstreamGroup, error) {
+	return []AccountUpstreamGroup{{ID: 1, Name: "Historical", AccountCount: 0}}, nil
+}
+
+func TestAdminUpstreamGroupBridgePreservesIndependentCapabilities(t *testing.T) {
+	svc := &adminServiceImpl{settingService: enabledAdminEfficiencySettings(), accountRepo: &readOnlyUpstreamGroupRepoStub{}}
+	ctx := context.Background()
+	groups, err := svc.ListAccountUpstreamGroups(ctx)
+	require.NoError(t, err)
+	require.Len(t, groups, 1)
+	require.Zero(t, groups[0].AccountCount)
+	_, err = svc.RenameAccountUpstreamGroup(ctx, 1, "New")
+	require.Equal(t, "ACCOUNT_UPSTREAM_GROUPS_UNAVAILABLE", infraerrors.Reason(err))
+	err = svc.UpdateAccountUpstreamGroupSortOrders(ctx, []AccountUpstreamGroupSortOrderUpdate{{ID: 1}})
+	require.Equal(t, "ACCOUNT_UPSTREAM_GROUPS_UNAVAILABLE", infraerrors.Reason(err))
 }

@@ -3,8 +3,10 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/adminefficiency"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 )
@@ -13,8 +15,8 @@ var (
 	ErrAccountNotFound              = infraerrors.NotFound("ACCOUNT_NOT_FOUND", "account not found")
 	ErrAccountNilInput              = infraerrors.BadRequest("ACCOUNT_NIL_INPUT", "account input cannot be nil")
 	ErrAccountNotInFallback         = infraerrors.BadRequest("ACCOUNT_NOT_IN_FALLBACK", "account is not in proxy fallback state")
-	ErrAccountUpstreamGroupNotFound = infraerrors.NotFound("ACCOUNT_UPSTREAM_GROUP_NOT_FOUND", "account upstream group not found")
-	ErrAccountUpstreamGroupExists   = infraerrors.Conflict("ACCOUNT_UPSTREAM_GROUP_EXISTS", "account upstream group name already exists")
+	ErrAccountUpstreamGroupNotFound = adminefficiency.ErrAccountUpstreamGroupNotFound
+	ErrAccountUpstreamGroupExists   = adminefficiency.ErrAccountUpstreamGroupExists
 )
 
 const AccountListGroupUngrouped int64 = -1
@@ -130,44 +132,15 @@ type AccountRepository interface {
 
 // AccountSortOrderUpdate updates the display-only ordering of an account.
 // It is kept separate from Account.Priority, which controls scheduling.
-type AccountSortOrderUpdate struct {
-	ID        int64 `json:"id"`
-	SortOrder int64 `json:"sort_order"`
-}
+type AccountSortOrderUpdate = adminefficiency.AccountSortOrderUpdate
+type AccountSortOrderRepository = adminefficiency.AccountSortOrderRepository
 
-// AccountSortOrderRepository persists the display-only account ordering.
-// It stays separate from AccountRepository so scheduler-focused implementations
-// do not need to expose admin-only mutation methods.
-type AccountSortOrderRepository interface {
-	UpdateSortOrders(ctx context.Context, updates []AccountSortOrderUpdate) error
-}
-
-// AccountUpstreamGroupRepository exposes the persistent admin-only upstream
-// group directory without broadening the main AccountRepository contract.
-type AccountUpstreamGroupRepository interface {
-	ListUpstreamGroups(ctx context.Context) ([]AccountUpstreamGroup, error)
-}
-
-type AccountUpstreamGroup struct {
-	ID           int64  `json:"id"`
-	Key          string `json:"key"`
-	Name         string `json:"name"`
-	AccountCount int    `json:"account_count"`
-	SortOrder    int64  `json:"sort_order"`
-}
-
-type AccountUpstreamGroupRenameRepository interface {
-	RenameUpstreamGroup(ctx context.Context, id int64, name string) (*AccountUpstreamGroup, error)
-}
-
-type AccountUpstreamGroupSortOrderUpdate struct {
-	ID        int64 `json:"id"`
-	SortOrder int64 `json:"sort_order"`
-}
-
-type AccountUpstreamGroupSortOrderRepository interface {
-	UpdateUpstreamGroupSortOrders(ctx context.Context, updates []AccountUpstreamGroupSortOrderUpdate) error
-}
+// Compatibility aliases: the extension owns the directory contract.
+type AccountUpstreamGroupRepository = adminefficiency.AccountUpstreamGroupRepository
+type AccountUpstreamGroup = adminefficiency.AccountUpstreamGroup
+type AccountUpstreamGroupRenameRepository = adminefficiency.AccountUpstreamGroupRenameRepository
+type AccountUpstreamGroupSortOrderUpdate = adminefficiency.AccountUpstreamGroupSortOrderUpdate
+type AccountUpstreamGroupSortOrderRepository = adminefficiency.AccountUpstreamGroupSortOrderRepository
 
 type AccountDuplicateRepository interface {
 	// CreateWithAccountGroups atomically persists an account, its exact group priorities,
@@ -251,8 +224,9 @@ type UpdateAccountRequest struct {
 
 // AccountService 账号管理服务
 type AccountService struct {
-	accountRepo AccountRepository
-	groupRepo   GroupRepository
+	accountRepo           AccountRepository
+	groupRepo             GroupRepository
+	adminEfficiencyStates adminefficiency.StateReader
 }
 
 type groupExistenceBatchChecker interface {
@@ -260,15 +234,23 @@ type groupExistenceBatchChecker interface {
 }
 
 // NewAccountService 创建账号服务实例
-func NewAccountService(accountRepo AccountRepository, groupRepo GroupRepository) *AccountService {
+func NewAccountService(accountRepo AccountRepository, groupRepo GroupRepository, states ...adminefficiency.StateReader) *AccountService {
+	var reader adminefficiency.StateReader
+	if len(states) > 0 {
+		reader = states[0]
+	}
 	return &AccountService{
-		accountRepo: accountRepo,
-		groupRepo:   groupRepo,
+		adminEfficiencyStates: reader,
+		accountRepo:           accountRepo,
+		groupRepo:             groupRepo,
 	}
 }
 
 // Create 创建账号
 func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (*Account, error) {
+	if err := adminefficiency.CheckUpstreamGroupChange(ctx, s.adminEfficiencyStates, "", strings.TrimSpace(req.UpstreamGroup)); err != nil {
+		return nil, err
+	}
 	upstreamGroup, err := NormalizeAccountUpstreamGroup(req.UpstreamGroup)
 	if err != nil {
 		return nil, err
@@ -370,6 +352,15 @@ func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccount
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get account: %w", err)
+	}
+	if req.UpstreamGroup != nil {
+		upstreamGroup, err := NormalizeAccountUpstreamGroup(*req.UpstreamGroup)
+		if err != nil {
+			return nil, err
+		}
+		if err := adminefficiency.CheckUpstreamGroupChange(ctx, s.adminEfficiencyStates, account.UpstreamGroup, upstreamGroup); err != nil {
+			return nil, err
+		}
 	}
 
 	// 更新字段

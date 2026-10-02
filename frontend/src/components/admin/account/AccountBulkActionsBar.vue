@@ -53,6 +53,7 @@
         <button
           type="button"
           class="btn btn-secondary btn-sm"
+          v-if="adminEfficiencyEnabled"
           data-testid="set-upstream-group"
           @click="$emit('set-upstream-group')"
         >
@@ -71,6 +72,7 @@
 import { useI18n } from 'vue-i18n'
 
 defineProps<{
+  adminEfficiencyEnabled?: boolean
   selectedIds: number[]
   totalResults: number
   selectingAll: boolean

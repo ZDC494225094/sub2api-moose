@@ -131,10 +131,16 @@
   {
     "id": "admin-efficiency",
     "name": "账号、分组与用户管理增强",
-    "description": "上游账号分组、排序、批量用户操作及分组管理增强。",
-    "managed": false,
-    "disable_behavior": "待逐项提取页面插槽、独立路由及仓储接口。",
-    "paths": []
+    "description": "账号显示排序、上游分组目录与独立仓储端口、分组账号替换及批量用户操作。",
+    "managed": true,
+    "disable_behavior": "拒绝账号排序、上游分组变更、分组账号替换及批量禁用/删除用户；历史分组、顺序和成员关系保留可读，普通账号编辑与上游原生分组排序不受影响。",
+    "paths": [],
+    "gates": [
+      "admin-efficiency-write"
+    ],
+    "slots": [
+      "admin-efficiency-actions"
+    ]
   },
   {
     "id": "site-customization",
@@ -150,9 +156,9 @@
   {
     "id": "access-policy",
     "name": "访问与注册策略增强",
-    "description": "区域访问限制、注册凭证等安全相关定制。",
+    "description": "注册凭证 v1、邮箱白名单/域名额度/别名去重规则及区域页面访问判断已提取独立模块；宿主保留鉴权、设置和原子数据库守卫。",
     "managed": false,
-    "disable_behavior": "待独立策略链；禁止以普通业务开关绕过现有安全约束。",
+    "disable_behavior": "安全规则仍按原安全设置执行，不受普通业务开关影响；安全配置读取故障策略及可安全关闭契约尚待完成，暂不可切换。",
     "paths": []
   }
 ]

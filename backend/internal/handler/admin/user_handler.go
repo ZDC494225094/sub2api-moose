@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/adminefficiency"
 	"log/slog"
 	"math"
 	"strconv"
@@ -389,15 +390,8 @@ type batchUserActionRequest struct {
 	UserIDs []int64 `json:"user_ids"`
 }
 
-type batchUserActionSkipped struct {
-	UserID int64  `json:"user_id"`
-	Reason string `json:"reason"`
-}
-
-type batchUserActionResult struct {
-	Affected int                      `json:"affected"`
-	Skipped  []batchUserActionSkipped `json:"skipped"`
-}
+type batchUserActionSkipped = adminefficiency.BatchUserActionSkipped
+type batchUserActionResult = adminefficiency.BatchUserActionResult
 
 func bindBatchUserIDs(c *gin.Context) ([]int64, bool) {
 	var req batchUserActionRequest
@@ -405,49 +399,25 @@ func bindBatchUserIDs(c *gin.Context) ([]int64, bool) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return nil, false
 	}
-	if len(req.UserIDs) == 0 {
-		response.BadRequest(c, "user_ids is required")
+	userIDs, err := adminefficiency.NormalizeBatchUserIDs(req.UserIDs)
+	if err != nil {
+		response.BadRequest(c, err.Error())
 		return nil, false
-	}
-	if len(req.UserIDs) > 500 {
-		response.BadRequest(c, "user_ids cannot exceed 500")
-		return nil, false
-	}
-
-	userIDs := make([]int64, 0, len(req.UserIDs))
-	seen := make(map[int64]struct{}, len(req.UserIDs))
-	for _, userID := range req.UserIDs {
-		if userID <= 0 {
-			response.BadRequest(c, "user_ids must contain positive integers")
-			return nil, false
-		}
-		if _, exists := seen[userID]; exists {
-			continue
-		}
-		seen[userID] = struct{}{}
-		userIDs = append(userIDs, userID)
 	}
 	return userIDs, true
 }
 
-func runBatchUserAction(userIDs []int64, action func(userID int64) error) batchUserActionResult {
-	result := batchUserActionResult{Skipped: make([]batchUserActionSkipped, 0)}
-	for _, userID := range userIDs {
-		if err := action(userID); err != nil {
-			result.Skipped = append(result.Skipped, batchUserActionSkipped{
-				UserID: userID,
-				Reason: err.Error(),
-			})
-			continue
-		}
-		result.Affected++
-	}
-	return result
+func runBatchUserAction(ids []int64, action func(int64) error) batchUserActionResult {
+	return adminefficiency.RunBatchUserAction(ids, action)
 }
 
 // BatchDisable disables multiple non-admin users while preserving per-user safeguards.
 // POST /api/v1/admin/users/batch-disable
 func (h *UserHandler) BatchDisable(c *gin.Context) {
+	if err := adminefficiency.CheckWrite(c.Request.Context(), h.settingService.CustomExtensions()); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 	userIDs, ok := bindBatchUserIDs(c)
 	if !ok {
 		return
@@ -468,6 +438,10 @@ func (h *UserHandler) BatchDisable(c *gin.Context) {
 // BatchDelete deletes multiple non-admin users while preserving per-user cleanup and safeguards.
 // POST /api/v1/admin/users/batch-delete
 func (h *UserHandler) BatchDelete(c *gin.Context) {
+	if err := adminefficiency.CheckWrite(c.Request.Context(), h.settingService.CustomExtensions()); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 	userIDs, ok := bindBatchUserIDs(c)
 	if !ok {
 		return

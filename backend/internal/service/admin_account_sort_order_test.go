@@ -20,7 +20,7 @@ func (s *accountSortOrderRepositoryStub) UpdateSortOrders(_ context.Context, upd
 
 func TestAdminServiceUpdateAccountSortOrdersDelegatesToOptionalRepository(t *testing.T) {
 	repo := &accountSortOrderRepositoryStub{}
-	svc := &adminServiceImpl{accountRepo: repo}
+	svc := &adminServiceImpl{settingService: enabledAdminEfficiencySettings(), accountRepo: repo}
 	updates := []AccountSortOrderUpdate{{ID: 7, SortOrder: 10}, {ID: 8, SortOrder: 20}}
 
 	err := svc.UpdateAccountSortOrders(context.Background(), updates)
@@ -30,7 +30,7 @@ func TestAdminServiceUpdateAccountSortOrdersDelegatesToOptionalRepository(t *tes
 }
 
 func TestAdminServiceUpdateAccountSortOrdersRequiresCapableRepository(t *testing.T) {
-	svc := &adminServiceImpl{accountRepo: accountSortOrderRepositoryStub{}.AccountRepository}
+	svc := &adminServiceImpl{settingService: enabledAdminEfficiencySettings(), accountRepo: accountSortOrderRepositoryStub{}.AccountRepository}
 
 	err := svc.UpdateAccountSortOrders(context.Background(), []AccountSortOrderUpdate{{ID: 7, SortOrder: 10}})
 

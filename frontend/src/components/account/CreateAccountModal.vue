@@ -1141,6 +1141,7 @@
       </div>
 
       <UpstreamGroupField
+        :disabled="!adminEfficiencyEnabled"
         v-model="form.upstream_group"
         :groups="upstreamGroups"
         :loading="upstreamGroupsLoading"
@@ -3958,6 +3959,8 @@
 </template>
 
 <script setup lang="ts">
+import { useAdminEfficiency } from '@/extensions/useAdminEfficiency'
+const adminEfficiencyEnabled = useAdminEfficiency()
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
@@ -5363,7 +5366,10 @@ const ensureAntigravityMixedChannelConfirmed = async (onConfirm: () => Promise<v
 const submitCreateAccount = async (payload: CreateAccountRequest) => {
   submitting.value = true
   try {
-    const account = await adminAPI.accounts.create(withAntigravityConfirmFlag(payload))
+    // Recheck after mixed-channel confirmation; a disabled field must not leak from ...form.
+    const admittedPayload = { ...payload }
+    if (!adminEfficiencyEnabled.value) delete admittedPayload.upstream_group
+    const account = await adminAPI.accounts.create(withAntigravityConfirmFlag(admittedPayload))
     const modelMapping = payload.credentials.model_mapping
     const hasConcreteMappedTarget = payload.type === 'apikey' &&
       typeof modelMapping === 'object' &&
@@ -6023,7 +6029,7 @@ const handleSubmit = async () => {
 
   await doCreateAccount({
     ...form,
-    upstream_group: form.upstream_group.trim(),
+    ...(adminEfficiencyEnabled.value ? { upstream_group: form.upstream_group.trim() } : {}),
     group_ids: form.group_ids,
     extra: withUpstreamRequestIdHeader(extra),
     upstream_billing_probe_enabled: upstreamBillingAutoProbeEnabled.value,
@@ -6153,7 +6159,7 @@ const createAccountAndFinish = async (
     load_factor: form.load_factor ?? undefined,
     priority: form.priority,
     rate_multiplier: form.rate_multiplier,
-    upstream_group: form.upstream_group.trim(),
+    ...(adminEfficiencyEnabled.value ? { upstream_group: form.upstream_group.trim() } : {}),
     group_ids: form.group_ids,
     expires_at: form.expires_at,
     // 上游倍率探测对全部 API-key 平台开放（antigravity upstream 走本 helper）；
@@ -6221,7 +6227,7 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
           load_factor: form.load_factor ?? undefined,
           priority: form.priority,
           rate_multiplier: form.rate_multiplier,
-          upstream_group: form.upstream_group.trim(),
+          ...(adminEfficiencyEnabled.value ? { upstream_group: form.upstream_group.trim() } : {}),
           group_ids: form.group_ids,
           expires_at: form.expires_at,
           auto_pause_on_expired: autoPauseOnExpired.value
@@ -6498,7 +6504,7 @@ const handleOpenAIExchange = async (authCode: string) => {
         load_factor: form.load_factor ?? undefined,
         priority: form.priority,
         rate_multiplier: form.rate_multiplier,
-        upstream_group: form.upstream_group.trim(),
+        ...(adminEfficiencyEnabled.value ? { upstream_group: form.upstream_group.trim() } : {}),
         group_ids: form.group_ids,
         expires_at: form.expires_at,
         auto_pause_on_expired: autoPauseOnExpired.value
@@ -6604,7 +6610,7 @@ const handleOpenAIImportCodexSession = async (content: string) => {
       load_factor: form.load_factor ?? undefined,
       priority: form.priority,
       rate_multiplier: form.rate_multiplier,
-      upstream_group: form.upstream_group.trim(),
+      ...(adminEfficiencyEnabled.value ? { upstream_group: form.upstream_group.trim() } : {}),
       group_ids: form.group_ids,
       expires_at: form.expires_at,
       auto_pause_on_expired: autoPauseOnExpired.value,
@@ -6683,7 +6689,7 @@ const handleOpenAIImportCodexPAT = async (accessToken: string) => {
       load_factor: form.load_factor ?? undefined,
       priority: form.priority,
       rate_multiplier: form.rate_multiplier,
-      upstream_group: form.upstream_group.trim(),
+      ...(adminEfficiencyEnabled.value ? { upstream_group: form.upstream_group.trim() } : {}),
       group_ids: form.group_ids,
       expires_at: form.expires_at,
       auto_pause_on_expired: autoPauseOnExpired.value,
@@ -6782,7 +6788,7 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
             load_factor: form.load_factor ?? undefined,
             priority: form.priority,
             rate_multiplier: form.rate_multiplier,
-            upstream_group: form.upstream_group.trim(),
+            ...(adminEfficiencyEnabled.value ? { upstream_group: form.upstream_group.trim() } : {}),
             group_ids: form.group_ids,
             expires_at: form.expires_at,
             auto_pause_on_expired: autoPauseOnExpired.value
@@ -6882,7 +6888,7 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
           load_factor: form.load_factor ?? undefined,
           priority: form.priority,
           rate_multiplier: form.rate_multiplier,
-          upstream_group: form.upstream_group.trim(),
+          ...(adminEfficiencyEnabled.value ? { upstream_group: form.upstream_group.trim() } : {}),
           group_ids: form.group_ids,
           expires_at: form.expires_at,
           auto_pause_on_expired: autoPauseOnExpired.value
@@ -7264,7 +7270,7 @@ const handleCookieAuth = async (sessionKey: string) => {
           load_factor: form.load_factor ?? undefined,
           priority: form.priority,
           rate_multiplier: form.rate_multiplier,
-          upstream_group: form.upstream_group.trim(),
+          ...(adminEfficiencyEnabled.value ? { upstream_group: form.upstream_group.trim() } : {}),
           group_ids: form.group_ids,
           expires_at: form.expires_at,
           auto_pause_on_expired: autoPauseOnExpired.value

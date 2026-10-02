@@ -40,7 +40,7 @@ func (s *batchUserActionServiceStub) DeleteUser(_ context.Context, id int64) err
 func setupBatchUserActionRouter(serviceStub service.AdminService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	handler := NewUserHandler(serviceStub, nil, nil, nil, nil, nil, nil)
+	handler := NewUserHandler(serviceStub, nil, nil, nil, nil, nil, service.NewSettingService(batchAdminEfficiencySettings{value: "true"}, nil))
 	router.POST("/api/v1/admin/users/batch-disable", handler.BatchDisable)
 	router.POST("/api/v1/admin/users/batch-delete", handler.BatchDelete)
 	return router
@@ -141,5 +141,30 @@ func TestUserHandlerBatchActionsRejectInvalidUserIDs(t *testing.T) {
 			require.Equal(t, http.StatusBadRequest, recorder.Code)
 			require.Empty(t, serviceStub.updateCalls)
 		})
+	}
+}
+
+type batchAdminEfficiencySettings struct {
+	service.SettingRepository
+	value string
+	err   error
+}
+
+func (s batchAdminEfficiencySettings) GetMultiple(context.Context, []string) (map[string]string, error) {
+	return map[string]string{"custom_extensions.admin-efficiency.enabled": s.value}, s.err
+}
+func TestUserBatchActionsFailClosed(t *testing.T) {
+	for _, state := range []batchAdminEfficiencySettings{{value: "false"}, {}, {value: "invalid"}, {value: "true", err: errors.New("settings unavailable")}} {
+		for _, action := range []string{"batch-disable", "batch-delete"} {
+			stub := &batchUserActionServiceStub{}
+			h := NewUserHandler(stub, nil, nil, nil, nil, nil, service.NewSettingService(state, nil))
+			r := gin.New()
+			r.POST("/batch-disable", h.BatchDisable)
+			r.POST("/batch-delete", h.BatchDelete)
+			result := postBatchUserAction(t, r, "/"+action, []byte(`{"user_ids":[1]}`))
+			require.NotEqual(t, 200, result.Code)
+			require.Empty(t, stub.updateCalls)
+			require.Empty(t, stub.deleteCalls)
+		}
 	}
 }

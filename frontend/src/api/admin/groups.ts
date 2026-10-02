@@ -1,3 +1,5 @@
+import { getGroupAccounts, updateGroupAccounts } from '@/extensions/modules/admin-efficiency/managementApi'
+export { getGroupAccounts, updateGroupAccounts }
 /**
  * Admin Groups API endpoints
  * Handles API key group management for administrators
@@ -5,7 +7,6 @@
 
 import { apiClient } from '../client'
 import type {
-  Account,
   AdminGroup,
   GroupPlatform,
   CompositeModelRoute,
@@ -331,20 +332,12 @@ export async function previewCompositeRoute(
 /**
  * Get accounts assigned to a group in call-priority order.
  */
-export async function getGroupAccounts(id: number): Promise<Account[]> {
-  const { data } = await apiClient.get<Account[]>(`/admin/groups/${id}/accounts`)
-  return data
-}
+
 
 /**
  * Replace accounts assigned to a group. The ID order becomes the group call priority.
  */
-export async function updateGroupAccounts(id: number, accountIds: number[]): Promise<Account[]> {
-  const { data } = await apiClient.put<Account[]>(`/admin/groups/${id}/accounts`, {
-    account_ids: accountIds
-  })
-  return data
-}
+
 
 /**
  * Rate multiplier entry for a user in a group

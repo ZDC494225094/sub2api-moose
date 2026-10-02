@@ -1,3 +1,5 @@
+import { useExtensionStore } from '@/extensions/store'
+import '@/extensions/__tests__/adminEfficiencyEnabledFixture'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
@@ -453,4 +455,19 @@ describe('admin AccountsView upstream grouping and reorder', () => {
     ])
     expect(showError).toHaveBeenCalledWith('admin.accounts.reorderFailed')
   })
+  it.each([false, undefined])('keeps account history readable but refuses ordering when enabled=%s', async (enabled) => {
+    useExtensionStore().flags = enabled === undefined ? {} : { 'admin-efficiency': enabled }
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.get('[data-test="data-table"]').attributes('data-draggable')).toBe('false')
+    expect(wrapper.find('[data-test="row-1"]').exists()).toBe(true)
+    await wrapper.get('[data-test="drag-1"]').trigger('click')
+    await wrapper.get('[data-test="drop-2"]').trigger('click')
+    await flushPromises()
+    expect(updateSortOrder).not.toHaveBeenCalled()
+    expect(renameUpstreamGroup).not.toHaveBeenCalled()
+    expect(updateUpstreamGroupSortOrders).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
 })

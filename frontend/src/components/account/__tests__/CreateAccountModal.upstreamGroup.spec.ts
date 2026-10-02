@@ -1,3 +1,5 @@
+import { useExtensionStore } from '@/extensions/store'
+import '@/extensions/__tests__/adminEfficiencyEnabledFixture'
 import { defineComponent } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -119,6 +121,33 @@ describe('CreateAccountModal upstream group', () => {
 
     expect(createAccount).toHaveBeenCalledWith(expect.objectContaining({
       upstream_group: 'hi-code',
+      credentials: expect.objectContaining({
+        base_url: 'https://edge-4.example/v1',
+        api_key: 'secret-key'
+      })
+    }))
+  })
+  it('omits the extension field after disable without blocking native creation', async () => {
+    const wrapper = mountModal()
+    await flushPromises()
+
+    const apiKeyType = wrapper.findAll('button')
+      .find(button => button.text().includes('admin.accounts.claudeConsole'))
+    await apiKeyType!.trigger('click')
+    await flushPromises()
+
+    await wrapper.get('input[placeholder="admin.accounts.enterAccountName"]').setValue('hi-code key 4')
+    await wrapper.get('[data-testid="upstream-group-input"]').setValue('hi-code')
+    await wrapper.get('input[placeholder="https://api.anthropic.com"]').setValue('https://edge-4.example/v1')
+    await wrapper.get('input[placeholder="sk-ant-..."]').setValue('secret-key')
+    useExtensionStore().flags = { 'admin-efficiency': false }
+    await flushPromises()
+    expect(wrapper.get('[data-testid="upstream-group-input"]').attributes('disabled')).toBeDefined()
+    await wrapper.get('#create-account-form').trigger('submit')
+    await flushPromises()
+
+    expect(createAccount.mock.calls[0]?.[0]).not.toHaveProperty('upstream_group')
+    expect(createAccount).toHaveBeenCalledWith(expect.objectContaining({
       credentials: expect.objectContaining({
         base_url: 'https://edge-4.example/v1',
         api_key: 'secret-key'

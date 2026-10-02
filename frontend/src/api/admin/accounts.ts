@@ -1,8 +1,11 @@
+import { updateSortOrder } from '@/extensions/modules/admin-efficiency/managementApi'
+export { updateSortOrder }
 /**
  * Admin Accounts API endpoints
  * Handles AI platform account management for administrators
  */
 
+import { listUpstreamGroups, renameUpstreamGroup, updateUpstreamGroupSortOrders } from '@/extensions/modules/admin-efficiency/upstreamGroupsApi'
 import { apiClient } from '../client'
 import type {
   Account,
@@ -22,7 +25,6 @@ import type {
   OpenAICodexPATCreateRequest,
   CheckMixedChannelRequest,
   CheckMixedChannelResponse,
-  AccountUpstreamGroup,
   UpstreamBillingProbeResult,
   UpstreamBillingProbeSettings,
   UpstreamBillingRatesResponse,
@@ -69,27 +71,8 @@ export async function list(
   return data
 }
 
-/** List all distinct explicit upstream groups. */
-export async function listUpstreamGroups(): Promise<AccountUpstreamGroup[]> {
-  const { data } = await apiClient.get<{ groups: AccountUpstreamGroup[] }>('/admin/accounts/upstream-groups')
-  return data.groups
-}
-
-/** Rename an explicit upstream group. */
-export async function renameUpstreamGroup(id: number, name: string): Promise<AccountUpstreamGroup> {
-  const { data } = await apiClient.patch<AccountUpstreamGroup>(`/admin/accounts/upstream-groups/${id}`, { name })
-  return data
-}
-
-/** Persist the custom display order for upstream groups. */
-export async function updateUpstreamGroupSortOrders(
-  updates: Array<{ id: number; sort_order: number }>
-): Promise<{ message: string }> {
-  const { data } = await apiClient.put<{ message: string }>('/admin/accounts/upstream-groups/sort-order', {
-    updates
-  })
-  return data
-}
+// Compatibility exports; the extension owns the upstream-group API contract.
+export { listUpstreamGroups, renameUpstreamGroup, updateUpstreamGroupSortOrders }
 
 export interface AccountListWithEtagResult {
   notModified: boolean
@@ -579,14 +562,7 @@ export async function bulkUpdate(
 }
 
 /** Persist the custom display order for a set of accounts. */
-export async function updateSortOrder(
-  updates: Array<{ id: number; sort_order: number }>
-): Promise<{ message: string }> {
-  const { data } = await apiClient.put<{ message: string }>('/admin/accounts/sort-order', {
-    updates
-  })
-  return data
-}
+
 
 /**
  * Get account today statistics

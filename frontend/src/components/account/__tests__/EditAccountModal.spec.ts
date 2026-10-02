@@ -1,3 +1,5 @@
+import { useExtensionStore } from '@/extensions/store'
+import '@/extensions/__tests__/adminEfficiencyEnabledFixture'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { mount } from '@vue/test-utils'
@@ -379,6 +381,28 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
       upstream_group: 'hi-code',
+      credentials: expect.objectContaining({ base_url: 'https://api.openai.com' })
+    }))
+  })
+
+  it('drops a pending group change after disable and still saves native fields', async () => {
+    const account = buildAccount()
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    const groupInput = wrapper.get('[data-testid="upstream-group-input"]')
+    expect((groupInput.element as HTMLInputElement).value).toBe('Old upstream')
+
+    await groupInput.setValue('hi-code')
+    useExtensionStore().flags = { 'admin-efficiency': false }
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock.mock.calls[0]?.[1]).not.toHaveProperty('upstream_group')
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
       credentials: expect.objectContaining({ base_url: 'https://api.openai.com' })
     }))
   })

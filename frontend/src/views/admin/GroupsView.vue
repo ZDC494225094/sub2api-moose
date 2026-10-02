@@ -443,7 +443,7 @@
                 }}</span>
               </button>
               <button
-                @click="handleAccounts(row)"
+                v-if="adminEfficiencyEnabled" @click="handleAccounts(row)"
                 class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-emerald-600 dark:hover:bg-dark-700 dark:hover:text-emerald-400"
               >
                 <Icon name="users" size="sm" />
@@ -4290,6 +4290,8 @@
 </template>
 
 <script setup lang="ts">
+import { useAdminEfficiency } from '@/extensions/useAdminEfficiency'
+const adminEfficiencyEnabled = useAdminEfficiency()
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useAppStore } from "@/stores/app";
@@ -6461,6 +6463,7 @@ const handleRPMOverrides = (group: AdminGroup) => {
 };
 
 const handleAccounts = (group: AdminGroup) => {
+  if (!adminEfficiencyEnabled.value) return;
   accountsGroup.value = group;
   showAccountsModal.value = true;
 };
