@@ -2,7 +2,7 @@
   "version": 1,
   "upstream_base": "aea725f2ea644d5592d0bbb1d63b607efa7e200a",
   "customized_head": "d754fe1dc34a881b48f374eb5b873a45e17854f8",
-  "purpose": "Path-loss detection during gradual isolation. File presence is not a semantic equivalence proof; ownership classification and runtime validation are tracked separately.",
+  "purpose": "Path-loss detection during gradual isolation. File presence is not a semantic equivalence proof; ownership classification and runtime validation are tracked separately. dump.rdb is excluded because it is a sensitive Redis runtime snapshot, not implementation source, and must not be preserved in the repository.",
   "files": [
     {
       "path": ".dockerignore",
@@ -2402,10 +2402,6 @@
     },
     {
       "path": "docs/upstream-v0.2.7-merge.md",
-      "original_change": "A"
-    },
-    {
-      "path": "dump.rdb",
       "original_change": "A"
     },
     {
