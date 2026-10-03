@@ -14,6 +14,7 @@ type StateReader interface {
 type Operation string
 
 const (
+	Native         Operation = "native"
 	Submit         Operation = "submit"
 	ReadExisting   Operation = "read-existing"
 	CancelExisting Operation = "cancel-existing"
@@ -23,7 +24,7 @@ const (
 // task never reads the flag: outages or disablement must not strand its billing.
 func CheckAdmission(ctx context.Context, states StateReader, operation Operation) error {
 	switch operation {
-	case ReadExisting, CancelExisting:
+	case Native, ReadExisting, CancelExisting:
 		return nil
 	case Submit:
 	default:
@@ -49,7 +50,7 @@ func VoiceOperation(method string) Operation {
 	case http.MethodDelete:
 		return CancelExisting
 	default:
-		return Submit
+		return Native
 	}
 }
 

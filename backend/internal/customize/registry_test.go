@@ -64,7 +64,7 @@ func TestCatalogAndDefaultDisabled(t *testing.T) {
 			require.Nil(t, state.Enabled)
 		}
 	}
-	require.Equal(t, 14, count)
+	require.Equal(t, 13, count)
 }
 
 func TestPersistentIndependentSwitchesAcrossManagers(t *testing.T) {
@@ -103,8 +103,9 @@ func TestInvalidUnknownAndFailedUpdates(t *testing.T) {
 	require.NotContains(t, err.Error(), "private")
 	store.err = nil
 	store.values[Key("playground")] = "yes"
-	_, err = m.Snapshot(ctx)
-	require.Error(t, err)
+	snapshot, err := m.Snapshot(ctx)
+	require.NoError(t, err)
+	require.False(t, snapshot["playground"])
 	_, err = NewManager(nil).Snapshot(ctx)
 	require.Error(t, err)
 }
@@ -172,7 +173,7 @@ func TestStateHTTPContracts(t *testing.T) {
 		r.ServeHTTP(w, httptest.NewRequest("PUT", "/admin/playground", strings.NewReader(body)))
 		require.Equal(t, 400, w.Code)
 	}
-	for id, code := range map[string]int{"playground": 200, "marketing-tools": 200, "multi-group-billing": 200, "billing-scheduling": 200, "site-customization": 200, "access-policy": 200, "subscription-extensions": 200, "media-gateway": 200, "unknown": 404} {
+	for id, code := range map[string]int{"playground": 200, "marketing-tools": 200, "multi-group-billing": 200, "billing-scheduling": 409, "site-customization": 200, "access-policy": 200, "subscription-extensions": 200, "media-gateway": 200, "unknown": 404} {
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, httptest.NewRequest("PUT", "/admin/"+id, strings.NewReader(`{"enabled":false}`)))
 		require.Equal(t, code, w.Code)
@@ -266,4 +267,21 @@ func TestAdminEfficiencySwitchPreservesHistoricalPaths(t *testing.T) {
 	for _, path := range []string{"/admin/accounts", "/admin/groups", "/admin/users", "/api/v1/admin/accounts/upstream-groups", "/api/v1/admin/groups/1/accounts"} {
 		require.Empty(t, RequestExtension("GET", path))
 	}
+}
+
+func TestSnapshotCorruptFlagDoesNotDisableOtherModules(t *testing.T) {
+	store := newStore()
+	store.values[Key("playground")] = "invalid"
+	store.values[Key("site-customization")] = "true"
+	m := NewManager(store)
+	snapshot, err := m.Snapshot(context.Background())
+	require.NoError(t, err)
+	require.False(t, snapshot["playground"])
+	require.True(t, snapshot["site-customization"])
+	_, err = m.List(context.Background())
+	require.NoError(t, err)
+	require.NoError(t, m.SetEnabled(context.Background(), "playground", true))
+	enabled, err := m.Enabled(context.Background(), "playground")
+	require.NoError(t, err)
+	require.True(t, enabled)
 }

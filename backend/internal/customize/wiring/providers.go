@@ -28,7 +28,6 @@ var ProviderSet = wire.NewSet(
 	ProvideKeyRoutingAdmission,
 	ProvideSubscriptionIssuance,
 	ProvideSiteCustomizationAdmission,
-	ProvideBillingSchedulingAdmission,
 	ProvideCouponService,
 	ProvideLotteryService,
 	repository.NewCouponTemplateRepository,

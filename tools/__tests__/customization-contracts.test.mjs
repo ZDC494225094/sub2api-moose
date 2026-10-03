@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { evaluateContracts, evaluateInventory } from '../lib/customization-contracts.mjs'
+import { evaluateContracts, evaluateInventory, evaluateProviderReachability } from '../lib/customization-contracts.mjs'
 
 const config = {
   version: 1,
@@ -50,4 +50,11 @@ test('path ledger does not conceal loss behind an old filename or move declarati
 test('path ledger rejects duplicate or unknown move declarations', () => {
   const value = { ...inventory, relocations: [...inventory.relocations, ...inventory.relocations, { from: 'unknown.ts', to: [] }] }
   assert.equal(evaluateInventory(value, () => true).length, 2)
+})
+
+test('rejects extension providers silently pruned by Wire', () => {
+  const providers = 'wire.NewSet(\n ProvideBillingSchedulingAdmission,\n)'
+  assert.equal(evaluateProviderReachability(providers, '// nothing wired').length, 1)
+  assert.equal(evaluateProviderReachability(providers, '// wiring.ProvideBillingSchedulingAdmission(settings)').length, 1)
+  assert.deepEqual(evaluateProviderReachability(providers, 'wiring.ProvideBillingSchedulingAdmission(settings)'), [])
 })

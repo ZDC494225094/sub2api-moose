@@ -331,3 +331,27 @@ func TestSettingService_GetPublicSettings_RejectsCorruptAccessPolicy(t *testing.
 		})
 	}
 }
+
+type footerAdmissionStub bool
+
+func (f footerAdmissionStub) ShouldExposeCustomUI(context.Context) bool { return bool(f) }
+func TestSiteCustomizationPreservesNativePublicSettings(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		repo := &settingPublicRepoStub{values: map[string]string{
+			SettingKeyCustomMenuItems:   `[{"name":"native menu"}]`,
+			SettingKeyCustomEndpoints:   `[{"name":"native endpoint"}]`,
+			SettingKeyFooterFriendLinks: `[{"name":"fork footer"}]`,
+		}}
+		svc := NewSettingService(repo, &config.Config{})
+		svc.SetSiteCustomizationSettingsAdmission(footerAdmissionStub(enabled))
+		got, err := svc.GetPublicSettings(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, repo.values[SettingKeyCustomMenuItems], got.CustomMenuItems)
+		require.Equal(t, repo.values[SettingKeyCustomEndpoints], got.CustomEndpoints)
+		if enabled {
+			require.Equal(t, repo.values[SettingKeyFooterFriendLinks], got.FooterFriendLinks)
+		} else {
+			require.Empty(t, got.FooterFriendLinks)
+		}
+	}
+}

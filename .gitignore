@@ -178,3 +178,6 @@ output/
 
 # Redis runtime snapshot
 /dump.rdb
+
+# Generated media outputs (existing tracked artifacts require separate cleanup)
+/generated/

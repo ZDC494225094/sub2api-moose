@@ -101,16 +101,11 @@
   {
     "id": "billing-scheduling",
     "name": "计费与调度增强",
-    "description": "分组倍率同步、渠道分时定价、自定义分组用量及组合调度等计费/调度增强。",
-    "managed": true,
-    "disable_behavior": "回退到基础计费（无倍率/分时/自定义用量/组合调度）；历史用量和账单记录不受影响。",
+    "description": "分组倍率同步与组合调度尚未完成准入及历史归属隔离；上游分时定价和高峰倍率不属于此模块。",
+    "managed": false,
+    "disable_behavior": "待解耦，不提供无效开关；现有计费与调度保持原行为。",
     "paths": [],
-    "gates": [
-      "rate-multiplier",
-      "time-pricing",
-      "custom-usage",
-      "composite-scheduling"
-    ]
+    "gates": []
   },
   {
     "id": "subscription-extensions",
@@ -126,13 +121,11 @@
   {
     "id": "media-gateway",
     "name": "视频与媒体协议扩展",
-    "description": "视频、Grok 图片与语音协议的独立任务准入和端点注册；保留宿主鉴权、调度、持久化归属及计费。",
+    "description": "Veo predictLongRunning 新任务准入；上游媒体协议不受此开关控制。",
     "managed": true,
-    "disable_behavior": "停止新建/编辑/扩展视频、Grok 图片生成、语音合成/识别及新实时语音连接；保留旧任务查询、下载、取消和结算，已准入请求继续完成。原生文本和 OpenAI 图片接口不受影响。",
+    "disable_behavior": "拒绝新建 Veo 视频任务；历史任务与上游 Grok、Seedance、语音能力保持不变。",
     "paths": [],
     "gates": [
-      "media-task-submit",
-      "media-voice-submit",
       "gemini-video-submit"
     ]
   },
@@ -153,12 +146,12 @@
   {
     "id": "site-customization",
     "name": "站点外观与自定义入口",
-    "description": "自定义菜单、页脚友情链接、自定义端点及公告系统。",
+    "description": "仅控制二开页脚友情链接；菜单、端点与公告属于上游。",
     "managed": true,
-    "disable_behavior": "停止公共API返回自定义菜单和页脚链接；拒绝创建新公告；已发布公告继续显示（历史内容保留）；站点名称不受影响。",
+    "disable_behavior": "隐藏公共页脚友情链接，保留配置；不影响上游菜单、端点及公告。",
     "paths": [],
     "gates": [
-      "announcement-create"
+      "footer-friend-links-public"
     ]
   },
   {

@@ -10,7 +10,7 @@ func TestResponsesOnlyOwnsServerImageTools(t *testing.T) {
 		body string
 		want Operation
 	}{
-		{`{"tools":[{"type":"image_generation"}]}`, Submit},
+		{`{"tools":[{"type":"image_generation"}]}`, Native},
 		{`{"tools":[{"type":"namespace","name":"image_gen","tools":[{"type":"function","name":"text2im"}]}]}`, ReadExisting},
 		{`{"tools":[{"type":"function","name":"image_generation"}]}`, ReadExisting},
 		{`{"input":[{"type":"input_image","image_url":"https://example.invalid/x"}]}`, ReadExisting},

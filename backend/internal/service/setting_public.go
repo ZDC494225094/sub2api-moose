@@ -323,9 +323,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		if admission, ok := s.siteCustomizationSettingsAdmission.(interface {
 			ShouldExposeCustomUI(context.Context) bool
 		}); ok && !admission.ShouldExposeCustomUI(ctx) {
-			customMenuItems = ""
 			footerFriendLinks = ""
-			customEndpoints = ""
 		}
 	}
 

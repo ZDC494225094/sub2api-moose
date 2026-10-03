@@ -76,9 +76,8 @@ func ProvideBillingSchedulingAdmission(settings service.SettingRepository) Billi
 		states: customize.NewManager(billingSchedulingSettingReader{settings}),
 		lookup: customize.Lookup,
 	}
-	// Inject into service layer for feature-specific admission checks
-	service.SetTimePricingAdmission(impl)
-	service.SetRateMultiplierAdmission(impl)
+	// Pending prototype only: intentionally not registered in ProviderSet.
+	// Native time pricing and peak multipliers must never be gated here.
 	return BillingSchedulingAdmission{impl: impl}
 }
 

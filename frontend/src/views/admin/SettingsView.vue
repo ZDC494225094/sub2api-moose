@@ -1551,7 +1551,7 @@
                   </p>
                 </div>
                 <Toggle
-                  v-model="form.registration_email_domain_quota_enabled" :disabled="!accessPolicyConfigurationEnabled"
+                  v-model="form.registration_email_domain_quota_enabled"
                 />
               </div>
 

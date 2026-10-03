@@ -79,3 +79,16 @@ func TestAnnouncementServiceUpdateRejectsEqualStartEndTimes(t *testing.T) {
 	})
 	require.ErrorIs(t, err, ErrAnnouncementInvalidSchedule)
 }
+
+type forbiddenAnnouncementAdmission struct{}
+
+func (forbiddenAnnouncementAdmission) CheckCreate(context.Context) error {
+	panic("upstream announcements must not consult extension admission")
+}
+func TestAnnouncementIgnoresExtensionSwitch(t *testing.T) {
+	repo := &announcementRepoStub{}
+	svc := NewAnnouncementService(repo, nil, nil, nil)
+	svc.SetAnnouncementAdmission(forbiddenAnnouncementAdmission{})
+	_, err := svc.Create(context.Background(), &CreateAnnouncementInput{})
+	require.ErrorIs(t, err, ErrAnnouncementInvalidTitle)
+}

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import AccessPolicyBoundary from '@/extensions/modules/access-policy/AccessPolicyBoundary.vue'
 import { useCustomExtensionRuntime } from '@/extensions/runtime'
-import { useSiteCustomizationAdmission } from '@/extensions/modules/site-customization'
 import ExtensionSlot from '@/extensions/components/ExtensionSlot.vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
@@ -44,7 +43,6 @@ async function refreshAccessPolicy(): Promise<void> {
     accessPolicyLoading.value = false
   }
 }
-const siteCustomizationEnabled = useSiteCustomizationAdmission()
 const accessPolicyPageReady = computed(() => mainlandChinaAccessDecisionResolved.value && (
   appStore.cachedPublicSettings?.mainland_china_access_restricted !== true ||
   appStore.cachedPublicSettings?.mainland_china_access_restriction_enabled !== true ||
@@ -78,8 +76,8 @@ watch(
 
 function updateDocumentTitle() {
   const customMenuItems = [
-    ...(siteCustomizationEnabled.value ? (appStore.cachedPublicSettings?.custom_menu_items ?? []) : []),
-    ...(authStore.isAdmin && siteCustomizationEnabled.value ? adminSettingsStore.customMenuItems : []),
+    ...(appStore.cachedPublicSettings?.custom_menu_items ?? []),
+    ...(authStore.isAdmin ? adminSettingsStore.customMenuItems : []),
   ]
   document.title = resolveRouteDocumentTitle(route, appStore.siteName, customMenuItems, {
     billingMode: resolveSiteBillingMode(appStore.cachedPublicSettings),
@@ -108,7 +106,6 @@ watch(
     () => appStore.cachedPublicSettings?.payment_balance_disabled,
     () => authStore.isAdmin,
     () => adminSettingsStore.customMenuItems,
-    siteCustomizationEnabled,
   ],
   updateDocumentTitle,
   { deep: true }

@@ -2,8 +2,8 @@ package mediagateway
 
 import "encoding/json"
 
-// ResponsesOperation owns only server-side image generation tools. Client function
-// namespaces (including passive image_gen), vision inputs and native text stay open.
+// Responses image generation tools are native upstream capabilities, not owned
+// by this extension. Classify them explicitly so they never read its flag.
 func ResponsesOperation(body []byte) Operation {
 	var request struct {
 		Tools []struct {
@@ -15,7 +15,7 @@ func ResponsesOperation(body []byte) Operation {
 	}
 	for _, tool := range request.Tools {
 		if tool.Type == "image_generation" {
-			return Submit
+			return Native
 		}
 	}
 	return ReadExisting

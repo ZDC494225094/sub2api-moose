@@ -68,7 +68,7 @@ func TestConfigurationAdmissionPreservesEnforcementAndNativeEdits(t *testing.T) 
 	ctx := context.Background()
 	current := &policySettingsStub{values: map[string]string{ProofEnabledKey: "true"}}
 	states := &policyStateStub{}
-	require.NoError(t, CheckConfigurationChange(ctx, nil, nil, map[string]string{EmailWhitelistKey: `["@example.com"]`, "site_name": "native"}))
+	require.NoError(t, CheckConfigurationChange(ctx, nil, nil, map[string]string{DomainQuotaKey: "true", EmailWhitelistKey: `["@example.com"]`, "site_name": "native"}))
 	require.NoError(t, CheckConfigurationChange(ctx, current, states, map[string]string{ProofEnabledKey: "true", DomainQuotaKey: "false", ProofDifficultyKey: "18"}))
 	require.Zero(t, states.calls)
 	for _, key := range ConfigurationKeys() {

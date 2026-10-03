@@ -13,7 +13,7 @@ type stateFunc func(context.Context, string) (bool, error)
 
 func (f stateFunc) Enabled(ctx context.Context, id string) (bool, error) { return f(ctx, id) }
 func TestAdmissionFailClosedAndDraining(t *testing.T) {
-	for _, op := range []Operation{ReadExisting, CancelExisting} {
+	for _, op := range []Operation{Native, ReadExisting, CancelExisting} {
 		require.NoError(t, CheckAdmission(context.Background(), stateFunc(func(context.Context, string) (bool, error) { t.Fatal("drain read live flag"); return false, nil }), op))
 		require.NoError(t, CheckAdmission(context.Background(), nil, op))
 	}
@@ -32,7 +32,7 @@ func TestAdmissionFailClosedAndDraining(t *testing.T) {
 }
 func TestEndpointRegistry(t *testing.T) {
 	for _, e := range []Endpoint{ImagesGenerations, ImagesEdits, VideosGenerations, VideosEdits, VideosExtensions, SeedanceCreate} {
-		require.Equal(t, Submit, e.Operation())
+		require.Equal(t, Native, e.Operation())
 		require.True(t, e.RequiresRequestBody())
 		require.True(t, e.IsGenerationRequest())
 		require.Equal(t, http.MethodPost, e.HTTPMethod())
@@ -53,7 +53,7 @@ func TestEndpointRegistry(t *testing.T) {
 	}
 	require.Equal(t, CancelExisting, VoiceOperation("DELETE"))
 	for _, method := range []string{"POST", "PATCH", "PUT", ""} {
-		require.Equal(t, Submit, VoiceOperation(method))
+		require.Equal(t, Native, VoiceOperation(method))
 	}
 	require.Equal(t, Submit, GeminiOperation("predictLongRunning"))
 	for _, action := range []string{"generateContent", "streamGenerateContent", "countTokens"} {

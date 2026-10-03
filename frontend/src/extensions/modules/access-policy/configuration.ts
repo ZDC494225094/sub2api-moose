@@ -2,7 +2,6 @@ import { computed } from 'vue'
 import { useExtensionStore } from '@/extensions/store'
 
 export const accessPolicyConfigurationKeys = [
-  'registration_email_domain_quota_enabled',
   'registration_proof_enabled',
   'registration_proof_difficulty',
   'mainland_china_access_restriction_enabled',

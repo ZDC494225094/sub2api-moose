@@ -31,11 +31,11 @@ describe('custom extension management', () => {
     expect(wrapper.text()).toContain('尚不可切换')
     expect(wrapper.text()).toContain('不是全部二开的可卸载插件')
   })
-  it('renders the actual 14-managed/0-pending catalog without a security bypass toggle', async () => {
+  it('renders the actual 13-managed/1-pending catalog without a security bypass toggle', async () => {
     const catalog = JSON.parse(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../../backend/internal/customize/catalog.json'), 'utf8'))
     vi.mocked(extensionAPI.list).mockResolvedValue({ data: { items: catalog.map((item: { managed: boolean }) => ({ ...item, enabled: item.managed ? true : null })) } } as never)
     const wrapper = mount(CustomExtensionsView, { global: { stubs } }); await flushPromises()
-    expect(wrapper.findAll('[role="switch"]')).toHaveLength(14)
+    expect(wrapper.findAll('[role="switch"]')).toHaveLength(13)
     const security = wrapper.findAll('article').find(article => article.text().includes('访问与注册策略增强'))!
     expect(security.exists()).toBe(true)
     expect(security.find('[role="switch"]').exists()).toBe(true)
@@ -46,7 +46,7 @@ describe('custom extension management', () => {
     expect(admin.find('[role="switch"]').exists()).toBe(true)
     expect(admin.text()).toContain('独立仓储端口')
     expect(admin.text()).toContain('保留可读')
-    expect(wrapper.findAll('article').filter(article => !article.find('[role="switch"]').exists())).toHaveLength(0)
+    expect(wrapper.findAll('article').filter(article => !article.find('[role="switch"]').exists())).toHaveLength(1)
   })
   it('asks for confirmation and saves the requested state', async () => {
     const wrapper = mount(CustomExtensionsView, { global: { stubs } }); await flushPromises()

@@ -41,7 +41,7 @@ func SettingsKeys() []string {
 	return []string{EmailWhitelistKey, DomainQuotaKey, ProofEnabledKey, ProofDifficultyKey, MainlandRestrictionKey}
 }
 func ConfigurationKeys() []string {
-	return []string{DomainQuotaKey, ProofEnabledKey, ProofDifficultyKey, MainlandRestrictionKey}
+	return []string{ProofEnabledKey, ProofDifficultyKey, MainlandRestrictionKey}
 }
 
 // Missing keys retain native defaults; failed reads and corrupt stored values

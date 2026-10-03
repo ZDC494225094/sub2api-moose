@@ -80,13 +80,6 @@ func (s *AnnouncementService) Create(ctx context.Context, input *CreateAnnouncem
 		return nil, ErrAnnouncementNilInput
 	}
 
-	// Site-customization extension admission: reject new announcements when disabled.
-	if s.admission != nil {
-		if err := s.admission.CheckCreate(ctx); err != nil {
-			return nil, err
-		}
-	}
-
 	if !isJSONTimeInRange(input.StartsAt) || !isJSONTimeInRange(input.EndsAt) {
 		return nil, ErrAnnouncementInvalidSchedule
 	}

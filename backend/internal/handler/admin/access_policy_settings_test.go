@@ -49,8 +49,11 @@ func TestAccessPolicySettingsHTTPAdmission(t *testing.T) {
 				if state == "malformed" {
 					want = http.StatusServiceUnavailable
 				}
+				if field == "registration_email_domain_quota_enabled" {
+					want = http.StatusOK // Upstream capability is independent of extension state.
+				}
 				require.Equal(t, want, rec.Code, rec.Body.String())
-				if state != "true" {
+				if want != http.StatusOK {
 					require.Empty(t, repo.lastUpdates)
 					require.Equal(t, "true", repo.values[service.SettingKeyRegistrationProofEnabled])
 				}

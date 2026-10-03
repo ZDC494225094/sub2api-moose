@@ -7,13 +7,11 @@ export const extensionPaths = {
   'operations-analytics': ['/admin/operations'],
   'recharge-campaigns': ['/recharge-campaigns', '/admin/orders/campaigns'],
   'customer-support': [],
-  // UI/configuration admission only; published announcements remain readable.
+  // Footer links only; native announcements and custom menus are never gated.
   'site-customization': [],
   'marketing-tools': ['/lottery', '/admin/orders/coupons', '/admin/orders/lottery'],
   // Key routing ownership is per key; the switch only gates new configuration.
   'multi-group-billing': [],
-  // Backend-only pricing/scheduling gates; no page interception.
-  'billing-scheduling': [],
   'admin-efficiency': [],
   // Configuration admission only; persisted security rules are always enforced.
   'access-policy': [],
@@ -41,7 +39,7 @@ export function extensionFallback(id: ExtensionId, isAdmin: boolean): string {
 
 // Ownership is not switch readiness. These module-owned routes retain their
 // existing host auth/payment gates until admission and historical drain are ready.
-export const pendingExtensionPaths: Readonly<Record<string, readonly string[]>> = {}
+export const pendingExtensionPaths: Readonly<Record<string, readonly string[]>> = { 'billing-scheduling': [] }
 
 export function extensionOwnerForPath(path: string): ExtensionId | keyof typeof pendingExtensionPaths | undefined {
   const managed = extensionForPath(path)

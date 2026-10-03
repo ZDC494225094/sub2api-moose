@@ -86,7 +86,7 @@ func TestInstallationProvenanceAndDefaultFlags(t *testing.T) {
 			createSettings(t, conn)
 			require.NoError(t, (Runner{}).Apply(ctx, conn))
 			got := flags(t, conn)
-			require.Len(t, got, 12, "only separately adopted modules get flags")
+			require.Len(t, got, 13, "only separately adopted modules get flags")
 			for _, id := range []string{"premium-home", "playground", "infinite-canvas", "operations-analytics", "recharge-campaigns", "customer-support"} {
 				require.Equal(t, tc.enabled, got[customize.Key(id)], id)
 			}
@@ -94,10 +94,10 @@ func TestInstallationProvenanceAndDefaultFlags(t *testing.T) {
 			require.Equal(t, tc.enabled, got[customize.Key("multi-group-billing")])
 			require.Equal(t, tc.enabled, got[customize.Key("admin-efficiency")])
 			require.Equal(t, tc.enabled, got[customize.Key("access-policy")])
-			require.Equal(t, 8, recorded(t, conn))
+			require.Equal(t, 9, recorded(t, conn))
 			require.NoError(t, (Runner{}).Apply(ctx, conn))
 			require.Equal(t, got, flags(t, conn))
-			require.Equal(t, 8, recorded(t, conn))
+			require.Equal(t, 9, recorded(t, conn))
 			var original string
 			require.NoError(t, conn.QueryRowContext(ctx, "SELECT checksum FROM schema_migrations WHERE filename='239_custom_api_key_platform_sync.sql'").Scan(&original))
 			require.Equal(t, "unchanged", original, "do not rewrite host history")
@@ -141,8 +141,8 @@ func TestFailedHostAdoptionRollsBackItsFlagsAndCanRetry(t *testing.T) {
 	require.Equal(t, 2, recorded(t, conn))
 	execute(t, conn, "DROP TRIGGER reject_campaign")
 	require.NoError(t, (Runner{}).Apply(ctx, conn))
-	require.Len(t, flags(t, conn), 12)
-	require.Equal(t, 8, recorded(t, conn))
+	require.Len(t, flags(t, conn), 13)
+	require.Equal(t, 9, recorded(t, conn))
 }
 
 func TestCustomMigrationChecksumAndLineEndingStability(t *testing.T) {
@@ -160,8 +160,8 @@ func TestCustomMigrationChecksumAndLineEndingStability(t *testing.T) {
 	require.NoError(t, applyFS(ctx, conn, crlf))
 	changed := fstest.MapFS{name: &fstest.MapFile{Data: []byte(lf + "\n-- changed historical migration")}}
 	require.ErrorContains(t, applyFS(ctx, conn, changed), "checksum mismatch")
-	require.Equal(t, 8, recorded(t, conn))
-	require.Len(t, flags(t, conn), 12)
+	require.Equal(t, 9, recorded(t, conn))
+	require.Len(t, flags(t, conn), 13)
 }
 
 func TestMigrationRegistrationAndMissingProvenanceFailClosed(t *testing.T) {

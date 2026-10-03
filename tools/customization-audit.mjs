@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { dirname, resolve, relative, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { evaluateContracts, evaluateInventory } from './lib/customization-contracts.mjs'
+import { evaluateContracts, evaluateInventory, evaluateProviderReachability } from './lib/customization-contracts.mjs'
 import { evaluateOwnership, ownershipCheckFailed } from './lib/customization-ownership.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -83,6 +83,8 @@ const contractViolations = evaluateContracts(contractConfig, {
     try { return git('show', `${target}:${file}`) } catch { return undefined }
   },
 })
+contractViolations.push(...evaluateProviderReachability(readLocal('backend/internal/customize/wiring/providers.go').toString('utf8'), readLocal('backend/cmd/server/wire_gen.go').toString('utf8')))
+
 const report = {
   generated_at: new Date().toISOString(),
   baseline: { ref: config.merged_upstream_label, sha: base },

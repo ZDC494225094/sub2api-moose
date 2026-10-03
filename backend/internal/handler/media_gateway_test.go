@@ -31,7 +31,7 @@ type failingMediaSettings struct {
 func (*failingMediaSettings) GetMultiple(context.Context, []string) (map[string]string, error) {
 	return nil, errors.New("store down")
 }
-func TestMediaGatewayRejectsNewWorkBeforeUpstream(t *testing.T) {
+func TestMediaGatewayRejectsVeoBeforeUpstream(t *testing.T) {
 	for _, value := range []string{"false", "", "malformed", "missing", "outage", "nil"} {
 		t.Run(value, func(t *testing.T) {
 			settings := service.NewSettingService(&contentModerationHandlerSettingRepo{values: map[string]string{customize.Key(mediagateway.ModuleID): value}}, nil)
@@ -49,28 +49,6 @@ func TestMediaGatewayRejectsNewWorkBeforeUpstream(t *testing.T) {
 			}
 			if value == "malformed" || value == "" {
 				want = 503
-			}
-			for _, ep := range []mediagateway.Endpoint{mediagateway.ImagesGenerations, mediagateway.ImagesEdits, mediagateway.VideosGenerations, mediagateway.VideosEdits, mediagateway.VideosExtensions, mediagateway.SeedanceCreate} {
-				h, slots, bindings, _ := newGrokMediaSlotHandlerWithSettings(t, false, false, settings)
-				c, w := grokMediaSlotContext(context.Background(), true)
-				h.handleGrokMedia(c, ep, "", service.PlatformGrok)
-				require.Equal(t, want, w.Code, string(ep)+w.Body.String())
-				require.Empty(t, slots.accounts)
-				require.Empty(t, slots.users)
-				require.Zero(t, bindings.writes)
-			}
-			for _, voice := range []string{"tts", "stt", "custom-voices", "realtime"} {
-				h, _, _, _ := newGrokMediaSlotHandlerWithSettings(t, false, false, settings)
-				c, w := grokMediaSlotContext(context.Background(), true)
-				if voice == "realtime" {
-					c.Request.Method = http.MethodGet
-					c.Request.Header.Set("Connection", "Upgrade")
-					c.Request.Header.Set("Upgrade", "websocket")
-					h.GrokRealtime(c)
-				} else {
-					h.GrokVoice(c, voice)
-				}
-				require.Equal(t, want, w.Code, w.Body.String())
 			}
 			h := &GatewayHandler{settingService: settings}
 			c, w := grokMediaSlotContext(context.Background(), true)
@@ -100,9 +78,9 @@ func TestMediaGatewayDisabledStillChecksHistoricalOwnership(t *testing.T) {
 	}
 }
 
-// Exercise the real Responses handler, not just the protocol classifier. Rejection
-// must happen before account/user slots or an upstream network request.
-func TestMediaGatewayResponsesAdmissionBeforeScheduling(t *testing.T) {
+// Native image tools reach the host scheduler regardless of the extension flag.
+// This fixture has no available upstream and intentionally returns 502.
+func TestMediaGatewayNativeResponsesPreserved(t *testing.T) {
 	for _, value := range []string{"false", "missing", "malformed", "outage"} {
 		t.Run(value, func(t *testing.T) {
 			values := map[string]string{}
@@ -110,13 +88,13 @@ func TestMediaGatewayResponsesAdmissionBeforeScheduling(t *testing.T) {
 				values[customize.Key(mediagateway.ModuleID)] = value
 			}
 			settings := service.NewSettingService(&contentModerationHandlerSettingRepo{values: values}, nil)
-			want := http.StatusForbidden
+			want := http.StatusBadGateway
 			if value == "malformed" {
-				want = http.StatusServiceUnavailable
+				want = http.StatusBadGateway
 			}
 			if value == "outage" {
 				settings = service.NewSettingService(&failingMediaSettings{}, nil)
-				want = http.StatusServiceUnavailable
+				want = http.StatusBadGateway
 			}
 			h, slots, bindings, upstream := newGrokMediaSlotHandlerWithSettings(t, false, false, settings)
 			upstream.call = func(*http.Request, int64) (*http.Response, error) {
@@ -129,7 +107,7 @@ func TestMediaGatewayResponsesAdmissionBeforeScheduling(t *testing.T) {
 			h.Responses(c)
 			require.Equal(t, want, w.Code, w.Body.String())
 			require.Zero(t, slots.acquired)
-			require.Zero(t, slots.userAcquired)
+			require.Equal(t, 1, slots.userAcquired)
 			require.Zero(t, bindings.writes)
 		})
 	}
@@ -156,7 +134,7 @@ func TestMediaGatewayDisabledPreservesDownloadOwnership(t *testing.T) {
 	require.Equal(t, admittedCalls, calls, "foreign owner must not download")
 }
 
-func TestMediaGatewayResponsesWebSocketAdmissionBeforeScheduling(t *testing.T) {
+func TestMediaGatewayNativeResponsesWebSocketPreserved(t *testing.T) {
 	for _, value := range []string{"false", "malformed", "missing"} {
 		t.Run(value, func(t *testing.T) {
 			settings := service.NewSettingService(&contentModerationHandlerSettingRepo{values: map[string]string{customize.Key(mediagateway.ModuleID): value}}, nil)
@@ -184,15 +162,27 @@ func TestMediaGatewayResponsesWebSocketAdmissionBeforeScheduling(t *testing.T) {
 			defer conn.CloseNow()
 			require.NoError(t, conn.Write(ctx, coderws.MessageText, []byte(`{"type":"response.create","model":"grok-3","input":"draw","tools":[{"type":"image_generation"}]}`)))
 			_, _, err = conn.Read(ctx)
-			require.Equal(t, coderws.StatusPolicyViolation, coderws.CloseStatus(err))
-			require.ErrorContains(t, err, "media generation is unavailable")
+			require.Equal(t, coderws.StatusTryAgainLater, coderws.CloseStatus(err))
+			require.NotContains(t, err.Error(), "media generation is unavailable")
 			select {
 			case <-done:
 			case <-ctx.Done():
 				t.Fatal("handler did not finish")
 			}
 			require.Zero(t, slots.acquired)
-			require.Zero(t, slots.userAcquired)
+			require.Equal(t, 1, slots.userAcquired)
 		})
+	}
+}
+
+func TestMediaGatewayNativeProtocolsBypassExtensionState(t *testing.T) {
+	for _, settings := range []*service.SettingService{nil, service.NewSettingService(&failingMediaSettings{}, nil)} {
+		h, _, _, _ := newGrokMediaSlotHandlerWithSettings(t, false, false, settings)
+		for _, ep := range []mediagateway.Endpoint{mediagateway.ImagesGenerations, mediagateway.ImagesEdits, mediagateway.VideosGenerations, mediagateway.VideosEdits, mediagateway.VideosExtensions, mediagateway.SeedanceCreate} {
+			c, _ := grokMediaSlotContext(context.Background(), true)
+			require.True(t, h.admitMediaGateway(c, ep.Operation()))
+		}
+		c, _ := grokMediaSlotContext(context.Background(), true)
+		require.True(t, h.admitMediaGateway(c, mediagateway.VoiceOperation(http.MethodPost)))
 	}
 }

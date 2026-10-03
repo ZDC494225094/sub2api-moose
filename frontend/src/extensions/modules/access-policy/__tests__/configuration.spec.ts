@@ -9,6 +9,7 @@ describe('security configuration admission', () => {
     expect(admitAccessPolicySettings(payload, true)).toEqual(payload)
     const admitted = admitAccessPolicySettings(payload, false)
     for (const key of accessPolicyConfigurationKeys) expect(admitted).not.toHaveProperty(key)
+    expect(admitted.registration_email_domain_quota_enabled).toBe(true)
     expect(admitted.site_name).toBe('native')
     expect(admitted.registration_email_suffix_whitelist).toEqual(['@example.com'])
     expect(payload.registration_proof_enabled).toBe(true)

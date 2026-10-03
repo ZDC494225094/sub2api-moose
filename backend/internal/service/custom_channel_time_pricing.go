@@ -12,15 +12,6 @@ import (
 
 var channelTimePricingLocations sync.Map
 
-// timePricingAdmission is injected at runtime and checked before applying time-based pricing.
-var timePricingAdmission interface{} // billingscheduling.TimePricingAdmission
-
-// SetTimePricingAdmission injects the admission check for time-based pricing.
-// Called during application initialization.
-func SetTimePricingAdmission(admission interface{}) {
-	timePricingAdmission = admission
-}
-
 type parsedChannelTimePeriod struct {
 	start      int
 	end        int
@@ -40,22 +31,14 @@ func validateChannelTimePricing(config *ChannelTimePricing) error {
 }
 
 // MultiplierAt 返回 at 对应的分时倍率。无配置或脏配置均安全降级为 1。
-// 不执行准入检查（保持向后兼容）。新代码应使用 MultiplierAtWithAdmission。
+// 上游原生功能，不受二开扩展开关影响。
 func (config *ChannelTimePricing) MultiplierAt(at time.Time) float64 {
 	return config.MultiplierAtWithAdmission(nil, at)
 }
 
 // MultiplierAtWithAdmission 返回 at 对应的分时倍率。无配置或脏配置均安全降级为 1。
-// 当 billing-scheduling 扩展关闭时，返回 1.0（不应用分时定价）。
-func (config *ChannelTimePricing) MultiplierAtWithAdmission(ctx context.Context, at time.Time) float64 {
-	// Check admission: if extension is disabled, return 1.0 (no time pricing)
-	if adm, ok := timePricingAdmission.(interface{ AllowTimePricing(context.Context) error }); ok && ctx != nil {
-		if err := adm.AllowTimePricing(ctx); err != nil {
-			// Extension disabled, fallback to standard pricing (no time differentiation)
-			return 1.0
-		}
-	}
-
+// 上游原生分时定价不读取任何扩展开关。
+func (config *ChannelTimePricing) MultiplierAtWithAdmission(_ context.Context, at time.Time) float64 {
 	if config == nil || len(config.Periods) == 0 || at.IsZero() {
 		return 1.0
 	}

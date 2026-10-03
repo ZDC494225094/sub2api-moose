@@ -42,7 +42,7 @@ func (e Endpoint) Operation() Operation {
 		return ReadExisting
 	}
 	if e.IsGenerationRequest() {
-		return Submit
+		return Native
 	}
 	return Operation("unknown")
 }

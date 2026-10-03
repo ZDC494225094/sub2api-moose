@@ -57,3 +57,15 @@ export function evaluateInventory(config, exists) {
   }
   return violations
 }
+
+// Wire can silently prune providers that are registered but never consumed.
+// This is static reachability evidence, not a substitute for behavioral tests.
+export function evaluateProviderReachability(providers, generated) {
+  const stripComments = source => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+  const names = [...stripComments(providers).matchAll(/^\s*(Provide[A-Za-z0-9_]+),/gm)].map(match => match[1])
+  const runtime = stripComments(generated)
+  return names.filter(name => !runtime.includes(`wiring.${name}(`)).map(name => ({
+    rule: 'provider-runtime-reachability', file: 'backend/cmd/server/wire_gen.go',
+    detail: `Registered extension provider ${name} is absent from generated runtime wiring`,
+  }))
+}

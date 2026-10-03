@@ -32,7 +32,7 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Realtime API is not supported for this platform")
 		return
 	}
-	if !h.admitMediaGateway(c, mediagateway.Submit) {
+	if !h.admitMediaGateway(c, mediagateway.Native) {
 		return
 	}
 	if !h.ensureResponsesDependencies(c, nil) {

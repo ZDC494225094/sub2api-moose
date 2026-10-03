@@ -22,7 +22,7 @@ describe('extension ownership contract', () => {
     }
   })
   it('promotes marketing route ownership without losing historical pages', () => {
-    expect(pendingExtensionPaths).toEqual({})
+    expect(pendingExtensionPaths).toEqual({ 'billing-scheduling': [] })
     for (const path of extensionPaths['marketing-tools']) {
       expect(extensionOwnerForPath(path)).toBe('marketing-tools')
       expect(extensionForPath(path)).toBe('marketing-tools')

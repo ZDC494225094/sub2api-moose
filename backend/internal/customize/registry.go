@@ -46,10 +46,21 @@ type Manager struct{ store Store }
 
 func NewManager(store Store) *Manager { return &Manager{store: store} }
 
-func Catalog() []Manifest {
+var parsedCatalog = func() []Manifest {
 	var items []Manifest
 	if err := json.Unmarshal(catalogJSON, &items); err != nil {
 		panic(err)
+	}
+	return items
+}()
+
+func Catalog() []Manifest {
+	items := make([]Manifest, len(parsedCatalog))
+	for i, item := range parsedCatalog {
+		items[i] = item
+		items[i].Paths = append([]string(nil), item.Paths...)
+		items[i].Slots = append([]string(nil), item.Slots...)
+		items[i].Gates = append([]string(nil), item.Gates...)
 	}
 	return items
 }
@@ -88,9 +99,6 @@ func (m *Manager) Snapshot(ctx context.Context) (map[string]bool, error) {
 			continue
 		}
 		value, exists := values[Key(item.ID)]
-		if exists && value != "true" && value != "false" {
-			return nil, unavailable()
-		}
 		result[item.ID] = exists && value == "true"
 	}
 	return result, nil
