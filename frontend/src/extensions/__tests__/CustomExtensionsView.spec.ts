@@ -25,6 +25,18 @@ describe('custom extension management', () => {
     vi.mocked(extensionAPI.publicState).mockResolvedValue({ data: { enabled: Object.fromEntries(extensionIds.map(id => [id, true])) } } as never)
     vi.mocked(extensionAPI.update).mockResolvedValue({ data: { id: 'playground', enabled: false } } as never)
   })
+  it('distinguishes corrupt configuration from disabled and permits repair', async () => {
+    vi.mocked(extensionAPI.list).mockResolvedValue({ data: { items: [{ ...items[0], enabled: false, configuration_error: true }] } } as never)
+    vi.mocked(extensionAPI.publicState).mockResolvedValue({ data: { enabled: Object.fromEntries(extensionIds.map(id => [id, false])) } } as never)
+    vi.mocked(extensionAPI.update).mockResolvedValue({ data: { id: 'playground', enabled: true } } as never)
+    const wrapper = mount(CustomExtensionsView, { global: { stubs } }); await flushPromises()
+    expect(wrapper.text()).toContain('配置异常')
+    expect(wrapper.text()).not.toContain('○ 已关闭')
+    await wrapper.get('[role="switch"]').trigger('click')
+    await wrapper.get('[data-confirm]').trigger('click'); await flushPromises()
+    expect(extensionAPI.update).toHaveBeenCalledWith('playground', true)
+    expect(wrapper.text()).not.toContain('配置异常')
+  })
   it('does not render fake toggles for pending core modules', async () => {
     const wrapper = mount(CustomExtensionsView, { global: { stubs } }); await flushPromises()
     expect(wrapper.findAll('[role="switch"]')).toHaveLength(1)

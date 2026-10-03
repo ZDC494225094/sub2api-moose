@@ -214,3 +214,36 @@ func TestMarketingRoutesInheritHostGuardsWithoutCampaignDependency(t *testing.T)
 		require.Equal(t, 404, w.Code)
 	}
 }
+
+type publicAnnouncementStore struct{ value string }
+
+func (s publicAnnouncementStore) GetMultiple(context.Context, []string) (map[string]string, error) {
+	return map[string]string{customize.Key("premium-home"): s.value}, nil
+}
+func (publicAnnouncementStore) Set(context.Context, string, string) error { return nil }
+
+func TestPublicAnnouncementRouteRequiresPremiumHome(t *testing.T) {
+	for _, tc := range []struct {
+		value string
+		code  int
+	}{{"false", 403}, {"true", 204}, {"invalid", 503}} {
+		t.Run(tc.value, func(t *testing.T) {
+			r := gin.New()
+			v1 := r.Group("/api/v1")
+			calls := 0
+			registerCustomPublicAnnouncementRoute(v1, customize.NewManager(publicAnnouncementStore{tc.value}), func(c *gin.Context) { calls++; c.Status(204) })
+			v1.GET("/announcements", func(c *gin.Context) { c.Status(204) })
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/announcements/public", nil))
+			require.Equal(t, tc.code, w.Code)
+			if tc.code != 204 {
+				require.Zero(t, calls)
+			} else {
+				require.Equal(t, 1, calls)
+			}
+			w = httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/announcements", nil))
+			require.Equal(t, 204, w.Code)
+		})
+	}
+}

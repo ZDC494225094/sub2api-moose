@@ -7,6 +7,7 @@ export interface ExtensionState {
   description: string
   managed: boolean
   enabled: boolean | null
+  configuration_error?: boolean
   disable_behavior: string
   paths: string[]
   slots?: string[]

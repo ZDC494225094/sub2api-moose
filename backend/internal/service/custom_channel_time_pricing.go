@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"fmt"
 	"math"
 	"sort"
@@ -31,14 +30,7 @@ func validateChannelTimePricing(config *ChannelTimePricing) error {
 }
 
 // MultiplierAt 返回 at 对应的分时倍率。无配置或脏配置均安全降级为 1。
-// 上游原生功能，不受二开扩展开关影响。
 func (config *ChannelTimePricing) MultiplierAt(at time.Time) float64 {
-	return config.MultiplierAtWithAdmission(nil, at)
-}
-
-// MultiplierAtWithAdmission 返回 at 对应的分时倍率。无配置或脏配置均安全降级为 1。
-// 上游原生分时定价不读取任何扩展开关。
-func (config *ChannelTimePricing) MultiplierAtWithAdmission(_ context.Context, at time.Time) float64 {
 	if config == nil || len(config.Periods) == 0 || at.IsZero() {
 		return 1.0
 	}

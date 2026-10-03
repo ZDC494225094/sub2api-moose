@@ -830,23 +830,6 @@ func ProvideAPIKeyService(
 	return svc
 }
 
-// ProvideAnnouncementService wires AnnouncementService with site-customization admission.
-func ProvideAnnouncementService(
-	announcementRepo AnnouncementRepository,
-	readRepo AnnouncementReadRepository,
-	userRepo UserRepository,
-	userSubRepo UserSubscriptionRepository,
-	announcementAdmission interface{}, // sitecustomization.AnnouncementAdmission
-) *AnnouncementService {
-	svc := NewAnnouncementService(announcementRepo, readRepo, userRepo, userSubRepo)
-	if admission, ok := announcementAdmission.(interface {
-		CheckCreate(context.Context) error
-	}); ok {
-		svc.SetAnnouncementAdmission(admission)
-	}
-	return svc
-}
-
 // ProviderSet is the Wire provider set for all services
 var ProviderSet = wire.NewSet(
 	// Core services
@@ -868,7 +851,7 @@ var ProviderSet = wire.NewSet(
 	ProvidePricingService,
 	NewBillingService,
 	ProvideBillingCacheService,
-	ProvideAnnouncementService,
+	NewAnnouncementService,
 	NewAdminService,
 	NewGatewayService,
 	NewOpenAIGatewayService,

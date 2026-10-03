@@ -1,9 +1,12 @@
 {
   "version": 1,
   "native_equivalent": [
-    "frontend/src/views/HomeView.vue"
+    "frontend/src/views/HomeView.vue",
+    "backend/internal/service/custom_channel_time_pricing.go"
   ],
   "required_files": [
+    "backend/internal/customize/migrations/sql/site-customization/202610030001_adopt_footer_links.sql",
+    "backend/internal/customize/migrations/site_customization_adoption_test.go",
     "backend/internal/customize/wiring/providers.go",
     "backend/internal/handler/custom_extensions.go",
     "backend/internal/handler/admin/operations_handler.go",
@@ -182,6 +185,11 @@
     "backend/internal/customize/migrations/subscription_ownership_test.go"
   ],
   "forbidden_references": [
+    {"file": "backend/internal/handler/grok_audio.go", "patterns": ["admitMediaGateway", "mediagateway\\.(ResponsesOperation|VoiceOperation)"]},
+    {"file": "backend/internal/handler/grok_media.go", "patterns": ["admitMediaGateway", "mediagateway\\.(ResponsesOperation|VoiceOperation)"]},
+    {"file": "backend/internal/handler/openai_gateway_handler.go", "patterns": ["admitMediaGateway", "mediagateway\\.(ResponsesOperation|VoiceOperation)"]},
+    {"file": "backend/internal/service/announcement_service.go", "patterns": ["SetAnnouncementAdmission", "sitecustomization\\.AnnouncementAdmission"]},
+    {"file": "backend/internal/service/group.go", "patterns": ["PeakMultiplierAtWithAdmission"]},
     {
       "file": "backend/internal/handler/admin/dashboard_handler.go",
       "patterns": [
@@ -860,6 +868,7 @@
     }
   ],
   "required_markers": [
+    { "file": "backend/internal/server/routes/custom_extensions.go", "marker": "v1.GET(\"/announcements/public\", extensions.Require(\"premium-home\"), list)" },
     {
       "file": "backend/cmd/server/wire_gen.go",
       "marker": "wiring.ProvideCouponService("
@@ -1219,22 +1228,6 @@
     {
       "file": "backend/internal/handler/gemini_v1beta_handler.go",
       "marker": "mediagateway.GeminiOperation(action)"
-    },
-    {
-      "file": "backend/internal/handler/grok_audio.go",
-      "marker": "mediagateway.VoiceOperation(c.Request.Method)"
-    },
-    {
-      "file": "backend/internal/handler/openai_gateway_handler.go",
-      "marker": "mediagateway.ResponsesOperation(payload)"
-    },
-    {
-      "file": "backend/internal/handler/openai_gateway_handler.go",
-      "marker": "mediagateway.ResponsesOperation(firstMessage)"
-    },
-    {
-      "file": "backend/internal/handler/openai_gateway_handler.go",
-      "marker": "mediagateway.ResponsesOperation(body)"
     },
     {
       "file": "backend/internal/service/media_gateway.go",

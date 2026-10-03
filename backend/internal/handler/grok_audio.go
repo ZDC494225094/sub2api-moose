@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/customize/modules/mediagateway"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -30,9 +29,6 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 	apiKey, ok := middleware2.GetAPIKeyFromContext(c)
 	if !ok || apiKey.Group == nil || apiKey.Group.Platform != service.PlatformGrok {
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Realtime API is not supported for this platform")
-		return
-	}
-	if !h.admitMediaGateway(c, mediagateway.Native) {
 		return
 	}
 	if !h.ensureResponsesDependencies(c, nil) {
@@ -178,9 +174,6 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 	apiKey, ok := middleware2.GetAPIKeyFromContext(c)
 	if !ok || apiKey.Group == nil || apiKey.Group.Platform != service.PlatformGrok {
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Voice API is not supported for this platform")
-		return
-	}
-	if !h.admitMediaGateway(c, mediagateway.VoiceOperation(c.Request.Method)) {
 		return
 	}
 	if !h.ensureResponsesDependencies(c, nil) {

@@ -34,7 +34,8 @@ type Manifest struct {
 type State struct {
 	Manifest
 	// nil means not migrated, not disabled. Pending modules never get fake switches.
-	Enabled *bool `json:"enabled"`
+	Enabled            *bool `json:"enabled"`
+	ConfigurationError bool  `json:"configuration_error,omitempty"`
 }
 
 type Store interface {
@@ -80,6 +81,20 @@ func Key(id string) string { return SettingPrefix + id + ".enabled" }
 // in another server process after an administrator disables them. Missing keys
 // are disabled; startup migrations explicitly adopt existing installations once.
 func (m *Manager) Snapshot(ctx context.Context) (map[string]bool, error) {
+	values, err := m.readValues(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]bool)
+	for _, item := range Catalog() {
+		if item.Managed {
+			result[item.ID] = values[Key(item.ID)] == "true"
+		}
+	}
+	return result, nil
+}
+
+func (m *Manager) readValues(ctx context.Context) (map[string]string, error) {
 	keys := []string{}
 	for _, item := range Catalog() {
 		if item.Managed {
@@ -93,15 +108,7 @@ func (m *Manager) Snapshot(ctx context.Context) (map[string]bool, error) {
 	if err != nil {
 		return nil, unavailable()
 	}
-	result := make(map[string]bool, len(keys))
-	for _, item := range Catalog() {
-		if !item.Managed {
-			continue
-		}
-		value, exists := values[Key(item.ID)]
-		result[item.ID] = exists && value == "true"
-	}
-	return result, nil
+	return values, nil
 }
 
 func (m *Manager) Enabled(ctx context.Context, id string) (bool, error) {
@@ -125,7 +132,7 @@ func (m *Manager) Enabled(ctx context.Context, id string) (bool, error) {
 }
 
 func (m *Manager) List(ctx context.Context) ([]State, error) {
-	values, err := m.Snapshot(ctx)
+	values, err := m.readValues(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +140,9 @@ func (m *Manager) List(ctx context.Context) ([]State, error) {
 	for _, item := range Catalog() {
 		state := State{Manifest: item}
 		if item.Managed {
-			enabled := values[item.ID]
+			value, exists := values[Key(item.ID)]
+			enabled := value == "true"
+			state.ConfigurationError = exists && value != "true" && value != "false"
 			state.Enabled = &enabled
 		}
 		items = append(items, state)

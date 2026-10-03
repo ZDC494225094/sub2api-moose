@@ -72,3 +72,9 @@ func registerCustomPaymentAdminRoutes(group *gin.RouterGroup, h *handler.Extensi
 	group.POST("/campaigns", h.RechargeCampaigns.Save)
 	group.PUT("/campaigns/:id", h.RechargeCampaigns.Save)
 }
+
+// Public announcements are a premium-home addition; authenticated upstream
+// announcement routes remain independent of this switch.
+func registerCustomPublicAnnouncementRoute(v1 *gin.RouterGroup, extensions *customize.Manager, list gin.HandlerFunc) {
+	v1.GET("/announcements/public", extensions.Require("premium-home"), list)
+}

@@ -50,6 +50,7 @@ async function confirm() {
   notice.value = ''
   try {
     await store.setEnabled(item.id as ExtensionId, pendingTarget.value)
+    item.configuration_error = false
     notice.value = `${item.name}已${store.enabled(item.id as ExtensionId) ? '开启' : '关闭'}。服务端新请求立即生效，其他页面在约 15 秒内同步。`
   } catch {
     error.value = '保存失败，开关未确认变更。请刷新状态后重试。'
@@ -122,7 +123,7 @@ onMounted(load)
               <p class="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-400">{{ item.description }}</p>
               <p class="mt-3 flex-1 border-t border-gray-100 pt-3 text-xs leading-5 text-gray-500 dark:border-dark-700 dark:text-gray-400">关闭行为：{{ item.disable_behavior }}</p>
               <div class="mt-3 flex flex-wrap gap-2 text-xs">
-                <span :class="store.enabled(item.id as ExtensionId) ? 'text-green-600 dark:text-green-400' : 'text-gray-500'">{{ stateUnavailable ? '状态未知' : store.enabled(item.id as ExtensionId) ? '● 已开启' : '○ 已关闭' }}</span>
+                <span :class="store.enabled(item.id as ExtensionId) ? 'text-green-600 dark:text-green-400' : 'text-gray-500'">{{ stateUnavailable ? '状态未知' : item.configuration_error ? '配置异常（请求拒绝，请重新设置）' : store.enabled(item.id as ExtensionId) ? '● 已开启' : '○ 已关闭' }}</span>
                 <span class="text-gray-400">前后端联动 · 保留数据 · 内置扩展</span>
               </div>
             </article>

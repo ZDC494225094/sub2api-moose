@@ -17,10 +17,7 @@ func RegisterUserRoutes(
 	settingService *service.SettingService,
 	panelRateLimiter *middleware.PanelRateLimiter,
 ) {
-	publicAnnouncements := v1.Group("/announcements")
-	{
-		publicAnnouncements.GET("/public", h.Announcement.ListPublic)
-	}
+	registerCustomPublicAnnouncementRoute(v1, settingService.CustomExtensions(), h.Announcement.ListPublic)
 
 	authenticated := v1.Group("")
 	authenticated.Use(gin.HandlerFunc(jwtAuth))

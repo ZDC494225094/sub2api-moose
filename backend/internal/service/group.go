@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -318,12 +317,6 @@ func parseMinutes(hhmm string) (int, bool) {
 //
 // 该方法是纯函数，不读取任何外部状态，便于单测。
 func (g *Group) PeakMultiplierAt(now time.Time) float64 {
-	return g.PeakMultiplierAtWithAdmission(nil, now)
-}
-
-// PeakMultiplierAtWithAdmission 保留旧调用签名，返回指定时刻的高峰因子。
-// 上游原生高峰倍率不读取任何扩展开关。
-func (g *Group) PeakMultiplierAtWithAdmission(_ context.Context, now time.Time) float64 {
 	if g == nil || !g.IsSubscriptionType() || !g.PeakRateEnabled || g.PeakStart == "" || g.PeakEnd == "" {
 		return 1.0
 	}

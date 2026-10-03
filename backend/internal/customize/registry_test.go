@@ -285,3 +285,28 @@ func TestSnapshotCorruptFlagDoesNotDisableOtherModules(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, enabled)
 }
+
+func TestAdminListReportsCorruptionAndAllowsRepair(t *testing.T) {
+	ctx := context.Background()
+	store := newStore()
+	store.values[Key("playground")] = "invalid"
+	store.values[Key("site-customization")] = "true"
+	m := NewManager(store)
+	states, err := m.List(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, store.reads, "admin listing must use one batch read")
+	for _, state := range states {
+		require.Equal(t, state.ID == "playground", state.ConfigurationError)
+	}
+	_, err = m.Enabled(ctx, "playground")
+	require.Error(t, err)
+	require.NoError(t, m.SetEnabled(ctx, "playground", false))
+	states, err = m.List(ctx)
+	require.NoError(t, err)
+	for _, state := range states {
+		require.False(t, state.ConfigurationError)
+	}
+	enabled, err := m.Enabled(ctx, "playground")
+	require.NoError(t, err)
+	require.False(t, enabled)
+}

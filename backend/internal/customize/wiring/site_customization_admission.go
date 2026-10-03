@@ -14,35 +14,10 @@ type siteCustomizationStateReader interface {
 	Enabled(context.Context, string) (bool, error)
 }
 
-// siteCustomizationAdmission implements both announcement and settings filter admission.
+// siteCustomizationAdmission implements footer-link settings filtering.
 type siteCustomizationAdmission struct {
 	states siteCustomizationStateReader
 	lookup func(string) (customize.Manifest, bool)
-}
-
-// CheckCreate checks if announcement creation is allowed (site-customization extension enabled).
-func (a *siteCustomizationAdmission) CheckCreate(ctx context.Context) error {
-	if a == nil || a.lookup == nil {
-		return sitecustomization.ErrExtensionDisabled
-	}
-	manifest, exists := a.lookup(siteCustomizationModuleID)
-	if !exists || manifest.ID != siteCustomizationModuleID {
-		return sitecustomization.ErrExtensionDisabled
-	}
-	if !manifest.Managed {
-		return sitecustomization.ErrExtensionDisabled
-	}
-	if a.states == nil {
-		return sitecustomization.ErrExtensionDisabled
-	}
-	enabled, err := a.states.Enabled(ctx, siteCustomizationModuleID)
-	if err != nil {
-		return err
-	}
-	if !enabled {
-		return sitecustomization.ErrExtensionDisabled
-	}
-	return nil
 }
 
 // ShouldExposeCustomUI checks if custom UI elements should be exposed in public settings.

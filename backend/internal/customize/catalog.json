@@ -2,7 +2,8 @@
   {
     "id": "premium-home",
     "name": "品牌首页与文档中心",
-    "description": "独立首页、动效与文档页面；关闭后根地址返回上游 /home。",
+    "description": "独立首页、动效、文档页面与首页公共公告接口；关闭后根地址返回上游 /home。",
+    "gates": ["GET /api/v1/announcements/public"],
     "managed": true,
     "disable_behavior": "停止进入品牌首页和文档中心，不修改上游首页配置。",
     "paths": [
