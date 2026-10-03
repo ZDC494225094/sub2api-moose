@@ -2,7 +2,7 @@
   "version": 1,
   "reviewed_at": "2026-10-02",
   "baseline": "aea725f2ea644d5592d0bbb1d63b607efa7e200a",
-  "note": "Exact-path ownership review, including the original 70 unmatched paths and Stage32 Seedance host seam. Records responsibility and host compatibility boundaries, not complete semantic coverage of regex-classified files. Original inventory remains unchanged.",
+  "note": "Exact-path ownership review, including the original 70 unmatched paths and Stage32 Seedance host seam. Records responsibility and host compatibility boundaries, not complete semantic coverage of regex-classified files. The sensitive dump.rdb runtime snapshot was removed from preservation and ownership ledgers; all other original inventory entries remain unchanged.",
   "reviews": [
     {
       "paths": [
@@ -31,14 +31,13 @@
     {
       "paths": [
         ".runtime/frontend-port.txt",
-        ".runtime/redis.runtime.conf",
-        "dump.rdb"
+        ".runtime/redis.runtime.conf"
       ],
       "owners": [
         "local-artifacts"
       ],
       "kind": "runtime-artifact",
-      "evidence": "Tracked local port/configuration and Redis snapshot, identified by path and file metadata only; contents are not read for business classification.",
+      "evidence": "Tracked local port/configuration, identified by path and file metadata only; contents are not read for business classification. The sensitive Redis snapshot dump.rdb was intentionally removed from the repository and is not implementation source.",
       "next_step": "Preserve in place, exclude from container build context, and obtain separate authorization before any data cleanup or Git-history cleanup."
     },
     {
