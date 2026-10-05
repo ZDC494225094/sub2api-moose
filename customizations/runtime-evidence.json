@@ -1,0 +1,427 @@
+{
+  "version": 1,
+  "baseline": "aea725f2ea644d5592d0bbb1d63b607efa7e200a",
+  "note": "Static marker and frozen-baseline provenance checks complement executed behavioral tests; they are not a call-graph proof or production acceptance. Each catalog gate must have an evidence row.",
+  "entries": [
+    {
+      "module": "premium-home",
+      "checkpoint": "GET /api/v1/announcements/public",
+      "read": {
+        "file": "backend/internal/customize/http.go",
+        "marker": "m.Enabled(c.Request.Context(), id)"
+      },
+      "call": {
+        "file": "backend/internal/server/routes/custom_extensions.go",
+        "marker": "extensions.Require(\"premium-home\")"
+      },
+      "test": {
+        "file": "backend/internal/server/routes/custom_extensions_test.go",
+        "marker": "TestPublicAnnouncementRouteRequiresPremiumHome"
+      },
+      "feature": {
+        "file": "backend/internal/handler/announcement_handler.go",
+        "marker": "func (h *AnnouncementHandler) ListPublic("
+      },
+      "scope": "新增入口拒绝；已有任务读取与上游入口不受此开关控制。"
+    },
+    {
+      "module": "playground",
+      "checkpoint": "module-entry",
+      "read": {
+        "file": "backend/internal/customize/http.go",
+        "marker": "m.Enabled(c.Request.Context(), id)"
+      },
+      "call": {
+        "file": "backend/internal/server/routes/custom_extensions.go",
+        "marker": "extensions.Require(\"playground\")"
+      },
+      "test": {
+        "file": "backend/internal/server/routes/custom_extensions_test.go",
+        "marker": "TestCustomRouteRegistrarsEnforceGatesAfterHostMiddleware"
+      },
+      "feature": {
+        "file": "backend/internal/handler/playground_handler.go",
+        "marker": "type PlaygroundHandler struct"
+      },
+      "scope": "新增入口拒绝；已有任务读取与上游入口不受此开关控制。"
+    },
+    {
+      "module": "infinite-canvas",
+      "checkpoint": "module-entry",
+      "read": {
+        "file": "backend/internal/customize/http.go",
+        "marker": "m.Enabled(c.Request.Context(), id)"
+      },
+      "call": {
+        "file": "backend/internal/server/routes/custom_extensions.go",
+        "marker": "extensions.Require(\"infinite-canvas\")"
+      },
+      "test": {
+        "file": "backend/internal/server/routes/custom_extensions_test.go",
+        "marker": "TestCustomRouteRegistrarsEnforceGatesAfterHostMiddleware"
+      },
+      "feature": {
+        "file": "backend/internal/handler/playground_handler.go",
+        "marker": "StartCanvasRun"
+      },
+      "scope": "新增入口拒绝；已有任务读取与上游入口不受此开关控制。"
+    },
+    {
+      "module": "operations-analytics",
+      "checkpoint": "module-entry",
+      "read": {
+        "file": "backend/internal/customize/http.go",
+        "marker": "m.Enabled(c.Request.Context(), id)"
+      },
+      "call": {
+        "file": "backend/internal/server/routes/custom_extensions.go",
+        "marker": "extensions.Require(\"operations-analytics\")"
+      },
+      "test": {
+        "file": "backend/internal/server/routes/custom_extensions_test.go",
+        "marker": "TestCustomRouteRegistrarsEnforceGatesAfterHostMiddleware"
+      },
+      "feature": {
+        "file": "backend/internal/server/routes/custom_extensions.go",
+        "marker": "GetOperationsFunnel"
+      },
+      "scope": "新增入口拒绝；已有任务读取与上游入口不受此开关控制。"
+    },
+    {
+      "module": "recharge-campaigns",
+      "checkpoint": "routes",
+      "read": {
+        "file": "backend/internal/customize/http.go",
+        "marker": "m.Enabled(c.Request.Context(), id)"
+      },
+      "call": {
+        "file": "backend/internal/server/routes/custom_extensions.go",
+        "marker": "extensions.Require(customize.RechargeCampaigns)"
+      },
+      "test": {
+        "file": "backend/internal/server/routes/custom_extensions_test.go",
+        "marker": "TestCustomRouteRegistrarsEnforceGatesAfterHostMiddleware"
+      },
+      "feature": {
+        "file": "backend/internal/server/routes/custom_extensions.go",
+        "marker": "RechargeCampaigns"
+      },
+      "scope": "新增入口拒绝；已有任务读取与上游入口不受此开关控制。"
+    },
+    {
+      "module": "recharge-campaigns",
+      "checkpoint": "checkout",
+      "read": {
+        "file": "backend/internal/service/custom_extensions.go",
+        "marker": "Enabled(ctx, customize.RechargeCampaigns)"
+      },
+      "call": {
+        "file": "backend/internal/service/recharge_campaign.go",
+        "marker": "s.rechargeCampaignExtensionEnabled(ctx)"
+      },
+      "test": {
+        "file": "backend/internal/service/custom_extensions_test.go",
+        "marker": "TestDisabledCampaignBypassesAutomaticBenefitsButRejectsStaleSelection"
+      },
+      "feature": {
+        "file": "backend/internal/service/recharge_campaign.go",
+        "marker": "RechargeCampaign"
+      },
+      "scope": "只影响新订单活动优惠；已有快照继续履约。"
+    },
+    {
+      "module": "customer-support",
+      "checkpoint": "module-entry",
+      "read": {
+        "file": "frontend/src/extensions/components/ExtensionSlot.vue",
+        "marker": "extensions.enabled(entry.extension)"
+      },
+      "call": {
+        "file": "frontend/src/extensions/slots.ts",
+        "marker": "SupportWidget"
+      },
+      "test": {
+        "file": "frontend/src/extensions/__tests__/slots.spec.ts",
+        "marker": "renders nothing while disabled or unknown, without replacing native content"
+      },
+      "feature": {
+        "file": "frontend/src/extensions/slots.ts",
+        "marker": "SupportWidget"
+      },
+      "scope": "UI 模块：真实组件卸载，原生内容保留。"
+    },
+    {
+      "module": "marketing-tools",
+      "checkpoint": "module-entry",
+      "read": {
+        "file": "backend/internal/customize/wiring/marketing_admission.go",
+        "marker": "a.states.Enabled(ctx, marketingModuleID)"
+      },
+      "call": {
+        "file": "backend/internal/customize/modules/marketing/coupon_service.go",
+        "marker": "requireNewBusiness(ctx, s.admission)"
+      },
+      "test": {
+        "file": "backend/internal/customize/wiring/marketing_routes_admission_test.go",
+        "marker": "TestMarketingManagementRoutesEnforceServiceAdmission"
+      },
+      "feature": {
+        "file": "backend/internal/customize/modules/marketing/coupon.go",
+        "marker": "CouponTemplate"
+      },
+      "scope": "新增发券、抽奖和管理写入；历史结算不读开关。"
+    },
+    {
+      "module": "multi-group-billing",
+      "checkpoint": "api-key-create",
+      "read": {
+        "file": "backend/internal/customize/wiring/key_routing_admission.go",
+        "marker": "a.states.Enabled(ctx, multigroupbilling.ModuleID)"
+      },
+      "call": {
+        "file": "backend/internal/service/api_key_group_binding.go",
+        "marker": "s.routingAdmission.MultiGroupEnabled"
+      },
+      "test": {
+        "file": "backend/internal/service/api_key_routing_admission_test.go",
+        "marker": "TestAPIKeyCreateRecordsDurableRoutingOwnership"
+      },
+      "feature": {
+        "file": "backend/internal/service/api_key_group_binding.go",
+        "marker": "RoutingPolicy"
+      },
+      "scope": "只影响新增路由配置；已有归属不被反向重写。"
+    },
+    {
+      "module": "multi-group-billing",
+      "checkpoint": "api-key-update",
+      "read": {
+        "file": "backend/internal/customize/wiring/key_routing_admission.go",
+        "marker": "a.states.Enabled(ctx, multigroupbilling.ModuleID)"
+      },
+      "call": {
+        "file": "backend/internal/service/api_key_group_binding.go",
+        "marker": "s.routingAdmission.MultiGroupEnabled"
+      },
+      "test": {
+        "file": "backend/internal/service/api_key_routing_admission_test.go",
+        "marker": "TestAPIKeyUpdateRespectsRoutingOwnership"
+      },
+      "feature": {
+        "file": "backend/internal/service/api_key_group_binding.go",
+        "marker": "RoutingPolicy"
+      },
+      "scope": "只影响新增路由配置；已有归属不被反向重写。"
+    },
+    {
+      "module": "billing-scheduling",
+      "checkpoint": "probe-custom-options",
+      "read": {
+        "file": "backend/internal/customize/modules/billingscheduling/admission.go",
+        "marker": "states.Enabled(ctx, ModuleID)"
+      },
+      "call": {
+        "file": "backend/internal/service/upstream_billing_probe.go",
+        "marker": "billingscheduling.ProbeOptions("
+      },
+      "test": {
+        "file": "backend/internal/service/upstream_billing_probe_test.go",
+        "marker": "TestBillingExtensionDisabledPreservesNativeProbe"
+      },
+      "feature": {
+        "file": "backend/internal/service/group.go",
+        "marker": "BillingRateSyncAccountID"
+      },
+      "scope": "二开探测选项与分组倍率写回；原生账户同步、组合调度、分时/高峰定价不受影响。"
+    },
+    {
+      "module": "billing-scheduling",
+      "checkpoint": "group-rate-sync",
+      "read": {
+        "file": "backend/internal/customize/modules/billingscheduling/admission.go",
+        "marker": "states.Enabled(ctx, ModuleID)"
+      },
+      "call": {
+        "file": "backend/internal/service/upstream_billing_probe.go",
+        "marker": "if requireEnabled && snapshot.Status == UpstreamBillingProbeStatusOK &&"
+      },
+      "test": {
+        "file": "backend/internal/service/upstream_billing_probe_test.go",
+        "marker": "TestBillingExtensionDisabledDuringProbeStopsGroupWrite"
+      },
+      "feature": {
+        "file": "backend/internal/service/group.go",
+        "marker": "BillingRateSyncAccountID"
+      },
+      "scope": "二开探测选项与分组倍率写回；原生账户同步、组合调度、分时/高峰定价不受影响。"
+    },
+    {
+      "module": "subscription-extensions",
+      "checkpoint": "subscription-issuance",
+      "read": {
+        "file": "backend/internal/customize/modules/subscriptionextensions/policy.go",
+        "marker": "states.Enabled(ctx, ModuleID)"
+      },
+      "call": {
+        "file": "backend/internal/service/subscription_issuance.go",
+        "marker": "s.issuanceAdmission.NewSubscriptionPolicy(ctx)"
+      },
+      "test": {
+        "file": "backend/internal/service/subscription_issuance_test.go",
+        "marker": "TestSubscriptionIssuanceNativeAssignmentAndRenewal"
+      },
+      "feature": {
+        "file": "backend/internal/service/subscription_issuance.go",
+        "marker": "CustomSubscriptionPolicy"
+      },
+      "scope": "新分配回退原生续期；历史冻结策略继续履约。"
+    },
+    {
+      "module": "media-gateway",
+      "checkpoint": "gemini-video-submit",
+      "read": {
+        "file": "backend/internal/customize/modules/mediagateway/admission.go",
+        "marker": "states.Enabled(ctx, ModuleID)"
+      },
+      "call": {
+        "file": "backend/internal/handler/gemini_v1beta_handler.go",
+        "marker": "h.settingService.CheckMediaGatewayAdmission("
+      },
+      "test": {
+        "file": "backend/internal/handler/media_gateway_test.go",
+        "marker": "TestMediaGatewayRejectsVeoBeforeUpstream"
+      },
+      "feature": {
+        "file": "backend/internal/customize/modules/mediagateway/admission.go",
+        "marker": "predictLongRunning"
+      },
+      "scope": "仅 Veo 新提交；原生 Gemini 不受影响。"
+    },
+    {
+      "module": "media-gateway",
+      "checkpoint": "compatible-video-submit",
+      "read": {
+        "file": "backend/internal/customize/modules/mediagateway/admission.go",
+        "marker": "states.Enabled(ctx, ModuleID)"
+      },
+      "call": {
+        "file": "backend/internal/service/openai_compatible_video.go",
+        "marker": "s.CheckMediaGatewayAdmission(ctx, mediagateway.Submit)"
+      },
+      "test": {
+        "file": "backend/internal/service/media_gateway_boundary_test.go",
+        "marker": "TestMediaExtensionServiceRejectsBeforeNetwork"
+      },
+      "feature": {
+        "file": "backend/internal/service/openai_compatible_video.go",
+        "marker": "ForwardOpenAICompatibleVideo"
+      },
+      "scope": "仅新增协议适配；历史结果查询和计费继续，原生 Grok/Seedance/语音不加门禁。"
+    },
+    {
+      "module": "media-gateway",
+      "checkpoint": "grok-video-r-submit",
+      "read": {
+        "file": "backend/internal/customize/modules/mediagateway/admission.go",
+        "marker": "states.Enabled(ctx, ModuleID)"
+      },
+      "call": {
+        "file": "backend/internal/service/grok_media.go",
+        "marker": "if chatTextToVideo {"
+      },
+      "test": {
+        "file": "backend/internal/service/media_gateway_boundary_test.go",
+        "marker": "TestMediaExtensionServiceRejectsBeforeNetwork"
+      },
+      "feature": {
+        "file": "backend/internal/service/grok_media.go",
+        "marker": "grok-video-r"
+      },
+      "scope": "仅新增协议适配；历史结果查询和计费继续，原生 Grok/Seedance/语音不加门禁。"
+    },
+    {
+      "module": "media-gateway",
+      "checkpoint": "grok-string-image-adapter",
+      "read": {
+        "file": "backend/internal/customize/modules/mediagateway/admission.go",
+        "marker": "states.Enabled(ctx, ModuleID)"
+      },
+      "call": {
+        "file": "backend/internal/service/grok_media.go",
+        "marker": "s.CheckMediaGatewayAdmission(ctx, mediagateway.Submit)"
+      },
+      "test": {
+        "file": "backend/internal/service/media_gateway_boundary_test.go",
+        "marker": "TestMediaExtensionServiceRejectsBeforeNetwork"
+      },
+      "feature": {
+        "file": "backend/internal/service/grok_media.go",
+        "marker": "canonicalizeGrokMediaStringImageURLFields"
+      },
+      "scope": "仅新增协议适配；历史结果查询和计费继续，原生 Grok/Seedance/语音不加门禁。"
+    },
+    {
+      "module": "admin-efficiency",
+      "checkpoint": "admin-efficiency-write",
+      "read": {
+        "file": "backend/internal/customize/modules/adminefficiency/admission.go",
+        "marker": "states.Enabled(ctx, ModuleID)"
+      },
+      "call": {
+        "file": "backend/internal/service/admin_account.go",
+        "marker": "s.requireAdminEfficiency(ctx)"
+      },
+      "test": {
+        "file": "backend/internal/service/admin_efficiency_test.go",
+        "marker": "TestAdminEfficiencyRejectsEveryMutationBeforeRepositoryAccess"
+      },
+      "feature": {
+        "file": "backend/internal/service/admin_account.go",
+        "marker": "UpdateAccountSortOrders"
+      },
+      "scope": "二开管理写入拒绝；原生编辑和历史读取保留。"
+    },
+    {
+      "module": "site-customization",
+      "checkpoint": "footer-friend-links-public",
+      "read": {
+        "file": "backend/internal/customize/wiring/site_customization_admission.go",
+        "marker": "a.states.Enabled(ctx, siteCustomizationModuleID)"
+      },
+      "call": {
+        "file": "backend/internal/service/setting_public.go",
+        "marker": "admission.ShouldExposeCustomUI(ctx)"
+      },
+      "test": {
+        "file": "backend/internal/customize/wiring/site_customization_admission_test.go",
+        "marker": "TestFooterAdmissionFiltersOnlyForkSettings"
+      },
+      "feature": {
+        "file": "backend/internal/service/setting_public.go",
+        "marker": "footer_friend_links"
+      },
+      "scope": "只隐藏友情链接；上游菜单、端点与公告保留。"
+    },
+    {
+      "module": "access-policy",
+      "checkpoint": "access-policy-configuration-write",
+      "read": {
+        "file": "backend/internal/customize/modules/accesspolicy/settings.go",
+        "marker": "states.Enabled(ctx, ModuleID)"
+      },
+      "call": {
+        "file": "backend/internal/service/access_policy.go",
+        "marker": "accesspolicy.CheckConfigurationChange("
+      },
+      "test": {
+        "file": "backend/internal/service/access_policy_test.go",
+        "marker": "TestAccessPolicyConfigurationAllSettingsSavePaths"
+      },
+      "feature": {
+        "file": "backend/internal/customize/modules/accesspolicy/settings.go",
+        "marker": "registration_proof_enabled"
+      },
+      "scope": "只限制二开安全配置修改；原生域名额度设置可修改，历史规则继续执行。"
+    }
+  ]
+}

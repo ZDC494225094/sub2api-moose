@@ -51,7 +51,7 @@
       ],
       "kind": "runtime-artifact",
       "evidence": "Temporary build logo and generated image outputs; no filename references were found in frontend/src, frontend/package.json, backend/internal/web or tools.",
-      "next_step": "Preserve artifacts, exclude only these output directories from container context; do not remove frontend/public/logo.png."
+      "next_step": "Generated PNGs removed on 2026-10-04 at user request, recorded in inventory removed_artifacts; keep the temporary logo review and do not remove frontend/public/logo.png."
     },
     {
       "paths": [

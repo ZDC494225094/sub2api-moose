@@ -3787,13 +3787,6 @@
       "reason": "Stage31: configuration-only admission, fail-closed security settings and request-specific page boundary. Existing security enforcement is independent of the business switch."
     },
     {
-      "from": "frontend/src/App.vue",
-      "to": [
-        "frontend/src/extensions/modules/access-policy/AccessPolicyBoundary.vue"
-      ],
-      "reason": "Stage31: configuration-only admission, fail-closed security settings and request-specific page boundary. Existing security enforcement is independent of the business switch."
-    },
-    {
       "from": "backend/internal/service/grok_media.go",
       "to": [
         "backend/internal/customize/modules/mediagateway/endpoint.go",
@@ -3832,6 +3825,16 @@
         "backend/internal/customize/modules/subscriptionextensions/entschema/issuance.go"
       ],
       "reason": "Stage33: immutable issuance schema contribution; additive independent migration and non-unique ownership index."
+    }
+  ],
+  "removed_artifacts": [
+    {
+      "path": "generated/edit_20260813_122316_uocd.png",
+      "reason": "User-requested removal of generated PNG runtime output; not application source. Original inventory retained for audit."
+    },
+    {
+      "path": "generated/img_20260813_122011_zc9k.png",
+      "reason": "User-requested removal of generated PNG runtime output; not application source. Original inventory retained for audit."
     }
   ]
 }

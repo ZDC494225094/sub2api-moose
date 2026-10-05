@@ -13,3 +13,14 @@ func (h *OpenAIGatewayHandler) admitMediaGateway(c *gin.Context, operation media
 	}
 	return true
 }
+
+// Preserve local admission errors without retrying or penalizing an account.
+func (h *OpenAIGatewayHandler) handleMediaAdmissionError(c *gin.Context, err error) bool {
+	switch infraerrors.Reason(err) {
+	case "CUSTOM_EXTENSION_DISABLED", "CUSTOM_EXTENSION_STATE_UNAVAILABLE":
+		h.errorResponse(c, infraerrors.Code(err), infraerrors.Reason(err), infraerrors.Message(err))
+		return true
+	default:
+		return false
+	}
+}

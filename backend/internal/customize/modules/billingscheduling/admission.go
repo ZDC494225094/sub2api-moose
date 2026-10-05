@@ -1,39 +1,31 @@
+// Package billingscheduling owns fork-only probe options and group rate sync.
+// Native account rate sync, composite routing and request pricing are not gated.
 package billingscheduling
 
-import (
-	"context"
-	"errors"
-)
+import "context"
 
-var (
-	// ErrExtensionDisabled is returned when the billing-scheduling extension is disabled.
-	ErrExtensionDisabled = errors.New("BILLING_SCHEDULING_EXTENSION_DISABLED")
-)
+const ModuleID = "billing-scheduling"
 
-// RateMultiplierAdmission controls access to custom rate multiplier features.
-type RateMultiplierAdmission interface {
-	// AllowRateMultiplier checks if custom rate multipliers are allowed.
-	// Returns ErrExtensionDisabled when the extension is off.
-	AllowRateMultiplier(ctx context.Context) error
+type StateReader interface {
+	Enabled(context.Context, string) (bool, error)
 }
 
-// TimePricingAdmission controls access to time-based pricing features.
-type TimePricingAdmission interface {
-	// AllowTimePricing checks if time-based pricing is allowed.
-	// Returns ErrExtensionDisabled when the extension is off.
-	AllowTimePricing(ctx context.Context) error
+// Enabled fails closed for optional background enhancements, not native probes.
+// A caller must preserve upstream observation/account-sync work on failure.
+func Enabled(ctx context.Context, states StateReader) bool {
+	if states == nil {
+		return false
+	}
+	enabled, err := states.Enabled(ctx, ModuleID)
+	return err == nil && enabled
 }
 
-// CustomUsageAdmission controls access to custom usage calculation features.
-type CustomUsageAdmission interface {
-	// AllowCustomUsage checks if custom usage calculations are allowed.
-	// Returns ErrExtensionDisabled when the extension is off.
-	AllowCustomUsage(ctx context.Context) error
-}
-
-// CompositeSchedulingAdmission controls access to composite scheduling features.
-type CompositeSchedulingAdmission interface {
-	// AllowCompositeScheduling checks if composite scheduling is allowed.
-	// Returns ErrExtensionDisabled when the extension is off.
-	AllowCompositeScheduling(ctx context.Context) error
+func ProbeOptions(enabled bool, globalInterval, accountInterval int, autoSync bool) (int, bool) {
+	if !enabled {
+		if globalInterval < 5 {
+			globalInterval = 5
+		}
+		return globalInterval, false
+	}
+	return accountInterval, autoSync
 }

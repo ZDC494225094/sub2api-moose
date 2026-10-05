@@ -24,17 +24,18 @@ can repair the native whitelist through the settings API without enabling this m
 
 ## Page-only regional restriction
 
-App requires a fresh public-settings request before mounting the page. Failure stays
-at a retry boundary; server injection/cache is not a request-specific decision. A
-restricted page cannot mount during the redirect interval. Native `/setup` remains
-accessible for initialization. This remains a **page-only** rule: it does not turn
-into a gateway/API regional blockade. It is not a replacement for backend auth.
+Pages render immediately as before pluginization. App still refreshes public settings
+and applies the existing regional redirect, but settings latency or failure does not
+introduce a full-page policy loading/error/retry screen. The Stage31 render boundary
+was an unintended behavior change and was removed on 2026-10-04 at the user's request.
+No new access strategy replaces it. Existing server-side rules and authentication are
+unchanged; regional navigation is not a gateway/API access-control boundary.
 
 ## Adoption and verification
 
 A standalone ledger migration adopts legacy installations as enabled and native
 installations as disabled, preserves explicit values, and does not edit existing
 rules. Historical SQL and migration order are unchanged. Module, service, handler,
-migration, real SettingsView and App-boundary tests cover on/off/missing/invalid
+migration, real SettingsView and App refresh-behavior tests cover on/off/missing/invalid
 states, failures and retained rules. Local tests/builds are not PostgreSQL migration
 rehearsal, live browser verification or production deployment.

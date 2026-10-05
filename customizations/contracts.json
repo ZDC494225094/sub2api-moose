@@ -2,7 +2,9 @@
   "version": 1,
   "native_equivalent": [
     "frontend/src/views/HomeView.vue",
-    "backend/internal/service/custom_channel_time_pricing.go"
+    "backend/internal/service/custom_channel_time_pricing.go",
+    "backend/internal/service/composite_route_resolver.go",
+    "backend/internal/service/composite_platform.go"
   ],
   "required_files": [
     "backend/internal/customize/migrations/sql/site-customization/202610030001_adopt_footer_links.sql",
@@ -156,9 +158,7 @@
     "backend/internal/customize/migrations/sql/access-policy/202610020001_adopt_access_policy.sql",
     "backend/internal/customize/migrations/access_policy_adoption_test.go",
     "frontend/src/extensions/modules/access-policy/configuration.ts",
-    "frontend/src/extensions/modules/access-policy/AccessPolicyBoundary.vue",
     "frontend/src/extensions/modules/access-policy/__tests__/configuration.spec.ts",
-    "frontend/src/extensions/modules/access-policy/__tests__/AccessPolicyBoundary.spec.ts",
     "frontend/src/extensions/modules/access-policy/__tests__/AppAccessPolicy.spec.ts",
     "backend/internal/customize/modules/mediagateway/README.md",
     "backend/internal/customize/modules/mediagateway/admission.go",
@@ -182,14 +182,47 @@
     "backend/internal/repository/subscription_ownership.go",
     "backend/internal/repository/subscription_ownership_test.go",
     "backend/internal/customize/migrations/sql/subscription-extensions/202610020003_subscription_ownership.sql",
-    "backend/internal/customize/migrations/subscription_ownership_test.go"
+    "backend/internal/customize/migrations/subscription_ownership_test.go",
+    "backend/internal/customize/migrations/sql/billing-scheduling/202610040001_adopt_probe_extensions.sql",
+    "backend/internal/customize/migrations/billing_scheduling_adoption_test.go",
+    "backend/internal/customize/modules/billingscheduling/admission_test.go",
+    "backend/internal/handler/media_gateway_error_test.go"
   ],
   "forbidden_references": [
-    {"file": "backend/internal/handler/grok_audio.go", "patterns": ["admitMediaGateway", "mediagateway\\.(ResponsesOperation|VoiceOperation)"]},
-    {"file": "backend/internal/handler/grok_media.go", "patterns": ["admitMediaGateway", "mediagateway\\.(ResponsesOperation|VoiceOperation)"]},
-    {"file": "backend/internal/handler/openai_gateway_handler.go", "patterns": ["admitMediaGateway", "mediagateway\\.(ResponsesOperation|VoiceOperation)"]},
-    {"file": "backend/internal/service/announcement_service.go", "patterns": ["SetAnnouncementAdmission", "sitecustomization\\.AnnouncementAdmission"]},
-    {"file": "backend/internal/service/group.go", "patterns": ["PeakMultiplierAtWithAdmission"]},
+    {
+      "file": "backend/internal/handler/grok_audio.go",
+      "patterns": [
+        "admitMediaGateway",
+        "mediagateway\\.(ResponsesOperation|VoiceOperation)"
+      ]
+    },
+    {
+      "file": "backend/internal/handler/grok_media.go",
+      "patterns": [
+        "admitMediaGateway",
+        "mediagateway\\.(ResponsesOperation|VoiceOperation)"
+      ]
+    },
+    {
+      "file": "backend/internal/handler/openai_gateway_handler.go",
+      "patterns": [
+        "admitMediaGateway",
+        "mediagateway\\.(ResponsesOperation|VoiceOperation)"
+      ]
+    },
+    {
+      "file": "backend/internal/service/announcement_service.go",
+      "patterns": [
+        "SetAnnouncementAdmission",
+        "sitecustomization\\.AnnouncementAdmission"
+      ]
+    },
+    {
+      "file": "backend/internal/service/group.go",
+      "patterns": [
+        "PeakMultiplierAtWithAdmission"
+      ]
+    },
     {
       "file": "backend/internal/handler/admin/dashboard_handler.go",
       "patterns": [
@@ -865,10 +898,21 @@
         "github\\.com/Wei-Shaw/sub2api/ent\\b",
         "customize.NewManager"
       ]
+    },
+    {
+      "file": "frontend/src/App.vue",
+      "patterns": [
+        "AccessPolicyBoundary",
+        "accessPolicyPageReady",
+        "refreshAccessPolicy"
+      ]
     }
   ],
   "required_markers": [
-    { "file": "backend/internal/server/routes/custom_extensions.go", "marker": "v1.GET(\"/announcements/public\", extensions.Require(\"premium-home\"), list)" },
+    {
+      "file": "backend/internal/server/routes/custom_extensions.go",
+      "marker": "v1.GET(\"/announcements/public\", extensions.Require(\"premium-home\"), list)"
+    },
     {
       "file": "backend/cmd/server/wire_gen.go",
       "marker": "wiring.ProvideCouponService("
@@ -1218,10 +1262,6 @@
       "marker": "await appStore.fetchPublicSettings(true)"
     },
     {
-      "file": "frontend/src/App.vue",
-      "marker": "<AccessPolicyBoundary :resolved=\"accessPolicyPageReady\""
-    },
-    {
       "file": "frontend/src/views/admin/SettingsView.vue",
       "marker": "admitAccessPolicySettings(payload, accessPolicyConfigurationEnabled.value)"
     },
@@ -1260,6 +1300,10 @@
     {
       "file": "backend/ent/schema/redeem_code.go",
       "marker": "subscriptionentschema.Issuance"
+    },
+    {
+      "file": "frontend/src/App.vue",
+      "marker": "<RouterView />"
     }
   ]
 }

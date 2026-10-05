@@ -3,7 +3,9 @@
     "id": "premium-home",
     "name": "品牌首页与文档中心",
     "description": "独立首页、动效、文档页面与首页公共公告接口；关闭后根地址返回上游 /home。",
-    "gates": ["GET /api/v1/announcements/public"],
+    "gates": [
+      "GET /api/v1/announcements/public"
+    ],
     "managed": true,
     "disable_behavior": "停止进入品牌首页和文档中心，不修改上游首页配置。",
     "paths": [
@@ -102,11 +104,14 @@
   {
     "id": "billing-scheduling",
     "name": "计费与调度增强",
-    "description": "分组倍率同步与组合调度尚未完成准入及历史归属隔离；上游分时定价和高峰倍率不属于此模块。",
-    "managed": false,
-    "disable_behavior": "待解耦，不提供无效开关；现有计费与调度保持原行为。",
+    "description": "分组倍率同步、账号级探测间隔与自动同步选项；不控制上游原生账号倍率同步、组合调度、分时定价及高峰倍率。",
+    "managed": true,
+    "disable_behavior": "停止后续分组倍率写回，探测使用上游全局间隔（至少五分钟）且忽略二开自动同步选项；保留现有倍率与配置。已准入的账号探测可完成，上游原生同步继续执行。",
     "paths": [],
-    "gates": []
+    "gates": [
+      "probe-custom-options",
+      "group-rate-sync"
+    ]
   },
   {
     "id": "subscription-extensions",
@@ -122,12 +127,15 @@
   {
     "id": "media-gateway",
     "name": "视频与媒体协议扩展",
-    "description": "Veo predictLongRunning 新任务准入；上游媒体协议不受此开关控制。",
+    "description": "Veo、新增 OpenAI-compatible 视频适配、grok-video-r 与字符串图片参数兼容；原生 Grok/Seedance/语音协议不受影响。",
     "managed": true,
-    "disable_behavior": "拒绝新建 Veo 视频任务；历史任务与上游 Grok、Seedance、语音能力保持不变。",
+    "disable_behavior": "拒绝新增二开媒体协议请求；不拦截原生媒体请求，历史任务查询、取消、结果规范化和计费继续完成。",
     "paths": [],
     "gates": [
-      "gemini-video-submit"
+      "gemini-video-submit",
+      "compatible-video-submit",
+      "grok-video-r-submit",
+      "grok-string-image-adapter"
     ]
   },
   {
@@ -160,7 +168,7 @@
     "name": "访问与注册策略增强",
     "description": "注册凭证、邮箱域名额度与别名去重、区域页面访问规则独立模块；宿主保留鉴权、设置和原子数据库守卫。",
     "managed": true,
-    "disable_behavior": "关闭后禁止修改二开安全配置；安全规则仍按原安全设置执行，旧凭证继续校验，配置读取失败拒绝注册及页面放行。停用已有规则须先在安全设置中明确关闭，再关闭插件。原生邮箱白名单仍可管理。",
+    "disable_behavior": "关闭后禁止修改二开安全配置；安全规则仍按原安全设置执行，旧凭证继续校验，注册配置读取失败仍拒绝注册；页面保持改造前的正常渲染与已有区域跳转，不增加全页等待。停用已有规则须先在安全设置中明确关闭，再关闭插件。原生邮箱白名单仍可管理。",
     "paths": [],
     "gates": [
       "access-policy-configuration-write"

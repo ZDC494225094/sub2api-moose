@@ -161,8 +161,9 @@ func (r *upstreamBillingProbeAccountRepo) FindByExtraField(_ context.Context, ke
 
 type upstreamBillingProbeSettingRepo struct {
 	SettingRepository
-	mu     sync.Mutex
-	values map[string]string
+	readErr error
+	mu      sync.Mutex
+	values  map[string]string
 }
 
 type upstreamBillingProbeHTTPStub struct {
@@ -203,6 +204,21 @@ func (u *upstreamBillingProbeHTTPStub) Do(req *http.Request, proxyURL string, ac
 
 func (u *upstreamBillingProbeHTTPStub) DoWithTLS(req *http.Request, proxyURL string, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile) (*http.Response, error) {
 	return u.Do(req, proxyURL, accountID, accountConcurrency)
+}
+
+func (r *upstreamBillingProbeSettingRepo) GetMultiple(_ context.Context, keys []string) (map[string]string, error) {
+	if r.readErr != nil {
+		return nil, r.readErr
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	values := map[string]string{}
+	for _, key := range keys {
+		if value, ok := r.values[key]; ok {
+			values[key] = value
+		}
+	}
+	return values, nil
 }
 
 func (r *upstreamBillingProbeSettingRepo) GetValue(_ context.Context, key string) (string, error) {
@@ -315,7 +331,8 @@ func TestUpstreamBillingProbeAutoSyncsValidatedRateMultiplier(t *testing.T) {
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{
-		SettingKeyUpstreamBillingProbeSettings: `{"enabled":true,"interval_minutes":30}`,
+		"custom_extensions.billing-scheduling.enabled": "true",
+		SettingKeyUpstreamBillingProbeSettings:         `{"enabled":true,"interval_minutes":30}`,
 	}}
 	svc := newUpstreamBillingProbeTestService(repo, &upstreamBillingProbeHTTPStub{}, settingsRepo)
 	svc.now = func() time.Time { return time.Date(2026, 7, 13, 1, 0, 0, 0, time.UTC) }
@@ -345,7 +362,8 @@ func TestUpstreamBillingProbeUsesDatabaseDecodedAccountInterval(t *testing.T) {
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{
-		SettingKeyUpstreamBillingProbeSettings: `{"enabled":true,"interval_minutes":30}`,
+		"custom_extensions.billing-scheduling.enabled": "true",
+		SettingKeyUpstreamBillingProbeSettings:         `{"enabled":true,"interval_minutes":30}`,
 	}}
 	svc := newUpstreamBillingProbeTestService(repo, &upstreamBillingProbeHTTPStub{}, settingsRepo)
 	fixedNow := time.Date(2026, 7, 13, 1, 0, 0, 0, time.UTC)
@@ -369,7 +387,7 @@ func TestScheduledProbeSyncsReferenceGroupsButManualProbeDoesNot(t *testing.T) {
 		Credentials: map[string]any{"api_key": "sk-sensitive", "base_url": "https://upstream.example"},
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
-	svc := newUpstreamBillingProbeTestService(repo, &upstreamBillingProbeHTTPStub{}, &upstreamBillingProbeSettingRepo{})
+	svc := newUpstreamBillingProbeTestService(repo, &upstreamBillingProbeHTTPStub{}, &upstreamBillingProbeSettingRepo{values: map[string]string{"custom_extensions.billing-scheduling.enabled": "true"}})
 	svc.now = func() time.Time { return time.Date(2026, 7, 13, 1, 0, 0, 0, time.UTC) }
 
 	_, err := svc.probeScheduledAccount(context.Background(), account.ID, 30)
@@ -1413,4 +1431,55 @@ func TestUpstreamBillingProbeLeaderLockCoversStaggeredInstancesInCadenceWindow(t
 	staggered.SetLeaderLock(cache, nil)
 	require.NoError(t, staggered.RunDue(context.Background()))
 	require.Equal(t, int64(1), upstream.calls.Load(), "a staggered instance must not start a second batch inside the cadence window")
+}
+
+// Exercise the real scheduled write boundary, not only the policy helper.
+func TestBillingExtensionDisabledPreservesNativeProbe(t *testing.T) {
+	for _, flag := range []string{"", "false", "malformed", "unavailable"} {
+		for _, nativeSync := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/native=%v", flag, nativeSync), func(t *testing.T) {
+				rate := 1.25
+				account := &Account{ID: 91, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Concurrency: 1,
+					RateMultiplier: &rate, Credentials: map[string]any{"api_key": "test", "base_url": "https://upstream.example"},
+					Extra: map[string]any{UpstreamBillingProbeEnabledExtraKey: true, UpstreamBillingProbeIntervalExtraKey: 5,
+						UpstreamBillingProbeAutoSyncExtraKey: true, UpstreamBillingRateSyncEnabledExtraKey: nativeSync}}
+				repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{91: account}}
+				settings := &upstreamBillingProbeSettingRepo{values: map[string]string{"custom_extensions.billing-scheduling.enabled": flag}}
+				if flag == "" {
+					delete(settings.values, "custom_extensions.billing-scheduling.enabled")
+				}
+				if flag == "unavailable" {
+					settings.readErr = errors.New("settings unavailable")
+				}
+				svc := newUpstreamBillingProbeTestService(repo, &upstreamBillingProbeHTTPStub{}, settings)
+				snapshot, err := svc.probeScheduledAccount(context.Background(), 91, 30)
+				require.NoError(t, err)
+				require.Equal(t, UpstreamBillingProbeStatusOK, snapshot.Status)
+				require.Equal(t, 30, snapshot.IntervalMinutes)
+				require.Empty(t, repo.groupRateSyncs[91])
+				if nativeSync {
+					require.Equal(t, 0.8, *account.RateMultiplier)
+				} else {
+					require.Equal(t, 1.25, *account.RateMultiplier)
+				}
+			})
+		}
+	}
+}
+
+func TestBillingExtensionDisabledDuringProbeStopsGroupWrite(t *testing.T) {
+	account := &Account{ID: 92, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Concurrency: 1,
+		Credentials: map[string]any{"api_key": "test", "base_url": "https://upstream.example"}, Extra: map[string]any{UpstreamBillingProbeEnabledExtraKey: true}}
+	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{92: account}}
+	settings := &upstreamBillingProbeSettingRepo{values: map[string]string{"custom_extensions.billing-scheduling.enabled": "true"}}
+	upstream := &upstreamBillingProbeHTTPStub{beforeResponse: func() {
+		settings.mu.Lock()
+		defer settings.mu.Unlock()
+		settings.values["custom_extensions.billing-scheduling.enabled"] = "false"
+	}}
+	svc := newUpstreamBillingProbeTestService(repo, upstream, settings)
+	snapshot, err := svc.probeScheduledAccount(context.Background(), 92, 30)
+	require.NoError(t, err)
+	require.Equal(t, UpstreamBillingProbeStatusOK, snapshot.Status)
+	require.Empty(t, repo.groupRateSyncs[92])
 }

@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/billingscheduling"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
@@ -560,8 +561,12 @@ func (s *UpstreamBillingProbeService) probeAccountWithMode(ctx context.Context, 
 		if !isUpstreamBillingProbeAccount(account) {
 			return nil, ErrUpstreamBillingProbeAccountInvalid
 		}
-		intervalMinutes = upstreamBillingProbeIntervalMinutes(account, intervalMinutes)
-		autoSyncRateMultiplier := upstreamBillingProbeAutoSyncRateMultiplier(account)
+		// Admission is at the probe boundary, never on request billing. Failure
+		// disables only fork options; native probing/account sync still runs.
+		extensionEnabled := billingscheduling.Enabled(ctx, s.settingService.CustomExtensions())
+		var autoSyncRateMultiplier bool
+		intervalMinutes, autoSyncRateMultiplier = billingscheduling.ProbeOptions(extensionEnabled, intervalMinutes,
+			upstreamBillingProbeIntervalMinutes(account, intervalMinutes), upstreamBillingProbeAutoSyncRateMultiplier(account))
 		if requireEnabled {
 			if !account.IsActive() || !upstreamBillingProbeEnabled(account) {
 				return nil, nil
@@ -583,7 +588,8 @@ func (s *UpstreamBillingProbeService) probeAccountWithMode(ctx context.Context, 
 	if !ok {
 		return nil, fmt.Errorf("invalid upstream billing probe result")
 	}
-	if requireEnabled && snapshot.Status == UpstreamBillingProbeStatusOK {
+	if requireEnabled && snapshot.Status == UpstreamBillingProbeStatusOK &&
+		billingscheduling.Enabled(ctx, s.settingService.CustomExtensions()) {
 		observedAt := s.currentTime().UTC()
 		if snapshot.ReceivedAt != nil {
 			observedAt = snapshot.ReceivedAt.UTC()
@@ -796,7 +802,7 @@ func (s *UpstreamBillingProbeService) probeLoadedAccount(ctx context.Context, ac
 	// 指数退避——探测本身成功了，原始声明照常存进快照供展示。
 	var syncRate *float64
 	previousRate := account.BillingRateMultiplier()
-	if upstreamBillingRateSyncEnabled(account) || autoSyncRateMultiplier {
+	if nativeUpstreamBillingRateSyncEnabled(account) || autoSyncRateMultiplier {
 		if value, valid := upstreamBillingProbeSyncRate(data); valid {
 			syncRate = &value
 			snapshot.SyncedRateMultiplier = &value
@@ -1175,6 +1181,13 @@ func upstreamBillingRateSyncEnabled(account *Account) bool {
 	}
 	if upstreamBillingProbeAutoSyncRateMultiplier(account) {
 		return true
+	}
+	return nativeUpstreamBillingRateSyncEnabled(account)
+}
+
+func nativeUpstreamBillingRateSyncEnabled(account *Account) bool {
+	if account == nil || account.Extra == nil {
+		return false
 	}
 	enabled, ok := account.Extra[UpstreamBillingRateSyncEnabledExtraKey].(bool)
 	return ok && enabled && upstreamBillingProbeEnabled(account)

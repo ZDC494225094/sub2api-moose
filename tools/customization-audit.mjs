@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { dirname, resolve, relative, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { evaluateContracts, evaluateInventory, evaluateProviderReachability } from './lib/customization-contracts.mjs'
+import { evaluateContracts, evaluateInventory, evaluateProviderReachability, evaluateRuntimeEvidence, renderRuntimeEvidence } from './lib/customization-contracts.mjs'
 import { evaluateOwnership, ownershipCheckFailed } from './lib/customization-ownership.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -84,6 +84,24 @@ const contractViolations = evaluateContracts(contractConfig, {
   },
 })
 contractViolations.push(...evaluateProviderReachability(readLocal('backend/internal/customize/wiring/providers.go').toString('utf8'), readLocal('backend/cmd/server/wire_gen.go').toString('utf8')))
+
+const runtimeEvidence = JSON.parse(readLocal('customizations/runtime-evidence.json').toString('utf8'))
+if (runtimeEvidence.baseline !== base) throw new Error('Runtime evidence must use the frozen upstream baseline')
+const featureCache = new Map()
+contractViolations.push(...evaluateRuntimeEvidence(runtimeEvidence, JSON.parse(readLocal('backend/internal/customize/catalog.json').toString('utf8')), {
+  readLocal: file => readLocal(file)?.toString('utf8'),
+  featureInBaseline: marker => {
+    if (!featureCache.has(marker)) {
+      try { git('grep', '-l', '-F', marker, base, '--', 'backend', 'frontend'); featureCache.set(marker, true) }
+      catch (error) { if (error.status !== 1) throw error; featureCache.set(marker, false) }
+    }
+    return featureCache.get(marker)
+  },
+}))
+const evidenceMarkdown = renderRuntimeEvidence(runtimeEvidence, file => readLocal(file)?.toString('utf8'))
+if (readLocal('customizations/RUNTIME_EVIDENCE.md')?.toString('utf8').replace(/\r\n/g, '\n') !== evidenceMarkdown) {
+  contractViolations.push({ rule: 'runtime-evidence', file: 'customizations/RUNTIME_EVIDENCE.md', detail: 'Stale evidence table; regenerate with node tools/customization-evidence.mjs' })
+}
 
 const report = {
   generated_at: new Date().toISOString(),

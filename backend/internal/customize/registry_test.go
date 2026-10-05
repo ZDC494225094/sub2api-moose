@@ -64,7 +64,7 @@ func TestCatalogAndDefaultDisabled(t *testing.T) {
 			require.Nil(t, state.Enabled)
 		}
 	}
-	require.Equal(t, 13, count)
+	require.Equal(t, 14, count)
 }
 
 func TestPersistentIndependentSwitchesAcrossManagers(t *testing.T) {
@@ -173,7 +173,7 @@ func TestStateHTTPContracts(t *testing.T) {
 		r.ServeHTTP(w, httptest.NewRequest("PUT", "/admin/playground", strings.NewReader(body)))
 		require.Equal(t, 400, w.Code)
 	}
-	for id, code := range map[string]int{"playground": 200, "marketing-tools": 200, "multi-group-billing": 200, "billing-scheduling": 409, "site-customization": 200, "access-policy": 200, "subscription-extensions": 200, "media-gateway": 200, "unknown": 404} {
+	for id, code := range map[string]int{"playground": 200, "marketing-tools": 200, "multi-group-billing": 200, "billing-scheduling": 200, "site-customization": 200, "access-policy": 200, "subscription-extensions": 200, "media-gateway": 200, "unknown": 404} {
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, httptest.NewRequest("PUT", "/admin/"+id, strings.NewReader(`{"enabled":false}`)))
 		require.Equal(t, code, w.Code)

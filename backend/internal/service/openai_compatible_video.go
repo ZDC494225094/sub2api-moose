@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/mediagateway"
 	"io"
 	"net/http"
 	"net/url"
@@ -39,6 +40,13 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 		return nil, fmt.Errorf("unsupported OpenAI-compatible video endpoint: %s", endpoint)
 	}
 
+	// Only this fork's video adapter is gated. Historical reads drain without
+	// consulting state, and the upstream Seedance handler is untouched.
+	if endpoint == GrokMediaEndpointVideosGenerations {
+		if err := s.CheckMediaGatewayAdmission(ctx, mediagateway.Submit); err != nil {
+			return nil, err
+		}
+	}
 	token, _, err := s.getRequestCredential(ctx, c, account)
 	if err != nil {
 		return nil, err

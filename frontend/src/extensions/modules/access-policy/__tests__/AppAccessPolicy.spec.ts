@@ -13,7 +13,6 @@ vi.mock('vue-router', () => ({
   useRouter: () => ({ replace: mocks.replace, afterEach: vi.fn() }),
 }))
 vi.mock('@/extensions/runtime', () => ({ useCustomExtensionRuntime: vi.fn() }))
-vi.mock('@/extensions/modules/site-customization', () => ({ useSiteCustomizationAdmission: () => ({ value: false }) }))
 vi.mock('@/stores', () => ({
   useAppStore: () => mocks.app,
   useAuthStore: () => ({ isAuthenticated: false, isAdmin: false }),
@@ -33,7 +32,15 @@ vi.mock('@/components/admin/AdminComplianceDialog.vue', () => ({ default: { temp
 vi.mock('@/components/common/AnnouncementPopup.vue', () => ({ default: { template: '<div />' } }))
 vi.mock('@/extensions/components/ExtensionSlot.vue', () => ({ default: { template: '<div />' } }))
 
-describe('App request-specific access policy boundary', () => {
+// Plugin isolation must not introduce a new loading/error screen around native routes.
+function expectNativePage(wrapper: ReturnType<typeof mount>) {
+  expect(wrapper.find('[data-page]').exists()).toBe(true)
+  expect(wrapper.find('[role="status"]').exists()).toBe(false)
+  expect(wrapper.find('button').exists()).toBe(false)
+  expect(wrapper.text()).not.toMatch(/访问策略|access policy/i)
+}
+
+describe('App preserves pre-plugin refresh behavior', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     mocks.route = reactive({ path: '/dashboard', fullPath: '/dashboard', meta: {} })
@@ -41,21 +48,47 @@ describe('App request-specific access policy boundary', () => {
     mocks.setup.mockResolvedValue({ needs_setup: false })
     mocks.replace.mockResolvedValue(undefined)
   })
-  it('never mounts from stale cache after a failed fresh request, and allows retry', async () => {
-    mocks.fetch.mockResolvedValueOnce(null)
+
+  it('mounts the native page immediately even while setup status is pending', async () => {
+    let finish!: (value: { needs_setup: boolean }) => void
+    mocks.setup.mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    mocks.fetch.mockResolvedValue(mocks.app.cachedPublicSettings)
     const wrapper = mount(App)
-    expect(wrapper.find('[data-page]').exists()).toBe(false)
+    expectNativePage(wrapper)
+    expect(mocks.fetch).not.toHaveBeenCalled()
+    finish({ needs_setup: false })
     await flushPromises()
-    expect(mocks.fetch).toHaveBeenCalledWith(true)
-    expect(wrapper.find('[data-page]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('暂时无法确认')
-    mocks.fetch.mockResolvedValueOnce(mocks.app.cachedPublicSettings)
-    await wrapper.get('button').trigger('click')
-    await flushPromises()
-    expect(wrapper.find('[data-page]').exists()).toBe(true)
+    expectNativePage(wrapper)
     wrapper.unmount()
   })
-  it('keeps the protected page unmounted while a restricted redirect is pending', async () => {
+
+  it.each([false, true, undefined])('does not block rendering while public settings are pending (cached restriction=%s)', async enabled => {
+    mocks.app.cachedPublicSettings = enabled === undefined ? null : { mainland_china_access_restriction_enabled: enabled }
+    let finish!: (value: unknown) => void
+    mocks.fetch.mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    const wrapper = mount(App)
+    expectNativePage(wrapper)
+    await flushPromises()
+    expect(mocks.fetch).toHaveBeenCalledWith(true)
+    expectNativePage(wrapper)
+    finish({ mainland_china_access_restriction_enabled: false })
+    await flushPromises()
+    expectNativePage(wrapper)
+    wrapper.unmount()
+  })
+
+  it('keeps the native page on public-settings failure without adding an error screen or retry policy', async () => {
+    // The real app store normalizes API failures to null.
+    mocks.fetch.mockResolvedValue(null)
+    const wrapper = mount(App)
+    expectNativePage(wrapper)
+    await flushPromises()
+    expectNativePage(wrapper)
+    expect(mocks.replace).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('preserves the existing regional redirect without adding a render boundary', async () => {
     let finish!: () => void
     mocks.replace.mockImplementation(() => new Promise<void>(resolve => { finish = resolve }))
     mocks.fetch.mockImplementation(async () => {
@@ -63,21 +96,43 @@ describe('App request-specific access policy boundary', () => {
       return mocks.app.cachedPublicSettings
     })
     const wrapper = mount(App)
+    expectNativePage(wrapper)
     await flushPromises()
     expect(mocks.replace).toHaveBeenCalledWith('/access-restricted')
-    expect(wrapper.find('[data-page]').exists()).toBe(false)
+    expectNativePage(wrapper)
     mocks.route.path = '/access-restricted'
     finish()
     await flushPromises()
-    expect(wrapper.find('[data-page]').exists()).toBe(true)
+    expectNativePage(wrapper)
     wrapper.unmount()
   })
-  it('allows native setup without requiring public settings', async () => {
-    mocks.route.path = '/setup'
-    mocks.fetch.mockRejectedValue(new Error('not initialized'))
+
+  it('preserves the native setup redirect without fetching public settings', async () => {
+    mocks.setup.mockResolvedValue({ needs_setup: true })
+    const wrapper = mount(App)
+    expectNativePage(wrapper)
+    await flushPromises()
+    expect(mocks.replace).toHaveBeenCalledWith('/setup')
+    expect(mocks.fetch).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('keeps the native page when setup status fails', async () => {
+    mocks.setup.mockRejectedValue(new Error('setup unavailable'))
+    mocks.fetch.mockResolvedValue(null)
     const wrapper = mount(App)
     await flushPromises()
-    expect(wrapper.find('[data-page]').exists()).toBe(true)
+    expectNativePage(wrapper)
+    expect(mocks.fetch).toHaveBeenCalledWith(true)
+    wrapper.unmount()
+  })
+
+  it('keeps native setup visible when public settings are unavailable', async () => {
+    mocks.route.path = '/setup'
+    mocks.fetch.mockResolvedValue(null)
+    const wrapper = mount(App)
+    await flushPromises()
+    expectNativePage(wrapper)
     wrapper.unmount()
   })
 })

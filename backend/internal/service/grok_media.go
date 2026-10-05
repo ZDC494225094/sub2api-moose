@@ -778,10 +778,16 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 		return nil, err
 	}
 	if endpoint == GrokMediaEndpointVideosGenerations && xai.IsOfficialBaseURL(targetURL) {
-		body, err = canonicalizeGrokMediaStringImageURLFields(body, "image", "images", "reference_images")
-		if err != nil {
-			return nil, err
+		normalized, normalizeErr := canonicalizeGrokMediaStringImageURLFields(body, "image", "images", "reference_images")
+		if normalizeErr != nil {
+			return nil, normalizeErr
 		}
+		if !bytes.Equal(body, normalized) {
+			if err := s.CheckMediaGatewayAdmission(ctx, mediagateway.Submit); err != nil {
+				return nil, err
+			}
+		}
+		body = normalized
 	}
 	requestInfo := ParseGrokMediaRequest(contentType, body)
 	upstreamModel := requestInfo.Model
@@ -803,6 +809,9 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 	chatTextToVideo := shouldForwardGrokVideoRAsChat(endpoint, requestInfo)
 	upstreamEndpoint := ""
 	if chatTextToVideo {
+		if err := s.CheckMediaGatewayAdmission(ctx, mediagateway.Submit); err != nil {
+			return nil, err
+		}
 		targetURL, err = buildGrokChatCompletionsURL(account, s.cfg)
 		if err != nil {
 			return nil, err

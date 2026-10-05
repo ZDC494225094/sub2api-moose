@@ -50,7 +50,7 @@ func TestSiteCustomizationAdoptionDefaultsAndLedgerRollback(t *testing.T) {
 WHEN NEW.module_id='site-customization' BEGIN SELECT RAISE(ABORT,'site ledger failed'); END`)
 			require.ErrorContains(t, (Runner{}).Apply(ctx, conn), "site ledger failed")
 			require.NotContains(t, flags(t, conn), customize.Key("site-customization"))
-			require.Equal(t, 7, recorded(t, conn))
+			require.Equal(t, 8, recorded(t, conn))
 			execute(t, conn, "DROP TRIGGER reject_site_ledger")
 			require.NoError(t, (Runner{}).Apply(ctx, conn))
 			require.Equal(t, map[bool]string{false: "false", true: "true"}[legacy], flags(t, conn)[customize.Key("site-customization")])

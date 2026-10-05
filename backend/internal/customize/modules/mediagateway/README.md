@@ -1,11 +1,9 @@
-# Media gateway extension
+# Media gateway extension (2026-10-04)
 
-The runtime switch owns only new Gemini Veo `predictLongRunning` submissions. Native Grok images/video, Seedance, voice/realtime and Responses image tools never consult the flag. Existing task reads, cancellation and settlement retain host authorization and ownership checks.
+The switch owns new Veo `predictLongRunning`, the fork's OpenAI-compatible video adapter, `grok-video-r` text-to-video chat conversion, and official Grok string-image normalization. These features are absent from frozen upstream `aea725f2`. Native Grok image/video protocol, native Seedance, voice/realtime and Responses image tools do not consult the flag.
 
-Missing, invalid or unavailable flags reject new Veo work. The existing adoption SQL is immutable: legacy defaults true, native defaults false, explicit choices are retained. Module and handler tests cover native bypass and Veo fail-closed behavior. Local tests are not deployed upstream-network or PostgreSQL acceptance.
+Missing/false flags reject new fork operations with 403; invalid/unavailable state rejects with 503. The host preserves these errors without retrying another account or reporting an upstream failure. Service admission precedes network submission. Existing result reads, URL/status normalization, cancellation and settlement remain ungated and retain host ownership checks; these completion helpers are not new-business admission points.
 
-## Remaining ownership audit (2026-10-03)
+Do not gate every Grok request just because its service file has fork changes. The no-op native handler calls and WebSocket JSON classification remain removed and protected by contracts. Historical migration SQL is immutable: legacy defaults true, native false, explicit choices retained.
 
-Do not infer that every change in `service/grok_media.go` is upstream-native. Compared with `aea725f2`, this file adds the `grok-video-r` chat-completions adapter, compatible video status/URL extraction, synchronous-result billing and string image URL normalization. These differences still require individual ownership, admission and in-flight behavior review; the current switch does not cover all of them. The 13-managed catalog count is not evidence that this audit is complete.
-
-The no-op native admission calls have been removed from Grok audio/media and Responses handlers, including the WebSocket per-message JSON classification. Contract checks prohibit reintroducing these calls. Only the genuine Gemini admission remains in those handlers.
+Service boundary tests cover each added adapter with off/missing/invalid state before network access; existing native forwarding tests continue without enabled fixtures, while fork success fixtures explicitly opt in. Handler/module tests cover Veo, native bypass and historical ownership. See the generated runtime evidence matrix for source/test locations. Local tests are not production PostgreSQL or real external-network acceptance.

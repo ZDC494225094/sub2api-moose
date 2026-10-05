@@ -13,10 +13,17 @@
 - `../tools/customization-audit.mjs`：只读差异、归属来源、多责任归属、契约和固定账本检查；`--check` 阻止新增未归类路径或无效精确归属。
 - `../tools/lib/customization-ownership.mjs`：纯函数精确路径校验与归属计算，不访问运行数据内容。
 - `../tools/customization-verify.mjs`：统一 check/full/build 入口，合成前端、画布和后端 embed 产物。
-- `../tools/__tests__/customization-*.test.mjs`：门禁、精确归属、构建产物保护及执行计划自身的 29 项回归测试。
+- `../tools/__tests__/customization-*.test.mjs`：门禁、精确归属、构建产物保护及执行计划自身的回归测试。
 - `../.github/workflows/custom-extensions.yml`：独立契约和全量回归 CI（尚未远端运行）。
 - `../backend/internal/customize/modules/rechargecampaigns/`：独立活动配置、报价、历史快照、邀请奖励/退款规则与回归；不导入宿主 service/Ent，事务与订单幂等仍由宿主拥有。
 
-- `../backend/internal/customize/modules/marketing/`：独立券/抽奖规则、仓储接口、事务/钱包/原生奖品端口；交易连接修正与订单券预留回归见模块 README。整体仍待隔离，未开放营销开关。
+- `../backend/internal/customize/modules/marketing/`：独立券/抽奖规则、仓储接口、事务/钱包/原生奖品端口；交易连接修正与订单券预留回归见模块 README。已具备新业务准入与历史履约边界；历史阶段记录不代表当前目录状态。
 
 部署边界、验证记录、升级与回退步骤见仓库根目录 `CUSTOM_EXTENSIONS.md`。不存放凭据或本地配置。
+
+## 2026-10-04 审查修复
+
+- `runtime-evidence.json` / `RUNTIME_EVIDENCE.md`：14 模块实际开关位置、调用、关闭分支测试及固定基线特征对比。`node tools/customization-evidence.mjs` 更新行号；统一 `--check` 检查覆盖和陈旧文档。
+- 组合调度本来就是上游，不再纳入计费开关。计费增强在探测/分组同步侧准入，不在计费主链路读数据库。
+- `inventory-baseline.json` 保留原始路径，两个已删除生成 PNG 用明确 removed_artifacts 审查项记录，不能借此豁免业务源文件。重复 backend/backend 代码已删除。历史宿主 500 号迁移保持不变。
+- managed 数量不是全仓代码完全搬迁、未来合并零冲突或生产验收的证明。完整运行时范围以 catalog 和证据表为准。
