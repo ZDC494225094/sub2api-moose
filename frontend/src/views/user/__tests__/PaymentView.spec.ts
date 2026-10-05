@@ -939,6 +939,28 @@ describe('PaymentView recharge campaign checkout', () => {
     await flushPromises()
     return wrapper
   }
+  it.each([
+    { mode: 'bonus' as const, threshold: 50, credited: '$120.00', payable: '100.00', enabled: true },
+    { mode: 'discount' as const, threshold: 50, credited: '$100.00', payable: '80.00', enabled: true },
+    { mode: 'bonus' as const, threshold: 200, credited: '', payable: '100.00', enabled: true },
+    { mode: 'bonus' as const, threshold: 50, credited: '$120.00', payable: '100.00', enabled: false },
+  ])('keeps native $mode pricing ahead of campaigns (threshold $threshold, plugin $enabled)', async ({ mode, threshold, credited, payable, enabled }) => {
+    vi.mocked(extensionAPI.publicState).mockResolvedValue(extensionFlags(enabled) as never)
+    getCheckoutInfo.mockResolvedValue(checkoutInfoFixture({
+      recharge_bonus_mode: mode,
+      recharge_bonus_tiers: [{ min_amount: threshold, bonus_percent: 20 }],
+    }))
+    const wrapper = await mountCampaign(active)
+    if (credited) expect(wrapper.text()).toContain(credited)
+    expect(wrapper.text()).not.toContain('$110.00')
+    const submit = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))!
+    expect(submit.text()).toContain(payable)
+    expect(submit.attributes('disabled')).toBeUndefined()
+    await submit.trigger('click'); await flushPromises()
+    expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({ amount: 100, order_type: 'balance' }))
+    expect(createOrder.mock.calls[0]![0]).not.toHaveProperty('campaign_id')
+    wrapper.unmount()
+  })
   it('automatically applies the gift without a referral or selection and sends its revision', async () => {
     const wrapper = await mountCampaign(active)
     expect(wrapper.text()).toContain('$110.00')

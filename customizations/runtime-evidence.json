@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "baseline": "aea725f2ea644d5592d0bbb1d63b607efa7e200a",
+  "baseline": "b8dece9000c68815a5b867ca5a1e6f236e173905",
   "note": "Static marker and frozen-baseline provenance checks complement executed behavioral tests; they are not a call-graph proof or production acceptance. Each catalog gate must have an evidence row.",
   "entries": [
     {

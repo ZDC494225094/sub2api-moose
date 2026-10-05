@@ -60,3 +60,32 @@ func TestUnconfiguredCampaignDefaultsToNativeCheckout(t *testing.T) {
 	_, err = svc.prepareRechargeCampaign(context.Background(), req, &PaymentConfig{})
 	require.ErrorContains(t, err, "disabled")
 }
+
+func TestNativeRechargeTiersTakePriorityOverCampaigns(t *testing.T) {
+	for _, mode := range []string{RechargeBonusModeBonus, RechargeBonusModeDiscount} {
+		t.Run(mode, func(t *testing.T) {
+			// No database or flag service: native checkout must not depend on the custom module.
+			svc := &PaymentService{}
+			cfg := &PaymentConfig{BalanceRechargeMultiplier: 1, RechargeBonusMode: mode,
+				RechargeBonusTiers: []RechargeBonusTier{{MinAmount: 100, BonusPercent: 20}}}
+			for _, amount := range []float64{50, 100} {
+				req := CreateOrderRequest{OrderType: payment.OrderTypeBalance, Amount: amount}
+				snap, err := svc.prepareRechargeCampaign(context.Background(), req, cfg)
+				require.NoError(t, err)
+				require.Nil(t, snap)
+				req.CampaignID = 7
+				_, err = svc.prepareRechargeCampaign(context.Background(), req, cfg)
+				require.Error(t, err, "stale campaign quote must not silently change the price")
+			}
+			quote := quoteRechargeBonus(cfg, 100, "USD")
+			if mode == RechargeBonusModeBonus {
+				require.Equal(t, 100.0, quote.PayBase)
+				require.Equal(t, 120.0, quote.Credited)
+			} else {
+				require.Equal(t, 80.0, quote.PayBase)
+				require.Equal(t, 100.0, quote.Credited)
+			}
+			require.Equal(t, 20.0, quote.Bonus)
+		})
+	}
+}

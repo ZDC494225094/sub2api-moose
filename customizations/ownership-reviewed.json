@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_at": "2026-10-02",
-  "baseline": "aea725f2ea644d5592d0bbb1d63b607efa7e200a",
+  "reviewed_at": "2026-10-05",
+  "baseline": "b8dece9000c68815a5b867ca5a1e6f236e173905",
   "note": "Exact-path ownership review, including the original 70 unmatched paths and Stage32 Seedance host seam. Records responsibility and host compatibility boundaries, not complete semantic coverage of regex-classified files. The sensitive dump.rdb runtime snapshot was removed from preservation and ownership ledgers; all other original inventory entries remain unchanged.",
   "reviews": [
     {
@@ -290,6 +290,7 @@
     {
       "paths": [
         "docs/upstream-v0.2.7-merge.md",
+        "docs/upstream-v0.2.13-merge.md",
         "启动命令.txt"
       ],
       "owners": [

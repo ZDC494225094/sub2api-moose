@@ -23,6 +23,7 @@ import (
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqljson"
 )
 
 type apiKeyRepository struct {
@@ -490,7 +491,7 @@ func (r *apiKeyRepository) apiKeyListByUserIDQuery(userID int64, filters service
 			q = q.Where(func(s *entsql.Selector) {
 				s.Where(entsql.Or(
 					entsql.EQ(s.C(apikey.FieldGroupID), *filters.GroupID),
-					entsql.ExprP("group_ids @> ?::jsonb", fmt.Sprintf("[%d]", *filters.GroupID)),
+					sqljson.ValueContains(s.C(apikey.FieldGroupIds), *filters.GroupID),
 				))
 			})
 		}
@@ -687,7 +688,7 @@ func (r *apiKeyRepository) ListByGroupID(ctx context.Context, groupID int64, par
 	q := r.activeQuery().Where(func(s *entsql.Selector) {
 		s.Where(entsql.Or(
 			entsql.EQ(s.C(apikey.FieldGroupID), groupID),
-			entsql.ExprP("group_ids @> ?::jsonb", fmt.Sprintf("[%d]", groupID)),
+			sqljson.ValueContains(s.C(apikey.FieldGroupIds), groupID),
 		))
 	})
 
@@ -721,6 +722,17 @@ func (r *apiKeyRepository) ListByGroupID(ctx context.Context, groupID int64, par
 func apiKeyListOrder(params pagination.PaginationParams) []func(*entsql.Selector) {
 	sortBy := strings.ToLower(strings.TrimSpace(params.SortBy))
 	sortOrder := params.NormalizedSortOrder(pagination.SortOrderDesc)
+
+	if sortBy == "group" {
+		// Sort before pagination, keeping ungrouped keys last in either direction.
+		opts := []entsql.OrderTermOption{entsql.OrderNullsLast()}
+		tieOrder := dbent.Asc(apikey.FieldID)
+		if sortOrder == pagination.SortOrderDesc {
+			opts = append(opts, entsql.OrderDesc())
+			tieOrder = dbent.Desc(apikey.FieldID)
+		}
+		return []func(*entsql.Selector){apikey.ByGroupField(group.FieldName, opts...), tieOrder}
+	}
 
 	var field string
 	switch sortBy {
@@ -783,7 +795,7 @@ func (r *apiKeyRepository) CountByGroupID(ctx context.Context, groupID int64) (i
 	count, err := r.activeQuery().Where(func(s *entsql.Selector) {
 		s.Where(entsql.Or(
 			entsql.EQ(s.C(apikey.FieldGroupID), groupID),
-			entsql.ExprP("group_ids @> ?::jsonb", fmt.Sprintf("[%d]", groupID)),
+			sqljson.ValueContains(s.C(apikey.FieldGroupIds), groupID),
 		))
 	}).Count(ctx)
 	return int64(count), err
@@ -805,7 +817,7 @@ func (r *apiKeyRepository) ListKeysByGroupID(ctx context.Context, groupID int64)
 		Where(func(s *entsql.Selector) {
 			s.Where(entsql.Or(
 				entsql.EQ(s.C(apikey.FieldGroupID), groupID),
-				entsql.ExprP("group_ids @> ?::jsonb", fmt.Sprintf("[%d]", groupID)),
+				sqljson.ValueContains(s.C(apikey.FieldGroupIds), groupID),
 			))
 		}).
 		Select(apikey.FieldKey).

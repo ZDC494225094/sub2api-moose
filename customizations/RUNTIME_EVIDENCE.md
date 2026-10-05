@@ -1,6 +1,6 @@
 # 扩展开关可达性检查表
 
-固定上游基线：aea725f2ea644d5592d0bbb1d63b607efa7e200a
+固定上游基线：b8dece9000c68815a5b867ca5a1e6f236e173905
 
 本表由 runtime-evidence.json 生成；行号随工作区源码更新。结构门禁检查实际标记、目录覆盖和上游特征缺失，不冒充 Go 调用图分析，也不代表测试已经执行或生产验收。测试结果以 verification 日志为准。
 
@@ -11,7 +11,7 @@
 | infinite-canvas / module-entry | backend/internal/customize/http.go:28 | backend/internal/server/routes/custom_extensions.go:24 | backend/internal/server/routes/custom_extensions_test.go:34 — TestCustomRouteRegistrarsEnforceGatesAfterHostMiddleware | backend/internal/handler/playground_handler.go:101 — StartCanvasRun | 新增入口拒绝；已有任务读取与上游入口不受此开关控制。 |
 | operations-analytics / module-entry | backend/internal/customize/http.go:28 | backend/internal/server/routes/custom_extensions.go:38 | backend/internal/server/routes/custom_extensions_test.go:34 — TestCustomRouteRegistrarsEnforceGatesAfterHostMiddleware | backend/internal/server/routes/custom_extensions.go:39 — GetOperationsFunnel | 新增入口拒绝；已有任务读取与上游入口不受此开关控制。 |
 | recharge-campaigns / routes | backend/internal/customize/http.go:28 | backend/internal/server/routes/custom_extensions.go:55 | backend/internal/server/routes/custom_extensions_test.go:34 — TestCustomRouteRegistrarsEnforceGatesAfterHostMiddleware | backend/internal/server/routes/custom_extensions.go:52 — RechargeCampaigns | 新增入口拒绝；已有任务读取与上游入口不受此开关控制。 |
-| recharge-campaigns / checkout | backend/internal/service/custom_extensions.go:20 | backend/internal/service/recharge_campaign.go:37 | backend/internal/service/custom_extensions_test.go:15 — TestDisabledCampaignBypassesAutomaticBenefitsButRejectsStaleSelection | backend/internal/service/recharge_campaign.go:16 — RechargeCampaign | 只影响新订单活动优惠；已有快照继续履约。 |
+| recharge-campaigns / checkout | backend/internal/service/custom_extensions.go:20 | backend/internal/service/recharge_campaign.go:46 | backend/internal/service/custom_extensions_test.go:15 — TestDisabledCampaignBypassesAutomaticBenefitsButRejectsStaleSelection | backend/internal/service/recharge_campaign.go:16 — RechargeCampaign | 只影响新订单活动优惠；已有快照继续履约。 |
 | customer-support / module-entry | frontend/src/extensions/components/ExtensionSlot.vue:12 | frontend/src/extensions/slots.ts:19 | frontend/src/extensions/__tests__/slots.spec.ts:30 — renders nothing while disabled or unknown, without replacing native content | frontend/src/extensions/slots.ts:19 — SupportWidget | UI 模块：真实组件卸载，原生内容保留。 |
 | marketing-tools / module-entry | backend/internal/customize/wiring/marketing_admission.go:40 | backend/internal/customize/modules/marketing/coupon_service.go:43 | backend/internal/customize/wiring/marketing_routes_admission_test.go:18 — TestMarketingManagementRoutesEnforceServiceAdmission | backend/internal/customize/modules/marketing/coupon.go:12 — CouponTemplate | 新增发券、抽奖和管理写入；历史结算不读开关。 |
 | multi-group-billing / api-key-create | backend/internal/customize/wiring/key_routing_admission.go:30 | backend/internal/service/api_key_group_binding.go:31 | backend/internal/service/api_key_routing_admission_test.go:71 — TestAPIKeyCreateRecordsDurableRoutingOwnership | backend/internal/service/api_key_group_binding.go:34 — RoutingPolicy | 只影响新增路由配置；已有归属不被反向重写。 |

@@ -14,6 +14,7 @@ export interface CheckoutQuote {
 export interface CheckoutExtensionContext {
   amount: ComputedRef<number>
   baseQuote: ComputedRef<CheckoutQuote>
+  nativePricingActive?: () => boolean
   balanceMultiplier: () => number
   feeRate: () => number
   mayRefresh: () => boolean

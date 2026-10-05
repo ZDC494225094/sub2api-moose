@@ -93,9 +93,10 @@ func TestRewriteOpenAIImagesModel_PreservesGiteeImageControls(t *testing.T) {
 	require.Equal(t, int64(1), gjson.GetBytes(rewritten, "image_scale").Int())
 }
 
-func TestValidateOpenAIImagesModel_AcceptsGiteeZImageFamily(t *testing.T) {
+func TestValidateCompatibleImagesModel_AcceptsGiteeZImageFamily(t *testing.T) {
 	for _, model := range []string{"z-image-turbo", " Z-IMAGE-TURBO ", "z-image-turbo-v2"} {
-		require.NoError(t, validateOpenAIImagesModel(model), model)
+		require.NoError(t, validateCompatibleImagesModel(model), model)
+		require.Error(t, validateOpenAIImagesModel(model), "custom models must not enter native Responses")
 	}
 	require.Error(t, validateOpenAIImagesModel("z-image"))
 }

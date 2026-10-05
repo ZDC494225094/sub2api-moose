@@ -32,6 +32,15 @@ func (s *PaymentService) prepareRechargeCampaign(ctx context.Context, req Create
 	if !isValidProviderAmount(req.Amount) {
 		return nil, infraerrors.BadRequest("INVALID_AMOUNT", "amount must be a positive finite number")
 	}
+	// Native tiers own recharge pricing when configured, including amounts below
+	// the first tier. Never let automatic custom campaigns override upstream rules.
+	// Historical fulfillment/refunds use their stored snapshot, not this new-order gate.
+	if cfg != nil && len(cfg.RechargeBonusTiers) > 0 {
+		if req.CampaignID > 0 {
+			return nil, infraerrors.BadRequest("CAMPAIGN_CONFLICT", "原生充值优惠已启用，请刷新后重新下单")
+		}
+		return nil, nil
+	}
 	// Gate new quotes only, including requests through the ordinary payment API.
 	// Never consult this flag while replaying an existing order snapshot.
 	enabled, err := s.rechargeCampaignExtensionEnabled(ctx)

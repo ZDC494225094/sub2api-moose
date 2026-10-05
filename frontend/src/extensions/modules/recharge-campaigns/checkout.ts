@@ -7,7 +7,7 @@ import { automaticCampaign, campaignAmounts, campaignAPI, campaignStatus, type R
 
 function createController(context: CheckoutExtensionContext) {
   const store = useExtensionStore()
-  const enabled = computed(() => store.enabled('recharge-campaigns'))
+  const enabled = computed(() => store.enabled('recharge-campaigns') && !context.nativePricingActive?.())
   const { now, pause: pauseClock, resume: resumeClock } = useNow({ interval: 1000, controls: true })
   const campaigns = ref<RechargeCampaign[]>([])
   const activeCampaigns = computed(() => enabled.value

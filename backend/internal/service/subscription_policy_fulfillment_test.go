@@ -31,7 +31,7 @@ func TestSubscriptionOrderCreationFreezesPolicy(t *testing.T) {
 				return policy, nil
 			})
 			svc := &PaymentService{entClient: client, subscriptionSvc: sub}
-			order, err := svc.createOrderInTx(ctx, CreateOrderRequest{UserID: user.ID, PaymentType: payment.TypeAlipay, OrderType: payment.OrderTypeSubscription}, &User{ID: user.ID, Email: user.Email}, &dbent.SubscriptionPlan{ID: 1, GroupID: 1, ValidityDays: 30, ValidityUnit: "day"}, &PaymentConfig{MaxPendingOrders: 10, OrderTimeoutMin: 30}, 10, 10, 0, 10, nil)
+			order, err := svc.createOrderInTx(ctx, CreateOrderRequest{UserID: user.ID, PaymentType: payment.TypeAlipay, OrderType: payment.OrderTypeSubscription}, &User{ID: user.ID, Email: user.Email}, &dbent.SubscriptionPlan{ID: 1, GroupID: 1, ValidityDays: 30, ValidityUnit: "day"}, &PaymentConfig{MaxPendingOrders: 10, OrderTimeoutMin: 30}, 10, 10, 0, 10, 0, nil)
 			require.Equal(t, 1, calls)
 			if policy == "unavailable" {
 				require.Error(t, err)

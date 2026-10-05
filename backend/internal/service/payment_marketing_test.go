@@ -63,7 +63,7 @@ func (r *orderDiscountProbe) Create(ctx context.Context, discount *PaymentOrderD
 // extension writes. PostgreSQL repository SQL and connection selection are
 // separately exercised in repository/marketing_tx_test.go.
 func TestMarketingOrderAndCouponReservationCommitTogether(t *testing.T) {
-	for _, scenario := range []string{"commit", "unavailable", "discount_failure", "quote_changed", "quote_missing", "service_missing", "native"} {
+	for _, scenario := range []string{"commit", "unavailable", "discount_failure", "quote_changed", "quote_missing", "service_missing", "native", "native_bonus_coupon", "native_discount_coupon"} {
 		t.Run(scenario, func(t *testing.T) {
 			ctx := context.Background()
 			client := newPaymentConfigServiceTestClient(t)
@@ -84,19 +84,29 @@ func TestMarketingOrderAndCouponReservationCommitTogether(t *testing.T) {
 			if scenario == "service_missing" {
 				svc.couponService = nil
 			}
+			orderAmount, bonusAmount := 50.0, 0.0
 			payAmount := float64(45)
+			if scenario == "native_bonus_coupon" {
+				orderAmount, bonusAmount = 60, 10
+			}
+			if scenario == "native_discount_coupon" {
+				bonusAmount, payAmount = 10, 35
+				req.couponQuote = &ApplyPaymentCouponResult{OriginalAmount: 40, DiscountAmount: 5, DiscountedAmount: 35}
+			}
 			if scenario == "native" {
 				req.UserCouponID = 0
 				req.couponQuote = nil
 				svc.couponService = nil
 				payAmount = 50
 			}
-			order, err := svc.createOrderInTx(ctx, req, &User{ID: user.ID, Email: user.Email}, nil, &PaymentConfig{OrderTimeoutMin: 30}, 50, payAmount, 0, payAmount, nil)
-			success := scenario == "commit" || scenario == "native"
+			order, err := svc.createOrderInTx(ctx, req, &User{ID: user.ID, Email: user.Email}, nil, &PaymentConfig{OrderTimeoutMin: 30}, orderAmount, payAmount, 0, payAmount, bonusAmount, nil)
+			success := scenario == "commit" || scenario == "native" || scenario == "native_bonus_coupon" || scenario == "native_discount_coupon"
 			if success {
 				require.NoError(t, err)
 				require.NotNil(t, order)
 				require.Equal(t, payAmount, order.PayAmount)
+				require.Equal(t, orderAmount, order.Amount)
+				require.Equal(t, bonusAmount, order.BonusAmount)
 			} else {
 				require.Error(t, err)
 				require.Nil(t, order)
@@ -115,7 +125,7 @@ func TestMarketingOrderAndCouponReservationCommitTogether(t *testing.T) {
 			var writes int
 			require.NoError(t, rows.Scan(&writes))
 			require.NoError(t, rows.Err())
-			if scenario == "commit" {
+			if success && scenario != "native" {
 				require.Equal(t, 2, writes)
 			} else {
 				require.Zero(t, writes)

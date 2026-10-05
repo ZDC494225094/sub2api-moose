@@ -81,7 +81,7 @@ func TestRechargeCampaignPostgres(t *testing.T) {
 	_, err = client.ExecContext(ctx, "UPDATE user_affiliates SET invited_at=NOW() WHERE user_id=$1", buyer.ID)
 	require.NoError(t, err)
 	req.campaign = snap
-	order, err := svc.createOrderInTx(ctx, req, &User{ID: buyer.ID, Email: buyer.Email}, nil, cfg, snap.Credited, snap.Principal, 0, 100, nil)
+	order, err := svc.createOrderInTx(ctx, req, &User{ID: buyer.ID, Email: buyer.Email}, nil, cfg, snap.Credited, snap.Principal, 0, 100, 0, nil)
 	require.NoError(t, err)
 	loaded, err := client.PaymentOrder.Get(ctx, order.ID)
 	require.NoError(t, err)
