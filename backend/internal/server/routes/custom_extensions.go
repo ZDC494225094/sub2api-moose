@@ -30,6 +30,14 @@ func registerCustomUserRoutes(authenticated *gin.RouterGroup, h *handler.Handler
 	canvas.DELETE("/runs/:id", h.Extensions.Playground.CancelRun)
 }
 
+func registerCustomOperationsRoutes(admin *gin.RouterGroup, h *handler.Handlers, extensions *customize.Manager) {
+	if h == nil || h.Extensions == nil || h.Extensions.Operations == nil {
+		return
+	}
+	operations := admin.Group("/operations", extensions.Require("operations-analytics"))
+	operations.GET("/balance/history", h.Extensions.Operations.GetOperationsBalanceHistory)
+}
+
 func registerCustomDashboardRoutes(dashboard *gin.RouterGroup, h *handler.Handlers, extensions *customize.Manager) {
 	if h == nil || h.Extensions == nil || h.Extensions.Operations == nil {
 		return

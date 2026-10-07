@@ -40,6 +40,7 @@ func RegisterAdminRoutes(
 
 		// 仪表盘
 		registerDashboardRoutes(admin, h, settingService)
+		registerCustomOperationsRoutes(admin, h, settingService.CustomExtensions())
 
 		// 用户管理
 		registerUserManagementRoutes(admin, h)

@@ -32,6 +32,17 @@ const operationsFinanceCashQuery = `
  AND order_type IN ('balance','subscription') AND status IN ($4,$5,$6)
  GROUP BY 1,2`
 
+const operationsInventorySubscriptionsQuery = `
+ SELECT jsonb_build_object(
+ 'StartsAt',s.starts_at,'ExpiresAt',s.expires_at,'Status',s.status,
+ 'DailyWindowStart',s.daily_window_start,'WeeklyWindowStart',s.weekly_window_start,'MonthlyWindowStart',s.monthly_window_start,
+ 'DailyUsageUSD',s.daily_usage_usd,'WeeklyUsageUSD',s.weekly_usage_usd,'MonthlyUsageUSD',s.monthly_usage_usd,
+ 'Group',jsonb_build_object('DailyLimitUSD',g.daily_limit_usd,'WeeklyLimitUSD',g.weekly_limit_usd,'MonthlyLimitUSD',g.monthly_limit_usd)
+ ) AS data
+ FROM user_subscriptions s JOIN groups g ON g.id=s.group_id JOIN users u ON u.id=s.user_id
+ WHERE s.deleted_at IS NULL AND g.deleted_at IS NULL AND u.deleted_at IS NULL
+ AND s.status='active' AND s.starts_at <= now() AND s.expires_at > now()`
+
 func (r *operationsRepository) GetOperationsFinance(ctx context.Context, start, end time.Time) (*service.OperationsFinanceResponse, error) {
 	// One statement gives all dimensions and inventory the same database snapshot.
 	// Include zero-charge requests: they may still incur upstream costs.
@@ -56,16 +67,7 @@ func (r *operationsRepository) GetOperationsFinance(ctx context.Context, start, 
 	 GROUP BY d.dimension,d.key,d.label,d.upstream
 	), payments AS (` + operationsFinancePaymentsQuery + `
 	), cash AS (` + operationsFinanceCashQuery + `
- ), inventory_subscriptions AS (
- SELECT jsonb_build_object(
- 'StartsAt',s.starts_at,'ExpiresAt',s.expires_at,'Status',s.status,
- 'DailyWindowStart',s.daily_window_start,'WeeklyWindowStart',s.weekly_window_start,'MonthlyWindowStart',s.monthly_window_start,
- 'DailyUsageUSD',s.daily_usage_usd,'WeeklyUsageUSD',s.weekly_usage_usd,'MonthlyUsageUSD',s.monthly_usage_usd,
- 'Group',jsonb_build_object('DailyLimitUSD',g.daily_limit_usd,'WeeklyLimitUSD',g.weekly_limit_usd,'MonthlyLimitUSD',g.monthly_limit_usd)
- ) AS data
- FROM user_subscriptions s JOIN groups g ON g.id=s.group_id JOIN users u ON u.id=s.user_id
- WHERE s.deleted_at IS NULL AND g.deleted_at IS NULL AND u.deleted_at IS NULL
- AND s.status='active' AND s.starts_at <= now() AND s.expires_at > now()
+ ), inventory_subscriptions AS (` + operationsInventorySubscriptionsQuery + `
  ), days AS (
 	 SELECT to_char(d, 'YYYY-MM-DD') AS day FROM generate_series(
 	 ($1::timestamptz AT TIME ZONE $3)::date,

@@ -358,6 +358,18 @@ export default {
       "viewOrders": "View Orders",
       "noData": "No operations data",
       "loadFailed": "Failed to load operations analysis",
+      "balanceTrend": {
+        "title": "Monthly Balance Trend",
+        "range": "Balance trend range",
+        "months": "{months} months",
+        "totalBalance": "Total Remaining Balance",
+        "totalSubscriptionRemaining": "Total Remaining Subscription Balance",
+        "loading": "Loading balance trend…",
+        "loadFailed": "Failed to load balance trend. Please try again.",
+        "retry": "Retry",
+        "noData": "No balance history available",
+        "realtimeNote": "Orange diamonds and dashed segments show this month's real-time data, not a month-end snapshot."
+      },
       "usersTitle": "User Activity",
       "usersDescription": "Active and inactive users in the selected range",
       "totalUsers": "Total Users",

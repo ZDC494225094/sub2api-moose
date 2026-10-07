@@ -192,7 +192,7 @@ func RequestExtension(method, path string) string {
 		return "playground"
 	case path == "/api/v1/canvas/config" || (method == "POST" && path == "/api/v1/canvas/runs"):
 		return "infinite-canvas"
-	case strings.HasPrefix(path, "/api/v1/admin/dashboard/operations-"):
+	case strings.HasPrefix(path, "/api/v1/admin/dashboard/operations-") || pathUnder(path, "/api/v1/admin/operations"):
 		return "operations-analytics"
 	case pathUnder(path, "/api/v1/admin/payment/campaigns") || path == "/api/v1/payment/campaigns" || path == "/api/v1/payment/public/campaigns":
 		return RechargeCampaigns
