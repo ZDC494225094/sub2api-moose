@@ -189,7 +189,7 @@ jobs:
         working-directory: canvas/canvas-agent
 
   build-binaries:
-    needs: [prepare, build-frontend, build-canvas, publish-canvas-agent]
+    needs: [prepare, build-frontend, build-canvas]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
