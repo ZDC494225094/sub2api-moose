@@ -19,10 +19,11 @@ import (
 type OperationsHandler struct {
 	operationsService     *service.OperationsService
 	marketingEmailService *service.OperationsMarketingEmailService
+	balanceSnapshotService *service.UserBalanceSnapshotService
 }
 
-func NewOperationsHandler(operations *service.OperationsService, marketing *service.OperationsMarketingEmailService) *OperationsHandler {
-	return &OperationsHandler{operationsService: operations, marketingEmailService: marketing}
+func NewOperationsHandler(operations *service.OperationsService, marketing *service.OperationsMarketingEmailService, snapshots *service.UserBalanceSnapshotService) *OperationsHandler {
+	return &OperationsHandler{operationsService: operations, marketingEmailService: marketing, balanceSnapshotService: snapshots}
 }
 
 const (

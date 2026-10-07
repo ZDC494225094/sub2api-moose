@@ -358,6 +358,18 @@ export default {
       "viewOrders": "查看订单",
       "noData": "暂无运营数据",
       "loadFailed": "加载运营分析失败",
+      "balanceTrend": {
+        "title": "月度余额趋势",
+        "range": "余额趋势月份范围",
+        "months": "{months} 个月",
+        "totalBalance": "余额剩余总额",
+        "totalSubscriptionRemaining": "订阅余额剩余总额",
+        "loading": "正在加载余额趋势…",
+        "loadFailed": "余额趋势加载失败，请重试。",
+        "retry": "重试",
+        "noData": "暂无余额历史数据",
+        "realtimeNote": "橙色菱形及虚线段为本月实时数据，非月末快照。"
+      },
       "usersTitle": "用户活跃概览",
       "usersDescription": "按当前周期判断活跃与沉默用户",
       "totalUsers": "用户总数",

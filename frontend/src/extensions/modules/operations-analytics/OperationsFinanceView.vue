@@ -61,6 +61,24 @@
                 <div class="inventory-card"><span>订阅可用额度 · USD</span><strong>{{ report.inventory ? money(report.inventory.subscription_remaining) : '—' }}</strong><p>{{ report.inventory?.limited_subscriptions ?? 0 }} 份有限额订阅的当前可用量；另有 {{ report.inventory?.unlimited_subscriptions ?? 0 }} 份无限额订阅。</p></div>
                 <div class="inventory-card"><span>剩余赠送额度 · USD</span><strong>{{ report.inventory?.gift_remaining == null ? '未单独核算' : money(report.inventory.gift_remaining) }}</strong><p>赠送已合并进余额，未独立追踪消耗；无法准确拆分，不按 0 展示。</p></div>
               </div>
+              <section class="finance-panel min-w-0">
+                <div class="chart-heading flex-wrap">
+                  <h3>{{ t('admin.operations.balanceTrend.title') }}</h3>
+                  <div class="date-presets" role="group" :aria-label="t('admin.operations.balanceTrend.range')">
+                    <button v-for="months in balanceMonthOptions" :key="months" type="button" :class="{ selected: balanceMonths === months }" :aria-pressed="balanceMonths === months" @click="balanceMonths = months">{{ t('admin.operations.balanceTrend.months', { months }) }}</button>
+                  </div>
+                </div>
+                <div v-if="balanceLoading" role="status" class="flex h-72 flex-col items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+                  <Icon name="refresh" class="mb-3 animate-spin text-indigo-500" />{{ t('admin.operations.balanceTrend.loading') }}
+                </div>
+                <div v-else-if="balanceError" role="alert" class="flex h-72 flex-col items-center justify-center gap-3 text-sm text-red-600 dark:text-red-400">
+                  <p>{{ t('admin.operations.balanceTrend.loadFailed') }}</p>
+                  <button type="button" class="btn btn-secondary" @click="loadBalanceHistory">{{ t('admin.operations.balanceTrend.retry') }}</button>
+                </div>
+                <div v-else-if="!balanceHistory.length" role="status" class="flex h-72 items-center justify-center text-sm text-gray-500 dark:text-gray-400">{{ t('admin.operations.balanceTrend.noData') }}</div>
+                <div v-else class="relative h-72"><canvas ref="balanceCanvas" role="img" :aria-label="t('admin.operations.balanceTrend.title')" /></div>
+                <p v-if="!balanceLoading && !balanceError && balanceHistory.some(point => point.realtime)" class="mt-3 flex items-start gap-2 text-xs leading-5 text-gray-500 dark:text-gray-400"><span aria-hidden="true" class="mt-1.5 h-2 w-2 shrink-0 rotate-45 bg-amber-500" />{{ t('admin.operations.balanceTrend.realtimeNote') }}</p>
+              </section>
               <p class="rounded-xl bg-gray-50 p-4 text-xs leading-6 text-gray-500 dark:bg-dark-900">订阅额度按每份有效订阅的日 / 周 / 月剩余限额取最小值后汇总，已按实际重置规则刷新。无限额订阅单独计数，不将多个周期相加，也不与余额相加。冻结余额：{{ report.inventory ? money(report.inventory.frozen_balance) : '—' }}。</p>
               <button class="btn btn-secondary" @click="openCustomers('balance')">查看有余额用户明细</button>
             </template>
@@ -78,6 +96,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { Chart } from 'chart.js/auto'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, type ChartOptions } from 'chart.js'
 import { Line, Bar } from 'vue-chartjs'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -87,9 +107,10 @@ import OperationsPaymentBreakdown from './components/OperationsPaymentBreakdown.
 import { cashMoney, paymentTotals } from './operationsFinanceMetrics'
 import OperationsCustomers from './components/OperationsCustomers.vue'
 import OperationsRecords from './components/OperationsRecords.vue'
-import { getOperationsFinance, type FinanceReport, type FinanceRow, type CustomerSegment } from '@/extensions/modules/operations-analytics/api'
+import { getOperationsFinance, getOperationsBalanceHistory, type FinanceReport, type FinanceRow, type CustomerSegment, type BalanceMonthlyStats } from '@/extensions/modules/operations-analytics/api'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend)
+const { t, locale } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const timezone = ref('Asia/Shanghai')
@@ -147,6 +168,95 @@ function openModal(mode: ModalMode) { if (modal.value && modal.value !== mode) m
 function closeModal() { modal.value = null; modalHistory.value = [] }
 function backModal() { modal.value = modalHistory.value.pop() ?? null }
 async function openCustomers(segment: CustomerSegment) { openModal('customers'); await nextTick(); customers.value?.open(segment) }
+const balanceMonthOptions = [3, 6, 12] as const
+const balanceMonths = ref<3 | 6 | 12>(3)
+const balanceHistory = ref<BalanceMonthlyStats[]>([])
+const balanceLoading = ref(false), balanceError = ref(false)
+const balanceCanvas = ref<HTMLCanvasElement | null>(null)
+let balanceController: AbortController | undefined
+let balanceChart: Chart<'line'> | undefined
+function destroyBalanceChart() {
+  balanceChart?.destroy()
+  balanceChart = undefined
+}
+function resetBalanceHistory() {
+  balanceController?.abort()
+  balanceController = undefined
+  destroyBalanceChart()
+  balanceHistory.value = []
+  balanceLoading.value = false
+  balanceError.value = false
+}
+async function loadBalanceHistory() {
+  balanceController?.abort()
+  const request = new AbortController()
+  balanceController = request
+  destroyBalanceChart()
+  balanceHistory.value = []
+  balanceLoading.value = true
+  balanceError.value = false
+  try {
+    const result = await getOperationsBalanceHistory({ months: balanceMonths.value }, request.signal)
+    if (balanceController === request && !request.signal.aborted) balanceHistory.value = result
+  } catch {
+    if (balanceController === request && !request.signal.aborted) balanceError.value = true
+  } finally {
+    if (balanceController === request) {
+      balanceLoading.value = false
+      balanceController = undefined
+    }
+  }
+}
+function renderBalanceChart() {
+  destroyBalanceChart()
+  if (modal.value !== 'balance' || !balanceCanvas.value || balanceLoading.value || balanceError.value || !balanceHistory.value.length) return
+  const points = balanceHistory.value
+  const realtimeColor = '#f59e0b'
+  const datasets = [
+    { key: 'total_balance' as const, label: t('admin.operations.balanceTrend.totalBalance'), color: '#6366f1' },
+    { key: 'total_subscription_remaining' as const, label: t('admin.operations.balanceTrend.totalSubscriptionRemaining'), color: '#10b981' }
+  ].map(series => ({
+    label: series.label,
+    data: points.map(point => point[series.key]),
+    borderColor: series.color,
+    backgroundColor: series.color,
+    borderWidth: 2,
+    pointBackgroundColor: points.map(point => point.realtime ? realtimeColor : series.color),
+    pointBorderColor: points.map(point => point.realtime ? realtimeColor : series.color),
+    pointStyle: points.map(point => point.realtime ? 'rectRot' as const : 'circle' as const),
+    pointRadius: points.map(point => point.realtime ? 6 : 3),
+    pointHoverRadius: points.map(point => point.realtime ? 8 : 5),
+    segment: {
+      borderColor: (context: { p0DataIndex: number; p1DataIndex: number }) => points[context.p0DataIndex]?.realtime || points[context.p1DataIndex]?.realtime ? realtimeColor : series.color,
+      borderDash: (context: { p0DataIndex: number; p1DataIndex: number }) => points[context.p0DataIndex]?.realtime || points[context.p1DataIndex]?.realtime ? [6, 4] : []
+    }
+  }))
+  balanceChart = new Chart(balanceCanvas.value, {
+    type: 'line',
+    data: { labels: points.map(point => point.period), datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 7, padding: 20 } },
+        tooltip: { callbacks: {
+          label: context => `${context.dataset.label}: ${money(context.parsed.y ?? 0)}`,
+          footer: items => points[items[0]?.dataIndex ?? -1]?.realtime ? t('admin.operations.balanceTrend.realtimeNote') : ''
+        } }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, title: { display: true, text: 'USD' }, grid: { color: '#94a3b81a' } }
+      }
+    }
+  })
+}
+watch([modal, balanceMonths], () => {
+  if (modal.value === 'balance') void loadBalanceHistory()
+  else resetBalanceHistory()
+}, { flush: 'sync' })
+watch([balanceCanvas, balanceHistory, balanceLoading, locale], renderBalanceChart, { flush: 'post' })
 const cashTotals = computed(() => paymentTotals(report.value?.payments ?? []))
 const cashCurrency = ref('CNY')
 const cashCurrencies = computed(() => cashTotals.value.currencies.map(c => c.currency))
@@ -260,7 +370,7 @@ if (typeof route.query.start_date === 'string' && typeof route.query.end_date ==
   start.value = route.query.start_date; end.value = route.query.end_date; activePreset.value = ''
 }
 onMounted(() => { void load(); document.addEventListener('keydown', trapModalFocus) })
-onBeforeUnmount(() => { controller?.abort(); document.removeEventListener('keydown', trapModalFocus) })
+onBeforeUnmount(() => { controller?.abort(); resetBalanceHistory(); document.removeEventListener('keydown', trapModalFocus) })
 </script>
 
 <style scoped>

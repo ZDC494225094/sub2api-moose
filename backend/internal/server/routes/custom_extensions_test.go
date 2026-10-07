@@ -47,6 +47,7 @@ func TestCustomRouteRegistrarsEnforceGatesAfterHostMiddleware(t *testing.T) {
 	})
 	registerCustomUserRoutes(authenticated, h, m)
 	admin := authenticated.Group("/admin")
+	registerCustomOperationsRoutes(admin, h, m)
 	registerCustomDashboardRoutes(admin.Group("/dashboard"), h, m)
 	registerCustomPaymentUserRoutes(authenticated.Group("/payment"), h.Extensions, m)
 	registerCustomPaymentAdminRoutes(admin.Group("/payment"), h.Extensions, m)
@@ -65,6 +66,7 @@ func TestCustomRouteRegistrarsEnforceGatesAfterHostMiddleware(t *testing.T) {
 		{"POST", "/api/v1/canvas/runs"}, {"GET", "/api/v1/canvas/config"},
 		{"GET", "/api/v1/admin/dashboard/operations-funnel"},
 		{"GET", "/api/v1/admin/dashboard/operations-finance"},
+		{"GET", "/api/v1/admin/operations/balance/history"},
 		{"GET", "/api/v1/admin/dashboard/operations-customers"},
 		{"GET", "/api/v1/admin/dashboard/operations-users"},
 		{"GET", "/api/v1/admin/dashboard/operations-marketing-recipients"},

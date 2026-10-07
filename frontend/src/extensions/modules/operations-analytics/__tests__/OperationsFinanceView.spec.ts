@@ -1,9 +1,18 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createI18n, type MessageContext } from 'vue-i18n'
+import type { ChartConfiguration, ScriptableLineSegmentContext } from 'chart.js'
+import en from '@/i18n/locales/en/custom'
+import zh from '@/i18n/locales/zh/custom'
+import type { BalanceMonthlyStats } from '../api'
 import OperationsFinanceView from '../OperationsFinanceView.vue'
 
-const { getReport, push, replace, openRecords } = vi.hoisted(() => ({ getReport: vi.fn(), push: vi.fn(), replace: vi.fn(), openRecords: vi.fn() }))
-vi.mock('@/extensions/modules/operations-analytics/api', () => ({ getOperationsFinance: getReport }))
+const { getReport, getHistory, createChart, push, replace, openRecords } = vi.hoisted(() => ({
+  getReport: vi.fn(), getHistory: vi.fn(), push: vi.fn(), replace: vi.fn(), openRecords: vi.fn(),
+  createChart: vi.fn(function (_canvas: HTMLCanvasElement, _config: ChartConfiguration<'line'>) { return { destroy: vi.fn() } })
+}))
+vi.mock('@/extensions/modules/operations-analytics/api', () => ({ getOperationsFinance: getReport, getOperationsBalanceHistory: getHistory }))
+vi.mock('chart.js/auto', () => ({ Chart: createChart }))
 vi.mock('@/components/common/BaseDialog.vue', () => ({ default: { props: ['show', 'title'], emits: ['close'], template: '<div v-if="show" role="dialog"><h2>{{ title }}</h2><button aria-label="关闭弹窗" @click="$emit(\'close\')">关闭</button><slot /></div>' } }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push, replace }), useRoute: () => ({ query: {} }) }))
 vi.mock('vue-chartjs', () => ({ Line: { name: 'Line', props: ['data', 'options'], template: '<canvas />' }, Bar: { name: 'Bar', props: ['data', 'options'], template: '<canvas />' } }))
@@ -17,9 +26,22 @@ const payments = [
  { day: '2026-09-01', currency: 'USD', recharge_paid: 4, subscription_paid: 0, credited: 5, pending_credit: 0 }
 ]
 const data = { payments, inventory: { frozen_balance: 3, subscription_remaining: 75, limited_subscriptions: 2, unlimited_subscriptions: 1, gift_remaining: null }, start_date: '2026-09-01', end_date: '2026-09-14', generated_at: '2026-09-14T10:00:00Z', current_balance: 50, summary: row, rows: [{ ...row, dimension: 'day', key: '2026-09-01' }, { ...row, dimension: 'upstream', key: 'Vendor A', label: 'Vendor A' }, { ...row, dimension: 'account' }] }
-const create = () => mount(OperationsFinanceView, { global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } } })
+const history: BalanceMonthlyStats[] = [
+  { period: '2026-07', total_balance: 30, total_subscription_remaining: 60 },
+  { period: '2026-08', total_balance: 40, total_subscription_remaining: 70 },
+  { period: '2026-09', total_balance: 50, total_subscription_remaining: 75, realtime: true }
+]
+const balanceMessages = (source: typeof en) => ({ admin: { operations: {
+  balanceTrend: Object.fromEntries(Object.entries(source.admin.operations.balanceTrend).map(([key, message]) => [
+    key, (context: MessageContext) => message.replace('{months}', String(context.named('months')))
+  ]))
+} } })
+const create = (locale = 'zh') => mount(OperationsFinanceView, { global: {
+  plugins: [createI18n({ legacy: false, locale, messages: { en: balanceMessages(en), zh: balanceMessages(zh) } })],
+  stubs: { RouterLink: { template: '<a><slot /></a>' } }
+} })
 describe('Operations finance', () => {
-  beforeEach(() => { vi.clearAllMocks(); Element.prototype.scrollIntoView = vi.fn(); getReport.mockResolvedValue(structuredClone(data)) })
+  beforeEach(() => { vi.clearAllMocks(); Element.prototype.scrollIntoView = vi.fn(); getReport.mockResolvedValue(structuredClone(data)); getHistory.mockReset().mockResolvedValue(structuredClone(history)) })
   it('uses the server date despite a changed local clock', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2040-01-01T00:00:00Z'))
@@ -98,6 +120,150 @@ describe('Operations finance', () => {
     expect(push).not.toHaveBeenCalled()
     await dialog.get('[aria-label="关闭弹窗"]').trigger('click')
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+  it('loads balance history only on demand and styles live points and segments distinctly', async () => {
+    const wrapper = create(); await flushPromises()
+    expect(getHistory).not.toHaveBeenCalled()
+    await wrapper.findAll('button').find(button => button.text().includes('当前用户余额'))!.trigger('click')
+    await flushPromises()
+    expect(getHistory).toHaveBeenCalledWith({ months: 3 }, expect.any(AbortSignal))
+    const config = createChart.mock.lastCall![1]
+    expect(config.type).toBe('line')
+    expect(config.options).toMatchObject({ responsive: true, maintainAspectRatio: false })
+    expect(config.data.labels).toEqual(history.map(point => point.period))
+    expect(config.data.datasets.map(series => series.label)).toEqual(['余额剩余总额', '订阅余额剩余总额'])
+    expect(config.data.datasets.map(series => series.borderColor)).toEqual(['#6366f1', '#10b981'])
+    expect(config.data.datasets.map(series => series.data)).toEqual([[30, 40, 50], [60, 70, 75]])
+    for (const series of config.data.datasets) {
+      expect(series.pointStyle).toEqual(['circle', 'circle', 'rectRot'])
+      expect(series.pointBackgroundColor).toEqual([series.borderColor, series.borderColor, '#f59e0b'])
+      const borderDash = series.segment!.borderDash
+      const borderColor = series.segment!.borderColor
+      expect(typeof borderDash).toBe('function')
+      expect(typeof borderColor).toBe('function')
+      const historicalSegment = { p0DataIndex: 0, p1DataIndex: 1 } as ScriptableLineSegmentContext
+      const liveSegment = { p0DataIndex: 1, p1DataIndex: 2 } as ScriptableLineSegmentContext
+      if (typeof borderDash === 'function' && typeof borderColor === 'function') {
+        expect(borderDash(historicalSegment, {})).toEqual([])
+        expect(borderDash(liveSegment, {})).toEqual([6, 4])
+        expect(borderColor(historicalSegment, {})).toBe(series.borderColor)
+        expect(borderColor(liveSegment, {})).toBe('#f59e0b')
+      }
+    }
+    expect(wrapper.get('canvas[role="img"]').element.parentElement!.classList.contains('h-72')).toBe(true)
+    expect(wrapper.get('[role="dialog"]').text()).toContain('本月实时数据，非月末快照')
+    wrapper.unmount()
+    expect(createChart.mock.results[0].value.destroy).toHaveBeenCalledOnce()
+  })
+  it('switches all supported month ranges and destroys replaced and closed charts', async () => {
+    const wrapper = create(); await flushPromises()
+    await wrapper.findAll('button').find(button => button.text().includes('当前用户余额'))!.trigger('click')
+    await flushPromises()
+    for (const months of [6, 12]) {
+      const previousChart = createChart.mock.results[createChart.mock.results.length - 1].value
+      const button = wrapper.findAll('button').find(item => item.text() === `${months} 个月`)!
+      await button.trigger('click'); await flushPromises()
+      expect(getHistory.mock.lastCall![0]).toEqual({ months })
+      expect(button.attributes('aria-pressed')).toBe('true')
+      expect(previousChart.destroy).toHaveBeenCalledOnce()
+    }
+    const lastChart = createChart.mock.results[createChart.mock.results.length - 1].value
+    await wrapper.get('[aria-label="关闭弹窗"]').trigger('click')
+    expect(lastChart.destroy).toHaveBeenCalledOnce()
+    await wrapper.findAll('button').find(button => button.text().includes('当前用户余额'))!.trigger('click')
+    await flushPromises()
+    expect(getHistory.mock.lastCall![0]).toEqual({ months: 12 })
+    wrapper.unmount()
+    expect(createChart.mock.results[createChart.mock.results.length - 1].value.destroy).toHaveBeenCalledOnce()
+  })
+  it('shows loading and errors, then retries without changing the selected range', async () => {
+    let rejectHistory!: (error: Error) => void
+    getHistory.mockImplementationOnce(() => new Promise<BalanceMonthlyStats[]>((_resolve, reject) => { rejectHistory = reject }))
+    const wrapper = create(); await flushPromises()
+    await wrapper.findAll('button').find(button => button.text().includes('当前用户余额'))!.trigger('click')
+    expect(wrapper.get('[role="dialog"] [role="status"]').text()).toContain('正在加载余额趋势')
+    expect(createChart).not.toHaveBeenCalled()
+    rejectHistory(new Error('unavailable')); await flushPromises()
+    expect(wrapper.get('[role="dialog"] [role="alert"]').text()).toContain('余额趋势加载失败')
+    expect(wrapper.text()).toContain('$75.00')
+    await wrapper.findAll('button').find(button => button.text() === '重试')!.trigger('click')
+    await flushPromises()
+    expect(getHistory).toHaveBeenCalledTimes(2)
+    expect(getHistory.mock.lastCall![0]).toEqual({ months: 3 })
+    expect(wrapper.find('[role="dialog"] [role="alert"]').exists()).toBe(false)
+    expect(createChart).toHaveBeenCalledOnce()
+    wrapper.unmount()
+  })
+  it('renders an empty state rather than a chart with invented zeroes', async () => {
+    getHistory.mockResolvedValue([])
+    const wrapper = create(); await flushPromises()
+    await wrapper.findAll('button').find(button => button.text().includes('当前用户余额'))!.trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[role="dialog"] [role="status"]').text()).toContain('暂无余额历史数据')
+    expect(createChart).not.toHaveBeenCalled()
+    expect(wrapper.text()).not.toContain('本月实时数据，非月末快照')
+    wrapper.unmount()
+  })
+  it('renders real zero balances and does not mark historical snapshots as live data', async () => {
+    getHistory.mockResolvedValue([{ period: '2026-08', total_balance: 0, total_subscription_remaining: 0 }])
+    const wrapper = create(); await flushPromises()
+    await wrapper.findAll('button').find(button => button.text().includes('当前用户余额'))!.trigger('click')
+    await flushPromises()
+    expect(createChart.mock.lastCall![1].data.datasets.map(series => series.data)).toEqual([[0], [0]])
+    expect(createChart.mock.lastCall![1].data.datasets[0].pointStyle).toEqual(['circle'])
+    expect(wrapper.text()).not.toContain('本月实时数据，非月末快照')
+    wrapper.unmount()
+  })
+  it('ignores stale responses after range changes and aborts on close and unmount', async () => {
+    const pending: { signal: AbortSignal; resolve: (points: BalanceMonthlyStats[]) => void }[] = []
+    getHistory.mockImplementation((_params, signal: AbortSignal) => new Promise<BalanceMonthlyStats[]>(resolve => { pending.push({ signal, resolve }) }))
+    const wrapper = create(); await flushPromises()
+    await wrapper.findAll('button').find(button => button.text().includes('当前用户余额'))!.trigger('click')
+    await wrapper.findAll('button').find(button => button.text() === '6 个月')!.trigger('click')
+    expect(pending[0].signal.aborted).toBe(true)
+    pending[1].resolve(history); await flushPromises()
+    pending[0].resolve([]); await flushPromises()
+    expect(createChart).toHaveBeenCalledOnce()
+    expect(wrapper.find('canvas[role="img"]').exists()).toBe(true)
+    await wrapper.findAll('button').find(button => button.text() === '12 个月')!.trigger('click')
+    await wrapper.get('[aria-label="关闭弹窗"]').trigger('click')
+    expect(pending[2].signal.aborted).toBe(true)
+    pending[2].resolve(history); await flushPromises()
+    expect(createChart).toHaveBeenCalledOnce()
+    await wrapper.findAll('button').find(button => button.text().includes('当前用户余额'))!.trigger('click')
+    wrapper.unmount()
+    expect(pending[3].signal.aborted).toBe(true)
+    pending[3].resolve(history); await flushPromises()
+    expect(createChart).toHaveBeenCalledOnce()
+  })
+  it('destroys the balance chart when drilling into customers and recreates it on return', async () => {
+    const wrapper = create(); await flushPromises()
+    await wrapper.findAll('button').find(button => button.text().includes('当前用户余额'))!.trigger('click')
+    await flushPromises()
+    const chart = createChart.mock.results[0].value
+    await wrapper.findAll('button').find(button => button.text() === '查看有余额用户明细')!.trigger('click')
+    expect(chart.destroy).toHaveBeenCalledOnce()
+    await wrapper.findAll('button').find(button => button.text() === '返回上一级')!.trigger('click')
+    await flushPromises()
+    expect(getHistory).toHaveBeenCalledTimes(2)
+    expect(createChart).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+  it('uses English messages for the chart and updates them when the locale changes', async () => {
+    const wrapper = create('en'); await flushPromises()
+    await wrapper.findAll('button').find(button => button.text().includes('当前用户余额'))!.trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[role="dialog"]').text()).toContain('Monthly Balance Trend')
+    expect(wrapper.get('[role="dialog"]').text()).toContain('12 months')
+    expect(createChart.mock.lastCall![1].data.datasets[0].label).toBe('Total Remaining Balance')
+    expect(wrapper.text()).toContain('not a month-end snapshot')
+    const chart = createChart.mock.results[0].value
+    wrapper.vm.$i18n.locale = 'zh'
+    await flushPromises()
+    expect(chart.destroy).toHaveBeenCalledOnce()
+    expect(createChart.mock.lastCall![1].data.datasets[0].label).toBe('余额剩余总额')
+    expect(getHistory).toHaveBeenCalledOnce()
     wrapper.unmount()
   })
   it('keeps dimension filters when returning from a request drilldown', async () => {

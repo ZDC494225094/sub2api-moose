@@ -50,6 +50,18 @@ export async function getOperationsFinance(params: { start_date?: string; end_da
   return data
 }
 
+export interface BalanceMonthlyStats {
+  period: string
+  total_balance: number
+  total_subscription_remaining: number
+  realtime?: boolean
+}
+
+export async function getOperationsBalanceHistory(params: { months: 3 | 6 | 12 }, signal?: AbortSignal) {
+  const { data } = await apiClient.get<BalanceMonthlyStats[]>('/admin/operations/balance/history', { params, signal })
+  return data
+}
+
 export type CustomerSegment = 'all' | 'balance' | 'paying' | 'repeat' | 'new_paying' | 'active' | 'churned'
 export interface CustomerSummary {
   total: number; paying: number; repeat: number; new_paying: number; active: number
