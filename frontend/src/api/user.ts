@@ -28,21 +28,6 @@ export async function getProfile(): Promise<User> {
   return data
 }
 
-export type BalanceHistoryMonths = 3 | 6 | 12
-
-export interface BalanceHistoryPoint {
-  period: string
-  balance: number
-  realtime?: boolean
-}
-
-export async function getBalanceHistory(months: BalanceHistoryMonths = 12): Promise<BalanceHistoryPoint[]> {
-  const { data } = await apiClient.get<BalanceHistoryPoint[]>('/user/balance/history', {
-    params: { months }
-  })
-  return data
-}
-
 /**
  * Update current user profile
  * @param profile - Profile data to update
@@ -211,7 +196,6 @@ export async function getMyPlatformQuotas(): Promise<PlatformQuotasResponse> {
 
 export const userAPI = {
   getProfile,
-  getBalanceHistory,
   updateProfile,
   changePassword,
   sendNotifyEmailCode,

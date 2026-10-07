@@ -59,14 +59,7 @@
         <!-- Balance Display -->
         <div
           v-if="user"
-          class="group relative hidden cursor-pointer items-center gap-2 rounded-xl bg-primary-50 px-3 py-1.5 transition-colors hover:bg-primary-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:bg-primary-900/20 dark:hover:bg-primary-900/40 sm:flex"
-          role="button"
-          tabindex="0"
-          aria-haspopup="dialog"
-          :aria-label="t('balanceHistory.title')"
-          @click="balanceHistoryOpen = true"
-          @keydown.enter.prevent="balanceHistoryOpen = true"
-          @keydown.space.prevent="balanceHistoryOpen = true"
+          class="group relative hidden items-center gap-2 rounded-xl bg-primary-50 px-3 py-1.5 dark:bg-primary-900/20 sm:flex"
         >
           <svg
             class="h-4 w-4 text-primary-600 dark:text-primary-400"
@@ -256,13 +249,6 @@
       </div>
     </div>
     <ExtensionSlot v-if="user" name="header-bottom" />
-    <BalanceHistoryModal
-      v-if="user"
-      :key="user.id"
-      :show="balanceHistoryOpen"
-      :current-balance="availableBalance"
-      @close="balanceHistoryOpen = false"
-    />
   </header>
 </template>
 
@@ -275,7 +261,6 @@ import { useAdminSettingsStore } from '@/stores/adminSettings'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMini.vue'
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
-import BalanceHistoryModal from '@/components/user/BalanceHistoryModal.vue'
 import ExtensionSlot from '@/extensions/components/ExtensionSlot.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { sanitizeUrl } from '@/utils/url'
@@ -293,7 +278,6 @@ const onboardingStore = useOnboardingStore()
 
 const user = computed(() => authStore.user)
 const dropdownOpen = ref(false)
-const balanceHistoryOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 const contactInfo = computed(() => appStore.contactInfo)
 const docUrl = computed(() => sanitizeUrl(appStore.docUrl))
