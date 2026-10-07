@@ -9,26 +9,26 @@ import (
 // APIKey is the predicate function for apikey builders.
 type APIKey func(*sql.Selector)
 
-// Account is the predicate function for account builders.
-type Account func(*sql.Selector)
-
 // AccountGroup is the predicate function for accountgroup builders.
 type AccountGroup func(*sql.Selector)
 
 // AccountUpstreamGroup is the predicate function for accountupstreamgroup builders.
 type AccountUpstreamGroup func(*sql.Selector)
 
-// Announcement is the predicate function for announcement builders.
-type Announcement func(*sql.Selector)
+// Account is the predicate function for account builders.
+type Account func(*sql.Selector)
 
 // AnnouncementRead is the predicate function for announcementread builders.
 type AnnouncementRead func(*sql.Selector)
 
-// AuthIdentity is the predicate function for authidentity builders.
-type AuthIdentity func(*sql.Selector)
+// Announcement is the predicate function for announcement builders.
+type Announcement func(*sql.Selector)
 
 // AuthIdentityChannel is the predicate function for authidentitychannel builders.
 type AuthIdentityChannel func(*sql.Selector)
+
+// AuthIdentity is the predicate function for authidentity builders.
+type AuthIdentity func(*sql.Selector)
 
 // BatchImageEvent is the predicate function for batchimageevent builders.
 type BatchImageEvent func(*sql.Selector)
@@ -39,9 +39,6 @@ type BatchImageItem func(*sql.Selector)
 // BatchImageJob is the predicate function for batchimagejob builders.
 type BatchImageJob func(*sql.Selector)
 
-// ChannelMonitor is the predicate function for channelmonitor builders.
-type ChannelMonitor func(*sql.Selector)
-
 // ChannelMonitorDailyRollup is the predicate function for channelmonitordailyrollup builders.
 type ChannelMonitorDailyRollup func(*sql.Selector)
 
@@ -50,6 +47,9 @@ type ChannelMonitorHistory func(*sql.Selector)
 
 // ChannelMonitorRequestTemplate is the predicate function for channelmonitorrequesttemplate builders.
 type ChannelMonitorRequestTemplate func(*sql.Selector)
+
+// ChannelMonitor is the predicate function for channelmonitor builders.
+type ChannelMonitor func(*sql.Selector)
 
 // CompositeModelRoute is the predicate function for compositemodelroute builders.
 type CompositeModelRoute func(*sql.Selector)
@@ -78,20 +78,20 @@ type PaymentProviderInstance func(*sql.Selector)
 // PendingAuthSession is the predicate function for pendingauthsession builders.
 type PendingAuthSession func(*sql.Selector)
 
-// PromoCode is the predicate function for promocode builders.
-type PromoCode func(*sql.Selector)
-
 // PromoCodeUsage is the predicate function for promocodeusage builders.
 type PromoCodeUsage func(*sql.Selector)
+
+// PromoCode is the predicate function for promocode builders.
+type PromoCode func(*sql.Selector)
 
 // Proxy is the predicate function for proxy builders.
 type Proxy func(*sql.Selector)
 
-// RedeemCode is the predicate function for redeemcode builders.
-type RedeemCode func(*sql.Selector)
-
 // RedeemCodeBatchUsage is the predicate function for redeemcodebatchusage builders.
 type RedeemCodeBatchUsage func(*sql.Selector)
+
+// RedeemCode is the predicate function for redeemcode builders.
+type RedeemCode func(*sql.Selector)
 
 // SecuritySecret is the predicate function for securitysecret builders.
 type SecuritySecret func(*sql.Selector)
@@ -111,9 +111,6 @@ type UsageCleanupTask func(*sql.Selector)
 // UsageLog is the predicate function for usagelog builders.
 type UsageLog func(*sql.Selector)
 
-// User is the predicate function for user builders.
-type User func(*sql.Selector)
-
 // UserAllowedGroup is the predicate function for userallowedgroup builders.
 type UserAllowedGroup func(*sql.Selector)
 
@@ -123,8 +120,14 @@ type UserAttributeDefinition func(*sql.Selector)
 // UserAttributeValue is the predicate function for userattributevalue builders.
 type UserAttributeValue func(*sql.Selector)
 
+// UserBalanceSnapshot is the predicate function for userbalancesnapshot builders.
+type UserBalanceSnapshot func(*sql.Selector)
+
 // UserPlatformQuota is the predicate function for userplatformquota builders.
 type UserPlatformQuota func(*sql.Selector)
 
 // UserSubscription is the predicate function for usersubscription builders.
 type UserSubscription func(*sql.Selector)
+
+// User is the predicate function for user builders.
+type User func(*sql.Selector)

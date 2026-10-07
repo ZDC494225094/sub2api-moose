@@ -4,8 +4,8 @@ package ent
 
 import (
 	"context"
-	stdsql "database/sql"
 	"fmt"
+	stdsql "database/sql"
 	"sync"
 
 	"entgo.io/ent/dialect"
@@ -16,34 +16,34 @@ type Tx struct {
 	config
 	// APIKey is the client for interacting with the APIKey builders.
 	APIKey *APIKeyClient
-	// Account is the client for interacting with the Account builders.
-	Account *AccountClient
 	// AccountGroup is the client for interacting with the AccountGroup builders.
 	AccountGroup *AccountGroupClient
 	// AccountUpstreamGroup is the client for interacting with the AccountUpstreamGroup builders.
 	AccountUpstreamGroup *AccountUpstreamGroupClient
-	// Announcement is the client for interacting with the Announcement builders.
-	Announcement *AnnouncementClient
+	// Account is the client for interacting with the Account builders.
+	Account *AccountClient
 	// AnnouncementRead is the client for interacting with the AnnouncementRead builders.
 	AnnouncementRead *AnnouncementReadClient
-	// AuthIdentity is the client for interacting with the AuthIdentity builders.
-	AuthIdentity *AuthIdentityClient
+	// Announcement is the client for interacting with the Announcement builders.
+	Announcement *AnnouncementClient
 	// AuthIdentityChannel is the client for interacting with the AuthIdentityChannel builders.
 	AuthIdentityChannel *AuthIdentityChannelClient
+	// AuthIdentity is the client for interacting with the AuthIdentity builders.
+	AuthIdentity *AuthIdentityClient
 	// BatchImageEvent is the client for interacting with the BatchImageEvent builders.
 	BatchImageEvent *BatchImageEventClient
 	// BatchImageItem is the client for interacting with the BatchImageItem builders.
 	BatchImageItem *BatchImageItemClient
 	// BatchImageJob is the client for interacting with the BatchImageJob builders.
 	BatchImageJob *BatchImageJobClient
-	// ChannelMonitor is the client for interacting with the ChannelMonitor builders.
-	ChannelMonitor *ChannelMonitorClient
 	// ChannelMonitorDailyRollup is the client for interacting with the ChannelMonitorDailyRollup builders.
 	ChannelMonitorDailyRollup *ChannelMonitorDailyRollupClient
 	// ChannelMonitorHistory is the client for interacting with the ChannelMonitorHistory builders.
 	ChannelMonitorHistory *ChannelMonitorHistoryClient
 	// ChannelMonitorRequestTemplate is the client for interacting with the ChannelMonitorRequestTemplate builders.
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
+	// ChannelMonitor is the client for interacting with the ChannelMonitor builders.
+	ChannelMonitor *ChannelMonitorClient
 	// CompositeModelRoute is the client for interacting with the CompositeModelRoute builders.
 	CompositeModelRoute *CompositeModelRouteClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
@@ -62,16 +62,16 @@ type Tx struct {
 	PaymentProviderInstance *PaymentProviderInstanceClient
 	// PendingAuthSession is the client for interacting with the PendingAuthSession builders.
 	PendingAuthSession *PendingAuthSessionClient
-	// PromoCode is the client for interacting with the PromoCode builders.
-	PromoCode *PromoCodeClient
 	// PromoCodeUsage is the client for interacting with the PromoCodeUsage builders.
 	PromoCodeUsage *PromoCodeUsageClient
+	// PromoCode is the client for interacting with the PromoCode builders.
+	PromoCode *PromoCodeClient
 	// Proxy is the client for interacting with the Proxy builders.
 	Proxy *ProxyClient
-	// RedeemCode is the client for interacting with the RedeemCode builders.
-	RedeemCode *RedeemCodeClient
 	// RedeemCodeBatchUsage is the client for interacting with the RedeemCodeBatchUsage builders.
 	RedeemCodeBatchUsage *RedeemCodeBatchUsageClient
+	// RedeemCode is the client for interacting with the RedeemCode builders.
+	RedeemCode *RedeemCodeClient
 	// SecuritySecret is the client for interacting with the SecuritySecret builders.
 	SecuritySecret *SecuritySecretClient
 	// Setting is the client for interacting with the Setting builders.
@@ -84,18 +84,20 @@ type Tx struct {
 	UsageCleanupTask *UsageCleanupTaskClient
 	// UsageLog is the client for interacting with the UsageLog builders.
 	UsageLog *UsageLogClient
-	// User is the client for interacting with the User builders.
-	User *UserClient
 	// UserAllowedGroup is the client for interacting with the UserAllowedGroup builders.
 	UserAllowedGroup *UserAllowedGroupClient
 	// UserAttributeDefinition is the client for interacting with the UserAttributeDefinition builders.
 	UserAttributeDefinition *UserAttributeDefinitionClient
 	// UserAttributeValue is the client for interacting with the UserAttributeValue builders.
 	UserAttributeValue *UserAttributeValueClient
+	// UserBalanceSnapshot is the client for interacting with the UserBalanceSnapshot builders.
+	UserBalanceSnapshot *UserBalanceSnapshotClient
 	// UserPlatformQuota is the client for interacting with the UserPlatformQuota builders.
 	UserPlatformQuota *UserPlatformQuotaClient
 	// UserSubscription is the client for interacting with the UserSubscription builders.
 	UserSubscription *UserSubscriptionClient
+	// User is the client for interacting with the User builders.
+	User *UserClient
 
 	// lazily loaded.
 	client     *Client
@@ -228,20 +230,20 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.APIKey = NewAPIKeyClient(tx.config)
-	tx.Account = NewAccountClient(tx.config)
 	tx.AccountGroup = NewAccountGroupClient(tx.config)
 	tx.AccountUpstreamGroup = NewAccountUpstreamGroupClient(tx.config)
-	tx.Announcement = NewAnnouncementClient(tx.config)
+	tx.Account = NewAccountClient(tx.config)
 	tx.AnnouncementRead = NewAnnouncementReadClient(tx.config)
-	tx.AuthIdentity = NewAuthIdentityClient(tx.config)
+	tx.Announcement = NewAnnouncementClient(tx.config)
 	tx.AuthIdentityChannel = NewAuthIdentityChannelClient(tx.config)
+	tx.AuthIdentity = NewAuthIdentityClient(tx.config)
 	tx.BatchImageEvent = NewBatchImageEventClient(tx.config)
 	tx.BatchImageItem = NewBatchImageItemClient(tx.config)
 	tx.BatchImageJob = NewBatchImageJobClient(tx.config)
-	tx.ChannelMonitor = NewChannelMonitorClient(tx.config)
 	tx.ChannelMonitorDailyRollup = NewChannelMonitorDailyRollupClient(tx.config)
 	tx.ChannelMonitorHistory = NewChannelMonitorHistoryClient(tx.config)
 	tx.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(tx.config)
+	tx.ChannelMonitor = NewChannelMonitorClient(tx.config)
 	tx.CompositeModelRoute = NewCompositeModelRouteClient(tx.config)
 	tx.ErrorPassthroughRule = NewErrorPassthroughRuleClient(tx.config)
 	tx.Group = NewGroupClient(tx.config)
@@ -251,23 +253,24 @@ func (tx *Tx) init() {
 	tx.PaymentOrder = NewPaymentOrderClient(tx.config)
 	tx.PaymentProviderInstance = NewPaymentProviderInstanceClient(tx.config)
 	tx.PendingAuthSession = NewPendingAuthSessionClient(tx.config)
-	tx.PromoCode = NewPromoCodeClient(tx.config)
 	tx.PromoCodeUsage = NewPromoCodeUsageClient(tx.config)
+	tx.PromoCode = NewPromoCodeClient(tx.config)
 	tx.Proxy = NewProxyClient(tx.config)
-	tx.RedeemCode = NewRedeemCodeClient(tx.config)
 	tx.RedeemCodeBatchUsage = NewRedeemCodeBatchUsageClient(tx.config)
+	tx.RedeemCode = NewRedeemCodeClient(tx.config)
 	tx.SecuritySecret = NewSecuritySecretClient(tx.config)
 	tx.Setting = NewSettingClient(tx.config)
 	tx.SubscriptionPlan = NewSubscriptionPlanClient(tx.config)
 	tx.TLSFingerprintProfile = NewTLSFingerprintProfileClient(tx.config)
 	tx.UsageCleanupTask = NewUsageCleanupTaskClient(tx.config)
 	tx.UsageLog = NewUsageLogClient(tx.config)
-	tx.User = NewUserClient(tx.config)
 	tx.UserAllowedGroup = NewUserAllowedGroupClient(tx.config)
 	tx.UserAttributeDefinition = NewUserAttributeDefinitionClient(tx.config)
 	tx.UserAttributeValue = NewUserAttributeValueClient(tx.config)
+	tx.UserBalanceSnapshot = NewUserBalanceSnapshotClient(tx.config)
 	tx.UserPlatformQuota = NewUserPlatformQuotaClient(tx.config)
 	tx.UserSubscription = NewUserSubscriptionClient(tx.config)
+	tx.User = NewUserClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

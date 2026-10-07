@@ -1,6 +1,7 @@
 import landing from './landing'
 import common from './common'
 import dashboard from './dashboard'
+import user from './user'
 import channelMonitorV2 from './channelMonitorV2'
 import batchImage from './batchImage'
 import admin from './admin'
@@ -12,6 +13,7 @@ const base = {
   ...landing,
   ...common,
   ...dashboard,
+  ...user,
   ...channelMonitorV2,
   ...batchImage,
   admin,

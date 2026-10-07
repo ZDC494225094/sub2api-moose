@@ -16,12 +16,13 @@ import (
 
 // UserHandler handles user-related requests
 type UserHandler struct {
-	userService           *service.UserService
-	authService           *service.AuthService
-	emailService          *service.EmailService
-	emailCache            service.EmailCache
-	affiliateService      *service.AffiliateService
-	userPlatformQuotaRepo service.UserPlatformQuotaRepository
+	userService            *service.UserService
+	authService            *service.AuthService
+	emailService           *service.EmailService
+	emailCache             service.EmailCache
+	affiliateService       *service.AffiliateService
+	userPlatformQuotaRepo  service.UserPlatformQuotaRepository
+	balanceSnapshotService *service.UserBalanceSnapshotService
 }
 
 // NewUserHandler creates a new UserHandler
@@ -32,14 +33,16 @@ func NewUserHandler(
 	emailCache service.EmailCache,
 	affiliateService *service.AffiliateService,
 	userPlatformQuotaRepo service.UserPlatformQuotaRepository,
+	balanceSnapshotService *service.UserBalanceSnapshotService,
 ) *UserHandler {
 	return &UserHandler{
-		userService:           userService,
-		authService:           authService,
-		emailService:          emailService,
-		emailCache:            emailCache,
-		affiliateService:      affiliateService,
-		userPlatformQuotaRepo: userPlatformQuotaRepo,
+		userService:            userService,
+		authService:            authService,
+		emailService:           emailService,
+		emailCache:             emailCache,
+		affiliateService:       affiliateService,
+		userPlatformQuotaRepo:  userPlatformQuotaRepo,
+		balanceSnapshotService: balanceSnapshotService,
 	}
 }
 
