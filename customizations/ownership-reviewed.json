@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_at": "2026-10-05",
-  "baseline": "b8dece9000c68815a5b867ca5a1e6f236e173905",
+  "reviewed_at": "2026-10-08",
+  "baseline": "db29b3a7738e26cfbc30025f033f481ac365ab7a",
   "note": "Exact-path ownership review, including the original 70 unmatched paths and Stage32 Seedance host seam. Records responsibility and host compatibility boundaries, not complete semantic coverage of regex-classified files. The sensitive dump.rdb runtime snapshot was removed from preservation and ownership ledgers; all other original inventory entries remain unchanged.",
   "reviews": [
     {
@@ -291,6 +291,7 @@
       "paths": [
         "docs/upstream-v0.2.7-merge.md",
         "docs/upstream-v0.2.13-merge.md",
+        "docs/upstream-v0.2.14-merge.md",
         "启动命令.txt"
       ],
       "owners": [
@@ -505,6 +506,17 @@
       "kind": "shared-host",
       "evidence": "Stage32 replaces Seedance endpoint constants and IsSeedance classification with the independent mediagateway endpoint registry; host retains namespaced task ownership, protocol transport and settlement. Seedance create flows through media admission; status/delete drain.",
       "next_step": "Keep protocol compatibility tests and historical task ownership when updating the host; no new blanket media gate on retained work."
+    },
+    {
+      "paths": [
+        "frontend/src/components/keys/__tests__/UseKeyModal.spec.ts"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "compatibility",
+      "evidence": "v0.2.14 merge adds regression assertions for upstream remote Codex API-key model discovery across HTTP/WS, Grok/Composite and OS switches; file-catalog mode must not inject the discovery flag. Production configuration generation remains identical to upstream.",
+      "next_step": "Retain both remote and file-mode coverage when updating the upstream UseKeyModal; this test extension does not claim ownership of native Codex features."
     }
   ]
 }
