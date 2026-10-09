@@ -326,7 +326,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	userBalanceSnapshotService := service.ProvideUserBalanceSnapshotService(userBalanceSnapshotRepository)
 	operationsHandler := admin.NewOperationsHandler(operationsService, operationsMarketingEmailService, userBalanceSnapshotService)
 	playgroundVideoAssetRepository := repository.NewPlaygroundVideoAssetRepository(db)
-	playgroundRunService := service.ProvidePlaygroundRunService(redisClient, playgroundVideoAssetRepository)
+	playgroundRunService := service.ProvidePlaygroundRunService(redisClient, playgroundVideoAssetRepository, imageStorageSettingService)
 	playgroundHandler := handler.NewPlaygroundHandler(playgroundRunService, apiKeyService, gatewayService)
 	rechargecampaignsHandler := wiring.ProvideRechargeCampaigns(client, affiliateService)
 	v6 := repository.NewLotteryActivityRepository(db)

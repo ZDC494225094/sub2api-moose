@@ -163,13 +163,14 @@ type PlaygroundRun struct {
 }
 
 type PlaygroundRunService struct {
-	mu                sync.RWMutex
-	runs              map[string]*PlaygroundRun
-	httpClient        *http.Client
-	rdb               *redis.Client
-	videoAssetRepo    PlaygroundVideoAssetRepository
-	ttl               time.Duration
-	videoPollInterval time.Duration
+	mu                   sync.RWMutex
+	runs                 map[string]*PlaygroundRun
+	httpClient           *http.Client
+	rdb                  *redis.Client
+	videoAssetRepo       PlaygroundVideoAssetRepository
+	ttl                  time.Duration
+	videoPollInterval    time.Duration
+	imageStorageResolver ImageStorageResolver
 }
 
 func NewPlaygroundRunService() *PlaygroundRunService {
@@ -178,8 +179,12 @@ func NewPlaygroundRunService() *PlaygroundRunService {
 
 // ProvidePlaygroundRunService keeps completed Playground tasks available when a
 // browser refreshes or a subsequent request lands on a different API instance.
-func ProvidePlaygroundRunService(rdb *redis.Client, videoAssetRepo PlaygroundVideoAssetRepository) *PlaygroundRunService {
-	return newPlaygroundRunService(rdb, videoAssetRepo)
+func ProvidePlaygroundRunService(rdb *redis.Client, videoAssetRepo PlaygroundVideoAssetRepository, imageStorage *ImageStorageSettingService) *PlaygroundRunService {
+	s := newPlaygroundRunService(rdb, videoAssetRepo)
+	if imageStorage != nil {
+		s.imageStorageResolver = imageStorage.Resolver()
+	}
+	return s
 }
 
 func newPlaygroundRunService(rdb *redis.Client, videoAssetRepo PlaygroundVideoAssetRepository) *PlaygroundRunService {
@@ -802,6 +807,9 @@ func (s *PlaygroundRunService) executeImage(ctx context.Context, key string, req
 }
 
 func (s *PlaygroundRunService) executeVideo(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string, started time.Time) (json.RawMessage, error) {
+	if err := s.prepareVideoInputImages(ctx, &request); err != nil {
+		return nil, err
+	}
 	geminiVideo := isGeminiPlaygroundVideoRequest(request)
 	payload, err := playgroundVideoGenerationPayload(request, geminiVideo)
 	if err != nil {

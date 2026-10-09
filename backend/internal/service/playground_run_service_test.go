@@ -26,7 +26,7 @@ func TestPlaygroundRunServicePersistsImageRunAcrossInstances(t *testing.T) {
 	t.Cleanup(func() { _ = redisClient.Close() })
 
 	completedAt := time.Now()
-	writer := ProvidePlaygroundRunService(redisClient, nil)
+	writer := ProvidePlaygroundRunService(redisClient, nil, nil)
 	run := &PlaygroundRun{
 		ID:          "persisted-image",
 		UserID:      7,
@@ -45,7 +45,7 @@ func TestPlaygroundRunServicePersistsImageRunAcrossInstances(t *testing.T) {
 		t.Fatalf("persist playground run: %v", err)
 	}
 
-	reader := ProvidePlaygroundRunService(redisClient, nil)
+	reader := ProvidePlaygroundRunService(redisClient, nil, nil)
 	stored, found := reader.Get(7, run.ID)
 	if !found {
 		t.Fatal("persisted playground run was not found")
@@ -99,7 +99,7 @@ func TestPlaygroundRunServiceStartIsIdempotentAcrossInstances(t *testing.T) {
 		Prompt:       "draw a cat",
 		N:            1,
 	}
-	writer := ProvidePlaygroundRunService(redisClient, nil)
+	writer := ProvidePlaygroundRunService(redisClient, nil, nil)
 	if _, err := writer.Start(7, request, server.URL); err != nil {
 		t.Fatalf("start initial run: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestPlaygroundRunServiceStartIsIdempotentAcrossInstances(t *testing.T) {
 		t.Fatal("initial run did not reach upstream")
 	}
 
-	reader := ProvidePlaygroundRunService(redisClient, nil)
+	reader := ProvidePlaygroundRunService(redisClient, nil, nil)
 	duplicate, err := reader.Start(7, request, server.URL)
 	if err != nil {
 		t.Fatalf("start duplicate run: %v", err)
@@ -1393,7 +1393,7 @@ func TestPlaygroundRunServicePersistsVideoAssetsAcrossInstances(t *testing.T) {
 	t.Cleanup(func() { _ = redisClient.Close() })
 
 	now := time.Now()
-	writer := ProvidePlaygroundRunService(redisClient, nil)
+	writer := ProvidePlaygroundRunService(redisClient, nil, nil)
 	run := &PlaygroundRun{
 		ID: "persisted-video", UserID: 9, Mode: "video", Status: PlaygroundRunSucceeded,
 		CreatedAt: now, UpdatedAt: now, CompletedAt: &now,
@@ -1402,7 +1402,7 @@ func TestPlaygroundRunServicePersistsVideoAssetsAcrossInstances(t *testing.T) {
 	if err := writer.persistRun(run); err != nil {
 		t.Fatalf("persist video run: %v", err)
 	}
-	reader := ProvidePlaygroundRunService(redisClient, nil)
+	reader := ProvidePlaygroundRunService(redisClient, nil, nil)
 	stored, found := reader.Get(9, run.ID)
 	if !found || len(stored.Videos) != 1 || stored.Videos[0].AssetIndex == nil {
 		t.Fatalf("stored video metadata = %#v", stored)
