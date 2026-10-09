@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import i18n from "@/i18n";
 import { type CanvasTheme } from "@/lib/canvas-theme";
-import { computeMediaSize, inferMediaRatio, inferMediaScale, mediaRatioOptions, mediaScaleOptions, readMediaDimensions } from "@/lib/media-size";
+import { computeMediaSize, inferMediaRatio, inferMediaScale, mediaRatioOptions, mediaScaleOptions, parseAspectRatio, parsePixelSize, readMediaDimensions } from "@/lib/media-size";
 import type { AiConfig, CanvasImageResolution } from "@/stores/use-config-store";
 
 const qualityOptions = [
@@ -392,7 +392,7 @@ function normalizeCanvasImageResolution(value: string | undefined): CanvasImageR
 function resolveCanvasImageAspect(size: string) {
     const exact = canvasImageAspectOptions.find((option) => option.value === size);
     if (exact) return exact;
-    const dimensions = readSizeDimensions(size, { width: 1824, height: 1024 });
+    const dimensions = parsePixelSize(size) || parseAspectRatio(size) || { width: 1824, height: 1024 };
     const ratio = dimensions.width / Math.max(dimensions.height, 1);
     return canvasImageAspectOptions.reduce((closest, option) => Math.abs(option.width / option.height - ratio) < Math.abs(closest.width / closest.height - ratio) ? option : closest, canvasImageAspectOptions[1]);
 }
