@@ -2,6 +2,7 @@ import localforage from "localforage";
 import { nanoid } from "nanoid";
 
 import { dataUrlToBlob } from "@/lib/image-utils";
+import { withLocalProxy } from "@/stores/use-config-store";
 
 export type UploadedFile = { url: string; storageKey: string; bytes: number; mimeType: string; width?: number; height?: number; durationMs?: number };
 
@@ -9,7 +10,7 @@ const store = localforage.createInstance({ name: "infinite-canvas", storeName: "
 const objectUrls = new Map<string, string>();
 
 export async function uploadMediaFile(input: string | Blob, prefix = "file"): Promise<UploadedFile> {
-    const blob = typeof input === "string" ? (input.startsWith("data:") ? dataUrlToBlob(input) : await (await fetch(input)).blob()) : input;
+    const blob = typeof input === "string" ? (input.startsWith("data:") ? dataUrlToBlob(input) : await (await fetch(withLocalProxy(input))).blob()) : input;
     const storageKey = `${prefix}:${nanoid()}`;
     await store.setItem(storageKey, blob);
     const url = URL.createObjectURL(blob);

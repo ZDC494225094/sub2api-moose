@@ -1,0 +1,15 @@
+---
+title: TODO
+description: 当前项目后续值得处理的事项
+---
+
+# TODO
+
+本文档用来记录当前项目后续比较值得处理的事项。
+
+- 本地 Agent 接入后续：按[本地 Agent 接入规划](/zh-CN/docs/progress/local-agent-integration-plan)把 Claude Code CLI Adapter 升级为 Claude Agent SDK Adapter，并完善工具队列体验。
+- Agent Skill 后续：补充网络检索安装、Skill 资源文件管理和可控的本地记忆沉淀。
+
+- MiniMax 图生视频：核实当前渠道 `/videos` 的 `image_path` 字段类型及素材上传协议后适配，不能将文件字段或 data URI 当作公网 URL。
+- Seedance `seedance-2.0-fast-M`：接入当前渠道的素材上传接口或用户授权的公网存储，生成图片作为参考图时先取得 HTTP(S) 地址；现有浏览器本地存储不具备此能力。
+- 继续核实参考图生图 `image file is required` 的实际请求分支（普通 API / 模型脚本），固定上传文件名的修改不作为完整修复验收。

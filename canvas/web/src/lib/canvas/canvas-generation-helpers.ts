@@ -1,6 +1,6 @@
 import { defaultConfig, resolveModelForCapability, type AiConfig } from "@/stores/use-config-store";
 import i18n from "@/i18n";
-import { resolveImageThumbnailUrl, resolveImageUrl, uploadImage } from "@/services/image-storage";
+import { ensureImagePreview, resolveImageUrl, uploadImage } from "@/services/image-storage";
 import { resolveMediaUrl } from "@/services/file-storage";
 import { imageMetadata, referenceUrl } from "@/lib/canvas/canvas-node-factory";
 import type { NodeGenerationInput } from "@/components/canvas/canvas-node-generation";
@@ -54,17 +54,17 @@ export async function hydrateCanvasImages(nodes: CanvasNodeData[]) {
                 (metadata.images || []).map(async (image) => {
                     if (!image.content && !image.storageKey) return image;
                     const hydratedContent = image.storageKey ? await resolveImageUrl(image.storageKey, image.content) : image.content;
-                    const previewContent = await resolveImageThumbnailUrl(image.thumbnailStorageKey, image.previewContent, image.storageKey);
-                    return { ...image, content: hydratedContent, previewContent, thumbnailStorageKey: image.thumbnailStorageKey || (image.storageKey ? `${image.storageKey}:thumb` : undefined) };
+                    void ensureImagePreview(image.storageKey);
+                    return { ...image, content: hydratedContent };
                 }),
             );
             if (metadata.storageKey) {
                 const hydratedContent = await resolveImageUrl(metadata.storageKey, content);
-                const previewContent = await resolveImageThumbnailUrl(metadata.thumbnailStorageKey, metadata.previewContent, metadata.storageKey);
-                return { ...node, metadata: { ...metadata, content: hydratedContent, previewContent, thumbnailStorageKey: metadata.thumbnailStorageKey || `${metadata.storageKey}:thumb`, images } };
+                void ensureImagePreview(metadata.storageKey);
+                return { ...node, metadata: { ...metadata, content: hydratedContent, images } };
             }
             if (!content) return { ...node, metadata: { ...metadata, images } };
-            if (!content.startsWith("data:image/")) return node;
+            if (!content.startsWith("data:image/")) return { ...node, metadata: { ...metadata, images } };
             return { ...node, metadata: { ...metadata, ...imageMetadata(await uploadImage(content)), images } };
         }),
     );
@@ -97,11 +97,12 @@ export function getGenerationCount(count: string) {
 }
 
 export function getInputSummary(inputs: NodeGenerationInput[]) {
+    const resources = [...new Map(inputs.flatMap((input) => (input.type === "group" ? input.children : [input])).map((input) => [input.nodeId, input])).values()];
     return {
-        textCount: inputs.filter((input) => input.type === "text").length,
-        imageCount: inputs.filter((input) => input.type === "image").length,
-        videoCount: inputs.filter((input) => input.type === "video").length,
-        audioCount: inputs.filter((input) => input.type === "audio").length,
+        textCount: resources.filter((input) => input.type === "text").length,
+        imageCount: resources.filter((input) => input.type === "image").length,
+        videoCount: resources.filter((input) => input.type === "video").length,
+        audioCount: resources.filter((input) => input.type === "audio").length,
     };
 }
 
@@ -119,12 +120,17 @@ export function buildGenerationConfig(config: AiConfig, node: CanvasNodeData | u
         videoAspectRatio: node?.metadata?.videoAspectRatio || config.videoAspectRatio || defaultConfig.videoAspectRatio,
         videoGenerateAudio: node?.metadata?.generateAudio || config.videoGenerateAudio || defaultConfig.videoGenerateAudio,
         videoWatermark: node?.metadata?.watermark || config.videoWatermark || defaultConfig.videoWatermark,
+        videoMode: node?.metadata?.videoMode || config.videoMode || defaultConfig.videoMode,
         audioVoice: node?.metadata?.audioVoice || config.audioVoice || defaultConfig.audioVoice,
         audioFormat: node?.metadata?.audioFormat || config.audioFormat || defaultConfig.audioFormat,
         audioSpeed: node?.metadata?.audioSpeed || config.audioSpeed || defaultConfig.audioSpeed,
         audioInstructions: node?.metadata?.audioInstructions || config.audioInstructions || defaultConfig.audioInstructions,
         count: String(node?.metadata?.count || (mode === "image" ? config.canvasImageCount || config.count : config.count) || defaultConfig.count),
     };
+}
+
+export function hasResumableVideoTask(node: CanvasNodeData) {
+    return node.type === CanvasNodeType.Video && Boolean(node.metadata?.videoTaskId) && !node.metadata?.content;
 }
 
 export function resetInterruptedGeneration(nodes: CanvasNodeData[], linkedResumableNodeIds: ReadonlySet<string> = new Set()) {
@@ -135,7 +141,8 @@ export function resetInterruptedGeneration(nodes: CanvasNodeData[], linkedResuma
                 ? { ...image, status: "error" as const, errorDetails: i18n.t("canvas.generation.interrupted") }
                 : image,
         );
-        const resumable = Boolean(linkedResumableNodeIds.has(node.id) || node.metadata.generationRunId || images?.some((image) => image.status === "loading" && image.generationRunId));
+        const texts = node.metadata.texts?.map((text) => text.status === "loading" && !text.generationRunId ? { ...text, status: "error" as const, errorDetails: i18n.t("canvas.generation.interrupted") } : text);
+        const resumable = Boolean(texts?.some((text) => text.status === "loading" && text.generationRunId) || hasResumableVideoTask(node) || linkedResumableNodeIds.has(node.id) || node.metadata.generationRunId || images?.some((image) => image.status === "loading" && image.generationRunId));
         return {
             ...node,
             metadata: {
@@ -143,6 +150,7 @@ export function resetInterruptedGeneration(nodes: CanvasNodeData[], linkedResuma
                 status: resumable ? ("loading" as const) : ("error" as const),
                 errorDetails: resumable ? undefined : i18n.t("canvas.generation.interrupted"),
                 images,
+                texts,
             },
         };
     });

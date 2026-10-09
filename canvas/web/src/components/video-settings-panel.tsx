@@ -5,7 +5,7 @@ import i18n from "@/i18n";
 import { ImageSettingsTheme } from "@/components/image-settings-panel";
 import { boolConfig, isSeedanceVideoConfig, normalizeSeedanceDuration, normalizeSeedanceRatio, normalizeSeedanceResolution, seedanceResolutionOptions } from "@/lib/seedance-video";
 import { type CanvasTheme } from "@/lib/canvas-theme";
-import { type AiConfig } from "@/stores/use-config-store";
+import { isManagedCanvasModel, resolveModelRequestConfig, resolveModelScript, type AiConfig } from "@/stores/use-config-store";
 
 const resolutionOptions = [
     { value: "720", label: "720p" },
@@ -27,11 +27,15 @@ const seedanceRatioLabelKeys: Record<string, string> = { "16:9": "landscape", "9
 
 export const videoResolutionOptions = resolutionOptions.map((item) => ({ value: item.value, label: item.label }));
 export const videoSizeOptions = sizeOptions.map((item) => ({ value: item.value, get label() { return i18n.t(`settingsPanels.video.sizes.${item.labelKey}`); } }));
+export const videoSecondsRange = { min: 1, max: 20 };
+export function supportsVideoGenerationMode(config: AiConfig) { return !isManagedCanvasModel(config, config.model || config.videoModel) && !isSeedanceVideoConfig(config) && (resolveModelRequestConfig(config, config.model || config.videoModel).apiFormat === "gemini" || Boolean(resolveModelScript(config, config.model || config.videoModel))); }
+export function videoModeLabel(value: string) { return i18n.t(`settingsPanels.video.modes.${value === "reference" ? "reference" : "frames"}`); }
+
 export const videoSecondOptions = secondOptions.map((value) => String(value));
 
 type VideoSettingsPanelProps = {
     config: AiConfig;
-    onConfigChange: (key: "vquality" | "size" | "videoSeconds" | "videoAspectRatio" | "videoGenerateAudio" | "videoWatermark", value: string) => void;
+    onConfigChange: (key: "vquality" | "size" | "videoSeconds" | "videoAspectRatio" | "videoGenerateAudio" | "videoWatermark" | "videoMode", value: string) => void;
     theme: CanvasTheme;
     showTitle?: boolean;
     className?: string;
@@ -39,6 +43,7 @@ type VideoSettingsPanelProps = {
 
 export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = true, className = "w-[320px] space-y-4 rounded-2xl px-1 py-0.5" }: VideoSettingsPanelProps) {
     const { t } = useTranslation();
+    const supportsVideoMode = supportsVideoGenerationMode(config);
     const supportsGenerateAudio = isSeedanceVideoConfig(config);
     const rawRatio = supportsGenerateAudio ? normalizeSeedanceRatio(config.size) : normalizeVideoAspectRatio(config.videoAspectRatio);
     const ratio = canvasRatioOptions.includes(rawRatio as (typeof canvasRatioOptions)[number]) ? rawRatio : "16:9";
@@ -57,6 +62,9 @@ export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = 
         <ImageSettingsTheme theme={theme}>
             <div className={className} style={{ color: theme.node.text }} onMouseDown={(event) => event.stopPropagation()}>
                 {showTitle ? <div className="text-lg font-semibold">{t("settingsPanels.video.title")}</div> : null}
+                {supportsVideoMode && <SettingGroup title={t("settingsPanels.video.mode")} color={theme.node.muted}>
+                    <SegmentedOptions options={[{ value: "frames", label: videoModeLabel("frames") }, { value: "reference", label: videoModeLabel("reference") }]} value={config.videoMode || "frames"} theme={theme} onChange={(value) => onConfigChange("videoMode", value)} />
+                </SettingGroup>}
                 <SettingGroup title={t("settingsPanels.video.ratio")} color={theme.node.muted}>
                     <div className="rounded-xl p-1" style={{ background: theme.node.fill }}>
                         <div className="grid grid-cols-6 gap-1">

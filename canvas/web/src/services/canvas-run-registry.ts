@@ -1,4 +1,4 @@
-import type { CanvasConnection, CanvasNodeData, CanvasNodeImage } from "@/types/canvas";
+import type { CanvasConnection, CanvasNodeData, CanvasNodeImage, CanvasNodeText } from "@/types/canvas";
 
 const STORAGE_KEY = "infinite-canvas:pending-runs:v1";
 const MAX_RECORD_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -7,6 +7,7 @@ export type PendingCanvasRun = {
     projectId: string;
     nodeId: string;
     imageId?: string;
+    textId?: string;
     runId: string;
     node: CanvasNodeData;
     connections: CanvasConnection[];
@@ -35,6 +36,10 @@ export function completedPendingCanvasRuns(projectId: string, nodes: CanvasNodeD
         if (record.projectId !== projectId) return false;
         const node = nodeById.get(record.nodeId);
         if (!node) return false;
+        if (record.textId) {
+            const text = node.metadata?.texts?.find((item) => item.id === record.textId);
+            return text ? text.status !== "loading" : node.metadata?.status !== "loading";
+        }
         if (!record.imageId) return node.metadata?.status !== "loading";
         const image = node.metadata?.images?.find((item) => item.id === record.imageId);
         return image ? image.status !== "loading" : node.metadata?.status !== "loading";
@@ -50,7 +55,9 @@ export function restorePendingCanvasRuns(projectId: string, nodes: CanvasNodeDat
         const current = nodeById.get(record.nodeId) || record.node;
         const currentImages = current.metadata?.images || [];
         const recordedImages = record.node.metadata?.images || [];
-        const metadata = record.imageId
+        const metadata = record.textId
+            ? { ...current.metadata, status: "loading" as const, errorDetails: undefined, texts: mergePendingTexts(current.metadata?.texts || [], record.node.metadata?.texts || [], record.textId, record.runId) }
+            : record.imageId
             ? {
                   ...current.metadata,
                   status: "loading" as const,
@@ -101,6 +108,18 @@ function mergePendingImages(current: CanvasNodeImage[], recorded: CanvasNodeImag
     return Array.from(imageById.values());
 }
 
+function mergePendingTexts(current: CanvasNodeText[], recorded: CanvasNodeText[], textId: string, runId: string): CanvasNodeText[] {
+    const textById = new Map((current || []).map((text) => [text.id, text]));
+    for (const text of recorded || []) {
+        if (!textById.has(text.id)) textById.set(text.id, text);
+    }
+    const pendingText = textById.get(textId);
+    if (pendingText) {
+        textById.set(textId, { ...pendingText, status: "loading", generationRunId: runId, errorDetails: undefined });
+    }
+    return Array.from(textById.values());
+}
+
 function compactPendingNode(node: CanvasNodeData): CanvasNodeData {
     if (!node.metadata) return node;
     return {
@@ -113,6 +132,7 @@ function compactPendingNode(node: CanvasNodeData): CanvasNodeData {
             previewContent: undefined,
             composerContent: undefined,
             references: undefined,
+            texts: node.metadata.texts?.map((text) => ({ ...text, content: "" })),
             images: node.metadata.images?.map((image) => ({
                 ...image,
                 content: "",
