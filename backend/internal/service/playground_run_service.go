@@ -927,6 +927,13 @@ func isPlaygroundVideoModel(model, target string) bool {
 	if slash := strings.LastIndex(normalized, "/"); slash >= 0 {
 		normalized = normalized[slash+1:]
 	}
+	// Strip the canvas managed-model prefix: "canvas:<channelID>::<model>".
+	// e.g. "canvas:61::h3video-2k" -> "h3video-2k".
+	if strings.HasPrefix(normalized, "canvas:") {
+		if idx := strings.Index(normalized, "::"); idx >= 0 {
+			normalized = normalized[idx+2:]
+		}
+	}
 	if normalized == target {
 		return true
 	}
@@ -1031,6 +1038,14 @@ func normalizePlaygroundVideoRequest(request *PlaygroundRunRequest) error {
 		}
 		if imageCount > 2 {
 			return errors.New("seedance supports at most two frame images")
+		}
+	case isPlaygroundVideoModel(request.Model, "h3video") || isPlaygroundVideoModel(request.Model, "minimax-h3"):
+		// H3video (Xiaowen) upstream only accepts 768p or 2K resolutions.
+		// Map the common 720p request to 768p to avoid upstream 400 errors.
+		// Root cause: user requests 720p (vquality=720), upstream rejects with
+		// "Xiaowen resolution must be 768p or 2K" (HTTP 400).
+		if request.Resolution == "720p" {
+			request.Resolution = "768p"
 		}
 	case isPlaygroundVideoModel(request.Model, "gemini-omni-flash"):
 		if request.Duration == 0 {
@@ -1191,6 +1206,35 @@ func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo 
 	if resolution := strings.TrimSpace(request.Resolution); resolution != "" {
 		payload["resolution"] = resolution
 	}
+	// Seedance/Ark endpoint requires a non-empty "content" array.
+	// Root cause: ParseSeedanceRequest rejects payloads without content array
+	// with "content must be a non-empty array" (HTTP 400). Include the Ark
+	// content format alongside the OpenAI-compatible fields so the payload
+	// works regardless of which upstream adapter handles it.
+	content := []map[string]any{
+		{"type": "text", "text": request.Prompt},
+	}
+	if firstFrame != "" {
+		content = append(content, map[string]any{
+			"type":      "image_url",
+			"image_url": map[string]any{"url": firstFrame},
+			"role":      "first_frame",
+		})
+	}
+	if lastFrame != "" {
+		content = append(content, map[string]any{
+			"type":      "image_url",
+			"image_url": map[string]any{"url": lastFrame},
+			"role":      "last_frame",
+		})
+	}
+	for _, refURL := range referenceImages {
+		content = append(content, map[string]any{
+			"type":      "image_url",
+			"image_url": map[string]any{"url": refURL},
+		})
+	}
+	payload["content"] = content
 	return payload, nil
 }
 

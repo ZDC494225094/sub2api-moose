@@ -55,9 +55,28 @@ func (s *PlaygroundRunService) prepareVideoInputImages(ctx context.Context, requ
 			return fmt.Errorf("视频参考图 %d 不是有效的图片内容", i+1)
 		}
 		uploadCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-		imageURL, err := uploader.storage.Save(uploadCtx, uploader.buildKey(objectID, i, contentType), contentType, data)
+		// Retry the upload up to 3 times with backoff. Transient network
+		// issues or brief R2/S3 unavailability should not fail the whole
+		// video task. Root cause of widespread "转存对象存储失败": single
+		// attempt with no retry, so any transient error aborts the task.
+		var imageURL string
+		var saveErr error
+		for attempt := 0; attempt < 3; attempt++ {
+			if attempt > 0 {
+				select {
+				case <-ctx.Done():
+					cancel()
+					return ctx.Err()
+				case <-time.After(time.Duration(attempt) * 2 * time.Second):
+				}
+			}
+			imageURL, saveErr = uploader.storage.Save(uploadCtx, uploader.buildKey(objectID, i, contentType), contentType, data)
+			if saveErr == nil {
+				break
+			}
+		}
 		cancel()
-		if err != nil {
+		if saveErr != nil {
 			// Do not expose storage credentials or signed URLs through task errors.
 			return fmt.Errorf("视频参考图 %d 转存对象存储失败，请检查存储配置及连接", i+1)
 		}
