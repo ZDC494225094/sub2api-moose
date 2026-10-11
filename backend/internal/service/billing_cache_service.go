@@ -840,7 +840,10 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 	// 判断计费模式
 	isSubscriptionMode := group != nil && group.IsSubscriptionType() && subscription != nil
 
-	if isSubscriptionMode {
+	if CanvasChargeFromContext(ctx) != nil {
+		// Affordability was atomically reserved at canvas admission. All other
+		// key/platform/RPM restrictions below still apply.
+	} else if isSubscriptionMode {
 		if err := s.checkSubscriptionEligibility(ctx, user.ID, group, subscription); err != nil {
 			return err
 		}

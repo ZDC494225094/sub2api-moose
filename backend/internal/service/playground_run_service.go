@@ -46,6 +46,9 @@ const (
 )
 
 type PlaygroundRunRequest struct {
+	CanvasKey        *APIKey `json:"-"`
+	canvasCharge     *CanvasCharge
+	canvasToken      string
 	ID               string                     `json:"id"`
 	Mode             string                     `json:"mode"`
 	APIKey           string                     `json:"apiKey"`
@@ -163,6 +166,9 @@ type PlaygroundRun struct {
 }
 
 type PlaygroundRunService struct {
+	canvasBilling        *CanvasBillingService
+	stopBilling          chan struct{}
+	stopBillingOnce      sync.Once
 	mu                   sync.RWMutex
 	runs                 map[string]*PlaygroundRun
 	httpClient           *http.Client
@@ -179,8 +185,13 @@ func NewPlaygroundRunService() *PlaygroundRunService {
 
 // ProvidePlaygroundRunService keeps completed Playground tasks available when a
 // browser refreshes or a subsequent request lands on a different API instance.
-func ProvidePlaygroundRunService(rdb *redis.Client, videoAssetRepo PlaygroundVideoAssetRepository, imageStorage *ImageStorageSettingService) *PlaygroundRunService {
+func ProvidePlaygroundRunService(rdb *redis.Client, videoAssetRepo PlaygroundVideoAssetRepository, imageStorage *ImageStorageSettingService, billing *CanvasBillingService) *PlaygroundRunService {
 	s := newPlaygroundRunService(rdb, videoAssetRepo)
+	s.canvasBilling = billing
+	if billing != nil {
+		s.stopBilling = make(chan struct{})
+		go s.recoverCanvasCharges()
+	}
 	if imageStorage != nil {
 		s.imageStorageResolver = imageStorage.Resolver()
 	}
@@ -191,7 +202,8 @@ func newPlaygroundRunService(rdb *redis.Client, videoAssetRepo PlaygroundVideoAs
 	return &PlaygroundRunService{
 		runs: make(map[string]*PlaygroundRun),
 		httpClient: &http.Client{
-			Timeout: 0,
+			Timeout:   0,
+			Transport: canvasBillingTransport{},
 		},
 		rdb:               rdb,
 		videoAssetRepo:    videoAssetRepo,
@@ -236,12 +248,33 @@ func (s *PlaygroundRunService) Start(userID int64, request PlaygroundRunRequest,
 		return nil, errors.New("request base url is required")
 	}
 
+	if request.CanvasKey != nil {
+		if request.CanvasKey.UserID != userID {
+			return nil, ErrCanvasChargeUnavailable
+		}
+		reserveCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		charge, token, created, err := s.canvasBilling.reserve(reserveCtx, request.CanvasKey, request)
+		cancel()
+		if err != nil {
+			return nil, err
+		}
+		if !created {
+			if existing, ok := s.Get(userID, request.ID); ok {
+				return existing, nil
+			}
+			return canvasRecoveredRun(charge), nil
+		}
+		request.canvasCharge, request.canvasToken = charge, token
+	}
 	key := playgroundRunKey(userID, request.ID)
 	s.cleanupExpiredLocked(time.Now())
 	s.mu.Lock()
 	if existing := s.runs[key]; existing != nil {
 		out := clonePlaygroundRunForClient(existing)
 		s.mu.Unlock()
+		if request.canvasCharge != nil {
+			_, _ = s.canvasBilling.finish(request.canvasCharge.ID, false)
+		}
 		return out, nil
 	}
 	s.mu.Unlock()
@@ -257,8 +290,15 @@ func (s *PlaygroundRunService) Start(userID int64, request PlaygroundRunRequest,
 		UpdatedAt: now,
 	}
 	if existing, claimed, err := s.claimPersistentRun(run); err != nil {
+		if request.canvasCharge != nil {
+			_, _ = s.canvasBilling.finish(request.canvasCharge.ID, false)
+			return nil, ErrCanvasChargeUnavailable
+		}
 		log.Printf("playground run persistence unavailable for user %d run %s: %v", userID, request.ID, err)
 	} else if !claimed {
+		if request.canvasCharge != nil {
+			_, _ = s.canvasBilling.finish(request.canvasCharge.ID, false)
+		}
 		return existing, nil
 	}
 
@@ -266,11 +306,17 @@ func (s *PlaygroundRunService) Start(userID int64, request PlaygroundRunRequest,
 	if existing := s.runs[key]; existing != nil {
 		out := clonePlaygroundRunForClient(existing)
 		s.mu.Unlock()
+		if request.canvasCharge != nil {
+			_, _ = s.canvasBilling.finish(request.canvasCharge.ID, false)
+		}
 		return out, nil
 	}
 	// Canvas jobs can legitimately outlive a browser session or a fixed proxy
 	// timeout. They are canceled only by the user through Cancel.
 	ctx, cancel := context.WithCancel(context.Background())
+	if request.canvasCharge != nil {
+		ctx = context.WithValue(ctx, canvasTransportContextKey{}, canvasTransportCredentials{token: request.canvasToken, origin: baseURL, key: request.APIKey})
+	}
 	run.cancel = cancel
 	s.runs[key] = run
 	out := clonePlaygroundRunForClient(run)
@@ -286,6 +332,27 @@ func (s *PlaygroundRunService) Get(userID int64, id string) (*PlaygroundRun, boo
 		return nil, false
 	}
 	id = strings.TrimSpace(id)
+	var ledgerRun *PlaygroundRun
+	if s.canvasBilling != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		charge, err := s.canvasBilling.repo.GetCanvasCharge(ctx, userID, id)
+		cancel()
+		if err == nil && charge != nil {
+			ledgerRun = canvasRecoveredRun(charge)
+		}
+		if err == nil && charge != nil && charge.Status == "failed" {
+			s.mu.RLock()
+			local := s.runs[playgroundRunKey(userID, id)]
+			if local != nil {
+				local = clonePlaygroundRunForClient(local)
+			}
+			s.mu.RUnlock()
+			if local != nil && (local.Status == PlaygroundRunFailed || local.Status == PlaygroundRunCanceled) {
+				return local, true
+			}
+			return canvasRecoveredRun(charge), true
+		}
+	}
 	persistedRun, persistedFound, persistedErr := s.loadPersistentRun(userID, id)
 	if persistedErr != nil {
 		log.Printf("playground run persistence read failed for user %d run %s: %v", userID, id, persistedErr)
@@ -309,6 +376,9 @@ func (s *PlaygroundRunService) Get(userID int64, id string) (*PlaygroundRun, boo
 	}
 	if inMemoryRun != nil {
 		return inMemoryRun, true
+	}
+	if ledgerRun != nil {
+		return ledgerRun, true
 	}
 	return nil, false
 }
@@ -483,6 +553,20 @@ func (s *PlaygroundRunService) Cancel(userID int64, id string) (*PlaygroundRun, 
 		return nil, false
 	}
 	id = strings.TrimSpace(id)
+	if s.canvasBilling != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		charge, err := s.canvasBilling.repo.GetCanvasCharge(ctx, userID, id)
+		cancel()
+		if err != nil {
+			return s.Get(userID, id)
+		}
+		if charge != nil {
+			settled, err := s.canvasBilling.finish(charge.ID, false)
+			if err != nil || (settled != nil && settled.Status == "succeeded") {
+				return s.Get(userID, id)
+			}
+		}
+	}
 	key := playgroundRunKey(userID, id)
 	s.mu.Lock()
 	run := s.runs[key]
@@ -531,6 +615,8 @@ func (s *PlaygroundRunService) Cancel(userID int64, id string) (*PlaygroundRun, 
 }
 
 func (s *PlaygroundRunService) execute(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string) {
+	stop := s.heartbeatCanvasCharge(ctx, key, request)
+	defer stop()
 	started := time.Now()
 	s.update(key, func(run *PlaygroundRun) {
 		run.Status = PlaygroundRunRunning
@@ -550,6 +636,19 @@ func (s *PlaygroundRunService) execute(ctx context.Context, key string, request 
 		raw, err = s.executeChat(ctx, key, request, baseURL)
 	}
 
+	if request.canvasCharge != nil {
+		if ctx.Err() != nil {
+			err = ctx.Err()
+		}
+		charge, billingErr := s.settleCanvasCharge(ctx, request, err)
+		if billingErr != nil {
+			err = fmt.Errorf("任务账务结算待恢复: %w", billingErr)
+		} else if charge == nil || charge.Status != "succeeded" {
+			if err == nil {
+				err = context.Canceled
+			}
+		}
+	}
 	completed := time.Now()
 	if err != nil {
 		status := PlaygroundRunFailed
@@ -967,6 +1066,16 @@ func normalizePlaygroundVideoRequest(request *PlaygroundRunRequest) error {
 	hasReferenceVideo := request.ReferenceVideo != nil && strings.TrimSpace(request.ReferenceVideo.DataURL) != ""
 
 	switch {
+	case isPlaygroundVideoModel(request.Model, "xiaowen"):
+		switch strings.ToLower(strings.TrimSpace(request.Resolution)) {
+		case "2k":
+			request.Resolution = "2K"
+		case "", "auto", "low", "medium", "high", "480", "480p", "720", "720p", "768", "768p", "1080", "1080p":
+			// Shared canvas defaults use the standard tier, not the 2K tier.
+			request.Resolution = "768p"
+		default:
+			return errors.New("Xiaowen resolution must be 768p or 2K")
+		}
 	case isPlaygroundVideoModel(request.Model, "grok-imagine-video"):
 		// Grok Imagine only accepts landscape or portrait output. Older canvas
 		// projects stored image dimensions (or 1:1) in this field, so normalize

@@ -255,7 +255,7 @@ func usageRecordContext(parent context.Context, base context.Context) context.Co
 	if requestID, _ := parent.Value(ctxkey.RequestID).(string); strings.TrimSpace(requestID) != "" {
 		base = context.WithValue(base, ctxkey.RequestID, strings.TrimSpace(requestID))
 	}
-	return base
+	return service.WithCanvasCharge(base, service.CanvasChargeFromContext(parent))
 }
 
 // wrapUsageRecordTaskContext 包装计费任务：复制请求级 context 值，并接管请求的在途余额预留引用。
@@ -3436,7 +3436,7 @@ func (h *OpenAIGatewayHandler) submitUsageRecordTask(parent context.Context, tas
 		return
 	}
 	task, abandon := wrapUsageRecordTaskContext(parent, task)
-	if h.usageRecordWorkerPool != nil {
+	if h.usageRecordWorkerPool != nil && service.CanvasChargeFromContext(parent) == nil {
 		if mode := h.usageRecordWorkerPool.Submit(task); mode != service.UsageRecordSubmitModeDroppedStopped {
 			if mode.Dropped() {
 				abandon()
@@ -3478,7 +3478,7 @@ func (h *OpenAIGatewayHandler) submitMandatoryUsageRecordTask(parent context.Con
 		return
 	}
 	task, _ = wrapUsageRecordTaskContext(parent, task)
-	if h.usageRecordWorkerPool != nil {
+	if h.usageRecordWorkerPool != nil && service.CanvasChargeFromContext(parent) == nil {
 		if mode := h.usageRecordWorkerPool.Submit(task); !mode.Dropped() {
 			return
 		}

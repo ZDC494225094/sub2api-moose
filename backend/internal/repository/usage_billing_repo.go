@@ -51,6 +51,17 @@ func (r *usageBillingRepository) Apply(ctx context.Context, cmd *service.UsageBi
 	}
 
 	result := &service.UsageBillingApplyResult{Applied: true}
+	if cmd.CanvasChargeID != "" {
+		result.CanvasCharge, err = r.recordCanvasUsage(ctx, tx, cmd)
+		if err != nil {
+			return nil, err
+		}
+		// The canvas ledger owns user money. Preserve normal usage, account
+		// quota and API-key accounting without charging the user a second time.
+		copy := *cmd
+		copy.BalanceCost, copy.SubscriptionCost = 0, 0
+		cmd = &copy
+	}
 	if err := r.applyUsageBillingEffects(ctx, tx, cmd, result); err != nil {
 		return nil, err
 	}

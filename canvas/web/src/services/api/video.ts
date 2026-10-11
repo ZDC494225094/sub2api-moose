@@ -1,3 +1,4 @@
+import { isXiaowenVideoModel, normalizeXiaowenResolution } from "@/lib/xiaowen-video";
 import { inferVideoRatio } from "@/lib/media-size";
 import axios from "axios";
 import { nanoid } from "nanoid";
@@ -145,7 +146,7 @@ async function createManagedCanvasVideoTask(
             images,
             duration: Number(normalizeVideoSeconds(config.videoSeconds)),
             size: normalizeVideoSize(config.size) || "",
-            resolution: normalizeVideoResolution(config.vquality),
+            resolution: normalizeVideoResolution(config.vquality, model),
             aspectRatio: normalizeVideoAspectRatio(config.videoAspectRatio),
         },
         options?.signal,
@@ -173,7 +174,7 @@ async function createPluginVideoTask(config: AiConfig, model: string, script: st
             params: {
                 seconds: normalizeVideoSeconds(config.videoSeconds),
                 size: normalizeVideoSize(config.size),
-                resolution: normalizeVideoResolution(config.vquality),
+                resolution: normalizeVideoResolution(config.vquality, model),
                 ratio: normalizeVideoAspectRatio(config.videoAspectRatio),
                 generateAudio: boolConfig(config.videoGenerateAudio, true),
                 watermark: boolConfig(config.videoWatermark, false),
@@ -217,7 +218,7 @@ async function createOpenAIVideoTask(config: AiConfig, model: string, prompt: st
     body.append("prompt", prompt);
     body.append("seconds", normalizeVideoSeconds(config.videoSeconds));
     if (normalizeVideoSize(config.size)) body.append("size", normalizeVideoSize(config.size)!);
-    body.append("resolution_name", normalizeVideoResolution(config.vquality));
+    body.append("resolution_name", normalizeVideoResolution(config.vquality, model));
     body.append("preset", "normal");
     const files = await Promise.all(references.slice(0, 7).map(async (image) => dataUrlToFile({ ...image, dataUrl: await imageToDataUrl(image) })));
     files.forEach((file) => body.append("input_reference[]", file));
@@ -386,7 +387,7 @@ async function createGeminiVideoTask(config: AiConfig, model: string, prompt: st
             parameters: {
                 aspectRatio: normalizeVideoAspectRatio(config.videoAspectRatio),
                 durationSeconds: Number(normalizeVideoSeconds(config.videoSeconds)) || 8,
-                resolution: normalizeVideoResolution(config.vquality),
+                resolution: normalizeVideoResolution(config.vquality, model),
                 generateAudio: boolConfig(config.videoGenerateAudio, true),
                 addWatermark: boolConfig(config.videoWatermark, false),
             },
@@ -484,7 +485,8 @@ function normalizeVideoSize(value: string) {
     return ["9:16", "2:3", "3:4"].includes(size) ? "720x1280" : "1280x720";
 }
 
-function normalizeVideoResolution(value: string) {
+function normalizeVideoResolution(value: string, model: string) {
+    if (isXiaowenVideoModel(model)) return normalizeXiaowenResolution(value);
     if (value.toLowerCase() === "2k") return "2k";
     if (value === "low") return "480p";
     if (value === "auto" || value === "high" || value === "medium") return "720p";

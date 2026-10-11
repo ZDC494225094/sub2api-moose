@@ -140,7 +140,7 @@ type ConfigStore = {
     clearPromptContinue: () => void;
 };
 
-const VIDEO_KEYWORDS = ["seedance", "video", "sora", "veo", "kling", "keling", "wan", "hailuo"];
+const VIDEO_KEYWORDS = ["xiaowen", "seedance", "video", "sora", "veo", "kling", "keling", "wan", "hailuo"];
 
 export function boolConfig(value: string, fallback: boolean) {
     return value ? value === "true" : fallback;

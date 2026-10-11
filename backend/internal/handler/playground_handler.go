@@ -131,6 +131,7 @@ func (h *PlaygroundHandler) StartCanvasRun(c *gin.Context) {
 		response.BadRequest(c, "Audio generation is currently available only for Grok groups")
 		return
 	}
+	req.CanvasKey = managedKey
 	req.APIKey = managedKey.Key
 	req.Platform = managedKey.Platform
 	req.EndpointBase = ""
@@ -318,6 +319,10 @@ func (h *PlaygroundHandler) CancelRun(c *gin.Context) {
 	}
 
 	run, ok := h.runService.Cancel(subject.UserID, c.Param("id"))
+	if ok && run != nil && (run.Status == service.PlaygroundRunQueued || run.Status == service.PlaygroundRunRunning) {
+		response.InternalError(c, "任务取消或退款尚未完成，请稍后重试")
+		return
+	}
 	if !ok {
 		response.NotFound(c, "Playground run not found")
 		return

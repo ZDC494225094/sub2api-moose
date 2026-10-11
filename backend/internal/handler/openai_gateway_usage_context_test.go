@@ -2,7 +2,10 @@ package handler
 
 import (
 	"context"
+	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/stretchr/testify/require"
@@ -38,4 +41,29 @@ func TestOpenAISubmitUsageRecordTaskCopiesRequestContext(t *testing.T) {
 
 	require.Equal(t, "openai-client-request-123", gotClientRequestID)
 	require.Equal(t, "openai-request-456", gotRequestID)
+}
+
+func TestCanvasUsageNeverDropsUnderPoolOverflow(t *testing.T) {
+	pool := service.NewUsageRecordWorkerPoolWithOptions(service.UsageRecordWorkerPoolOptions{WorkerCount: 1, QueueSize: 1, TaskTimeout: time.Minute, OverflowPolicy: config.UsageRecordOverflowPolicyDrop})
+	t.Cleanup(pool.Stop)
+	block := make(chan struct{})
+	started := make(chan struct{})
+	t.Cleanup(func() { close(block) })
+	require.Equal(t, service.UsageRecordSubmitModeEnqueued, pool.Submit(func(context.Context) { close(started); <-block }))
+	<-started
+	require.Equal(t, service.UsageRecordSubmitModeEnqueued, pool.Submit(func(context.Context) { <-block }))
+	charge := &service.CanvasCharge{ID: "verified", UserID: 7, APIKeyID: 9}
+	parent, cancel := context.WithCancel(service.WithCanvasCharge(context.Background(), charge))
+	cancel()
+	openai := &OpenAIGatewayHandler{usageRecordWorkerPool: pool}
+	generic := &GatewayHandler{usageRecordWorkerPool: pool}
+	for _, submit := range []func(context.Context, service.UsageRecordTask){generic.submitUsageRecordTask, openai.submitUsageRecordTask, openai.submitMandatoryUsageRecordTask} {
+		called := false
+		submit(parent, func(ctx context.Context) {
+			called = true
+			require.NoError(t, ctx.Err())
+			require.Same(t, charge, service.CanvasChargeFromContext(ctx))
+		})
+		require.True(t, called, "canvas money-critical usage must complete synchronously")
+	}
 }

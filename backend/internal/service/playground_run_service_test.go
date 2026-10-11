@@ -26,7 +26,8 @@ func TestPlaygroundRunServicePersistsImageRunAcrossInstances(t *testing.T) {
 	t.Cleanup(func() { _ = redisClient.Close() })
 
 	completedAt := time.Now()
-	writer := ProvidePlaygroundRunService(redisClient, nil, nil)
+	writer := ProvidePlaygroundRunService(redisClient, nil, nil, nil)
+	defer writer.Stop()
 	run := &PlaygroundRun{
 		ID:          "persisted-image",
 		UserID:      7,
@@ -45,7 +46,8 @@ func TestPlaygroundRunServicePersistsImageRunAcrossInstances(t *testing.T) {
 		t.Fatalf("persist playground run: %v", err)
 	}
 
-	reader := ProvidePlaygroundRunService(redisClient, nil, nil)
+	reader := ProvidePlaygroundRunService(redisClient, nil, nil, nil)
+	defer reader.Stop()
 	stored, found := reader.Get(7, run.ID)
 	if !found {
 		t.Fatal("persisted playground run was not found")
@@ -99,7 +101,8 @@ func TestPlaygroundRunServiceStartIsIdempotentAcrossInstances(t *testing.T) {
 		Prompt:       "draw a cat",
 		N:            1,
 	}
-	writer := ProvidePlaygroundRunService(redisClient, nil, nil)
+	writer := ProvidePlaygroundRunService(redisClient, nil, nil, nil)
+	defer writer.Stop()
 	if _, err := writer.Start(7, request, server.URL); err != nil {
 		t.Fatalf("start initial run: %v", err)
 	}
@@ -109,7 +112,8 @@ func TestPlaygroundRunServiceStartIsIdempotentAcrossInstances(t *testing.T) {
 		t.Fatal("initial run did not reach upstream")
 	}
 
-	reader := ProvidePlaygroundRunService(redisClient, nil, nil)
+	reader := ProvidePlaygroundRunService(redisClient, nil, nil, nil)
+	defer reader.Stop()
 	duplicate, err := reader.Start(7, request, server.URL)
 	if err != nil {
 		t.Fatalf("start duplicate run: %v", err)
@@ -1393,7 +1397,8 @@ func TestPlaygroundRunServicePersistsVideoAssetsAcrossInstances(t *testing.T) {
 	t.Cleanup(func() { _ = redisClient.Close() })
 
 	now := time.Now()
-	writer := ProvidePlaygroundRunService(redisClient, nil, nil)
+	writer := ProvidePlaygroundRunService(redisClient, nil, nil, nil)
+	defer writer.Stop()
 	run := &PlaygroundRun{
 		ID: "persisted-video", UserID: 9, Mode: "video", Status: PlaygroundRunSucceeded,
 		CreatedAt: now, UpdatedAt: now, CompletedAt: &now,
@@ -1402,7 +1407,8 @@ func TestPlaygroundRunServicePersistsVideoAssetsAcrossInstances(t *testing.T) {
 	if err := writer.persistRun(run); err != nil {
 		t.Fatalf("persist video run: %v", err)
 	}
-	reader := ProvidePlaygroundRunService(redisClient, nil, nil)
+	reader := ProvidePlaygroundRunService(redisClient, nil, nil, nil)
+	defer reader.Stop()
 	stored, found := reader.Get(9, run.ID)
 	if !found || len(stored.Videos) != 1 || stored.Videos[0].AssetIndex == nil {
 		t.Fatalf("stored video metadata = %#v", stored)
@@ -1466,5 +1472,48 @@ func TestSanitizePlaygroundUpstreamErrorMessageRemovesGroupPrefix(t *testing.T) 
 	plain := "No eligible Grok media accounts"
 	if got := sanitizePlaygroundUpstreamErrorMessage(plain); got != plain {
 		t.Fatalf("plain message changed to %q", got)
+	}
+}
+
+func TestPlaygroundXiaowenResolution(t *testing.T) {
+	for _, model := range []string{"xiaowen", "Xiaowen-video", "provider/xiaowen-v1"} {
+		for _, value := range []string{"", "720p", "480p", "1080p", "768", "768p", "auto", " 2k ", "2K"} {
+			t.Run(model+"/"+value, func(t *testing.T) {
+				request := PlaygroundRunRequest{Model: model, Resolution: value}
+				if err := normalizePlaygroundVideoRequest(&request); err != nil {
+					t.Fatal(err)
+				}
+				want := "768p"
+				if strings.EqualFold(strings.TrimSpace(value), "2k") {
+					want = "2K"
+				}
+				if request.Resolution != want {
+					t.Fatalf("resolution = %q, want %q", request.Resolution, want)
+				}
+				for _, gemini := range []bool{false, true} {
+					payload, err := playgroundVideoGenerationPayload(request, gemini)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if gemini {
+						payload = payload["parameters"].(map[string]any)
+					}
+					if payload["resolution"] != want {
+						t.Fatalf("payload resolution = %v, want %q", payload["resolution"], want)
+					}
+				}
+			})
+		}
+	}
+	request := PlaygroundRunRequest{Model: "xiaowen", Resolution: "4K"}
+	if err := normalizePlaygroundVideoRequest(&request); err == nil {
+		t.Fatal("expected invalid resolution error")
+	}
+	request = PlaygroundRunRequest{Model: "not-xiaowen", Resolution: "720p"}
+	if err := normalizePlaygroundVideoRequest(&request); err != nil {
+		t.Fatal(err)
+	}
+	if request.Resolution != "720p" {
+		t.Fatal("changed unrelated model resolution")
 	}
 }

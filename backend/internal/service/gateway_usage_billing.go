@@ -352,11 +352,17 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 
 func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog, p *postUsageBillingParams, deps *billingDeps, repo UsageBillingRepository) (bool, error) {
 	if p == nil || deps == nil {
+		if CanvasChargeFromContext(ctx) != nil {
+			return false, ErrCanvasChargeUnavailable
+		}
 		return false, nil
 	}
 
 	cmd := buildUsageBillingCommand(requestID, usageLog, p)
 	if cmd == nil || cmd.RequestID == "" || repo == nil {
+		if CanvasChargeFromContext(ctx) != nil {
+			return false, ErrCanvasChargeUnavailable
+		}
 		if p.SimpleModeKeyRateLimitOnly {
 			return false, ErrSimpleModeKeyRateLimitBillingUnavailable
 		}
@@ -369,6 +375,11 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 	billingCtx, cancel := detachedBillingContext(ctx)
 	defer cancel()
 
+	if charge := CanvasChargeFromContext(ctx); charge != nil {
+		cmd.CanvasChargeID = charge.ID
+		cmd.RequestFingerprint = ""
+		cmd.Normalize()
+	}
 	result, err := repo.Apply(billingCtx, cmd)
 	if err != nil {
 		return false, err
@@ -408,7 +419,12 @@ func finalizePostUsageBilling(ctx context.Context, p *postUsageBillingParams, de
 		return
 	}
 
-	if p.IsSubscriptionBill {
+	if result != nil && result.CanvasCharge != nil {
+		invalidateCanvasChargeCaches(ctx, deps.billingCacheService, result.CanvasCharge)
+		if invalidator, ok := p.APIKeyService.(APIKeyAuthCacheInvalidator); ok {
+			invalidator.InvalidateAuthCacheByUserID(ctx, result.CanvasCharge.UserID)
+		}
+	} else if p.IsSubscriptionBill {
 		if p.Cost.ActualCost > 0 && p.User != nil && p.APIKey != nil && p.APIKey.GroupID != nil && p.Subscription != nil {
 			deps.billingCacheService.QueueUpdateSubscriptionUsageByID(p.User.ID, *p.APIKey.GroupID, p.Subscription.ID, p.Cost.ActualCost)
 		}

@@ -157,6 +157,16 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			AbortWithError(c, 401, "USER_INACTIVE", "User account is not active")
 			return
 		}
+		// Consume (and strip) the server-only capability before forwarding headers.
+		chargeToken := c.GetHeader(service.CanvasBillingHeader)
+		c.Request.Header.Del(service.CanvasBillingHeader)
+		chargeCtx, err := apiKeyService.AuthenticateCanvasCharge(c.Request.Context(), apiKey, chargeToken)
+		if err != nil {
+			AbortWithError(c, 403, "CANVAS_CHARGE_INVALID", err.Error())
+			return
+		}
+		c.Request = c.Request.WithContext(chargeCtx)
+		prepaid := service.CanvasChargeFromContext(chargeCtx) != nil
 		billingInfoRequest := c.Request.URL.Path == "/v1/sub2api/billing"
 		var selection *service.APIKeyGroupSelection
 		if !billingInfoRequest {
@@ -259,7 +269,7 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			}
 
 			// 订阅模式：验证订阅限额
-			if subscription != nil {
+			if subscription != nil && !prepaid {
 				needsMaintenance, validateErr := subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
 				if needsMaintenance {
 					refreshed, maintenanceErr := subscriptionService.EnsureWindowMaintenance(c.Request.Context(), subscription)
@@ -284,7 +294,7 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 				}
 			} else {
 				// 非订阅模式 或 订阅模式但 subscriptionService 未注入：回退到余额检查
-				if apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) {
+				if !prepaid && apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) {
 					AbortWithError(c, 403, "INSUFFICIENT_BALANCE", "Insufficient account balance")
 					return
 				}

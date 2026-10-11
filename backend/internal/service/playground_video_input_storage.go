@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"go.uber.org/zap"
 )
 
 // prepareVideoInputImages offloads inline references only for URL-based video
@@ -55,30 +58,46 @@ func (s *PlaygroundRunService) prepareVideoInputImages(ctx context.Context, requ
 			return fmt.Errorf("视频参考图 %d 不是有效的图片内容", i+1)
 		}
 		uploadCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-		// Retry the upload up to 3 times with backoff. Transient network
-		// issues or brief R2/S3 unavailability should not fail the whole
-		// video task. Root cause of widespread "转存对象存储失败": single
-		// attempt with no retry, so any transient error aborts the task.
+		// Retry transient failures only; a denied bucket or invalid signature
+		// cannot be repaired by resubmitting the same bytes and credentials.
 		var imageURL string
 		var saveErr error
+		var failure videoStorageFailure
+		attempts := 0
 		for attempt := 0; attempt < 3; attempt++ {
+			if err := uploadCtx.Err(); err != nil {
+				saveErr = err
+				failure = classifyVideoStorageFailure(err)
+				break
+			}
 			if attempt > 0 {
+				timer := time.NewTimer(time.Duration(attempt) * 2 * time.Second)
 				select {
-				case <-ctx.Done():
+				case <-uploadCtx.Done():
+					timer.Stop()
 					cancel()
-					return ctx.Err()
-				case <-time.After(time.Duration(attempt) * 2 * time.Second):
+					return fmt.Errorf("视频参考图 %d 转存对象存储失败：%s", i+1, classifyVideoStorageFailure(uploadCtx.Err()).hint)
+				case <-timer.C:
 				}
 			}
+			attempts++
 			imageURL, saveErr = uploader.storage.Save(uploadCtx, uploader.buildKey(objectID, i, contentType), contentType, data)
 			if saveErr == nil {
+				break
+			}
+			failure = classifyVideoStorageFailure(saveErr)
+			if !failure.retry {
 				break
 			}
 		}
 		cancel()
 		if saveErr != nil {
-			// Do not expose storage credentials or signed URLs through task errors.
-			return fmt.Errorf("视频参考图 %d 转存对象存储失败，请检查存储配置及连接", i+1)
+			// Never log the original SDK error: it may contain credentials,
+			// signed URLs or a provider-controlled error message.
+			logger.L().Warn("playground.video_reference_storage_failed",
+				zap.Int("image_index", i+1), zap.Int("attempts", attempts),
+				zap.String("category", failure.category), zap.Int("http_status", failure.status))
+			return fmt.Errorf("视频参考图 %d 转存对象存储失败：%s", i+1, failure.hint)
 		}
 		parsed, err := url.Parse(imageURL)
 		if err != nil || parsed.Hostname() == "" || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {

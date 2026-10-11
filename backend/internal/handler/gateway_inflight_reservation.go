@@ -71,6 +71,9 @@ func reserveInflightBalanceCtx(
 	subscription *service.UserSubscription,
 	req service.InflightEstimateRequest,
 ) (context.Context, func(), error) {
+	if service.CanvasChargeFromContext(ctx) != nil {
+		return ctx, inflightNoop, nil
+	}
 	if billing == nil || estimator == nil || apiKey == nil || apiKey.User == nil || !billing.InflightReservationEnabled() {
 		return ctx, inflightNoop, nil
 	}

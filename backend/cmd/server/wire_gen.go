@@ -79,7 +79,8 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	accountRepository := repository.NewAccountRepository(client, db, schedulerCache)
 	concurrencyService := service.ProvideConcurrencyService(concurrencyCache, accountRepository, configConfig)
 	apiKeyRoutingAdmission := wiring.ProvideKeyRoutingAdmission(settingRepository)
-	apiKeyService := service.ProvideAPIKeyService(apiKeyRepository, userRepository, groupRepository, userSubscriptionRepository, userGroupRateRepository, apiKeyCache, configConfig, billingCacheService, concurrencyService, apiKeyRoutingAdmission)
+	canvasBillingRepository := repository.NewCanvasBillingRepository(db)
+	apiKeyService := service.ProvideAPIKeyService(canvasBillingRepository, apiKeyRepository, userRepository, groupRepository, userSubscriptionRepository, userGroupRateRepository, apiKeyCache, configConfig, billingCacheService, concurrencyService, apiKeyRoutingAdmission)
 	apiKeyAuthCacheInvalidator := service.ProvideAPIKeyAuthCacheInvalidator(apiKeyService)
 	promoService := service.NewPromoService(promoCodeRepository, userRepository, billingCacheService, client, apiKeyAuthCacheInvalidator)
 	subscriptionIssuanceAdmission := wiring.ProvideSubscriptionIssuance(settingRepository)
@@ -326,7 +327,8 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	userBalanceSnapshotService := service.ProvideUserBalanceSnapshotService(userBalanceSnapshotRepository)
 	operationsHandler := admin.NewOperationsHandler(operationsService, operationsMarketingEmailService, userBalanceSnapshotService)
 	playgroundVideoAssetRepository := repository.NewPlaygroundVideoAssetRepository(db)
-	playgroundRunService := service.ProvidePlaygroundRunService(redisClient, playgroundVideoAssetRepository, imageStorageSettingService)
+	canvasBillingService := service.NewCanvasBillingService(canvasBillingRepository, apiKeyService, subscriptionService, gatewayService, billingCacheService, configConfig)
+	playgroundRunService := service.ProvidePlaygroundRunService(redisClient, playgroundVideoAssetRepository, imageStorageSettingService, canvasBillingService)
 	playgroundHandler := handler.NewPlaygroundHandler(playgroundRunService, apiKeyService, gatewayService)
 	rechargecampaignsHandler := wiring.ProvideRechargeCampaigns(client, affiliateService)
 	v6 := repository.NewLotteryActivityRepository(db)
@@ -381,7 +383,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService, channelMonitorQuotaFetcher)
 	channelMonitorV2Aggregator := service.ProvideChannelMonitorV2Aggregator(channelMonitorV2Repository, db, settingService)
 	userPlatformQuotaUsageFlusher := service.ProvideUserPlatformQuotaUsageFlusher(configConfig, billingCache, serviceUserPlatformQuotaRepository, timingWheelService)
-	v13 := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, opsService, opsIngressRejectAggregator, apiKeyService, authCacheInvalidationWorker, schedulerSnapshotService, tokenRefreshService, accountExpiryService, cnProviderBalanceCheckService, openAICodexVersionSyncService, claudeCodeVersionSyncService, proxyExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, batchImageCleanupService, batchImageWorkerRuntime, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, userBalanceSnapshotService, paymentOrderExpiryService, channelMonitorRunner, channelMonitorV2Aggregator, userPlatformQuotaUsageFlusher, upstreamBillingProbeService, ollamaCloudUsageService, openCodeGoUsageService, auditLogService, openAIQuotaAutoResetService, promptService, pluginManager)
+	v13 := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, opsService, opsIngressRejectAggregator, apiKeyService, authCacheInvalidationWorker, schedulerSnapshotService, tokenRefreshService, accountExpiryService, cnProviderBalanceCheckService, openAICodexVersionSyncService, claudeCodeVersionSyncService, proxyExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, batchImageCleanupService, batchImageWorkerRuntime, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, userBalanceSnapshotService, paymentOrderExpiryService, channelMonitorRunner, channelMonitorV2Aggregator, userPlatformQuotaUsageFlusher, upstreamBillingProbeService, ollamaCloudUsageService, openCodeGoUsageService, auditLogService, openAIQuotaAutoResetService, promptService, pluginManager, playgroundRunService)
 	application := &Application{
 		Server:        httpServer,
 		PromptAudit:   promptService,
@@ -468,8 +470,13 @@ func provideCleanup(
 	openAIAutoReset *service.OpenAIQuotaAutoResetService,
 	promptAudit *securityaudit.PromptService,
 	pluginManager *service.PluginManager,
+	playgroundRuns *service.PlaygroundRunService,
 ) func() {
 	return func() {
+		// Stop producers before shutting down billing workers and storage.
+		if playgroundRuns != nil {
+			playgroundRuns.Stop()
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 

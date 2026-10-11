@@ -19,6 +19,30 @@ func (s *APIKeyService) SelectUsableGroupForAPIKey(ctx context.Context, apiKey *
 	if apiKey == nil {
 		return nil, ErrAPIKeyNotFound
 	}
+	if charge := CanvasChargeFromContext(ctx); charge != nil {
+		if charge.UserID != apiKey.UserID || charge.APIKeyID != apiKey.ID {
+			return nil, ErrCanvasChargeUnavailable
+		}
+		group, err := s.resolveAPIKeyCandidateGroup(ctx, apiKey, charge.GroupID)
+		if err != nil {
+			return nil, err
+		}
+		selection := &APIKeyGroupSelection{Group: group}
+		if charge.SubscriptionID != nil {
+			if subscriptionSvc == nil {
+				return nil, ErrCanvasChargeUnavailable
+			}
+			selection.Subscription, err = subscriptionSvc.GetByID(ctx, *charge.SubscriptionID)
+			if err != nil {
+				return nil, err
+			}
+			if selection.Subscription == nil || selection.Subscription.UserID != charge.UserID || selection.Subscription.GroupID != charge.GroupID {
+				return nil, ErrCanvasChargeUnavailable
+			}
+		}
+		apiKey.Group, apiKey.GroupID = group, &charge.GroupID
+		return selection, nil
+	}
 	policy, err := multigroupbilling.RoutingPolicy(apiKey.RoutingPolicy)
 	if err != nil {
 		return nil, err

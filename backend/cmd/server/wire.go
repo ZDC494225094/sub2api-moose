@@ -133,8 +133,13 @@ func provideCleanup(
 	openAIAutoReset *service.OpenAIQuotaAutoResetService,
 	promptAudit *securityaudit.PromptService,
 	pluginManager *service.PluginManager,
+	playgroundRuns *service.PlaygroundRunService,
 ) func() {
 	return func() {
+		// Stop producers before shutting down billing workers and storage.
+		if playgroundRuns != nil {
+			playgroundRuns.Stop()
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 

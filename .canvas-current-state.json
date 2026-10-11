@@ -1,0 +1,3112 @@
+{
+  "ok": true,
+  "result": {
+    "projectId": "zUwnvr9dSFCDdx2HmXh1J",
+    "title": "无限画布 4",
+    "nodes": [
+      {
+        "id": "text-1791463141049-0",
+        "type": "text",
+        "title": "《倒计时》制作说明与实际进度",
+        "position": {
+          "x": 248.86526031836465,
+          "y": -818.8582176307087
+        },
+        "width": 900,
+        "height": 330,
+        "metadata": {
+          "content": "来源：F:\\code\\AICode\\测试\\三体1-十集剧本大纲.md；F:\\code\\AICode\\测试\\三体1-第一集《倒计时》完整剧本.md。以完整剧本八场为准：实验室、绝密会议、家庭晚餐、街心公园、旧时光咖啡馆、暗房、史强夜访、卧室→...",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "text-921eccf1-b499-45de-aaaf-1ee46954c172",
+        "type": "text",
+        "title": "人物资产01｜汪淼",
+        "position": {
+          "x": 248.86526031836465,
+          "y": -418.8582176307088
+        },
+        "width": 396,
+        "height": 266,
+        "metadata": {
+          "content": "《倒计时》原创角色资产，写实中国科幻悬疑电影选角设定图，非任何演员。汪淼：40岁中国男性，瘦长脸，短黑发略凌乱，细框眼镜，眼中血丝，克制疲惫的纳米科学家。固定灰蓝衬衫、深灰长裤，实验室可外加白大褂。灰色摄影棚背景，同一人物的正面半身、侧面半身、全身三视图，真实皮肤，无文字无水印，不同视图脸完全相同。冷灰电影调色。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-2a7775f8-77cf-496e-b469-c3ffd06b9e51",
+        "type": "config",
+        "title": "人物资产01｜汪淼",
+        "position": {
+          "x": 668.8652603183647,
+          "y": -418.8582176307088
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "image",
+          "composerContent": "@[node:text-921eccf1-b499-45de-aaaf-1ee46954c172]",
+          "prompt": "@[node:text-921eccf1-b499-45de-aaaf-1ee46954c172]",
+          "model": "canvas:41::gpt-image-2",
+          "size": "3:2",
+          "quality": "high",
+          "count": 1
+        }
+      },
+      {
+        "id": "agGMZ7tILmDLahj88Gmvw",
+        "type": "image",
+        "title": "人物资产01｜汪淼·三视图",
+        "position": {
+          "x": 1104.8652603183646,
+          "y": -412.19155096404216
+        },
+        "width": 340,
+        "height": 226.66666666666666,
+        "metadata": {
+          "prompt": "【文本1】\n\n【文本1】\n《倒计时》原创角色资产，写实中国科幻悬疑电影选角设定图，非任何演员。汪淼：40岁中国男性，瘦长脸，短黑发略凌乱，细框眼镜，眼中血丝，克制疲惫的纳米科学家。固定灰蓝衬衫、深灰长裤，实验室可外加白大褂。灰色摄影棚背景，同一人物的正面半身、侧面半身、全身三视图，真实皮肤，无文字无水印，不同视图脸完全相同。冷灰电影调色。",
+          "status": "success",
+          "images": [
+            {
+              "id": "gKhBuKojucavUBwZys-7R",
+              "status": "success",
+              "content": "blob:https://moosecloud.cc/11ea7af5-1765-498e-8eb9-2af0e89d33aa",
+              "previewContent": "blob:https://moosecloud.cc/ab551f0d-1669-4b25-9823-69ae7b080d70",
+              "storageKey": "image:GNrZwzEq8xuhPgZhe12Sk",
+              "thumbnailStorageKey": "image:GNrZwzEq8xuhPgZhe12Sk:thumb",
+              "naturalWidth": 1536,
+              "naturalHeight": 1024,
+              "bytes": 2191529,
+              "mimeType": "image/png"
+            }
+          ],
+          "generationType": "generation",
+          "model": "canvas:41::gpt-image-2",
+          "size": "3:2",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [],
+          "content": "blob:https://moosecloud.cc/11ea7af5-1765-498e-8eb9-2af0e89d33aa",
+          "previewContent": "blob:https://moosecloud.cc/ab551f0d-1669-4b25-9823-69ae7b080d70",
+          "storageKey": "image:GNrZwzEq8xuhPgZhe12Sk",
+          "thumbnailStorageKey": "image:GNrZwzEq8xuhPgZhe12Sk:thumb",
+          "naturalWidth": 1536,
+          "naturalHeight": 1024,
+          "bytes": 2191529,
+          "mimeType": "image/png",
+          "primaryImageId": "gKhBuKojucavUBwZys-7R"
+        }
+      },
+      {
+        "id": "text-d63b34ce-9db1-4c5d-b78c-5faa77912834",
+        "type": "text",
+        "title": "人物资产02｜史强",
+        "position": {
+          "x": 248.86526031836465,
+          "y": 231.1417823692912
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "原创角色资产，写实中国科幻悬疑电影，不模仿影视演员。史强：45岁中国男性，身材壮实，宽脸粗眉，短寸黑发，有胡茬，目光敏锐，嘴角带市井痞笑。固定磨旧棕色夹克、深色T恤、黑长裤。灰色摄影棚背景，同一人的正面半身、侧面半身、全身三视图，身份一致，真实皮肤质感，无字无水印。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-c706015e-71cc-4a8d-8504-6224c71f24af",
+        "type": "config",
+        "title": "人物资产02｜史强",
+        "position": {
+          "x": 668.8652603183647,
+          "y": 231.1417823692912
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "image",
+          "composerContent": "@[node:text-d63b34ce-9db1-4c5d-b78c-5faa77912834]",
+          "prompt": "@[node:text-d63b34ce-9db1-4c5d-b78c-5faa77912834]",
+          "model": "canvas:41::gpt-image-2",
+          "size": "3:2",
+          "quality": "high",
+          "count": 1
+        }
+      },
+      {
+        "id": "dix3NEi0yAV6p-HnA8xrV",
+        "type": "image",
+        "title": "人物资产02｜史强·三视图",
+        "position": {
+          "x": 1104.8652603183646,
+          "y": 237.80844903595784
+        },
+        "width": 340,
+        "height": 226.66666666666666,
+        "metadata": {
+          "prompt": "【文本1】\n\n【文本1】\n原创角色资产，写实中国科幻悬疑电影，不模仿影视演员。史强：45岁中国男性，身材壮实，宽脸粗眉，短寸黑发，有胡茬，目光敏锐，嘴角带市井痞笑。固定磨旧棕色夹克、深色T恤、黑长裤。灰色摄影棚背景，同一人的正面半身、侧面半身、全身三视图，身份一致，真实皮肤质感，无字无水印。",
+          "status": "success",
+          "images": [
+            {
+              "id": "RdSfEYbtufFxb9QNrvQDv",
+              "status": "success",
+              "content": "blob:https://moosecloud.cc/60170616-8b62-418a-933f-83546c9fe0f2",
+              "previewContent": "blob:https://moosecloud.cc/80d2b128-c0f3-49f3-ace3-a865d52f0b29",
+              "storageKey": "image:4mnHuXdgNj1uh_lXO85F5",
+              "thumbnailStorageKey": "image:4mnHuXdgNj1uh_lXO85F5:thumb",
+              "naturalWidth": 1536,
+              "naturalHeight": 1024,
+              "bytes": 2307846,
+              "mimeType": "image/png"
+            }
+          ],
+          "generationType": "generation",
+          "model": "canvas:41::gpt-image-2",
+          "size": "3:2",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [],
+          "content": "blob:https://moosecloud.cc/60170616-8b62-418a-933f-83546c9fe0f2",
+          "previewContent": "blob:https://moosecloud.cc/80d2b128-c0f3-49f3-ace3-a865d52f0b29",
+          "storageKey": "image:4mnHuXdgNj1uh_lXO85F5",
+          "thumbnailStorageKey": "image:4mnHuXdgNj1uh_lXO85F5:thumb",
+          "naturalWidth": 1536,
+          "naturalHeight": 1024,
+          "bytes": 2307846,
+          "mimeType": "image/png",
+          "primaryImageId": "RdSfEYbtufFxb9QNrvQDv"
+        }
+      },
+      {
+        "id": "text-6024b2ca-4f9e-49de-b6d8-9ad2273ba596",
+        "type": "text",
+        "title": "人物资产03｜常伟思",
+        "position": {
+          "x": 248.86526031836465,
+          "y": 881.1417823692913
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "原创角色资产，写实中国科幻悬疑电影，无演员相貌。常伟思：55岁中国男性，精瘦方脸，两鬓少许灰白，短发，腰背笔直，目光沉着严肃。深橄榄色高级军官常服，庄重克制，不强调可辨识具体徽章。灰色摄影棚背景，正面半身、侧面半身、全身三视图同一人，真实皮肤，无文字无水印。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-a8537382-12e5-4a4a-8fa1-7171a4fb7c1c",
+        "type": "config",
+        "title": "人物资产03｜常伟思",
+        "position": {
+          "x": 668.8652603183647,
+          "y": 881.1417823692913
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "image",
+          "composerContent": "@[node:text-6024b2ca-4f9e-49de-b6d8-9ad2273ba596]",
+          "prompt": "@[node:text-6024b2ca-4f9e-49de-b6d8-9ad2273ba596]",
+          "model": "canvas:41::gpt-image-2",
+          "size": "3:2",
+          "quality": "high",
+          "count": 1
+        }
+      },
+      {
+        "id": "5qXj4mF1_UScnatZ4AY6K",
+        "type": "image",
+        "title": "人物资产03｜常伟思·三视图",
+        "position": {
+          "x": 1104.8652603183646,
+          "y": 887.808449035958
+        },
+        "width": 340,
+        "height": 226.66666666666666,
+        "metadata": {
+          "prompt": "【文本1】\n\n【文本1】\n原创角色资产，写实中国科幻悬疑电影，无演员相貌。常伟思：55岁中国男性，精瘦方脸，两鬓少许灰白，短发，腰背笔直，目光沉着严肃。深橄榄色高级军官常服，庄重克制，不强调可辨识具体徽章。灰色摄影棚背景，正面半身、侧面半身、全身三视图同一人，真实皮肤，无文字无水印。",
+          "status": "success",
+          "images": [
+            {
+              "id": "3aomYQ3jG4EAlA76VzSSd",
+              "status": "success",
+              "content": "blob:https://moosecloud.cc/dfef68f6-b4ba-4f6a-9834-76486cc21bda",
+              "previewContent": "blob:https://moosecloud.cc/967b0cca-1682-45c4-bfe5-5749869d2707",
+              "storageKey": "image:X6pn-3HYKOQ0MJvqdfhAO",
+              "thumbnailStorageKey": "image:X6pn-3HYKOQ0MJvqdfhAO:thumb",
+              "naturalWidth": 1536,
+              "naturalHeight": 1024,
+              "bytes": 2035559,
+              "mimeType": "image/png"
+            }
+          ],
+          "generationType": "generation",
+          "model": "canvas:41::gpt-image-2",
+          "size": "3:2",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [],
+          "content": "blob:https://moosecloud.cc/dfef68f6-b4ba-4f6a-9834-76486cc21bda",
+          "previewContent": "blob:https://moosecloud.cc/967b0cca-1682-45c4-bfe5-5749869d2707",
+          "storageKey": "image:X6pn-3HYKOQ0MJvqdfhAO",
+          "thumbnailStorageKey": "image:X6pn-3HYKOQ0MJvqdfhAO:thumb",
+          "naturalWidth": 1536,
+          "naturalHeight": 1024,
+          "bytes": 2035559,
+          "mimeType": "image/png",
+          "primaryImageId": "3aomYQ3jG4EAlA76VzSSd"
+        }
+      },
+      {
+        "id": "text-9decac8e-76f9-40bc-a18e-4f54ba82e1c8",
+        "type": "text",
+        "title": "人物资产04｜申玉菲",
+        "position": {
+          "x": 248.86526031836465,
+          "y": 1531.1417823692911
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "原创角色资产，写实中国科幻悬疑电影，不模仿演员。申玉菲：36岁中国女性，精致冷峻的椭圆脸，黑色齐肩直发整齐，妆容克制一丝不苟，锐利眼神不微笑。固定黑色西装外套、米白衬衫、黑长裤、黑高跟鞋、简洁银色腕表。灰背景，同一人的正面半身、侧面半身、全身三视图，真实自然，无文字无水印。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-b0c9e175-0189-41a7-b0d0-9e8f681436f7",
+        "type": "config",
+        "title": "人物资产04｜申玉菲",
+        "position": {
+          "x": 668.8652603183647,
+          "y": 1531.1417823692911
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "image",
+          "composerContent": "@[node:text-9decac8e-76f9-40bc-a18e-4f54ba82e1c8]",
+          "prompt": "@[node:text-9decac8e-76f9-40bc-a18e-4f54ba82e1c8]",
+          "model": "canvas:41::gpt-image-2",
+          "size": "3:2",
+          "quality": "high",
+          "count": 1
+        }
+      },
+      {
+        "id": "yEejQCaRdbGxeHq8IlN-h",
+        "type": "image",
+        "title": "人物资产04｜申玉菲·三视图",
+        "position": {
+          "x": 1104.8652603183646,
+          "y": 1537.808449035958
+        },
+        "width": 340,
+        "height": 226.66666666666666,
+        "metadata": {
+          "prompt": "【文本1】\n\n【文本1】\n原创角色资产，写实中国科幻悬疑电影，不模仿演员。申玉菲：36岁中国女性，精致冷峻的椭圆脸，黑色齐肩直发整齐，妆容克制一丝不苟，锐利眼神不微笑。固定黑色西装外套、米白衬衫、黑长裤、黑高跟鞋、简洁银色腕表。灰背景，同一人的正面半身、侧面半身、全身三视图，真实自然，无文字无水印。",
+          "status": "success",
+          "images": [
+            {
+              "id": "p8y0ThP1rNTMZHQpGnI52",
+              "status": "success",
+              "content": "blob:https://moosecloud.cc/624b33e5-1682-430f-8d51-ca6dbf0d442a",
+              "previewContent": "blob:https://moosecloud.cc/95f2791b-18c7-41d7-b6ee-28bf160a248c",
+              "storageKey": "image:ZD2baefZ_TQJ7FiAc91ha",
+              "thumbnailStorageKey": "image:ZD2baefZ_TQJ7FiAc91ha:thumb",
+              "naturalWidth": 1536,
+              "naturalHeight": 1024,
+              "bytes": 2009264,
+              "mimeType": "image/png"
+            }
+          ],
+          "generationType": "generation",
+          "model": "canvas:41::gpt-image-2",
+          "size": "3:2",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [],
+          "content": "blob:https://moosecloud.cc/624b33e5-1682-430f-8d51-ca6dbf0d442a",
+          "previewContent": "blob:https://moosecloud.cc/95f2791b-18c7-41d7-b6ee-28bf160a248c",
+          "storageKey": "image:ZD2baefZ_TQJ7FiAc91ha",
+          "thumbnailStorageKey": "image:ZD2baefZ_TQJ7FiAc91ha:thumb",
+          "naturalWidth": 1536,
+          "naturalHeight": 1024,
+          "bytes": 2009264,
+          "mimeType": "image/png",
+          "primaryImageId": "p8y0ThP1rNTMZHQpGnI52"
+        }
+      },
+      {
+        "id": "text-f3e05b6b-d1a6-47b0-a74d-069b678eb20c",
+        "type": "text",
+        "title": "人物资产05｜李瑶",
+        "position": {
+          "x": 248.86526031836465,
+          "y": 2181.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "原创角色资产，写实中国科幻悬疑电影，非演员。李瑶：36岁中国女性，温柔干练，自然圆润鹅蛋脸，黑发低马尾，素颜自然。固定米色针织上衣、暖棕居家长裤；睡衣变体浅米色棉睡衣。灰色摄影棚背景，同一人的正面半身、侧面半身、全身三视图，真实自然无文字无水印。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-3892dd71-0336-440e-b8ad-f2efbea7f657",
+        "type": "config",
+        "title": "人物资产05｜李瑶",
+        "position": {
+          "x": 668.8652603183647,
+          "y": 2181.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "image",
+          "composerContent": "@[node:text-f3e05b6b-d1a6-47b0-a74d-069b678eb20c]",
+          "prompt": "@[node:text-f3e05b6b-d1a6-47b0-a74d-069b678eb20c]",
+          "model": "canvas:41::gpt-image-2",
+          "size": "3:2",
+          "quality": "high",
+          "count": 1
+        }
+      },
+      {
+        "id": "e7REcfn7sUSsf1DaqiJIR",
+        "type": "image",
+        "title": "人物资产05｜李瑶·三视图",
+        "position": {
+          "x": 1104.8652603183646,
+          "y": 2187.8084490359574
+        },
+        "width": 340,
+        "height": 226.66666666666666,
+        "metadata": {
+          "prompt": "【文本1】\n\n【文本1】\n原创角色资产，写实中国科幻悬疑电影，非演员。李瑶：36岁中国女性，温柔干练，自然圆润鹅蛋脸，黑发低马尾，素颜自然。固定米色针织上衣、暖棕居家长裤；睡衣变体浅米色棉睡衣。灰色摄影棚背景，同一人的正面半身、侧面半身、全身三视图，真实自然无文字无水印。",
+          "status": "success",
+          "images": [
+            {
+              "id": "8pGjE_kNh9SuH5VQ5mi_e",
+              "status": "success",
+              "content": "blob:https://moosecloud.cc/da7afe14-23f6-4b1f-8263-ee622dd8626e",
+              "previewContent": "blob:https://moosecloud.cc/8ecc6e6b-7e24-4d11-aaac-8e86f05d0595",
+              "storageKey": "image:J2HsAz9TwQZxdoQ09ZGmG",
+              "thumbnailStorageKey": "image:J2HsAz9TwQZxdoQ09ZGmG:thumb",
+              "naturalWidth": 1536,
+              "naturalHeight": 1024,
+              "bytes": 2500401,
+              "mimeType": "image/png"
+            }
+          ],
+          "generationType": "generation",
+          "model": "canvas:41::gpt-image-2",
+          "size": "3:2",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [],
+          "content": "blob:https://moosecloud.cc/da7afe14-23f6-4b1f-8263-ee622dd8626e",
+          "previewContent": "blob:https://moosecloud.cc/8ecc6e6b-7e24-4d11-aaac-8e86f05d0595",
+          "storageKey": "image:J2HsAz9TwQZxdoQ09ZGmG",
+          "thumbnailStorageKey": "image:J2HsAz9TwQZxdoQ09ZGmG:thumb",
+          "naturalWidth": 1536,
+          "naturalHeight": 1024,
+          "bytes": 2500401,
+          "mimeType": "image/png",
+          "primaryImageId": "8pGjE_kNh9SuH5VQ5mi_e"
+        }
+      },
+      {
+        "id": "text-f1478e47-4a1d-40e4-b4c6-104916837194",
+        "type": "text",
+        "title": "人物资产06｜豆豆",
+        "position": {
+          "x": 248.86526031836465,
+          "y": 2831.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "原创角色资产，家庭电影的正常儿童人物设定。豆豆：8岁中国男孩，圆脸，短黑发，活泼明亮双眼，蓝色棉质卫衣、深色休闲长裤、运动鞋，手拿灰色歼20航模飞机。灰色摄影棚背景，同一儿童正面半身、侧面半身、全身三视图，正常完全着装，真实自然不模仿演员，无字无水印。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-f2e3c407-fd43-4e48-aff6-922bbb834700",
+        "type": "config",
+        "title": "人物资产06｜豆豆",
+        "position": {
+          "x": 668.8652603183647,
+          "y": 2831.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "image",
+          "composerContent": "@[node:text-f1478e47-4a1d-40e4-b4c6-104916837194]",
+          "prompt": "@[node:text-f1478e47-4a1d-40e4-b4c6-104916837194]",
+          "model": "canvas:41::gpt-image-2",
+          "size": "3:2",
+          "quality": "high",
+          "count": 1
+        }
+      },
+      {
+        "id": "tuJNxgvCcFinL_QuVGIld",
+        "type": "image",
+        "title": "人物资产06｜豆豆·三视图",
+        "position": {
+          "x": 1104.8652603183646,
+          "y": 2832.7539787509645
+        },
+        "width": 340,
+        "height": 226.66666666666666,
+        "metadata": {
+          "prompt": "【文本1】\n\n【文本1】\n原创角色资产，家庭电影的正常儿童人物设定。豆豆：8岁中国男孩，圆脸，短黑发，活泼明亮双眼，蓝色棉质卫衣、深色休闲长裤、运动鞋，手拿灰色歼20航模飞机。灰色摄影棚背景，同一儿童正面半身、侧面半身、全身三视图，正常完全着装，真实自然不模仿演员，无字无水印。",
+          "status": "success",
+          "images": [
+            {
+              "id": "rTf1XWSR2TQT6elI9L920",
+              "status": "success",
+              "content": "blob:https://moosecloud.cc/d0548be1-bfe9-46da-a8b1-671dda94fcc0",
+              "previewContent": "blob:https://moosecloud.cc/800602cb-8fff-45ef-a6ed-870e6dbb02ba",
+              "storageKey": "image:ZMSqsJ-UFBZYPeMZlTwo6",
+              "thumbnailStorageKey": "image:ZMSqsJ-UFBZYPeMZlTwo6:thumb",
+              "naturalWidth": 1536,
+              "naturalHeight": 1024,
+              "bytes": 2105776,
+              "mimeType": "image/png"
+            }
+          ],
+          "generationType": "generation",
+          "model": "canvas:41::gpt-image-2",
+          "size": "3:2",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [],
+          "content": "blob:https://moosecloud.cc/d0548be1-bfe9-46da-a8b1-671dda94fcc0",
+          "previewContent": "blob:https://moosecloud.cc/800602cb-8fff-45ef-a6ed-870e6dbb02ba",
+          "storageKey": "image:ZMSqsJ-UFBZYPeMZlTwo6",
+          "thumbnailStorageKey": "image:ZMSqsJ-UFBZYPeMZlTwo6:thumb",
+          "naturalWidth": 1536,
+          "naturalHeight": 1024,
+          "bytes": 2105776,
+          "mimeType": "image/png",
+          "primaryImageId": "rTf1XWSR2TQT6elI9L920"
+        }
+      },
+      {
+        "id": "text-8ff93a64-1cd6-4daa-ba8a-db6789181685",
+        "type": "text",
+        "title": "人物资产07｜小赵",
+        "position": {
+          "x": 248.86526031836465,
+          "y": 3481.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "原创角色资产，写实中国科幻悬疑电影，无演员相貌。小赵：26岁中国男性研究员，偏圆脸，短黑发，熬夜疲惫却兴奋的眼神。固定浅灰T恤、白色实验室大褂、深色长裤。灰色摄影棚背景，同一人的正面半身、侧面半身、全身三视图，真实皮肤，无字无水印。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-47e1972c-b1cf-4845-a555-1293e892bbe9",
+        "type": "config",
+        "title": "人物资产07｜小赵",
+        "position": {
+          "x": 668.8652603183647,
+          "y": 3481.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "image",
+          "composerContent": "@[node:text-8ff93a64-1cd6-4daa-ba8a-db6789181685]",
+          "prompt": "@[node:text-8ff93a64-1cd6-4daa-ba8a-db6789181685]",
+          "model": "canvas:41::gpt-image-2",
+          "size": "3:2",
+          "quality": "high",
+          "count": 1
+        }
+      },
+      {
+        "id": "5EQ7eHMGp1sMWO71IN9lo",
+        "type": "image",
+        "title": "人物资产07｜小赵·三视图",
+        "position": {
+          "x": 1104.8652603183646,
+          "y": 3487.8084490359574
+        },
+        "width": 340,
+        "height": 226.66666666666666,
+        "metadata": {
+          "prompt": "【文本1】\n\n【文本1】\n原创角色资产，写实中国科幻悬疑电影，无演员相貌。小赵：26岁中国男性研究员，偏圆脸，短黑发，熬夜疲惫却兴奋的眼神。固定浅灰T恤、白色实验室大褂、深色长裤。灰色摄影棚背景，同一人的正面半身、侧面半身、全身三视图，真实皮肤，无字无水印。",
+          "status": "success",
+          "images": [
+            {
+              "id": "JIQJ7D2eRR8bnzNiQHxYR",
+              "status": "success",
+              "content": "blob:https://moosecloud.cc/a3b960a0-2f84-4c1d-9b56-f6fc5ab76722",
+              "previewContent": "blob:https://moosecloud.cc/907a3673-7b0b-4d08-900e-80b16e788995",
+              "storageKey": "image:Ma0-XF9kG6IMyobXbIk3k",
+              "thumbnailStorageKey": "image:Ma0-XF9kG6IMyobXbIk3k:thumb",
+              "naturalWidth": 1536,
+              "naturalHeight": 1024,
+              "bytes": 1962477,
+              "mimeType": "image/png"
+            }
+          ],
+          "generationType": "generation",
+          "model": "canvas:41::gpt-image-2",
+          "size": "3:2",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [],
+          "content": "blob:https://moosecloud.cc/a3b960a0-2f84-4c1d-9b56-f6fc5ab76722",
+          "previewContent": "blob:https://moosecloud.cc/907a3673-7b0b-4d08-900e-80b16e788995",
+          "storageKey": "image:Ma0-XF9kG6IMyobXbIk3k",
+          "thumbnailStorageKey": "image:Ma0-XF9kG6IMyobXbIk3k:thumb",
+          "naturalWidth": 1536,
+          "naturalHeight": 1024,
+          "bytes": 1962477,
+          "mimeType": "image/png",
+          "primaryImageId": "JIQJ7D2eRR8bnzNiQHxYR"
+        }
+      },
+      {
+        "id": "text-31e8f99f-bfb0-4500-83ef-ded78cba5831",
+        "type": "text",
+        "title": "人物资产08｜杨冬档案照",
+        "position": {
+          "x": 248.86526031836465,
+          "y": 4131.141782369292
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "原创角色档案照，写实电影道具资产，不模仿演员。杨冬：32岁中国女性理论物理学家，齐耳黑色短发，清秀脸，恬静微笑，浅蓝衬衫，灰色干净背景。单人正面半身照片，肩以上清晰，自然皮肤，供会议室投影引用，无字无水印，无红叉（红叉在投影画面后加）。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-cff7b3f5-1bc9-43a3-bdbc-51ae8125bbf3",
+        "type": "config",
+        "title": "人物资产08｜杨冬档案照",
+        "position": {
+          "x": 668.8652603183647,
+          "y": 4131.141782369292
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "image",
+          "composerContent": "@[node:text-31e8f99f-bfb0-4500-83ef-ded78cba5831]",
+          "prompt": "@[node:text-31e8f99f-bfb0-4500-83ef-ded78cba5831]",
+          "model": "canvas:41::gpt-image-2",
+          "size": "3:4",
+          "quality": "high",
+          "count": 1
+        }
+      },
+      {
+        "id": "IoEEAHXr7VX7BM2oMCSUO",
+        "type": "image",
+        "title": "人物资产08｜杨冬·档案照",
+        "position": {
+          "x": 1184.720132467639,
+          "y": 4131.141782369292
+        },
+        "width": 180.2902557014513,
+        "height": 240,
+        "metadata": {
+          "prompt": "【文本1】\n\n【文本1】\n原创角色档案照，写实电影道具资产，不模仿演员。杨冬：32岁中国女性理论物理学家，齐耳黑色短发，清秀脸，恬静微笑，浅蓝衬衫，灰色干净背景。单人正面半身照片，肩以上清晰，自然皮肤，供会议室投影引用，无字无水印，无红叉（红叉在投影画面后加）。",
+          "status": "success",
+          "images": [
+            {
+              "id": "yMglZa2c_xgGVI1sNIciY",
+              "status": "success",
+              "content": "blob:https://moosecloud.cc/bfd57ecc-f163-49be-a647-c98e494a9022",
+              "previewContent": "blob:https://moosecloud.cc/1c7ae971-9543-46f9-be1b-93ca01767212",
+              "storageKey": "image:sSwaYKKiZEoa5nln600Ef",
+              "thumbnailStorageKey": "image:sSwaYKKiZEoa5nln600Ef:thumb",
+              "naturalWidth": 1087,
+              "naturalHeight": 1447,
+              "bytes": 2017539,
+              "mimeType": "image/png"
+            }
+          ],
+          "generationType": "generation",
+          "model": "canvas:41::gpt-image-2",
+          "size": "3:4",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [],
+          "content": "blob:https://moosecloud.cc/bfd57ecc-f163-49be-a647-c98e494a9022",
+          "previewContent": "blob:https://moosecloud.cc/1c7ae971-9543-46f9-be1b-93ca01767212",
+          "storageKey": "image:sSwaYKKiZEoa5nln600Ef",
+          "thumbnailStorageKey": "image:sSwaYKKiZEoa5nln600Ef:thumb",
+          "naturalWidth": 1087,
+          "naturalHeight": 1447,
+          "bytes": 2017539,
+          "mimeType": "image/png",
+          "primaryImageId": "yMglZa2c_xgGVI1sNIciY"
+        }
+      },
+      {
+        "id": "text-c8541eb8-7b39-463d-bf54-866b855dc91d",
+        "type": "text",
+        "title": "S01首帧｜飞刃实验",
+        "position": {
+          "x": 1748.8652603183646,
+          "y": -418.8582176307088
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "生成单幅电影首帧，不要三视图或拼贴。16:9写实中国科幻悬疑，冷灰青电影调色。参考图1为汪淼、图2为小赵，严格保持脸和衣服，汪淼外加白大褂。深夜十一点纳米研究中心，控制台与传送装置，两根钢柱之间几乎不可见的极细纳米丝，十厘米厚钢板即将接触细丝，小赵手按推进控制器，汪淼紧盯装置，另有三位模糊背景青年研究员。35mm中广景，钢板前景、两人中景，玻璃窗外城市夜灯，无发光激光束，无字幕无水印。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-936d4146-30bb-4c71-bc11-296c4cd4aa17",
+        "type": "config",
+        "title": "S01首帧｜飞刃实验",
+        "position": {
+          "x": 2287.8509453062456,
+          "y": -428.27350276087174
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "image",
+          "composerContent": "@[node:text-c8541eb8-7b39-463d-bf54-866b855dc91d]\n@[node:agGMZ7tILmDLahj88Gmvw]\n@[node:5EQ7eHMGp1sMWO71IN9lo]",
+          "prompt": "@[node:text-c8541eb8-7b39-463d-bf54-866b855dc91d]\n@[node:agGMZ7tILmDLahj88Gmvw]\n@[node:5EQ7eHMGp1sMWO71IN9lo]",
+          "model": "canvas:54::gemini-3.1-flash-image-preview",
+          "size": "16:9",
+          "quality": "high"
+        }
+      },
+      {
+        "id": "text-332a5d37-7262-4e56-a772-d16cff8bf01d",
+        "type": "text",
+        "title": "S02首帧｜绝密会议",
+        "position": {
+          "x": 1748.8652603183646,
+          "y": 231.1417823692912
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "单幅16:9写实中国科幻悬疑电影首帧，不要拼贴。参考图依次汪淼、史强、常伟思、申玉菲、杨冬档案照，保持脸和固定服装。城西招待所三楼会议室，紧闭窗帘，十几位军警便衣围坐长桌，常伟思主位腰背笔直，汪淼末席拿材料，史强对面剥茶叶蛋，申玉菲斜对面。投影上11个物理学家档案照片格子其中杨冬使用第五参考，格子右下红叉，无尸体无自伤画面。冷灰色荧光灯和投影蓝光，35mm压迫性对称广景，无字幕水印。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-342bdf17-1fe8-4adc-bff9-e65bb604d390",
+        "type": "config",
+        "title": "S02首帧｜绝密会议",
+        "position": {
+          "x": 2168.8652603183646,
+          "y": 231.1417823692912
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "image",
+          "composerContent": "@[node:text-332a5d37-7262-4e56-a772-d16cff8bf01d]\n@[node:agGMZ7tILmDLahj88Gmvw]\n@[node:dix3NEi0yAV6p-HnA8xrV]\n@[node:5qXj4mF1_UScnatZ4AY6K]\n@[node:yEejQCaRdbGxeHq8IlN-h]\n@[node:IoEEAHXr7VX7BM2oMCSUO]",
+          "prompt": "@[node:text-332a5d37-7262-4e56-a772-d16cff8bf01d]\n@[node:agGMZ7tILmDLahj88Gmvw]\n@[node:dix3NEi0yAV6p-HnA8xrV]\n@[node:5qXj4mF1_UScnatZ4AY6K]\n@[node:yEejQCaRdbGxeHq8IlN-h]\n@[node:IoEEAHXr7VX7BM2oMCSUO]",
+          "model": "canvas:54::gemini-3.1-flash-image-preview",
+          "size": "16:9",
+          "quality": "high"
+        }
+      },
+      {
+        "id": "_xYj3K9o6_NSgUIrWfx-i",
+        "type": "image",
+        "title": "【文本1】\n图片1\n图片2\n图片3\n图片4\n图片5\n\n【文本1】",
+        "position": {
+          "x": 2604.865260318365,
+          "y": 231.1417823692912
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "prompt": "【文本1】\n图片1\n图片2\n图片3\n图片4\n图片5\n\n【文本1】\n单幅16:9写实中国科幻悬疑电影首帧，不要拼贴。参考图依次汪淼、史强、常伟思、申玉菲、杨冬档案照，保持脸和固定服装。城西招待所三楼会议室，紧闭窗帘，十几位军警便衣围坐长桌，常伟思主位腰背笔直，汪淼末席拿材料，史强对面剥茶叶蛋，申玉菲斜对面。投影上11个物理学家档案照片格子其中杨冬使用第五参考，格子右下红叉，无尸体无自伤画面。冷灰色荧光灯和投影蓝光，35mm压迫性对称广景，无字幕水印。",
+          "status": "error",
+          "images": [
+            {
+              "id": "GrGC2pV6TZGTVziD70BEI",
+              "status": "error",
+              "content": "",
+              "storageKey": "",
+              "naturalWidth": 0,
+              "naturalHeight": 0,
+              "bytes": 0,
+              "mimeType": "",
+              "errorDetails": "image file is required (HTTP 400)"
+            }
+          ],
+          "generationType": "edit",
+          "model": "canvas:41::gpt-image-2",
+          "size": "16:9",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [
+            "image:GNrZwzEq8xuhPgZhe12Sk",
+            "image:4mnHuXdgNj1uh_lXO85F5",
+            "image:X6pn-3HYKOQ0MJvqdfhAO",
+            "image:ZD2baefZ_TQJ7FiAc91ha",
+            "image:sSwaYKKiZEoa5nln600Ef"
+          ],
+          "errorDetails": "全部图片生成失败"
+        }
+      },
+      {
+        "id": "text-0d154f7f-c040-4f72-aa97-9652c9bc87cd",
+        "type": "text",
+        "title": "S03首帧｜家庭晚餐",
+        "position": {
+          "x": 1748.8652603183646,
+          "y": 881.1417823692913
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "单幅16:9写实电影首帧非拼贴。参考图依次汪淼、李瑶、豆豆，严格保持三人身份，汪淼灰蓝衬衫、李瑶米色针织衫、豆豆蓝卫衣。傍晚70平米温馨整洁中国家庭客餐厅，三菜一汤热气升起，李瑶端菜，豆豆抱灰色歼20航模冲向沙发旁，汪淼坐沙发低头看手机神情疏离。暖钨丝吊灯、窗外冷蓝暮色，35mm家庭全景，正常家庭情节，无字幕无水印。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-0c923f6b-c6c6-4f33-91ac-15aa8f93f925",
+        "type": "config",
+        "title": "S03首帧｜家庭晚餐",
+        "position": {
+          "x": 2168.8652603183646,
+          "y": 881.1417823692913
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "image",
+          "composerContent": "@[node:text-0d154f7f-c040-4f72-aa97-9652c9bc87cd]\n@[node:agGMZ7tILmDLahj88Gmvw]\n@[node:e7REcfn7sUSsf1DaqiJIR]\n@[node:tuJNxgvCcFinL_QuVGIld]",
+          "prompt": "@[node:text-0d154f7f-c040-4f72-aa97-9652c9bc87cd]\n@[node:agGMZ7tILmDLahj88Gmvw]\n@[node:e7REcfn7sUSsf1DaqiJIR]\n@[node:tuJNxgvCcFinL_QuVGIld]",
+          "model": "canvas:54::gemini-3.1-flash-image-preview",
+          "size": "16:9",
+          "quality": "high"
+        }
+      },
+      {
+        "id": "oFkVLZDIxEDLPFeSocFnQ",
+        "type": "image",
+        "title": "【文本1】\n图片1\n图片2\n图片3\n\n【文本1】\n单幅16:9写",
+        "position": {
+          "x": 2604.865260318365,
+          "y": 881.1417823692913
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "prompt": "【文本1】\n图片1\n图片2\n图片3\n\n【文本1】\n单幅16:9写实电影首帧非拼贴。参考图依次汪淼、李瑶、豆豆，严格保持三人身份，汪淼灰蓝衬衫、李瑶米色针织衫、豆豆蓝卫衣。傍晚70平米温馨整洁中国家庭客餐厅，三菜一汤热气升起，李瑶端菜，豆豆抱灰色歼20航模冲向沙发旁，汪淼坐沙发低头看手机神情疏离。暖钨丝吊灯、窗外冷蓝暮色，35mm家庭全景，正常家庭情节，无字幕无水印。",
+          "status": "error",
+          "images": [
+            {
+              "id": "0SyDbeRzqcW1ZULrLqLRK",
+              "status": "error",
+              "content": "",
+              "storageKey": "",
+              "naturalWidth": 0,
+              "naturalHeight": 0,
+              "bytes": 0,
+              "mimeType": "",
+              "errorDetails": "image file is required (HTTP 400)"
+            }
+          ],
+          "generationType": "edit",
+          "model": "canvas:41::gpt-image-2",
+          "size": "16:9",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [
+            "image:GNrZwzEq8xuhPgZhe12Sk",
+            "image:J2HsAz9TwQZxdoQ09ZGmG",
+            "image:ZMSqsJ-UFBZYPeMZlTwo6"
+          ],
+          "errorDetails": "全部图片生成失败"
+        }
+      },
+      {
+        "id": "text-d341b7b4-1e14-4409-af16-31c7d537ff52",
+        "type": "text",
+        "title": "S04首帧｜街心公园偶遇",
+        "position": {
+          "x": 1748.8652603183646,
+          "y": 1531.1417823692911
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "单幅16:9写实中国科幻悬疑电影首帧非拼贴。参考图1汪淼2史强，脸和服装一致。第二天上午中国城市街心公园，汪淼灰蓝衬衫拎黑色公文包穿过树荫步道，史强旧棕夹克蹲在台阶边拿加蛋加肠煎饼果子抬头发现他，路边停老旧黑色桑塔纳。初秋梧桐叶、柔和日光、市井生活细节，35mm双人中广景，轻喜剧表面暗含监视，无字幕无水印。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-ddcb412b-5c79-4368-8846-4a1f8cacd84b",
+        "type": "config",
+        "title": "S04首帧｜街心公园偶遇",
+        "position": {
+          "x": 2168.8652603183646,
+          "y": 1531.1417823692911
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "image",
+          "composerContent": "@[node:text-d341b7b4-1e14-4409-af16-31c7d537ff52]\n@[node:agGMZ7tILmDLahj88Gmvw]\n@[node:dix3NEi0yAV6p-HnA8xrV]",
+          "prompt": "@[node:text-d341b7b4-1e14-4409-af16-31c7d537ff52]\n@[node:agGMZ7tILmDLahj88Gmvw]\n@[node:dix3NEi0yAV6p-HnA8xrV]",
+          "model": "canvas:54::gemini-3.1-flash-image-preview",
+          "size": "16:9",
+          "quality": "high"
+        }
+      },
+      {
+        "id": "QweICKSvyBbQnMrke8kIh",
+        "type": "image",
+        "title": "【文本1】\n图片1\n图片2\n\n【文本1】\n单幅16:9写实中国科",
+        "position": {
+          "x": 2604.865260318365,
+          "y": 1531.1417823692911
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "prompt": "【文本1】\n图片1\n图片2\n\n【文本1】\n单幅16:9写实中国科幻悬疑电影首帧非拼贴。参考图1汪淼2史强，脸和服装一致。第二天上午中国城市街心公园，汪淼灰蓝衬衫拎黑色公文包穿过树荫步道，史强旧棕夹克蹲在台阶边拿加蛋加肠煎饼果子抬头发现他，路边停老旧黑色桑塔纳。初秋梧桐叶、柔和日光、市井生活细节，35mm双人中广景，轻喜剧表面暗含监视，无字幕无水印。",
+          "status": "error",
+          "images": [
+            {
+              "id": "RiJHOU7BpiigXNj5-74sw",
+              "status": "error",
+              "content": "",
+              "storageKey": "",
+              "naturalWidth": 0,
+              "naturalHeight": 0,
+              "bytes": 0,
+              "mimeType": "",
+              "errorDetails": "image file is required (HTTP 400)"
+            }
+          ],
+          "generationType": "edit",
+          "model": "canvas:41::gpt-image-2",
+          "size": "16:9",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [
+            "image:GNrZwzEq8xuhPgZhe12Sk",
+            "image:4mnHuXdgNj1uh_lXO85F5"
+          ],
+          "errorDetails": "全部图片生成失败"
+        }
+      },
+      {
+        "id": "text-7afa0b4d-7e6e-4675-bf85-1d814750f0cf",
+        "type": "text",
+        "title": "S05首帧｜旧时光警告",
+        "position": {
+          "x": 1748.8652603183646,
+          "y": 2181.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "单幅16:9写实中国科幻悬疑电影首帧，不要拼贴。参考图1汪淼2申玉菲，脸和服装一致。下午四点老洋房改建咖啡馆，落地窗外梧桐落叶，申玉菲黑西装米白衬衫坐靠窗位置抬腕看银表，桌上一杯未动的黑咖啡；汪淼灰蓝衬衫坐对面。暖黄暮光、人物面部冷暗阴影，50mm平视双人中景，以桌边距离制造威胁气氛，无字幕无水印。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-292c09c5-431d-456b-9db9-b2290a2a75c7",
+        "type": "config",
+        "title": "S05首帧｜旧时光警告",
+        "position": {
+          "x": 2168.8652603183646,
+          "y": 2181.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "image",
+          "composerContent": "@[node:text-7afa0b4d-7e6e-4675-bf85-1d814750f0cf]\n@[node:agGMZ7tILmDLahj88Gmvw]\n@[node:yEejQCaRdbGxeHq8IlN-h]",
+          "prompt": "@[node:text-7afa0b4d-7e6e-4675-bf85-1d814750f0cf]\n@[node:agGMZ7tILmDLahj88Gmvw]\n@[node:yEejQCaRdbGxeHq8IlN-h]",
+          "model": "canvas:54::gemini-3.1-flash-image-preview",
+          "size": "16:9",
+          "quality": "high"
+        }
+      },
+      {
+        "id": "c0YrGNigJSEytcgJj9Kdq",
+        "type": "image",
+        "title": "【文本1】\n图片1\n图片2\n\n【文本1】\n单幅16:9写实中国科",
+        "position": {
+          "x": 2604.865260318365,
+          "y": 2181.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "prompt": "【文本1】\n图片1\n图片2\n\n【文本1】\n单幅16:9写实中国科幻悬疑电影首帧，不要拼贴。参考图1汪淼2申玉菲，脸和服装一致。下午四点老洋房改建咖啡馆，落地窗外梧桐落叶，申玉菲黑西装米白衬衫坐靠窗位置抬腕看银表，桌上一杯未动的黑咖啡；汪淼灰蓝衬衫坐对面。暖黄暮光、人物面部冷暗阴影，50mm平视双人中景，以桌边距离制造威胁气氛，无字幕无水印。",
+          "status": "error",
+          "images": [
+            {
+              "id": "tH5NASEq3EWP21KDH7v7y",
+              "status": "error",
+              "content": "",
+              "storageKey": "",
+              "naturalWidth": 0,
+              "naturalHeight": 0,
+              "bytes": 0,
+              "mimeType": "",
+              "errorDetails": "image file is required (HTTP 400)"
+            }
+          ],
+          "generationType": "edit",
+          "model": "canvas:41::gpt-image-2",
+          "size": "16:9",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [
+            "image:GNrZwzEq8xuhPgZhe12Sk",
+            "image:ZD2baefZ_TQJ7FiAc91ha"
+          ],
+          "errorDetails": "全部图片生成失败"
+        }
+      },
+      {
+        "id": "text-858af7f4-9ec7-43bc-8677-1186126ac699",
+        "type": "text",
+        "title": "S06首帧提示｜暗房倒计时（完整剧本校正）",
+        "position": {
+          "x": 1748.8652603183646,
+          "y": 2831.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "单幅16:9写实中国科幻悬疑电影首帧，非拼贴。参考图汪淼保持同一脸，灰蓝衬衫袖子挽起。夜晚家庭摄影暗房，暗红安全灯、冲洗盘、悬挂底片、放大机，汪淼用夹子举起黑白底片贴近灯检查，底片上微弱诡异数字1189:47:12，无其他文字。中近景从肩后拍侧脸与底片，红光映出血丝和困惑，背景漆黑，真实胶片质感，无霓虹激光，无字幕水印。倒计时以第一集完整剧本为准。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-35045e22-ed34-48db-8d0a-482cf342e83a",
+        "type": "config",
+        "title": "S06首帧｜暗房倒计时",
+        "position": {
+          "x": 2168.8652603183646,
+          "y": 2831.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "image",
+          "composerContent": "@[node:text-858af7f4-9ec7-43bc-8677-1186126ac699]\n@[node:agGMZ7tILmDLahj88Gmvw]",
+          "prompt": "@[node:text-858af7f4-9ec7-43bc-8677-1186126ac699]\n@[node:agGMZ7tILmDLahj88Gmvw]",
+          "model": "canvas:54::gemini-3.1-flash-image-preview",
+          "size": "16:9",
+          "quality": "high"
+        }
+      },
+      {
+        "id": "xyFMBO4JpsBs0FvpYEr0s",
+        "type": "image",
+        "title": "【文本1】\n图片1\n\n【文本1】\n单幅16:9写实中国科幻悬疑电",
+        "position": {
+          "x": 2604.865260318365,
+          "y": 2831.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "prompt": "【文本1】\n图片1\n\n【文本1】\n单幅16:9写实中国科幻悬疑电影首帧非拼贴，参考图中汪淼脸一致，灰蓝衬衫袖子挽起。夜晚家庭摄影暗房，暗红安全灯、冲洗盘、悬挂底片、放大机，汪淼用夹子举起黑白底片贴近灯检查，照片里只有微弱诡异数字1200:00:00，无其他文字。中近景从他肩后拍侧脸与底片，红光映出血丝、困惑，背景漆黑，真实胶片质感，无霓虹激光特效，无字幕水印。",
+          "status": "error",
+          "images": [
+            {
+              "id": "hHvFZnVb6SyVaIGK06glu",
+              "status": "error",
+              "content": "",
+              "storageKey": "",
+              "naturalWidth": 0,
+              "naturalHeight": 0,
+              "bytes": 0,
+              "mimeType": "",
+              "errorDetails": "image file is required (HTTP 400)"
+            }
+          ],
+          "generationType": "edit",
+          "model": "canvas:41::gpt-image-2",
+          "size": "16:9",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [
+            "image:GNrZwzEq8xuhPgZhe12Sk"
+          ],
+          "errorDetails": "全部图片生成失败"
+        }
+      },
+      {
+        "id": "text-9c1b0e3a-7ef2-48f6-982b-a7554bfb1b53",
+        "type": "text",
+        "title": "S07首帧｜史强深夜来访",
+        "position": {
+          "x": 1748.8652603183646,
+          "y": 3481.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "单幅16:9写实电影首帧非拼贴。参考图1汪淼2史强，脸衣服一致。夜晚汪淼家门口向书房望去，同一温馨小户型家的书房暖台灯，史强旧棕夹克提两罐啤酒站在刚开的房门口，汪淼灰蓝衬衫憔悴苍白为他开门；里面书桌有底片与数码相机。室内暖光与楼道冷灰反差，35mm两人中景，无额外人物，无字无水印。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-68440441-f275-4440-8270-2fa7e34a1cbf",
+        "type": "config",
+        "title": "S07首帧｜史强深夜来访",
+        "position": {
+          "x": 2168.8652603183646,
+          "y": 3481.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "image",
+          "composerContent": "@[node:text-9c1b0e3a-7ef2-48f6-982b-a7554bfb1b53]\n@[node:agGMZ7tILmDLahj88Gmvw]\n@[node:dix3NEi0yAV6p-HnA8xrV]",
+          "prompt": "@[node:text-9c1b0e3a-7ef2-48f6-982b-a7554bfb1b53]\n@[node:agGMZ7tILmDLahj88Gmvw]\n@[node:dix3NEi0yAV6p-HnA8xrV]",
+          "model": "canvas:54::gemini-3.1-flash-image-preview",
+          "size": "16:9",
+          "quality": "high"
+        }
+      },
+      {
+        "id": "PGdqhE9RTwKLd2gUCBLH8",
+        "type": "image",
+        "title": "【文本1】\n图片1\n图片2\n\n【文本1】\n单幅16:9写实电影首",
+        "position": {
+          "x": 2604.865260318365,
+          "y": 3481.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "prompt": "【文本1】\n图片1\n图片2\n\n【文本1】\n单幅16:9写实电影首帧非拼贴。参考图1汪淼2史强，脸衣服一致。夜晚汪淼家门口向书房望去，同一温馨小户型家的书房暖台灯，史强旧棕夹克提两罐啤酒站在刚开的房门口，汪淼灰蓝衬衫憔悴苍白为他开门；里面书桌有底片与数码相机。室内暖光与楼道冷灰反差，35mm两人中景，无额外人物，无字无水印。",
+          "status": "error",
+          "images": [
+            {
+              "id": "lb1FjGMaH53Ls3h2TBcPm",
+              "status": "error",
+              "content": "",
+              "storageKey": "",
+              "naturalWidth": 0,
+              "naturalHeight": 0,
+              "bytes": 0,
+              "mimeType": "",
+              "errorDetails": "image file is required (HTTP 400)"
+            }
+          ],
+          "generationType": "edit",
+          "model": "canvas:41::gpt-image-2",
+          "size": "16:9",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [
+            "image:GNrZwzEq8xuhPgZhe12Sk",
+            "image:4mnHuXdgNj1uh_lXO85F5"
+          ],
+          "errorDetails": "全部图片生成失败"
+        }
+      },
+      {
+        "id": "text-4f0e4f06-2880-41ee-a7d7-42e0d7b0cc91",
+        "type": "text",
+        "title": "S08首帧｜视网膜上的数字",
+        "position": {
+          "x": 1748.8652603183646,
+          "y": 4131.141782369292
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "单幅16:9写实中国科幻悬疑电影首帧非拼贴。参考图1汪淼2李瑶，仅保持面孔，改穿正常完全着装睡衣：汪淼灰蓝棉睡衣，李瑶米白棉睡衣。凌晨三点同一小户型家卧室，冷蓝城市夜光漏入，汪淼躺床上睁眼注视天花板，身边李瑶安静熟睡，画面中上方仅很淡幽绿色倒计时1184:07:55，像主观视网膜叠影，不是房间实体霓虹灯。50mm侧向中景，克制恐惧，无字幕无水印。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-8f8801ea-ddad-4301-b1ec-4f014469f4b5",
+        "type": "config",
+        "title": "S08首帧｜视网膜上的数字",
+        "position": {
+          "x": 2168.8652603183646,
+          "y": 4131.141782369292
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "image",
+          "composerContent": "@[node:text-4f0e4f06-2880-41ee-a7d7-42e0d7b0cc91]\n@[node:agGMZ7tILmDLahj88Gmvw]\n@[node:e7REcfn7sUSsf1DaqiJIR]",
+          "prompt": "@[node:text-4f0e4f06-2880-41ee-a7d7-42e0d7b0cc91]\n@[node:agGMZ7tILmDLahj88Gmvw]\n@[node:e7REcfn7sUSsf1DaqiJIR]",
+          "model": "canvas:54::gemini-3.1-flash-image-preview",
+          "size": "16:9",
+          "quality": "high"
+        }
+      },
+      {
+        "id": "DN_eRoY16LWTClHu6dTjg",
+        "type": "image",
+        "title": "【文本1】\n图片1\n图片2\n\n【文本1】\n单幅16:9写实中国科",
+        "position": {
+          "x": 2604.865260318365,
+          "y": 4131.141782369292
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "prompt": "【文本1】\n图片1\n图片2\n\n【文本1】\n单幅16:9写实中国科幻悬疑电影首帧非拼贴。参考图1汪淼2李瑶，仅保持面孔，改穿正常完全着装睡衣：汪淼灰蓝棉睡衣，李瑶米白棉睡衣。凌晨三点同一小户型家卧室，冷蓝城市夜光漏入，汪淼躺床上睁眼注视天花板，身边李瑶安静熟睡，画面中上方仅很淡幽绿色倒计时1184:07:55，像主观视网膜叠影，不是房间实体霓虹灯。50mm侧向中景，克制恐惧，无字幕无水印。",
+          "status": "error",
+          "images": [
+            {
+              "id": "Afj8HVXx70VqkekF3rM5C",
+              "status": "error",
+              "content": "",
+              "storageKey": "",
+              "naturalWidth": 0,
+              "naturalHeight": 0,
+              "bytes": 0,
+              "mimeType": "",
+              "errorDetails": "image file is required (HTTP 400)"
+            }
+          ],
+          "generationType": "edit",
+          "model": "canvas:41::gpt-image-2",
+          "size": "16:9",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [
+            "image:GNrZwzEq8xuhPgZhe12Sk",
+            "image:J2HsAz9TwQZxdoQ09ZGmG"
+          ],
+          "errorDetails": "全部图片生成失败"
+        }
+      },
+      {
+        "id": "41GfOz29D-8w4n0Zmq9hZ",
+        "type": "image",
+        "title": "S01首帧成图｜飞刃实验",
+        "position": {
+          "x": 2723.8509453062456,
+          "y": -427.378605957257
+        },
+        "width": 340,
+        "height": 228.1012658227848,
+        "metadata": {
+          "prompt": "【文本1】\n图片1\n图片2\n\n【文本1】\n生成单幅电影首帧，不要三视图或拼贴。16:9写实中国科幻悬疑，冷灰青电影调色。参考图1为汪淼、图2为小赵，严格保持脸和衣服，汪淼外加白大褂。深夜十一点纳米研究中心，控制台与传送装置，两根钢柱之间几乎不可见的极细纳米丝，十厘米厚钢板即将接触细丝，小赵手按推进控制器，汪淼紧盯装置，另有三位模糊背景青年研究员。35mm中广景，钢板前景、两人中景，玻璃窗外城市夜灯，无发光激光束，无字幕无水印。",
+          "status": "success",
+          "images": [
+            {
+              "id": "Raw0AQi_JZJSL3EQFqRjw",
+              "status": "success",
+              "content": "blob:https://moosecloud.cc/c100834e-aa78-4c6a-9335-50859877f721",
+              "previewContent": "blob:https://moosecloud.cc/9016196e-72cd-4ee6-9af5-918f53c9bee8",
+              "storageKey": "image:wE90LIQESj8P76S2D_ZV8",
+              "thumbnailStorageKey": "image:wE90LIQESj8P76S2D_ZV8:thumb",
+              "naturalWidth": 1264,
+              "naturalHeight": 848,
+              "bytes": 1494220,
+              "mimeType": "image/png"
+            }
+          ],
+          "generationType": "edit",
+          "model": "canvas:54::gemini-3.1-flash-image-preview",
+          "size": "16:9",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [
+            "image:GNrZwzEq8xuhPgZhe12Sk",
+            "image:Ma0-XF9kG6IMyobXbIk3k"
+          ],
+          "content": "blob:https://moosecloud.cc/c100834e-aa78-4c6a-9335-50859877f721",
+          "previewContent": "blob:https://moosecloud.cc/9016196e-72cd-4ee6-9af5-918f53c9bee8",
+          "storageKey": "image:wE90LIQESj8P76S2D_ZV8",
+          "thumbnailStorageKey": "image:wE90LIQESj8P76S2D_ZV8:thumb",
+          "naturalWidth": 1264,
+          "naturalHeight": 848,
+          "bytes": 1494220,
+          "mimeType": "image/png",
+          "primaryImageId": "Raw0AQi_JZJSL3EQFqRjw"
+        }
+      },
+      {
+        "id": "text-1791463896571-0",
+        "type": "text",
+        "title": "S01｜3个分镜·每镜12秒",
+        "position": {
+          "x": 3248.865260318365,
+          "y": -418.8582176307088
+        },
+        "width": 600,
+        "height": 400,
+        "metadata": {
+          "content": "人物：汪淼、小赵。以实验室首帧锁定布景，人物三视图只锁定身份，禁止将设定图拼贴进成片。\n01A 0–3秒缓推控制台，汪淼：小赵，推。3–9秒传送钢板经过几乎不可见的纳米丝，无火花无激光。9–12秒两截钢板分开、切面如镜，年轻研究员欢呼。\n0...",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "text-1791463896571-1",
+        "type": "text",
+        "title": "S02｜3个分镜·每镜12秒",
+        "position": {
+          "x": 3248.865260318365,
+          "y": -58.8582176307088
+        },
+        "width": 600,
+        "height": 400,
+        "metadata": {
+          "content": "人物：汪淼、史强、常伟思、申玉菲；杨冬仅投影照片。\n02A 0–3秒长桌全景，3–9秒推近常伟思：过去十二个月，全球十一位顶尖物理学家自杀。9–12秒投影档案与汪淼反应，无尸体无自伤画面。\n02B 0–4秒史强剥茶叶蛋，4–8秒推名单给汪淼：邪乎到家，必有鬼。8–12秒名单上汪淼姓名红圈与凝重眼神切换；小字以后期保证。\n02C 0–3秒会议散场，3–8秒申玉菲在门口拦住汪淼，邀请明天下午四点旧时光咖啡馆；8–12秒低声：它不会再有任何进展了。固定衣服身份，冷灰闭窗会议室。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "text-1791463896571-2",
+        "type": "text",
+        "title": "S03｜3个分镜·每镜12秒",
+        "position": {
+          "x": 3248.865260318365,
+          "y": 301.1417823692912
+        },
+        "width": 600,
+        "height": 400,
+        "metadata": {
+          "content": "人物：汪淼、李瑶、豆豆。暖灯家庭，三菜一汤。\n03A 0–4秒李瑶端菜，4–9秒豆豆抱歼20模型奔向父亲：爸爸！你看我的歼-20！9–12秒汪淼从手机勉强抬头，微笑迟疑。\n03B 0–4秒三人餐桌，4–9秒李瑶注视丈夫：你每次说‘没事’，都是有事。9–12秒汪淼握住妻子手，避开视线。豆豆仅正常家庭互动。\n03C 0–4秒饭后手机震动，4–8秒屏幕短信：明天下午四点，别迟到。——申。8–12秒暖色家人与汪淼冷色脸部拉焦。精确短信后期叠字；无其他字幕。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "text-1791463896571-3",
+        "type": "text",
+        "title": "S04｜3个分镜·每镜12秒",
+        "position": {
+          "x": 3248.865260318365,
+          "y": 661.1417823692913
+        },
+        "width": 600,
+        "height": 400,
+        "metadata": {
+          "content": "人物：汪淼、史强；街心公园上午，不改成咖啡馆。\n04A 0–4秒跟拍拎公文包的汪淼；4–8秒台阶旁史强举起煎饼：这么巧！8–12秒汪淼停步：你跟踪我？史强市井笑容。\n04B 0–4秒双人中景对话，4–9秒史强：汪教授，你撒谎的时候，左手会攥拳头。9–12秒特写汪淼攥紧左手缓缓松开。\n04C 0–4秒史强递皱名片，4–9秒：别自己扛，找我。9–12秒离开走向老桑塔纳，汪淼留在树荫看名片。自然城市环境声。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "text-1791463896571-4",
+        "type": "text",
+        "title": "S05｜3个分镜·每镜12秒",
+        "position": {
+          "x": 3248.865260318365,
+          "y": 1021.1417823692913
+        },
+        "width": 600,
+        "height": 400,
+        "metadata": {
+          "content": "人物：汪淼、申玉菲；旧时光咖啡馆、窗外梧桐。\n05A 0–4秒银表与未动黑咖啡，4–9秒申玉菲抬眼：你的‘飞刃’项目，停下来。9–12秒汪淼握杯、身体绷紧，缓慢推近。\n05B 0–3秒申玉菲取信封，3–9秒：三天。我给你三天时间，停下‘飞刃’的一切实验。9–12秒信封推过桌面，汪淼没有接。\n05C 0–4秒申玉菲起身，4–8秒：那你最近，记得多看看你的底片。8–12秒高跟鞋离开，汪淼打开纸条‘倒计时开始后，世界就不一样了’。纸条字后期保证，悬疑低音不过度。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "text-1791463896571-5",
+        "type": "text",
+        "title": "S06｜3个分镜·每镜12秒",
+        "position": {
+          "x": 3248.865260318365,
+          "y": 1381.1417823692911
+        },
+        "width": 600,
+        "height": 400,
+        "metadata": {
+          "content": "人物：汪淼；暗红安全灯摄影暗房，数字以完整剧本为准。\n06A 0–4秒底片举近灯，4–8秒主观特写1189:47:12，8–12秒更换底片看到1189:46:03、1189:45:51，汪淼脸色骤变。\n06B 0–4秒数码相机拍摄，4–8秒...",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "text-1791463896571-6",
+        "type": "text",
+        "title": "S07｜3个分镜·每镜12秒",
+        "position": {
+          "x": 3248.865260318365,
+          "y": 1741.1417823692911
+        },
+        "width": 600,
+        "height": 400,
+        "metadata": {
+          "content": "人物：汪淼、史强；夜晚家门→书房，妻儿已睡。\n07A 0–4秒门铃、开门，4–8秒史强提两罐啤酒进屋，8–12秒两人轻声进入书房、关门。不得啤酒变瓶、不得家人围观。\n07B 0–4秒桌上底片与相机，4–8秒史强检查：……一串数字？8–12秒汪淼摘眼镜揉眼仍恐惧，指向空处表达闭眼也看得到。\n07C 0–3秒史强收起玩笑，3–9秒：从今天起，你二十四小时别离开我的视线。9–12秒汪淼：史警官，谢谢。史强向门口走去。申玉菲失联用下一阶段补充镜头，不在12秒塞长对白。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "text-1791463896571-7",
+        "type": "text",
+        "title": "S08｜3个分镜·每镜12秒",
+        "position": {
+          "x": 3248.865260318365,
+          "y": 2101.1417823692914
+        },
+        "width": 600,
+        "height": 400,
+        "metadata": {
+          "content": "人物：汪淼灰蓝睡衣、李瑶米白睡衣。03:00、冷蓝月光。数字是汪淼主观视觉，不是房间里漂浮物。\n08A 0–3秒从卧室首帧开始、汪淼坐起，3–8秒主观绿字1184:07:55/54/53，8–12秒闭眼后黑底数字仍在，呼吸加快，李瑶熟睡。\n...",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "PVrJWj0swHptwauARL__2",
+        "type": "image",
+        "title": "S02首帧成图｜绝密会议",
+        "position": {
+          "x": 2603.777854626368,
+          "y": -97.39329824880102
+        },
+        "width": 340,
+        "height": 228.1012658227848,
+        "metadata": {
+          "prompt": "【文本1】\n图片1\n图片2\n图片3\n图片4\n图片5\n\n【文本1】\n单幅16:9写实中国科幻悬疑电影首帧，不要拼贴。参考图依次汪淼、史强、常伟思、申玉菲、杨冬档案照，保持脸和固定服装。城西招待所三楼会议室，紧闭窗帘，十几位军警便衣围坐长桌，常伟思主位腰背笔直，汪淼末席拿材料，史强对面剥茶叶蛋，申玉菲斜对面。投影上11个物理学家档案照片格子其中杨冬使用第五参考，格子右下红叉，无尸体无自伤画面。冷灰色荧光灯和投影蓝光，35mm压迫性对称广景，无字幕水印。",
+          "status": "success",
+          "images": [
+            {
+              "id": "5PLb-HkMHx1dIpjiD3CTy",
+              "status": "success",
+              "content": "blob:https://moosecloud.cc/610fce18-4598-4bbe-8c5a-83cb20e5840f",
+              "previewContent": "blob:https://moosecloud.cc/1b4178ef-fe02-45b4-833b-6b85c51d576e",
+              "storageKey": "image:foUIJDVdMvZf_w8mA1hDI",
+              "thumbnailStorageKey": "image:foUIJDVdMvZf_w8mA1hDI:thumb",
+              "naturalWidth": 1264,
+              "naturalHeight": 848,
+              "bytes": 1679346,
+              "mimeType": "image/png"
+            }
+          ],
+          "generationType": "edit",
+          "model": "canvas:54::gemini-3.1-flash-image-preview",
+          "size": "16:9",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [
+            "image:GNrZwzEq8xuhPgZhe12Sk",
+            "image:4mnHuXdgNj1uh_lXO85F5",
+            "image:X6pn-3HYKOQ0MJvqdfhAO",
+            "image:ZD2baefZ_TQJ7FiAc91ha",
+            "image:sSwaYKKiZEoa5nln600Ef"
+          ],
+          "content": "blob:https://moosecloud.cc/610fce18-4598-4bbe-8c5a-83cb20e5840f",
+          "previewContent": "blob:https://moosecloud.cc/1b4178ef-fe02-45b4-833b-6b85c51d576e",
+          "storageKey": "image:foUIJDVdMvZf_w8mA1hDI",
+          "thumbnailStorageKey": "image:foUIJDVdMvZf_w8mA1hDI:thumb",
+          "naturalWidth": 1264,
+          "naturalHeight": 848,
+          "bytes": 1679346,
+          "mimeType": "image/png",
+          "primaryImageId": "5PLb-HkMHx1dIpjiD3CTy"
+        }
+      },
+      {
+        "id": "hOapc1LZl7FVnFCRzMGDi",
+        "type": "image",
+        "title": "S03首帧成图｜家庭晚餐",
+        "position": {
+          "x": 2604.865260318365,
+          "y": 887.091149457899
+        },
+        "width": 340,
+        "height": 228.1012658227848,
+        "metadata": {
+          "prompt": "【文本1】\n图片1\n图片2\n图片3\n\n【文本1】\n单幅16:9写实电影首帧非拼贴。参考图依次汪淼、李瑶、豆豆，严格保持三人身份，汪淼灰蓝衬衫、李瑶米色针织衫、豆豆蓝卫衣。傍晚70平米温馨整洁中国家庭客餐厅，三菜一汤热气升起，李瑶端菜，豆豆抱灰色歼20航模冲向沙发旁，汪淼坐沙发低头看手机神情疏离。暖钨丝吊灯、窗外冷蓝暮色，35mm家庭全景，正常家庭情节，无字幕无水印。",
+          "status": "success",
+          "images": [
+            {
+              "id": "M9XSzuTKdmzmnXhp_brBu",
+              "status": "success",
+              "content": "blob:https://moosecloud.cc/578e348a-788e-439b-9ce6-878d3fad2169",
+              "previewContent": "blob:https://moosecloud.cc/ff24f824-752d-4a4a-bd01-be780e8a4e11",
+              "storageKey": "image:9578F9GNhCNR2pDm3LU08",
+              "thumbnailStorageKey": "image:9578F9GNhCNR2pDm3LU08:thumb",
+              "naturalWidth": 1264,
+              "naturalHeight": 848,
+              "bytes": 1650933,
+              "mimeType": "image/png"
+            }
+          ],
+          "generationType": "edit",
+          "model": "canvas:54::gemini-3.1-flash-image-preview",
+          "size": "16:9",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [
+            "image:GNrZwzEq8xuhPgZhe12Sk",
+            "image:J2HsAz9TwQZxdoQ09ZGmG",
+            "image:ZMSqsJ-UFBZYPeMZlTwo6"
+          ],
+          "content": "blob:https://moosecloud.cc/578e348a-788e-439b-9ce6-878d3fad2169",
+          "previewContent": "blob:https://moosecloud.cc/ff24f824-752d-4a4a-bd01-be780e8a4e11",
+          "storageKey": "image:9578F9GNhCNR2pDm3LU08",
+          "thumbnailStorageKey": "image:9578F9GNhCNR2pDm3LU08:thumb",
+          "naturalWidth": 1264,
+          "naturalHeight": 848,
+          "bytes": 1650933,
+          "mimeType": "image/png",
+          "primaryImageId": "M9XSzuTKdmzmnXhp_brBu"
+        }
+      },
+      {
+        "id": "dI1_SaRg0E1N5Klo29ekR",
+        "type": "image",
+        "title": "S04首帧成图｜街心公园偶遇",
+        "position": {
+          "x": 2604.865260318365,
+          "y": 1537.0911494578988
+        },
+        "width": 340,
+        "height": 228.1012658227848,
+        "metadata": {
+          "prompt": "【文本1】\n图片1\n图片2\n\n【文本1】\n单幅16:9写实中国科幻悬疑电影首帧非拼贴。参考图1汪淼2史强，脸和服装一致。第二天上午中国城市街心公园，汪淼灰蓝衬衫拎黑色公文包穿过树荫步道，史强旧棕夹克蹲在台阶边拿加蛋加肠煎饼果子抬头发现他，路边停老旧黑色桑塔纳。初秋梧桐叶、柔和日光、市井生活细节，35mm双人中广景，轻喜剧表面暗含监视，无字幕无水印。",
+          "status": "success",
+          "images": [
+            {
+              "id": "5ZdIZRgyCFjhNaJF1vkZ4",
+              "status": "success",
+              "content": "blob:https://moosecloud.cc/d0599cfe-34e9-4907-abc6-08de47e9591c",
+              "previewContent": "blob:https://moosecloud.cc/1afbd0b4-3f27-478c-813e-08183dfda98a",
+              "storageKey": "image:5AJUKa8EsPpNiZG-aQbLG",
+              "thumbnailStorageKey": "image:5AJUKa8EsPpNiZG-aQbLG:thumb",
+              "naturalWidth": 1264,
+              "naturalHeight": 848,
+              "bytes": 1824860,
+              "mimeType": "image/png"
+            }
+          ],
+          "generationType": "edit",
+          "model": "canvas:54::gemini-3.1-flash-image-preview",
+          "size": "16:9",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [
+            "image:GNrZwzEq8xuhPgZhe12Sk",
+            "image:4mnHuXdgNj1uh_lXO85F5"
+          ],
+          "content": "blob:https://moosecloud.cc/d0599cfe-34e9-4907-abc6-08de47e9591c",
+          "previewContent": "blob:https://moosecloud.cc/1afbd0b4-3f27-478c-813e-08183dfda98a",
+          "storageKey": "image:5AJUKa8EsPpNiZG-aQbLG",
+          "thumbnailStorageKey": "image:5AJUKa8EsPpNiZG-aQbLG:thumb",
+          "naturalWidth": 1264,
+          "naturalHeight": 848,
+          "bytes": 1824860,
+          "mimeType": "image/png",
+          "primaryImageId": "5ZdIZRgyCFjhNaJF1vkZ4"
+        }
+      },
+      {
+        "id": "if_kmrJoJkpLT9RKa01v6",
+        "type": "image",
+        "title": "S05首帧成图｜旧时光警告",
+        "position": {
+          "x": 2614.2611956881406,
+          "y": 2194.4513179469695
+        },
+        "width": 340,
+        "height": 228.1012658227848,
+        "metadata": {
+          "prompt": "【文本1】\n图片1\n图片2\n\n【文本1】\n单幅16:9写实中国科幻悬疑电影首帧，不要拼贴。参考图1汪淼2申玉菲，脸和服装一致。下午四点老洋房改建咖啡馆，落地窗外梧桐落叶，申玉菲黑西装米白衬衫坐靠窗位置抬腕看银表，桌上一杯未动的黑咖啡；汪淼灰蓝衬衫坐对面。暖黄暮光、人物面部冷暗阴影，50mm平视双人中景，以桌边距离制造威胁气氛，无字幕无水印。",
+          "status": "success",
+          "images": [
+            {
+              "id": "YP9h-S6XMGdVuXeBhMWoE",
+              "status": "success",
+              "content": "blob:https://moosecloud.cc/8f2b2c57-c4cc-4739-b40a-be64a4a2ad78",
+              "previewContent": "blob:https://moosecloud.cc/c0f1c92d-c7e9-414b-8533-617edb4f1f1f",
+              "storageKey": "image:kIEd3XCkzINqSeusytRoF",
+              "thumbnailStorageKey": "image:kIEd3XCkzINqSeusytRoF:thumb",
+              "naturalWidth": 1264,
+              "naturalHeight": 848,
+              "bytes": 1532394,
+              "mimeType": "image/png"
+            }
+          ],
+          "generationType": "edit",
+          "model": "canvas:54::gemini-3.1-flash-image-preview",
+          "size": "16:9",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [
+            "image:GNrZwzEq8xuhPgZhe12Sk",
+            "image:ZD2baefZ_TQJ7FiAc91ha"
+          ],
+          "content": "blob:https://moosecloud.cc/8f2b2c57-c4cc-4739-b40a-be64a4a2ad78",
+          "previewContent": "blob:https://moosecloud.cc/c0f1c92d-c7e9-414b-8533-617edb4f1f1f",
+          "storageKey": "image:kIEd3XCkzINqSeusytRoF",
+          "thumbnailStorageKey": "image:kIEd3XCkzINqSeusytRoF:thumb",
+          "naturalWidth": 1264,
+          "naturalHeight": 848,
+          "bytes": 1532394,
+          "mimeType": "image/png",
+          "primaryImageId": "YP9h-S6XMGdVuXeBhMWoE"
+        }
+      },
+      {
+        "id": "GDBFrkQUgmoMyu9IEVKSY",
+        "type": "image",
+        "title": "S06首帧成图｜暗房倒计时",
+        "position": {
+          "x": 2609.919730603358,
+          "y": 2837.091149457899
+        },
+        "width": 340,
+        "height": 228.1012658227848,
+        "metadata": {
+          "prompt": "【文本1】\n图片1\n\n【文本1】\n单幅16:9写实中国科幻悬疑电影首帧，非拼贴。参考图汪淼保持同一脸，灰蓝衬衫袖子挽起。夜晚家庭摄影暗房，暗红安全灯、冲洗盘、悬挂底片、放大机，汪淼用夹子举起黑白底片贴近灯检查，底片上微弱诡异数字1189:47:12，无其他文字。中近景从肩后拍侧脸与底片，红光映出血丝和困惑，背景漆黑，真实胶片质感，无霓虹激光，无字幕水印。倒计时以第一集完整剧本为准。",
+          "status": "success",
+          "images": [
+            {
+              "id": "F_Su4wZk5sBO4zs4nUgkv",
+              "status": "success",
+              "content": "blob:https://moosecloud.cc/48f9cc3a-a806-4644-9b02-946cfbf499e8",
+              "previewContent": "blob:https://moosecloud.cc/ae9f7330-1a60-43d6-968b-5a01205eb99a",
+              "storageKey": "image:pXCl0KN6LkTJ_TrnNYIL6",
+              "thumbnailStorageKey": "image:pXCl0KN6LkTJ_TrnNYIL6:thumb",
+              "naturalWidth": 1264,
+              "naturalHeight": 848,
+              "bytes": 604885,
+              "mimeType": "image/jpeg"
+            }
+          ],
+          "generationType": "edit",
+          "model": "canvas:54::gemini-3.1-flash-image-preview",
+          "size": "16:9",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [
+            "image:GNrZwzEq8xuhPgZhe12Sk"
+          ],
+          "content": "blob:https://moosecloud.cc/48f9cc3a-a806-4644-9b02-946cfbf499e8",
+          "previewContent": "blob:https://moosecloud.cc/ae9f7330-1a60-43d6-968b-5a01205eb99a",
+          "storageKey": "image:pXCl0KN6LkTJ_TrnNYIL6",
+          "thumbnailStorageKey": "image:pXCl0KN6LkTJ_TrnNYIL6:thumb",
+          "naturalWidth": 1264,
+          "naturalHeight": 848,
+          "bytes": 604885,
+          "mimeType": "image/jpeg",
+          "primaryImageId": "F_Su4wZk5sBO4zs4nUgkv"
+        }
+      },
+      {
+        "id": "tYYEVo9QTjCQ6Wwzzbx7R",
+        "type": "image",
+        "title": "S07首帧成图｜史强深夜来访",
+        "position": {
+          "x": 2604.865260318365,
+          "y": 3478.136847025347
+        },
+        "width": 340,
+        "height": 228.1012658227848,
+        "metadata": {
+          "prompt": "【文本1】\n图片1\n图片2\n\n【文本1】\n单幅16:9写实电影首帧非拼贴。参考图1汪淼2史强，脸衣服一致。夜晚汪淼家门口向书房望去，同一温馨小户型家的书房暖台灯，史强旧棕夹克提两罐啤酒站在刚开的房门口，汪淼灰蓝衬衫憔悴苍白为他开门；里面书桌有底片与数码相机。室内暖光与楼道冷灰反差，35mm两人中景，无额外人物，无字无水印。",
+          "status": "success",
+          "images": [
+            {
+              "id": "gbyvcGMBaD0XrzV5OujOG",
+              "status": "success",
+              "content": "blob:https://moosecloud.cc/b3184b6b-7be1-4e99-b65e-7009664a8ff1",
+              "previewContent": "blob:https://moosecloud.cc/320ec598-e24d-461b-9d3e-18898db2440e",
+              "storageKey": "image:jSttRCKPiUyngPzP0nEcQ",
+              "thumbnailStorageKey": "image:jSttRCKPiUyngPzP0nEcQ:thumb",
+              "naturalWidth": 1264,
+              "naturalHeight": 848,
+              "bytes": 710573,
+              "mimeType": "image/jpeg"
+            }
+          ],
+          "generationType": "edit",
+          "model": "canvas:54::gemini-3.1-flash-image-preview",
+          "size": "16:9",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [
+            "image:GNrZwzEq8xuhPgZhe12Sk",
+            "image:4mnHuXdgNj1uh_lXO85F5"
+          ],
+          "content": "blob:https://moosecloud.cc/b3184b6b-7be1-4e99-b65e-7009664a8ff1",
+          "previewContent": "blob:https://moosecloud.cc/320ec598-e24d-461b-9d3e-18898db2440e",
+          "storageKey": "image:jSttRCKPiUyngPzP0nEcQ",
+          "thumbnailStorageKey": "image:jSttRCKPiUyngPzP0nEcQ:thumb",
+          "naturalWidth": 1264,
+          "naturalHeight": 848,
+          "bytes": 710573,
+          "mimeType": "image/jpeg",
+          "primaryImageId": "gbyvcGMBaD0XrzV5OujOG"
+        }
+      },
+      {
+        "id": "Ovj7ZJPPk1UpZgomQ1ZPc",
+        "type": "image",
+        "title": "S08首帧成图｜视网膜上的数字",
+        "position": {
+          "x": 2604.865260318365,
+          "y": 4137.0911494578995
+        },
+        "width": 340,
+        "height": 228.1012658227848,
+        "metadata": {
+          "prompt": "【文本1】\n图片1\n图片2\n\n【文本1】\n单幅16:9写实中国科幻悬疑电影首帧非拼贴。参考图1汪淼2李瑶，仅保持面孔，改穿正常完全着装睡衣：汪淼灰蓝棉睡衣，李瑶米白棉睡衣。凌晨三点同一小户型家卧室，冷蓝城市夜光漏入，汪淼躺床上睁眼注视天花板，身边李瑶安静熟睡，画面中上方仅很淡幽绿色倒计时1184:07:55，像主观视网膜叠影，不是房间实体霓虹灯。50mm侧向中景，克制恐惧，无字幕无水印。",
+          "status": "success",
+          "images": [
+            {
+              "id": "tjmExoWtd-lzN8pblejpw",
+              "status": "success",
+              "content": "blob:https://moosecloud.cc/796865d6-8a94-4901-b709-f888910c9242",
+              "previewContent": "blob:https://moosecloud.cc/7e787578-0309-4aed-a432-7e5bc7b59294",
+              "storageKey": "image:G52DZsHfcZtzjUxWvMVD6",
+              "thumbnailStorageKey": "image:G52DZsHfcZtzjUxWvMVD6:thumb",
+              "naturalWidth": 1264,
+              "naturalHeight": 848,
+              "bytes": 1430542,
+              "mimeType": "image/png"
+            }
+          ],
+          "generationType": "edit",
+          "model": "canvas:54::gemini-3.1-flash-image-preview",
+          "size": "16:9",
+          "quality": "high",
+          "imageResolution": "2k",
+          "count": 1,
+          "references": [
+            "image:GNrZwzEq8xuhPgZhe12Sk",
+            "image:J2HsAz9TwQZxdoQ09ZGmG"
+          ],
+          "content": "blob:https://moosecloud.cc/796865d6-8a94-4901-b709-f888910c9242",
+          "previewContent": "blob:https://moosecloud.cc/7e787578-0309-4aed-a432-7e5bc7b59294",
+          "storageKey": "image:G52DZsHfcZtzjUxWvMVD6",
+          "thumbnailStorageKey": "image:G52DZsHfcZtzjUxWvMVD6:thumb",
+          "naturalWidth": 1264,
+          "naturalHeight": 848,
+          "bytes": 1430542,
+          "mimeType": "image/png",
+          "primaryImageId": "tjmExoWtd-lzN8pblejpw"
+        }
+      },
+      {
+        "id": "text-effda229-b914-408c-9b12-6216a3405e83",
+        "type": "text",
+        "title": "01A｜飞刃切钢·12秒",
+        "position": {
+          "x": 4148.865260318365,
+          "y": -418.8582176307088
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "12秒16:9写实中国科幻电影。唯一图片是指定起始首帧，必须从此构图启动并保持实验室布景。首帧已融入汪淼、小赵人物资产，严格维持图中人物面孔和服装。0–3秒缓推控制台，汪淼说：小赵，推。3–9秒小赵操作传送装置，十厘米厚钢板缓缓经过两根钢柱间几乎不可见的纳米丝，无火花无激光。9–12秒两截钢板分开，断面如镜，背景研究员欢呼。汪淼细框眼镜瘦长脸灰蓝衬衫加白大褂，小赵短发圆脸灰T恤白大褂。冷灰青灯光、35mm镜头，设备低鸣和自然普通话同期声。无字幕水印拼贴。",
+          "status": "success",
+          "fontSize": 14
+        }
+      },
+      {
+        "id": "config-f5a07c2b-90c7-4420-9dd7-86493732c61d",
+        "type": "config",
+        "title": "S01-A｜飞刃切钢·10秒",
+        "position": {
+          "x": 4568.8652603183655,
+          "y": -418.8582176307088
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "video",
+          "composerContent": "@[node:41GfOz29D-8w4n0Zmq9hZ]\n10秒16:9写实中国科幻电影。参考图是指定首帧，保持汪淼和小赵的面孔、白大褂、实验室。0–3秒汪淼说小赵，推。3–8秒小赵推动装置，10厘米厚钢板被两根钢柱间几乎不可见的纳米丝无声切开，无火花无发光激光。8–10秒钢板分开，切面如镜，两人凝视断口。镜头缓推，冷灰青色，自然普通话设备声，无字幕水印拼贴。",
+          "prompt": "@[node:41GfOz29D-8w4n0Zmq9hZ]\n10秒16:9写实中国科幻电影。保持首帧人物和场景，小赵推进钢板，纳米丝无声切钢，切面如镜，无激光火花。",
+          "model": "canvas:61::seedance2.0-A",
+          "size": "1280x720",
+          "seconds": "10",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false"
+        }
+      },
+      {
+        "id": "ep1-v01b",
+        "type": "config",
+        "title": "S01-B｜镜面断口与迟疑·12秒",
+        "position": {
+          "x": 5848.8652603183655,
+          "y": -418.8582176307088
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "idle",
+          "generationMode": "video",
+          "model": "canvas:66::doubao-seedance-2-0-260128",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:41GfOz29D-8w4n0Zmq9hZ]\n12秒写实中国科幻悬疑电影，唯一参考图是场景起始帧，保持汪淼和小赵的脸、白大褂、实验室和冷灰青灯光。0–4秒钢板已被无声切开，小赵抬起光滑如镜断面。4–8秒镜头推近汪淼的手指轻摸断面，汪淼低声：太顺了。8–12秒同场过渡至人群离开，汪淼独自把手悬在几乎不可见的纳米丝上方，不接触。无激光无火花，无拼贴字幕水印。真实设备声，面孔不变。"
+        }
+      },
+      {
+        "id": "ep1-v01c",
+        "type": "config",
+        "title": "S01-C｜陌生来电·12秒",
+        "position": {
+          "x": 7098.8652603183655,
+          "y": -418.8582176307088
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "idle",
+          "generationMode": "video",
+          "model": "canvas:66::doubao-seedance-2-0-260128",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:41GfOz29D-8w4n0Zmq9hZ]\n12秒16:9写实悬疑电影，保持图中汪淼瘦长脸细框眼镜、灰蓝衬衫白大褂和夜间实验室。0–3秒由首帧缓推汪淼，人群离开，手机响。3–9秒他接电话，画外粗粝男声史强：明天上午九点，城西招待所三楼会议室。9–12秒电话挂断，汪淼举着手机困惑，镜头移向窗外城市夜灯。只出现汪淼，不新增史强实体。自然普通话，冷色灯光，无字幕水印无拼贴。"
+        }
+      },
+      {
+        "id": "ep1-v02a",
+        "type": "config",
+        "title": "S02-A｜十一位物理学家·12秒",
+        "position": {
+          "x": 4016.1621162485612,
+          "y": 269.7287698940764
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "success",
+          "generationMode": "video",
+          "model": "canvas:61::kling-3.0",
+          "size": "1280x720",
+          "seconds": "15",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:PVrJWj0swHptwauARL__2]\n12秒16:9写实中国科幻悬疑电影，参考图为起始帧，严格保持所有人物身份、服装、座位和闭帘会议室。0–4秒镜头沿长桌缓慢推进，众人安静。4–10秒主位常伟思，55岁灰鬓橄榄绿军装，沉声说：过去十二个月，全球十一位顶尖物理学家自杀。投影为档案人像而非死亡过程。10–12秒切汪淼细框眼镜皱眉低头看材料。压抑冷灰灯光，无新增脸，无字幕水印。"
+        }
+      },
+      {
+        "id": "ep1-v02b",
+        "type": "config",
+        "title": "S02-B｜红圈名单·12秒",
+        "position": {
+          "x": 5848.8652603183655,
+          "y": 231.1417823692912
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "idle",
+          "generationMode": "video",
+          "model": "canvas:66::doubao-seedance-2-0-260128",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:PVrJWj0swHptwauARL__2]\n12秒写实科幻悬疑，保持首帧会议室和所有角色脸。史强45岁壮实宽脸粗眉寸头胡茬，旧棕夹克。0–4秒推近史强剥茶叶蛋咽下。4–8秒史强说：邪乎到家，必有鬼。把纸质名单推给汪淼。8–12秒俯拍名单上红笔圈住的一行，汪淼脸色骤变。名单准确姓名后期补字，不生成大段可读文字。自然普通话同期声，不展现自杀场面，无字幕水印。"
+        }
+      },
+      {
+        "id": "ep1-v02c",
+        "type": "config",
+        "title": "S02-C｜申玉菲的邀约·12秒",
+        "position": {
+          "x": 7098.8652603183655,
+          "y": 231.1417823692912
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "idle",
+          "generationMode": "video",
+          "model": "canvas:66::doubao-seedance-2-0-260128",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:PVrJWj0swHptwauARL__2]\n12秒16:9写实悬疑电影，首帧开场保持会议室和人物面孔，散会人群离席。0–4秒汪淼走向门，申玉菲叫住他。申玉菲36岁冷淡椭圆脸肩长直黑发，黑西装象牙白衬衫银表。4–9秒两人中近景，她平静说：明天下午四点，旧时光咖啡馆。9–12秒她凝视汪淼，汪淼停住皱眉。冷灰光、不换脸、不新增角色，自然普通话，无字幕水印。"
+        }
+      },
+      {
+        "id": "ep1-v03a",
+        "type": "config",
+        "title": "S03-A｜歼20与晚餐·12秒",
+        "position": {
+          "x": 4568.8652603183655,
+          "y": 881.1417823692913
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "error",
+          "generationMode": "video",
+          "model": "canvas:61::seedance-2.0-fast-M",
+          "size": "1280x720",
+          "seconds": "15",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:hOapc1LZl7FVnFCRzMGDi]\n12秒16:9写实中国家庭悬疑电影，严格从图中晚餐首帧开始，保持汪淼细框眼镜灰蓝衬衫、李瑶低马尾米色针织衫、豆豆8岁男孩蓝卫衣及70平方米家庭格局。0–4秒暖灯下三菜一汤，汪淼疲惫回到桌边。4–9秒豆豆举起灰色歼20模型兴奋说：爸爸！你看我的歼20！9–12秒汪淼勉强微笑摸男孩头。温暖餐具声，自然普通话，无字幕水印无换脸。",
+          "errorDetails": "{\"error\":{\"message\":\"image_file_1 素材必须是 HTTP 或 HTTPS 地址；当前不支持 data URI，请先上传文件或提供公网 URL\",\"type\":\"invalid_request_error\",\"code\":\"-2000\"}} (HTTP 400)"
+        }
+      },
+      {
+        "id": "ep1-v03b",
+        "type": "config",
+        "title": "S03-B｜没事背后的忧虑·12秒",
+        "position": {
+          "x": 5848.8652603183655,
+          "y": 881.1417823692913
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "idle",
+          "generationMode": "video",
+          "model": "canvas:66::doubao-seedance-2-0-260128",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:hOapc1LZl7FVnFCRzMGDi]\n12秒写实中国悬疑电影，图是起始帧，保持同一家人脸、服装和晚餐环境。0–4秒缓推汪淼疲惫走神脸部，筷子停住。4–9秒李瑶低马尾米色针织衫担忧看丈夫说：你每次说没事，都是有事。9–12秒汪淼在桌下轻握妻子的手，没有解释。暖灯与冷情绪对比，自然克制表演，无字幕水印，手部解剖正确。"
+        }
+      },
+      {
+        "id": "ep1-v03c",
+        "type": "config",
+        "title": "S03-C｜申的短信·12秒",
+        "position": {
+          "x": 7098.8652603183655,
+          "y": 881.1417823692913
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "idle",
+          "generationMode": "video",
+          "model": "canvas:66::doubao-seedance-2-0-260128",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:hOapc1LZl7FVnFCRzMGDi]\n12秒16:9写实悬疑电影，首帧晚餐开场，保持汪淼李瑶豆豆的面孔服装，暖色餐桌同一空间。0–4秒家庭继续吃饭，手机在桌旁轻震动。4–8秒汪淼拿起手机查看一条短信，屏幕低亮，为后期准确叠字预留，内容明天下午四点，别迟到，申。8–12秒手机冷光映眼镜，汪淼表情沉下，放下手机强装平静。不要生成乱码大特写，无字幕水印，餐具声和一次震动声。"
+        }
+      },
+      {
+        "id": "ep1-v04a",
+        "type": "config",
+        "title": "S04-A｜公园偶遇·12秒",
+        "position": {
+          "x": 4568.8652603183655,
+          "y": 1531.1417823692911
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "error",
+          "generationMode": "video",
+          "model": "canvas:61::minimax_h3-933-768p",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:dI1_SaRg0E1N5Klo29ekR]\n12秒16:9写实悬疑电影，场景街心公园清晨，不是咖啡馆。保持首帧两人脸、史强旧棕夹克、汪淼灰蓝衬衫眼镜公文包。0–4秒缓推树荫下蹲着的史强吃茶叶蛋和香肠煎饼。4–8秒史强站起来笑说：这么巧！8–12秒汪淼停住警惕问：你跟踪我？朝阳透树、晨间鸟声，普通话，无字幕水印不换脸。",
+          "errorDetails": "视频参考图 1 转存对象存储失败，请检查存储配置及连接"
+        }
+      },
+      {
+        "id": "ep1-v04b",
+        "type": "config",
+        "title": "S04-B｜攥拳的破绽·12秒",
+        "position": {
+          "x": 5848.8652603183655,
+          "y": 1531.1417823692911
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "idle",
+          "generationMode": "video",
+          "model": "canvas:66::doubao-seedance-2-0-260128",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:dI1_SaRg0E1N5Klo29ekR]\n12秒写实悬疑电影从公园首帧开始，保持汪淼和史强脸与服装。0–4秒两人并排缓行，汪淼否认并握紧左手。4–10秒史强敏锐看向他左手，平静说：汪教授，你撒谎的时候，左手会攥拳头。10–12秒特写汪淼松开拳头转眼看史强。清晨树影，稳定跟拍，自然普通话，无字幕无水印，手部自然。"
+        }
+      },
+      {
+        "id": "ep1-v04c",
+        "type": "config",
+        "title": "S04-C｜别自己扛·12秒",
+        "position": {
+          "x": 7098.8652603183655,
+          "y": 1531.1417823692911
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "idle",
+          "generationMode": "video",
+          "model": "canvas:66::doubao-seedance-2-0-260128",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:dI1_SaRg0E1N5Klo29ekR]\n12秒16:9写实悬疑，从首帧公园开始，汪淼史强身份服装不变。0–4秒史强递出一张皱名片，汪淼接过，名片不展示可读小字。4–8秒史强认真说：别自己扛，找我。8–12秒镜头随史强走向路边旧桑塔纳，汪淼站在树影里看名片。清晨自然光，街道声，普通话，无字幕水印，不换脸。"
+        }
+      },
+      {
+        "id": "ep1-v05a",
+        "type": "config",
+        "title": "S05-A｜停下飞刃·12秒",
+        "position": {
+          "x": 4266.532451146396,
+          "y": 2345.966115233925
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "error",
+          "generationMode": "video",
+          "model": "canvas:61::seedance2.0-E",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:if_kmrJoJkpLT9RKa01v6]\n12秒16:9写实科幻悬疑电影，首帧旧时光老屋咖啡馆下午四点，窗外梧桐。保持汪淼眼镜灰蓝衬衫和申玉菲黑西装白衬衫银表、脸和座位。0–4秒缓推桌上未动黑咖啡和她的银表。4–9秒她冷静直视汪淼说：你的飞刃项目，停下来。9–12秒汪淼僵住皱眉看她。暖窗光冷情绪，低环境声自然普通话，无字幕水印拼贴。",
+          "errorDetails": "视频参考图 1 转存对象存储失败，请检查存储配置及连接"
+        }
+      },
+      {
+        "id": "ep1-v05b",
+        "type": "config",
+        "title": "S05-B｜三天期限·12秒",
+        "position": {
+          "x": 5848.8652603183655,
+          "y": 2181.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "idle",
+          "generationMode": "video",
+          "model": "canvas:66::doubao-seedance-2-0-260128",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:if_kmrJoJkpLT9RKa01v6]\n12秒写实悬疑电影，从咖啡馆首帧开始，两人脸服装和光照不变。0–4秒申玉菲把素色信封缓慢推到汪淼面前，咖啡未动。4–10秒申玉菲冷淡说：三天。我给你三天时间，停下飞刃的一切实验。10–12秒俯拍汪淼手停在信封前未拆。克制缓推，压抑静默，自然普通话，无字幕水印无换脸。"
+        }
+      },
+      {
+        "id": "ep1-v05c",
+        "type": "config",
+        "title": "S05-C｜底片的警告·12秒",
+        "position": {
+          "x": 7098.8652603183655,
+          "y": 2181.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "idle",
+          "generationMode": "video",
+          "model": "canvas:66::doubao-seedance-2-0-260128",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:if_kmrJoJkpLT9RKa01v6]\n12秒16:9写实悬疑，旧时光咖啡馆首帧起始，人物身份服装固定。0–4秒申玉菲站起来收起手提包，汪淼抬头。4–9秒她回头说：那你最近，记得多看看你的底片。9–12秒她离开镜头，缓推汪淼打开信封露出一张纸，文字留给后期准确叠加，不显示乱码。咖啡未动，梧桐窗影，无字幕水印。"
+        }
+      },
+      {
+        "id": "ep1-v06a",
+        "type": "config",
+        "title": "S06-A｜底片数字·12秒",
+        "position": {
+          "x": 4568.8652603183655,
+          "y": 2831.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "error",
+          "generationMode": "video",
+          "model": "canvas:61::sd2.0-720p",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:GDBFrkQUgmoMyu9IEVKSY]\n12秒16:9写实科幻惊悚，图为首帧，保持汪淼脸眼镜灰蓝衬衫与书房暗房红色安全灯。0–4秒汪淼抬起湿底片查看。4–8秒微距底片，异常浅色倒计时字样，准确1189:47:12由后期叠加，不变成1200或72小时。8–12秒切汪淼苍白惊疑面孔，迅速换另一张底片验证。红光暗部，呼吸声滴水声，无血腥无激光无字幕水印。",
+          "errorDetails": "视频参考图 1 转存对象存储失败，请检查存储配置及连接"
+        }
+      },
+      {
+        "id": "ep1-v06b",
+        "type": "config",
+        "title": "S06-B｜数码验证·12秒",
+        "position": {
+          "x": 5848.8652603183655,
+          "y": 2831.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "idle",
+          "generationMode": "video",
+          "model": "canvas:66::doubao-seedance-2-0-260128",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:GDBFrkQUgmoMyu9IEVKSY]\n12秒写实悬疑，保持暗房红光和汪淼脸眼镜衬衫。0–4秒汪淼把底片放下抓起数码相机拍一张试验照片。4–8秒特写相机显示屏，异常倒计时1189:44:20向下跳秒，准确数字后期叠加，屏幕预留暗色区。8–12秒镜头从显示屏移向汪淼冷汗，他瘫坐椅子惊恐。真实相机快门呼吸声，无字幕水印，不把数字变物理光束。"
+        }
+      },
+      {
+        "id": "ep1-v06c",
+        "type": "config",
+        "title": "S06-C｜求助电话·12秒",
+        "position": {
+          "x": 7098.8652603183655,
+          "y": 2831.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "idle",
+          "generationMode": "video",
+          "model": "canvas:66::doubao-seedance-2-0-260128",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:GDBFrkQUgmoMyu9IEVKSY]\n12秒16:9写实科幻悬疑，首帧暗房开始，保持汪淼脸服装、红安全灯。0–3秒他颤手拨手机，第一次无人接听，迅速改拨史强。3–9秒汪淼声音干涩说：我看到一些东西，一些不可能存在的东西。9–12秒电话画外粗粝男声：别动，我马上到。汪淼望向底片。只出汪淼，史强声音不实体出现，无字幕水印。"
+        }
+      },
+      {
+        "id": "ep1-v07a",
+        "type": "config",
+        "title": "S07-A｜两罐啤酒的夜访·12秒",
+        "position": {
+          "x": 4476.829628833323,
+          "y": 3368.133388689416
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "error",
+          "generationMode": "video",
+          "model": "canvas:61::seedance-2.0-mini-M",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:tYYEVo9QTjCQ6Wwzzbx7R]\n12秒16:9写实悬疑，从夜访首帧开始，保持汪淼和史强面孔，汪淼眼镜灰蓝衬衫，史强棕夹克。0–4秒汪淼让史强进家门，史强提两罐啤酒低声问：弟妹和孩子睡了？4–8秒汪淼点头带他进书房关门。8–12秒史强把两罐啤酒放桌上说：看到什么了？家里安静暗暖光，不新增妻儿实体，无字幕水印。",
+          "errorDetails": "视频参考图 1 转存对象存储失败，请检查存储配置及连接"
+        }
+      },
+      {
+        "id": "ep1-v07b",
+        "type": "config",
+        "title": "S07-B｜闭眼也能看到·12秒",
+        "position": {
+          "x": 5848.8652603183655,
+          "y": 3481.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "idle",
+          "generationMode": "video",
+          "model": "canvas:66::doubao-seedance-2-0-260128",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:tYYEVo9QTjCQ6Wwzzbx7R]\n12秒写实中国科幻悬疑，首帧开场保持史强汪淼脸服装及家中书房，桌上两罐啤酒。0–4秒汪淼把底片和相机推向史强。4–7秒史强凑近眯眼检查问：一串数字？7–12秒汪淼闭眼颤声：我闭上眼睛，好像也能看到它。史强的笑褪去。精确数字留后期，不生成巨大物理投影，压低普通话同期声，无字幕水印。"
+        }
+      },
+      {
+        "id": "ep1-v07c",
+        "type": "config",
+        "title": "S07-C｜二十四小时保护·12秒",
+        "position": {
+          "x": 7098.8652603183655,
+          "y": 3481.1417823692914
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "idle",
+          "generationMode": "video",
+          "model": "canvas:66::doubao-seedance-2-0-260128",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:tYYEVo9QTjCQ6Wwzzbx7R]\n12秒16:9写实悬疑从首帧开始，史强旧棕夹克宽脸胡茬、汪淼灰蓝衬衫细框眼镜不变，夜间书房两罐啤酒。0–4秒史强拉椅子坐下开啤酒推给汪淼。4–9秒史强认真说：从今天起，你二十四小时别离开我的视线。9–12秒汪淼眼眶微红低声：史警官，谢谢。暖暗台灯，拉环声，普通话，无字幕水印无换脸。"
+        }
+      },
+      {
+        "id": "ep1-v08a",
+        "type": "config",
+        "title": "S08-A｜视网膜倒计时·12秒",
+        "position": {
+          "x": 4491.306343526417,
+          "y": 3954.1982934773437
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "error",
+          "generationMode": "video",
+          "model": "canvas:61::seedance2.0-E",
+          "size": "1280x720",
+          "seconds": "15",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:Ovj7ZJPPk1UpZgomQ1ZPc]\n12秒16:9写实中国科幻惊悚，首帧凌晨三点卧室，保持汪淼瘦长脸眼镜灰蓝睡衣和李瑶低马尾象牙白睡衣、卧室布局。0–4秒汪淼在床上睁眼看天花板，妻子睡着。4–8秒主观视角幽绿色倒计时1184:07:55跳秒，准确文字后期叠加，非真实房间投影不照亮环境。8–12秒汪淼猛坐起来揉眼再紧闭眼，数字仍在主观黑暗视野。呼吸急促，冷暗月光，无字幕水印。",
+          "errorDetails": "视频参考图 1 转存对象存储失败，请检查存储配置及连接"
+        }
+      },
+      {
+        "id": "ep1-v08b",
+        "type": "config",
+        "title": "S08-B｜浴室掩饰·12秒",
+        "position": {
+          "x": 5848.8652603183655,
+          "y": 4131.141782369292
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "idle",
+          "generationMode": "video",
+          "model": "canvas:66::doubao-seedance-2-0-260128",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:Ovj7ZJPPk1UpZgomQ1ZPc]\n12秒写实科幻悬疑，从卧室首帧开始，汪淼灰蓝睡衣、李瑶象牙白睡衣和同一脸不变。0–3秒汪淼下床快步进相邻浴室，连续跟拍。3–6秒他冷水扑脸扶洗手台，镜中苍白脸。6–9秒李瑶站门口担忧问：汪淼？怎么了？9–12秒汪淼勉强笑说：没事，做噩梦了，你先睡。倒计时只作主观后期叠字非物理光源。水声低语，无字幕水印。"
+        }
+      },
+      {
+        "id": "ep1-v08c",
+        "type": "config",
+        "title": "S08-C｜夜窗与三天·12秒",
+        "position": {
+          "x": 7098.8652603183655,
+          "y": 4131.141782369292
+        },
+        "width": 340,
+        "height": 240,
+        "metadata": {
+          "content": "",
+          "status": "idle",
+          "generationMode": "video",
+          "model": "canvas:66::doubao-seedance-2-0-260128",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "generateAudio": "true",
+          "watermark": "false",
+          "composerContent": "@[node:Ovj7ZJPPk1UpZgomQ1ZPc]\n12秒16:9写实科幻悬疑结尾，从卧室首帧开始，保持汪淼面孔灰蓝棉睡衣，夜间同一家庭。0–4秒跟随汪淼走到客厅落地窗，妻子已回房不跟随。4–8秒背影和窗中倒影面对沉睡城市，主观幽绿倒计时1184:06:11向下跳秒，准确字留后期，不照亮环境。8–11秒汪淼缓抬手抓虚空什么也碰不到，申玉菲冰冷女声画外：三天。11–12秒渐黑。无字幕水印，无新增人物或实体全息投影。"
+        }
+      },
+      {
+        "id": "O0m-MLSpW9BteryHdfl-_",
+        "type": "video",
+        "title": "图片1\n10秒16:9写实中国科幻电影。参考图是指定首帧，保持汪",
+        "position": {
+          "x": 5004.643038096143,
+          "y": -418.9832176307088
+        },
+        "width": 420,
+        "height": 236.25,
+        "metadata": {
+          "prompt": "图片1\n10秒16:9写实中国科幻电影。参考图是指定首帧，保持汪淼和小赵的面孔、白大褂、实验室。0–3秒汪淼说小赵，推。3–8秒小赵推动装置，10厘米厚钢板被两根钢柱间几乎不可见的纳米丝无声切开，无火花无发光激光。8–10秒钢板分开，切面如镜，两人凝视断口。镜头缓推，冷灰青色，自然普通话设备声，无字幕水印拼贴。",
+          "status": "success",
+          "model": "canvas:61::seedance2.0-A",
+          "size": "1280x720",
+          "seconds": "10",
+          "vquality": "720",
+          "videoAspectRatio": "16:9",
+          "generateAudio": "true",
+          "watermark": "false",
+          "references": [
+            "image:wE90LIQESj8P76S2D_ZV8"
+          ],
+          "content": "blob:https://moosecloud.cc/064ec165-865e-4579-ac1f-7c32b87cb076",
+          "storageKey": "video:FK6YonVKe8zvXkfTWzBVc",
+          "naturalWidth": 1280,
+          "naturalHeight": 720,
+          "bytes": 3197406,
+          "mimeType": "video/mp4",
+          "durationMs": 10080
+        }
+      },
+      {
+        "id": "_FKPPnLKrTUPudxEeHDGs",
+        "type": "video",
+        "title": "图片1\n12秒16:9写实中国科幻悬疑电影，参考图为起始帧，严格",
+        "position": {
+          "x": 4608.4016576260965,
+          "y": 346.19970855587826
+        },
+        "width": 420,
+        "height": 236.25,
+        "metadata": {
+          "prompt": "图片1\n12秒16:9写实中国科幻悬疑电影，参考图为起始帧，严格保持所有人物身份、服装、座位和闭帘会议室。0–4秒镜头沿长桌缓慢推进，众人安静。4–10秒主位常伟思，55岁灰鬓橄榄绿军装，沉声说：过去十二个月，全球十一位顶尖物理学家自杀。投影为档案人像而非死亡过程。10–12秒切汪淼细框眼镜皱眉低头看材料。压抑冷灰灯光，无新增脸，无字幕水印。",
+          "status": "success",
+          "model": "canvas:61::kling-3.0",
+          "size": "1280x720",
+          "seconds": "15",
+          "vquality": "720",
+          "videoAspectRatio": "16:9",
+          "generateAudio": "true",
+          "watermark": "false",
+          "references": [
+            "image:foUIJDVdMvZf_w8mA1hDI"
+          ],
+          "content": "blob:https://moosecloud.cc/eaa8d3b8-50b8-45a1-b36c-4aff02e95bf1",
+          "storageKey": "video:SxywCEeAvA4JJYQFvg2Vv",
+          "naturalWidth": 1280,
+          "naturalHeight": 720,
+          "bytes": 9191235,
+          "mimeType": "video/mp4",
+          "durationMs": 15042
+        }
+      },
+      {
+        "id": "dIs_xN__SF2FBDWji9T1h",
+        "type": "video",
+        "title": "图片1\n12秒16:9写实悬疑电影，场景街心公园清晨，不是咖啡馆",
+        "position": {
+          "x": 5298.702198428713,
+          "y": 1538.385005941066
+        },
+        "width": 419.55555555555554,
+        "height": 236,
+        "metadata": {
+          "prompt": "图片1\n12秒16:9写实悬疑电影，场景街心公园清晨，不是咖啡馆。保持首帧两人脸、史强旧棕夹克、汪淼灰蓝衬衫眼镜公文包。0–4秒缓推树荫下蹲着的史强吃茶叶蛋和香肠煎饼。4–8秒史强站起来笑说：这么巧！8–12秒汪淼停住警惕问：你跟踪我？朝阳透树、晨间鸟声，普通话，无字幕水印不换脸。",
+          "status": "error",
+          "model": "canvas:61::minimax-h3",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "videoAspectRatio": "16:9",
+          "generateAudio": "true",
+          "watermark": "false",
+          "references": [
+            "image:5AJUKa8EsPpNiZG-aQbLG"
+          ],
+          "errorDetails": "content must be a non-empty array (HTTP 400)"
+        }
+      },
+      {
+        "id": "UCWDfX9kVTt2SxTGtsnnV",
+        "type": "video",
+        "title": "图片1\n12秒16:9写实中国家庭悬疑电影，严格从图中晚餐首帧开",
+        "position": {
+          "x": 5130.705260318364,
+          "y": 896.6298045250528
+        },
+        "width": 419.55555555555554,
+        "height": 236,
+        "metadata": {
+          "prompt": "图片1\n12秒16:9写实中国家庭悬疑电影，严格从图中晚餐首帧开始，保持汪淼细框眼镜灰蓝衬衫、李瑶低马尾米色针织衫、豆豆8岁男孩蓝卫衣及70平方米家庭格局。0–4秒暖灯下三菜一汤，汪淼疲惫回到桌边。4–9秒豆豆举起灰色歼20模型兴奋说：爸爸！你看我的歼20！9–12秒汪淼勉强微笑摸男孩头。温暖餐具声，自然普通话，无字幕水印无换脸。",
+          "status": "error",
+          "model": "canvas:61::seedance-2.0-fast-M",
+          "size": "1280x720",
+          "seconds": "15",
+          "vquality": "720",
+          "videoAspectRatio": "16:9",
+          "generateAudio": "true",
+          "watermark": "false",
+          "references": [
+            "image:9578F9GNhCNR2pDm3LU08"
+          ],
+          "errorDetails": "{\"error\":{\"message\":\"image_file_1 素材必须是 HTTP 或 HTTPS 地址；当前不支持 data URI，请先上传文件或提供公网 URL\",\"type\":\"invalid_request_error\",\"code\":\"-2000\"}} (HTTP 400)"
+        }
+      },
+      {
+        "id": "saxoWcRuXCkuwHP9IHZKo",
+        "type": "video",
+        "title": "图片1\n12秒16:9写实中国家庭悬疑电影，严格从图中晚餐首帧开",
+        "position": {
+          "x": 5091.153866160107,
+          "y": 541.7120509377806
+        },
+        "width": 420,
+        "height": 240.76433121019107,
+        "metadata": {
+          "prompt": "图片1\n12秒16:9写实中国家庭悬疑电影，严格从图中晚餐首帧开始，保持汪淼细框眼镜灰蓝衬衫、李瑶低马尾米色针织衫、豆豆8岁男孩蓝卫衣及70平方米家庭格局。0–4秒暖灯下三菜一汤，汪淼疲惫回到桌边。4–9秒豆豆举起灰色歼20模型兴奋说：爸爸！你看我的歼20！9–12秒汪淼勉强微笑摸男孩头。温暖餐具声，自然普通话，无字幕水印无换脸。",
+          "status": "success",
+          "model": "canvas:61::seedance-2.0-fast-M",
+          "size": "1280x720",
+          "seconds": "15",
+          "vquality": "720",
+          "videoAspectRatio": "16:9",
+          "generateAudio": "true",
+          "watermark": "false",
+          "videoMode": "frames",
+          "references": [
+            "image:9578F9GNhCNR2pDm3LU08"
+          ],
+          "content": "blob:https://moosecloud.cc/bad48334-0882-4990-a828-fc4a1719b4ed",
+          "storageKey": "video:q_8rrt3gbHJMR9PkDCO1X",
+          "naturalWidth": 1256,
+          "naturalHeight": 720,
+          "bytes": 9660139,
+          "mimeType": "video/mp4",
+          "durationMs": 15067
+        }
+      },
+      {
+        "id": "4Yj8FYGKPuVNjMH6P0xHX",
+        "type": "video",
+        "title": "图片1\n12秒16:9写实悬疑电影，场景街心公园清晨，不是咖啡馆",
+        "position": {
+          "x": 4964.825300601568,
+          "y": 1344.1417823692923
+        },
+        "width": 419.55555555555554,
+        "height": 236,
+        "metadata": {
+          "prompt": "图片1\n12秒16:9写实悬疑电影，场景街心公园清晨，不是咖啡馆。保持首帧两人脸、史强旧棕夹克、汪淼灰蓝衬衫眼镜公文包。0–4秒缓推树荫下蹲着的史强吃茶叶蛋和香肠煎饼。4–8秒史强站起来笑说：这么巧！8–12秒汪淼停住警惕问：你跟踪我？朝阳透树、晨间鸟声，普通话，无字幕水印不换脸。",
+          "status": "error",
+          "model": "canvas:61::minimax_h3-933-768p",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "videoAspectRatio": "16:9",
+          "generateAudio": "true",
+          "watermark": "false",
+          "videoMode": "frames",
+          "references": [
+            "image:5AJUKa8EsPpNiZG-aQbLG"
+          ],
+          "errorDetails": "Invalid URL (POST /v1/videos/generations) (HTTP 404)"
+        }
+      },
+      {
+        "id": "eta6fHnSENZV-PRfOYQyB",
+        "type": "video",
+        "title": "图片1\n12秒16:9写实科幻悬疑电影，首帧旧时光老屋咖啡馆下午",
+        "position": {
+          "x": 4918.248613038327,
+          "y": 2056.9241953527303
+        },
+        "width": 419.55555555555554,
+        "height": 236,
+        "metadata": {
+          "prompt": "图片1\n12秒16:9写实科幻悬疑电影，首帧旧时光老屋咖啡馆下午四点，窗外梧桐。保持汪淼眼镜灰蓝衬衫和申玉菲黑西装白衬衫银表、脸和座位。0–4秒缓推桌上未动黑咖啡和她的银表。4–9秒她冷静直视汪淼说：你的飞刃项目，停下来。9–12秒汪淼僵住皱眉看她。暖窗光冷情绪，低环境声自然普通话，无字幕水印拼贴。",
+          "status": "loading",
+          "model": "canvas:61::minimax_h3_max-fl-768p",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "videoAspectRatio": "16:9",
+          "generateAudio": "true",
+          "watermark": "false",
+          "videoMode": "frames",
+          "references": [
+            "image:kIEd3XCkzINqSeusytRoF"
+          ],
+          "generationRunId": "run-746b2823-3c59-40d9-80db-223ff014bb59"
+        }
+      },
+      {
+        "id": "V3Eb8gcdmx-CX21X3JoId",
+        "type": "video",
+        "title": "图片1\n12秒16:9写实科幻惊悚，图为首帧，保持汪淼脸眼镜灰蓝",
+        "position": {
+          "x": 5273.779986572263,
+          "y": 2709.8800201416016
+        },
+        "width": 284,
+        "height": 160,
+        "metadata": {
+          "prompt": "图片1\n12秒16:9写实科幻惊悚，图为首帧，保持汪淼脸眼镜灰蓝衬衫与书房暗房红色安全灯。0–4秒汪淼抬起湿底片查看。4–8秒微距底片，异常浅色倒计时字样，准确1189:47:12由后期叠加，不变成1200或72小时。8–12秒切汪淼苍白惊疑面孔，迅速换另一张底片验证。红光暗部，呼吸声滴水声，无血腥无激光无字幕水印。",
+          "status": "error",
+          "model": "canvas:61::H3video-2k",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "videoAspectRatio": "16:9",
+          "generateAudio": "true",
+          "watermark": "false",
+          "videoMode": "frames",
+          "references": [
+            "image:pXCl0KN6LkTJ_TrnNYIL6"
+          ],
+          "errorDetails": "{\"code\":\"invalid_request\",\"message\":\"Xiaowen resolution must be 768p or 2K\",\"data\":null} (HTTP 400)"
+        }
+      },
+      {
+        "id": "ey4Jf0bxpytnpFbZXWYtk",
+        "type": "video",
+        "title": "图片1\n12秒16:9写实中国科幻惊悚，首帧凌晨三点卧室，保持汪",
+        "position": {
+          "x": 4927.306343526417,
+          "y": 3954.1982934773437
+        },
+        "width": 419.55555555555554,
+        "height": 236,
+        "metadata": {
+          "prompt": "图片1\n12秒16:9写实中国科幻惊悚，首帧凌晨三点卧室，保持汪淼瘦长脸眼镜灰蓝睡衣和李瑶低马尾象牙白睡衣、卧室布局。0–4秒汪淼在床上睁眼看天花板，妻子睡着。4–8秒主观视角幽绿色倒计时1184:07:55跳秒，准确文字后期叠加，非真实房间投影不照亮环境。8–12秒汪淼猛坐起来揉眼再紧闭眼，数字仍在主观黑暗视野。呼吸急促，冷暗月光，无字幕水印。",
+          "status": "error",
+          "model": "canvas:61::seedance2.0-E",
+          "size": "1280x720",
+          "seconds": "15",
+          "vquality": "720",
+          "videoAspectRatio": "16:9",
+          "generateAudio": "true",
+          "watermark": "false",
+          "videoMode": "frames",
+          "references": [
+            "image:G52DZsHfcZtzjUxWvMVD6"
+          ],
+          "errorDetails": "视频参考图 1 转存对象存储失败，请检查存储配置及连接"
+        }
+      },
+      {
+        "id": "E6k6QVPr_OoA2WogayE8d",
+        "type": "video",
+        "title": "图片1\n12秒16:9写实科幻悬疑电影，首帧旧时光老屋咖啡馆下午",
+        "position": {
+          "x": 5228.509237751841,
+          "y": 2443.810378506474
+        },
+        "width": 419.55555555555554,
+        "height": 236,
+        "metadata": {
+          "prompt": "图片1\n12秒16:9写实科幻悬疑电影，首帧旧时光老屋咖啡馆下午四点，窗外梧桐。保持汪淼眼镜灰蓝衬衫和申玉菲黑西装白衬衫银表、脸和座位。0–4秒缓推桌上未动黑咖啡和她的银表。4–9秒她冷静直视汪淼说：你的飞刃项目，停下来。9–12秒汪淼僵住皱眉看她。暖窗光冷情绪，低环境声自然普通话，无字幕水印拼贴。",
+          "status": "error",
+          "model": "canvas:61::seedance2.0-E",
+          "size": "1280x720",
+          "seconds": "12",
+          "vquality": "720",
+          "videoAspectRatio": "16:9",
+          "generateAudio": "true",
+          "watermark": "false",
+          "videoMode": "frames",
+          "references": [
+            "image:kIEd3XCkzINqSeusytRoF"
+          ],
+          "errorDetails": "视频参考图 1 转存对象存储失败，请检查存储配置及连接"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "jXoYUesu21vGy-0xZJ9A_",
+        "fromNodeId": "text-921eccf1-b499-45de-aaaf-1ee46954c172",
+        "toNodeId": "config-2a7775f8-77cf-496e-b469-c3ffd06b9e51"
+      },
+      {
+        "id": "1OJzGYmCszx1N77pNDczt",
+        "fromNodeId": "config-2a7775f8-77cf-496e-b469-c3ffd06b9e51",
+        "toNodeId": "agGMZ7tILmDLahj88Gmvw"
+      },
+      {
+        "id": "sDaUaAZjta7QmEenLuoTx",
+        "fromNodeId": "text-d63b34ce-9db1-4c5d-b78c-5faa77912834",
+        "toNodeId": "config-c706015e-71cc-4a8d-8504-6224c71f24af"
+      },
+      {
+        "id": "JqQ9B--_WNokxhiPXqUQs",
+        "fromNodeId": "config-c706015e-71cc-4a8d-8504-6224c71f24af",
+        "toNodeId": "dix3NEi0yAV6p-HnA8xrV"
+      },
+      {
+        "id": "8rAyZeDI1jQWD3kx7xaUR",
+        "fromNodeId": "text-6024b2ca-4f9e-49de-b6d8-9ad2273ba596",
+        "toNodeId": "config-a8537382-12e5-4a4a-8fa1-7171a4fb7c1c"
+      },
+      {
+        "id": "nc27BjGjTEy4x9fK1A3S9",
+        "fromNodeId": "config-a8537382-12e5-4a4a-8fa1-7171a4fb7c1c",
+        "toNodeId": "5qXj4mF1_UScnatZ4AY6K"
+      },
+      {
+        "id": "jSjmyy87pqJPElrwh0L8j",
+        "fromNodeId": "text-9decac8e-76f9-40bc-a18e-4f54ba82e1c8",
+        "toNodeId": "config-b0c9e175-0189-41a7-b0d0-9e8f681436f7"
+      },
+      {
+        "id": "TaTVLJeljGrDVzOxvOepu",
+        "fromNodeId": "config-b0c9e175-0189-41a7-b0d0-9e8f681436f7",
+        "toNodeId": "yEejQCaRdbGxeHq8IlN-h"
+      },
+      {
+        "id": "N8Lw9ZfcBN-Z-i-_BtMER",
+        "fromNodeId": "text-f3e05b6b-d1a6-47b0-a74d-069b678eb20c",
+        "toNodeId": "config-3892dd71-0336-440e-b8ad-f2efbea7f657"
+      },
+      {
+        "id": "I98LKWqpocswqhUntMN7V",
+        "fromNodeId": "config-3892dd71-0336-440e-b8ad-f2efbea7f657",
+        "toNodeId": "e7REcfn7sUSsf1DaqiJIR"
+      },
+      {
+        "id": "Qf0JX0Ex-r_RYrR8MvHkI",
+        "fromNodeId": "text-f1478e47-4a1d-40e4-b4c6-104916837194",
+        "toNodeId": "config-f2e3c407-fd43-4e48-aff6-922bbb834700"
+      },
+      {
+        "id": "p-0qUjf2qUO22jTyyJ-hK",
+        "fromNodeId": "config-f2e3c407-fd43-4e48-aff6-922bbb834700",
+        "toNodeId": "tuJNxgvCcFinL_QuVGIld"
+      },
+      {
+        "id": "2Vh-INVZDiM1MfuSzdl4J",
+        "fromNodeId": "text-8ff93a64-1cd6-4daa-ba8a-db6789181685",
+        "toNodeId": "config-47e1972c-b1cf-4845-a555-1293e892bbe9"
+      },
+      {
+        "id": "YePa6mHEm34iGUojEyoHC",
+        "fromNodeId": "config-47e1972c-b1cf-4845-a555-1293e892bbe9",
+        "toNodeId": "5EQ7eHMGp1sMWO71IN9lo"
+      },
+      {
+        "id": "8WtUJzzLka4z2HtCTGDY7",
+        "fromNodeId": "text-31e8f99f-bfb0-4500-83ef-ded78cba5831",
+        "toNodeId": "config-cff7b3f5-1bc9-43a3-bdbc-51ae8125bbf3"
+      },
+      {
+        "id": "7pzkj5UF7RdBHQRrbCX06",
+        "fromNodeId": "config-cff7b3f5-1bc9-43a3-bdbc-51ae8125bbf3",
+        "toNodeId": "IoEEAHXr7VX7BM2oMCSUO"
+      },
+      {
+        "id": "gD-ZA_yiOz0NRyuSQmfxo",
+        "fromNodeId": "text-c8541eb8-7b39-463d-bf54-866b855dc91d",
+        "toNodeId": "config-936d4146-30bb-4c71-bc11-296c4cd4aa17"
+      },
+      {
+        "id": "5eUh9Bu-dDoajUFuhypMD",
+        "fromNodeId": "agGMZ7tILmDLahj88Gmvw",
+        "toNodeId": "config-936d4146-30bb-4c71-bc11-296c4cd4aa17"
+      },
+      {
+        "id": "jGKu-QFFqD0arqsKMEWxA",
+        "fromNodeId": "5EQ7eHMGp1sMWO71IN9lo",
+        "toNodeId": "config-936d4146-30bb-4c71-bc11-296c4cd4aa17"
+      },
+      {
+        "id": "iuPyCC_YdiDzsC0rme6C2",
+        "fromNodeId": "text-332a5d37-7262-4e56-a772-d16cff8bf01d",
+        "toNodeId": "config-342bdf17-1fe8-4adc-bff9-e65bb604d390"
+      },
+      {
+        "id": "O7wip0alHP-J9KjyTl610",
+        "fromNodeId": "agGMZ7tILmDLahj88Gmvw",
+        "toNodeId": "config-342bdf17-1fe8-4adc-bff9-e65bb604d390"
+      },
+      {
+        "id": "hdI49-rmQVdkvZV-LLknk",
+        "fromNodeId": "dix3NEi0yAV6p-HnA8xrV",
+        "toNodeId": "config-342bdf17-1fe8-4adc-bff9-e65bb604d390"
+      },
+      {
+        "id": "MWiDsDxwDcJwLyuuz4hG1",
+        "fromNodeId": "5qXj4mF1_UScnatZ4AY6K",
+        "toNodeId": "config-342bdf17-1fe8-4adc-bff9-e65bb604d390"
+      },
+      {
+        "id": "CyRSgdTEVmzjVMSfjUfhy",
+        "fromNodeId": "yEejQCaRdbGxeHq8IlN-h",
+        "toNodeId": "config-342bdf17-1fe8-4adc-bff9-e65bb604d390"
+      },
+      {
+        "id": "Eo-vgreBI9S83FCgPbLh6",
+        "fromNodeId": "IoEEAHXr7VX7BM2oMCSUO",
+        "toNodeId": "config-342bdf17-1fe8-4adc-bff9-e65bb604d390"
+      },
+      {
+        "id": "syLuQSp-RaEmaDlDgxukt",
+        "fromNodeId": "config-342bdf17-1fe8-4adc-bff9-e65bb604d390",
+        "toNodeId": "_xYj3K9o6_NSgUIrWfx-i"
+      },
+      {
+        "id": "RtSlRA05FYOksRr3wfGyx",
+        "fromNodeId": "text-0d154f7f-c040-4f72-aa97-9652c9bc87cd",
+        "toNodeId": "config-0c923f6b-c6c6-4f33-91ac-15aa8f93f925"
+      },
+      {
+        "id": "vjm2HbgDB7JBSLROTuxtx",
+        "fromNodeId": "agGMZ7tILmDLahj88Gmvw",
+        "toNodeId": "config-0c923f6b-c6c6-4f33-91ac-15aa8f93f925"
+      },
+      {
+        "id": "rZvdLKPAVleKiYUIWxuYd",
+        "fromNodeId": "e7REcfn7sUSsf1DaqiJIR",
+        "toNodeId": "config-0c923f6b-c6c6-4f33-91ac-15aa8f93f925"
+      },
+      {
+        "id": "dRCsnMIwuzO-bnlgQw_xP",
+        "fromNodeId": "tuJNxgvCcFinL_QuVGIld",
+        "toNodeId": "config-0c923f6b-c6c6-4f33-91ac-15aa8f93f925"
+      },
+      {
+        "id": "AI6CsDCba6HGzRY1DwQRV",
+        "fromNodeId": "config-0c923f6b-c6c6-4f33-91ac-15aa8f93f925",
+        "toNodeId": "oFkVLZDIxEDLPFeSocFnQ"
+      },
+      {
+        "id": "j90TkGTsXerr8sDNyllWf",
+        "fromNodeId": "text-d341b7b4-1e14-4409-af16-31c7d537ff52",
+        "toNodeId": "config-ddcb412b-5c79-4368-8846-4a1f8cacd84b"
+      },
+      {
+        "id": "-jmqoxOLjVUV8BoDmJp5H",
+        "fromNodeId": "agGMZ7tILmDLahj88Gmvw",
+        "toNodeId": "config-ddcb412b-5c79-4368-8846-4a1f8cacd84b"
+      },
+      {
+        "id": "MCx0shvmmTTPnG4kgwShc",
+        "fromNodeId": "dix3NEi0yAV6p-HnA8xrV",
+        "toNodeId": "config-ddcb412b-5c79-4368-8846-4a1f8cacd84b"
+      },
+      {
+        "id": "1Yet9z36RyhERVfsZxoZf",
+        "fromNodeId": "config-ddcb412b-5c79-4368-8846-4a1f8cacd84b",
+        "toNodeId": "QweICKSvyBbQnMrke8kIh"
+      },
+      {
+        "id": "bTxqtLcdWmymyyh7jWMWb",
+        "fromNodeId": "text-7afa0b4d-7e6e-4675-bf85-1d814750f0cf",
+        "toNodeId": "config-292c09c5-431d-456b-9db9-b2290a2a75c7"
+      },
+      {
+        "id": "blqFpGMmsQ132CP1ro5E6",
+        "fromNodeId": "agGMZ7tILmDLahj88Gmvw",
+        "toNodeId": "config-292c09c5-431d-456b-9db9-b2290a2a75c7"
+      },
+      {
+        "id": "ecQvyHF3uT3e31uszaWxS",
+        "fromNodeId": "yEejQCaRdbGxeHq8IlN-h",
+        "toNodeId": "config-292c09c5-431d-456b-9db9-b2290a2a75c7"
+      },
+      {
+        "id": "mlY09p6c9KfqTbDGB2LdH",
+        "fromNodeId": "config-292c09c5-431d-456b-9db9-b2290a2a75c7",
+        "toNodeId": "c0YrGNigJSEytcgJj9Kdq"
+      },
+      {
+        "id": "Ufuyyvs2yia6CbmviccDp",
+        "fromNodeId": "text-858af7f4-9ec7-43bc-8677-1186126ac699",
+        "toNodeId": "config-35045e22-ed34-48db-8d0a-482cf342e83a"
+      },
+      {
+        "id": "xr48Pz-CLeZC_VtM4GE91",
+        "fromNodeId": "agGMZ7tILmDLahj88Gmvw",
+        "toNodeId": "config-35045e22-ed34-48db-8d0a-482cf342e83a"
+      },
+      {
+        "id": "LYmUCeAAcVv25mDN_6U5t",
+        "fromNodeId": "config-35045e22-ed34-48db-8d0a-482cf342e83a",
+        "toNodeId": "xyFMBO4JpsBs0FvpYEr0s"
+      },
+      {
+        "id": "a2jDeaOJXgVV4VP-2lxen",
+        "fromNodeId": "text-9c1b0e3a-7ef2-48f6-982b-a7554bfb1b53",
+        "toNodeId": "config-68440441-f275-4440-8270-2fa7e34a1cbf"
+      },
+      {
+        "id": "PoSMQpwZt0bxKeicWfPb0",
+        "fromNodeId": "agGMZ7tILmDLahj88Gmvw",
+        "toNodeId": "config-68440441-f275-4440-8270-2fa7e34a1cbf"
+      },
+      {
+        "id": "9vxViXOarvbA8iWzi5cHY",
+        "fromNodeId": "dix3NEi0yAV6p-HnA8xrV",
+        "toNodeId": "config-68440441-f275-4440-8270-2fa7e34a1cbf"
+      },
+      {
+        "id": "Rmc3R3-mlHQ-Fxi_GsKrR",
+        "fromNodeId": "config-68440441-f275-4440-8270-2fa7e34a1cbf",
+        "toNodeId": "PGdqhE9RTwKLd2gUCBLH8"
+      },
+      {
+        "id": "TuFTCmoBetZILtXdw36Nt",
+        "fromNodeId": "text-4f0e4f06-2880-41ee-a7d7-42e0d7b0cc91",
+        "toNodeId": "config-8f8801ea-ddad-4301-b1ec-4f014469f4b5"
+      },
+      {
+        "id": "AnBhCrbwUJglsa4rf76vg",
+        "fromNodeId": "agGMZ7tILmDLahj88Gmvw",
+        "toNodeId": "config-8f8801ea-ddad-4301-b1ec-4f014469f4b5"
+      },
+      {
+        "id": "6aCOlcyQM4eumQhZJLDzN",
+        "fromNodeId": "e7REcfn7sUSsf1DaqiJIR",
+        "toNodeId": "config-8f8801ea-ddad-4301-b1ec-4f014469f4b5"
+      },
+      {
+        "id": "F7iAFvr6nUIf4Oss4eZN0",
+        "fromNodeId": "config-8f8801ea-ddad-4301-b1ec-4f014469f4b5",
+        "toNodeId": "DN_eRoY16LWTClHu6dTjg"
+      },
+      {
+        "id": "c5P2Ftgr2eTUf3BEyLLaM",
+        "fromNodeId": "config-936d4146-30bb-4c71-bc11-296c4cd4aa17",
+        "toNodeId": "41GfOz29D-8w4n0Zmq9hZ"
+      },
+      {
+        "id": "2vu3heOy5HjVroA6_uRfA",
+        "fromNodeId": "config-342bdf17-1fe8-4adc-bff9-e65bb604d390",
+        "toNodeId": "PVrJWj0swHptwauARL__2"
+      },
+      {
+        "id": "ZVojvhkbo9vn_dEEbzRiD",
+        "fromNodeId": "config-0c923f6b-c6c6-4f33-91ac-15aa8f93f925",
+        "toNodeId": "hOapc1LZl7FVnFCRzMGDi"
+      },
+      {
+        "id": "zt0oHqVGIoZAf-AQpBJlJ",
+        "fromNodeId": "config-ddcb412b-5c79-4368-8846-4a1f8cacd84b",
+        "toNodeId": "dI1_SaRg0E1N5Klo29ekR"
+      },
+      {
+        "id": "jI6pfWcp11nWVvJ6Ucvfo",
+        "fromNodeId": "config-292c09c5-431d-456b-9db9-b2290a2a75c7",
+        "toNodeId": "if_kmrJoJkpLT9RKa01v6"
+      },
+      {
+        "id": "lnkotTues5I5XMeul1r3P",
+        "fromNodeId": "config-35045e22-ed34-48db-8d0a-482cf342e83a",
+        "toNodeId": "GDBFrkQUgmoMyu9IEVKSY"
+      },
+      {
+        "id": "xTcy6jIC_d91vrjUjsoms",
+        "fromNodeId": "config-68440441-f275-4440-8270-2fa7e34a1cbf",
+        "toNodeId": "tYYEVo9QTjCQ6Wwzzbx7R"
+      },
+      {
+        "id": "k_G7NKmEPpLJ4bFknr8Si",
+        "fromNodeId": "config-8f8801ea-ddad-4301-b1ec-4f014469f4b5",
+        "toNodeId": "Ovj7ZJPPk1UpZgomQ1ZPc"
+      },
+      {
+        "id": "b7v80zpntlsbvl91DM7Ov",
+        "fromNodeId": "text-effda229-b914-408c-9b12-6216a3405e83",
+        "toNodeId": "config-f5a07c2b-90c7-4420-9dd7-86493732c61d"
+      },
+      {
+        "id": "Jnxq5ODNwbz7FejOCLJLf",
+        "fromNodeId": "41GfOz29D-8w4n0Zmq9hZ",
+        "toNodeId": "config-f5a07c2b-90c7-4420-9dd7-86493732c61d"
+      },
+      {
+        "id": "Y7mlElmKEQIsw_G3zbA1X",
+        "fromNodeId": "41GfOz29D-8w4n0Zmq9hZ",
+        "toNodeId": "ep1-v01b"
+      },
+      {
+        "id": "ml1a4Ce0EAphFsflOUkJx",
+        "fromNodeId": "41GfOz29D-8w4n0Zmq9hZ",
+        "toNodeId": "ep1-v01c"
+      },
+      {
+        "id": "xqKiNjoetKwIqCVTYF7ec",
+        "fromNodeId": "PVrJWj0swHptwauARL__2",
+        "toNodeId": "ep1-v02a"
+      },
+      {
+        "id": "N_1aN62lxY-yT1D0bf4qG",
+        "fromNodeId": "PVrJWj0swHptwauARL__2",
+        "toNodeId": "ep1-v02b"
+      },
+      {
+        "id": "l9D6mNLnUH3wYwOdS7c5-",
+        "fromNodeId": "PVrJWj0swHptwauARL__2",
+        "toNodeId": "ep1-v02c"
+      },
+      {
+        "id": "iazwokaesq065TiFyd968",
+        "fromNodeId": "hOapc1LZl7FVnFCRzMGDi",
+        "toNodeId": "ep1-v03a"
+      },
+      {
+        "id": "7AIgPflhj175m9OF3OMcp",
+        "fromNodeId": "hOapc1LZl7FVnFCRzMGDi",
+        "toNodeId": "ep1-v03b"
+      },
+      {
+        "id": "mf5Fcu804d8dDKA_lBG13",
+        "fromNodeId": "hOapc1LZl7FVnFCRzMGDi",
+        "toNodeId": "ep1-v03c"
+      },
+      {
+        "id": "7wTuhxZiCASdHlG_AZRjb",
+        "fromNodeId": "dI1_SaRg0E1N5Klo29ekR",
+        "toNodeId": "ep1-v04a"
+      },
+      {
+        "id": "4YNGnC1LQ5Vrm4y9s5FZq",
+        "fromNodeId": "dI1_SaRg0E1N5Klo29ekR",
+        "toNodeId": "ep1-v04b"
+      },
+      {
+        "id": "Rxp0Nj6N8-WxhCxd3CoPC",
+        "fromNodeId": "dI1_SaRg0E1N5Klo29ekR",
+        "toNodeId": "ep1-v04c"
+      },
+      {
+        "id": "NtQhA8EqkEK_GHIgXL31s",
+        "fromNodeId": "if_kmrJoJkpLT9RKa01v6",
+        "toNodeId": "ep1-v05a"
+      },
+      {
+        "id": "Hn1T_M2PQ0MNnjS8HloRt",
+        "fromNodeId": "if_kmrJoJkpLT9RKa01v6",
+        "toNodeId": "ep1-v05b"
+      },
+      {
+        "id": "ntPh4qyjPhZgJACX-vqoq",
+        "fromNodeId": "if_kmrJoJkpLT9RKa01v6",
+        "toNodeId": "ep1-v05c"
+      },
+      {
+        "id": "7R8FyChH9iMSpsgquuZNL",
+        "fromNodeId": "GDBFrkQUgmoMyu9IEVKSY",
+        "toNodeId": "ep1-v06a"
+      },
+      {
+        "id": "SzZxa4As7QVpDJHIotFyu",
+        "fromNodeId": "GDBFrkQUgmoMyu9IEVKSY",
+        "toNodeId": "ep1-v06b"
+      },
+      {
+        "id": "5iYdvALjAczrOXwWE4XzG",
+        "fromNodeId": "GDBFrkQUgmoMyu9IEVKSY",
+        "toNodeId": "ep1-v06c"
+      },
+      {
+        "id": "BNEFtfmKPuPeh2qD57lM0",
+        "fromNodeId": "tYYEVo9QTjCQ6Wwzzbx7R",
+        "toNodeId": "ep1-v07a"
+      },
+      {
+        "id": "r_Y1mDo5D3GuxRTBss-_T",
+        "fromNodeId": "tYYEVo9QTjCQ6Wwzzbx7R",
+        "toNodeId": "ep1-v07b"
+      },
+      {
+        "id": "RRebl_6KQfaclVUHOJLbH",
+        "fromNodeId": "tYYEVo9QTjCQ6Wwzzbx7R",
+        "toNodeId": "ep1-v07c"
+      },
+      {
+        "id": "-YWEu45c5ewsY8Rz5ny9E",
+        "fromNodeId": "Ovj7ZJPPk1UpZgomQ1ZPc",
+        "toNodeId": "ep1-v08a"
+      },
+      {
+        "id": "gYSyeOf3YJw7MsHv7psEY",
+        "fromNodeId": "Ovj7ZJPPk1UpZgomQ1ZPc",
+        "toNodeId": "ep1-v08b"
+      },
+      {
+        "id": "dx_X6JEzKSSS3psPcLWJv",
+        "fromNodeId": "Ovj7ZJPPk1UpZgomQ1ZPc",
+        "toNodeId": "ep1-v08c"
+      },
+      {
+        "id": "bcz_sv14AU5XQ6sJctO5v",
+        "fromNodeId": "config-f5a07c2b-90c7-4420-9dd7-86493732c61d",
+        "toNodeId": "O0m-MLSpW9BteryHdfl-_"
+      },
+      {
+        "id": "oIHB8NAlJgvr8bZtyH-Tr",
+        "fromNodeId": "ep1-v02a",
+        "toNodeId": "_FKPPnLKrTUPudxEeHDGs"
+      },
+      {
+        "id": "bWvbrQ_yIC0zANiMCHaSN",
+        "fromNodeId": "ep1-v04a",
+        "toNodeId": "dIs_xN__SF2FBDWji9T1h"
+      },
+      {
+        "id": "jyi3bsJ1zrtrmzoyMbXNZ",
+        "fromNodeId": "ep1-v03a",
+        "toNodeId": "UCWDfX9kVTt2SxTGtsnnV"
+      },
+      {
+        "id": "UFh_uozpjPMTumv-mLqcE",
+        "fromNodeId": "ep1-v03a",
+        "toNodeId": "saxoWcRuXCkuwHP9IHZKo"
+      },
+      {
+        "id": "RiJMr96B3aLzGe63sMIkO",
+        "fromNodeId": "ep1-v04a",
+        "toNodeId": "4Yj8FYGKPuVNjMH6P0xHX"
+      },
+      {
+        "id": "F9lx6a1m1AWDh_b1oQg4h",
+        "fromNodeId": "ep1-v05a",
+        "toNodeId": "eta6fHnSENZV-PRfOYQyB"
+      },
+      {
+        "id": "E4IF3EZ3kCYbY2Li4VzJs",
+        "fromNodeId": "ep1-v06a",
+        "toNodeId": "V3Eb8gcdmx-CX21X3JoId"
+      },
+      {
+        "id": "oLc8RkdJXsvaEwcbybQcs",
+        "fromNodeId": "ep1-v08a",
+        "toNodeId": "ey4Jf0bxpytnpFbZXWYtk"
+      },
+      {
+        "id": "ZXjTluydC-jxR82nbmnND",
+        "fromNodeId": "ep1-v05a",
+        "toNodeId": "E6k6QVPr_OoA2WogayE8d"
+      }
+    ],
+    "selectedNodeIds": [
+      "ep1-v05b"
+    ],
+    "viewport": {
+      "x": -1075.9115216355585,
+      "y": -196.795429820947,
+      "k": 0.2779446139958002
+    },
+    "hasCanvas": true,
+    "clientId": "WxGXX5mA3FbHXlTbCAsfw"
+  }
+}

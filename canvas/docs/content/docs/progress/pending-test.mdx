@@ -3,7 +3,11 @@ title: Pending Tests
 description: Implemented changes that still need manual verification
 ---
 
+- Video reference storage: merged upstream upload retries, set explicit Content-Length, stop retrying permanent failures and honor the upload deadline. Failures expose sanitized categories without credentials or signed URLs. Actual bucket upload and upstream retrieval remain pending; no deployment or production root-cause confirmation.
+
 ## Sub2API v0.19.0 同步待验收
+
+- Xiaowen 分辨率：模型名称为 `xiaowen` 或其带版本后缀的系列（支持渠道选项和厂商路径）时，面板和 Agent 提供 `768p` / `2K`；原普通档位提交为 `768p`，明确选择 `2K` 则保持大写。检查托管 JSON 的 `resolution`、直连 multipart 的 `resolution_name`，以及刷新旧节点后重新生成；其他模型参数不变。未构建画布前端、未部署、未执行付费生成。
 
 - 历史画布图片比例解析：打开包含 `1824x1024`、`1024x1024`、`1024x1824` 等像素尺寸配置的画布，确认页面、图片配置面板和比例标签正常；检查 `16:9` 等预设比例、`2:3` 等非预设比例及 `auto` / 空值的默认比例，不再出现 `readSizeDimensions is not defined`。本次只修改解析调用，不迁移或清空历史数据，未执行构建、测试或线上验证。
 

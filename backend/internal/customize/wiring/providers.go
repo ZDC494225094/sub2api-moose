@@ -21,6 +21,8 @@ var ProviderSet = wire.NewSet(
 	service.NewOperationsService,
 	service.NewOperationsMarketingEmailService,
 	service.ProvidePlaygroundRunService,
+	repository.NewCanvasBillingRepository,
+	service.NewCanvasBillingService,
 	admin.NewOperationsHandler,
 	handler.NewPlaygroundHandler,
 	handler.NewExtensionHandlers,

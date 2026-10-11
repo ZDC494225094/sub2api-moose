@@ -6,6 +6,7 @@ import { uploadImage } from "@/services/image-storage";
 import { imageAspectOptions, imageQualityOptions, imageScaleOptions } from "@/components/image-settings-panel";
 import { videoResolutionOptions, videoSecondsRange, videoSizeOptions } from "@/components/video-settings-panel";
 import type { CanvasAgentSnapshot } from "@/lib/canvas/canvas-agent-ops";
+import { isXiaowenVideoModel, normalizeXiaowenResolution, xiaowenResolutionOptions } from "@/lib/xiaowen-video";
 import { isSeedanceVideoConfig, seedanceResolutionOptions } from "@/lib/seedance-video";
 import { useCanvasStore } from "@/stores/canvas/use-canvas-store";
 import { useAssetStore } from "@/stores/use-asset-store";
@@ -196,7 +197,7 @@ function getVideoConfig() {
             modelName: modelOptionName(model),
             size: config.size || "1280x720",
             seconds: config.videoSeconds || "6",
-            resolution: config.vquality || "720",
+            resolution: isXiaowenVideoModel(model) ? normalizeXiaowenResolution(config.vquality) : config.vquality || "720",
             generateAudio: config.videoGenerateAudio !== "false",
             watermark: config.videoWatermark === "true",
             mode: config.videoMode === "reference" ? "reference" : "frames",
@@ -204,7 +205,7 @@ function getVideoConfig() {
         models: selectableModelsByCapability(config, "video").map((value) => ({ value, label: modelOptionLabel(config, value) })),
         sizeOptions: videoSizeOptions,
         secondsRange: isSeedanceVideoConfig({ ...config, model }) ? { min: 4, max: 15 } : videoSecondsRange,
-        resolutionOptions: isSeedanceVideoConfig({ ...config, model }) ? seedanceResolutionOptions : videoResolutionOptions,
+        resolutionOptions: isXiaowenVideoModel(model) ? xiaowenResolutionOptions : isSeedanceVideoConfig({ ...config, model }) ? seedanceResolutionOptions : videoResolutionOptions,
         modeOptions: [
             { value: "frames", label: i18n.t("settingsPanels.video.modes.frames") },
             { value: "reference", label: i18n.t("settingsPanels.video.modes.reference") },

@@ -308,6 +308,7 @@ type APIKeyBalanceResolver interface {
 }
 
 type APIKeyService struct {
+	canvasBillingRepo         CanvasBillingRepository
 	apiKeyRepo                APIKeyRepository
 	userRepo                  UserRepository
 	groupRepo                 GroupRepository

@@ -113,6 +113,16 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			abortWithGoogleError(c, 401, "User account is not active")
 			return
 		}
+		// Consume (and strip) the server-only capability before forwarding headers.
+		chargeToken := c.GetHeader(service.CanvasBillingHeader)
+		c.Request.Header.Del(service.CanvasBillingHeader)
+		chargeCtx, err := apiKeyService.AuthenticateCanvasCharge(c.Request.Context(), apiKey, chargeToken)
+		if err != nil {
+			abortWithGoogleError(c, 403, err.Error())
+			return
+		}
+		c.Request = c.Request.WithContext(chargeCtx)
+		prepaid := service.CanvasChargeFromContext(chargeCtx) != nil
 		selection, selectErr := apiKeyService.SelectUsableGroupForAPIKey(c.Request.Context(), apiKey, subscriptionService)
 		if selectErr != nil {
 			abortWithGoogleError(c, 403, selectErr.Error())
@@ -200,30 +210,32 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 				return
 			}
 
-			needsMaintenance, err := subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
-			if needsMaintenance {
-				refreshed, maintenanceErr := subscriptionService.EnsureWindowMaintenance(c.Request.Context(), subscription)
-				if maintenanceErr != nil {
-					abortWithGoogleError(c, 500, "Failed to maintain subscription usage windows")
+			if !prepaid {
+				needsMaintenance, err := subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
+				if needsMaintenance {
+					refreshed, maintenanceErr := subscriptionService.EnsureWindowMaintenance(c.Request.Context(), subscription)
+					if maintenanceErr != nil {
+						abortWithGoogleError(c, 500, "Failed to maintain subscription usage windows")
+						return
+					}
+					subscription = refreshed
+					_, err = subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
+				}
+				if err != nil {
+					status := 403
+					if errors.Is(err, service.ErrDailyLimitExceeded) ||
+						errors.Is(err, service.ErrWeeklyLimitExceeded) ||
+						errors.Is(err, service.ErrMonthlyLimitExceeded) {
+						status = 429
+					}
+					abortWithGoogleError(c, status, err.Error())
 					return
 				}
-				subscription = refreshed
-				_, err = subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
-			}
-			if err != nil {
-				status := 403
-				if errors.Is(err, service.ErrDailyLimitExceeded) ||
-					errors.Is(err, service.ErrWeeklyLimitExceeded) ||
-					errors.Is(err, service.ErrMonthlyLimitExceeded) {
-					status = 429
-				}
-				abortWithGoogleError(c, status, err.Error())
-				return
-			}
 
+			}
 			c.Set(string(ContextKeySubscription), subscription)
 		} else {
-			if apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) {
+			if !prepaid && apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) {
 				abortWithGoogleError(c, 403, "Insufficient account balance")
 				return
 			}

@@ -2,6 +2,7 @@ import { type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import i18n from "@/i18n";
+import { isXiaowenVideoConfig, normalizeXiaowenResolution, xiaowenResolutionOptions } from "@/lib/xiaowen-video";
 import { ImageSettingsTheme } from "@/components/image-settings-panel";
 import { boolConfig, isSeedanceVideoConfig, normalizeSeedanceDuration, normalizeSeedanceRatio, normalizeSeedanceResolution, seedanceResolutionOptions } from "@/lib/seedance-video";
 import { type CanvasTheme } from "@/lib/canvas-theme";
@@ -47,8 +48,9 @@ export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = 
     const supportsGenerateAudio = isSeedanceVideoConfig(config);
     const rawRatio = supportsGenerateAudio ? normalizeSeedanceRatio(config.size) : normalizeVideoAspectRatio(config.videoAspectRatio);
     const ratio = canvasRatioOptions.includes(rawRatio as (typeof canvasRatioOptions)[number]) ? rawRatio : "16:9";
-    const resolution = supportsGenerateAudio ? normalizeSeedanceResolution(config.vquality) : normalizeVideoResolutionValue(config.vquality);
-    const resolutionOptionsForModel = supportsGenerateAudio ? seedanceResolutionOptions : resolutionOptions;
+    const xiaowen = isXiaowenVideoConfig(config);
+    const resolution = xiaowen ? normalizeXiaowenResolution(config.vquality) : supportsGenerateAudio ? normalizeSeedanceResolution(config.vquality) : normalizeVideoResolutionValue(config.vquality);
+    const resolutionOptionsForModel = xiaowen ? xiaowenResolutionOptions : supportsGenerateAudio ? seedanceResolutionOptions : resolutionOptions;
     const durationRange = supportsGenerateAudio ? { min: 4, max: 15 } : { min: 1, max: 20 };
     const configuredDuration = supportsGenerateAudio ? normalizeSeedanceDuration(config.videoSeconds) : Math.floor(Number(config.videoSeconds) || 6);
     const duration = Math.max(durationRange.min, Math.min(durationRange.max, configuredDuration));
@@ -119,7 +121,9 @@ export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = 
     );
 }
 
-export function videoResolutionLabel(value: string) {
+export function videoResolutionLabel(value: string, config?: AiConfig) {
+    if (config && isXiaowenVideoConfig(config)) return normalizeXiaowenResolution(value);
+    if (value.trim().toLowerCase() === "2k") return "2K";
     return `${normalizeVideoResolutionValue(value)}p`;
 }
 

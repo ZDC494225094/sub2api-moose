@@ -57,11 +57,13 @@ export async function bootstrapManagedCanvas(signal?: AbortSignal) {
 export async function startCanvasRun(config: AiConfig, payload: CanvasRunPayload, signal?: AbortSignal, modelSelection = payload.model) {
     const groupId = managedCanvasGroupID(config, modelSelection);
     if (!groupId) throw new Error("请选择可用分组中的模型");
-    return canvasRequest<CanvasRun>("/runs", {
+    const run = await canvasRequest<CanvasRun>("/runs", {
         method: "POST",
         body: JSON.stringify({ ...payload, groupId }),
         signal,
     });
+    refreshCanvasBillingStatus();
+    return run;
 }
 
 export function getCanvasRun(id: string, signal?: AbortSignal) {
@@ -82,6 +84,7 @@ export async function waitForExistingCanvasRun(id: string, signal?: AbortSignal,
             return run;
         }
         if (run.status === "failed" || run.status === "canceled") {
+            refreshCanvasBillingStatus();
             const error = new Error(run.error || "画布任务未完成");
             reportInsufficientBalance(error);
             throw error;
@@ -121,6 +124,7 @@ export async function canvasRunAudioBlob(run: CanvasRun, signal?: AbortSignal) {
 
 export async function cancelCanvasRun(id: string) {
     await canvasRequest<CanvasRun>(`/runs/${encodeURIComponent(id)}`, { method: "DELETE" });
+    refreshCanvasBillingStatus();
 }
 
 async function canvasAsset(runID: string, kind: "images" | "videos" | "audio", index: number, signal?: AbortSignal) {
