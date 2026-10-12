@@ -29,7 +29,7 @@ func canvasTestRepo(t *testing.T) (*usageBillingRepository, sqlmock.Sqlmock) {
 }
 
 const canvasMoneySQL = `(?s)UPDATE users SET balance=balance-\$1,frozen_balance=COALESCE\(frozen_balance,0\)-\$2.*WHERE id=\$3 AND COALESCE\(frozen_balance,0\)>=\$2`
-const canvasHoldSQL = `(?s)UPDATE users SET balance=balance-\$1,frozen_balance=COALESCE\(frozen_balance,0\)\+\$1.*AND \(\$1=0 OR balance >= \$1\) RETURNING balance`
+const canvasHoldSQL = `(?s)UPDATE users SET balance=balance-\$1,frozen_balance=COALESCE\(frozen_balance,0\)\+\$1.*AND \(\$1::numeric=0 OR balance >= \$1\) RETURNING balance`
 
 func expectCanvasInsert(m sqlmock.Sqlmock, c service.CanvasCharge) *sqlmock.ExpectedQuery {
 	return m.ExpectQuery(`(?s)INSERT INTO canvas_run_charges.*ON CONFLICT \(user_id,run_id\) DO NOTHING RETURNING id`).WithArgs(c.ID, "hash", c.UserID, c.APIKeyID, c.GroupID, c.SubscriptionID, c.RunID, c.PayloadHash, c.Mode, c.Model, c.ReservedCost, c.DailyWindowStart, c.WeeklyWindowStart, c.MonthlyWindowStart)
@@ -39,9 +39,10 @@ func TestCanvasReserveAtomicBalanceHold(t *testing.T) {
 		t.Run(map[bool]string{true: "success", false: "insufficient"}[sufficient], func(t *testing.T) {
 			r, m := canvasTestRepo(t)
 			c := canvasTestCharge()
+			c.ReservedCost = 0.268
 			m.ExpectBegin()
 			expectCanvasInsert(m, c).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(c.ID))
-			hold := m.ExpectQuery(canvasHoldSQL).WithArgs(3.0, int64(7))
+			hold := m.ExpectQuery(canvasHoldSQL).WithArgs(0.268, int64(7))
 			if sufficient {
 				hold.WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(7.0))
 				m.ExpectQuery(`SELECT .* FROM canvas_run_charges WHERE id=\$1`).WithArgs(c.ID).WillReturnRows(canvasRows(c))
@@ -54,7 +55,7 @@ func TestCanvasReserveAtomicBalanceHold(t *testing.T) {
 			if sufficient {
 				require.NoError(t, err)
 				require.True(t, created)
-				require.Equal(t, 3.0, got.ReservedCost)
+				require.Equal(t, 0.268, got.ReservedCost)
 			} else {
 				require.ErrorIs(t, err, service.ErrInsufficientBalance)
 				require.False(t, created)

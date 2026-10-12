@@ -62,7 +62,7 @@ func (r *usageBillingRepository) ReserveCanvasCharge(ctx context.Context, in *se
 	if in.SubscriptionID == nil {
 		var balance float64
 		err = tx.QueryRowContext(ctx, `UPDATE users SET balance=balance-$1,frozen_balance=COALESCE(frozen_balance,0)+$1,updated_at=NOW()
-            WHERE id=$2 AND deleted_at IS NULL AND status='active' AND ($1=0 OR balance >= $1) RETURNING balance`, in.ReservedCost, in.UserID).Scan(&balance)
+            WHERE id=$2 AND deleted_at IS NULL AND status='active' AND ($1::numeric=0 OR balance >= $1) RETURNING balance`, in.ReservedCost, in.UserID).Scan(&balance)
 	} else {
 		// Window identities are checked as well as limits. A concurrent reset or
 		// subscription replacement cannot reserve from a stale snapshot.
