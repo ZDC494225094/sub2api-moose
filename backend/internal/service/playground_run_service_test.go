@@ -1139,6 +1139,25 @@ func TestNormalizePlaygroundVideoRequestAppliesNamedModelRules(t *testing.T) {
 		}
 	})
 
+	t.Run("Seedance does not impose a reference image count limit", func(t *testing.T) {
+		for _, model := range []string{"doubao-seedance-1-5-pro", "seedance-2.0-fast-M", "doubao-seedance-2.0", "doubao-seedance-2.5", "sd-2-0", "sd-2-5"} {
+			for _, imageCount := range []int{3, 9, 12} {
+				t.Run(fmt.Sprintf("%s/%d_images", model, imageCount), func(t *testing.T) {
+					request := PlaygroundRunRequest{Model: model, Duration: 8}
+					for index := 0; index < imageCount; index++ {
+						request.Images = append(request.Images, PlaygroundRunImageInput{DataURL: fmt.Sprintf("https://example.test/reference-%d.png", index)})
+					}
+					if err := normalizePlaygroundVideoRequest(&request); err != nil {
+						t.Fatal(err)
+					}
+					if len(request.Images) != imageCount {
+						t.Fatalf("reference image count = %d, want %d", len(request.Images), imageCount)
+					}
+				})
+			}
+		}
+	})
+
 	t.Run("Seedance 2.0 and 2.5 use their versioned duration limits", func(t *testing.T) {
 		request := PlaygroundRunRequest{Model: "doubao-seedance-2.0", Duration: 15}
 		if err := normalizePlaygroundVideoRequest(&request); err != nil {
@@ -1152,6 +1171,17 @@ func TestNormalizePlaygroundVideoRequestAppliesNamedModelRules(t *testing.T) {
 		request.Duration = 30
 		if err := normalizePlaygroundVideoRequest(&request); err != nil {
 			t.Fatal(err)
+		}
+	})
+
+	t.Run("Kling frame image limit is unchanged", func(t *testing.T) {
+		request := PlaygroundRunRequest{Model: "kling", Duration: 5, Images: []PlaygroundRunImageInput{
+			{DataURL: "https://example.test/first.png"},
+			{DataURL: "https://example.test/last.png"},
+			{DataURL: "https://example.test/reference.png"},
+		}}
+		if err := normalizePlaygroundVideoRequest(&request); err == nil || err.Error() != "kling supports at most two frame images" {
+			t.Fatalf("Kling validation error = %v", err)
 		}
 	})
 

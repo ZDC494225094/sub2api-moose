@@ -258,9 +258,22 @@ func normalizeArkVideoGenerationBody(body []byte) ([]byte, error) {
 			"role": "last_frame",
 		})
 	}
+	for _, reference := range gjson.GetBytes(body, "reference_images").Array() {
+		if reference.Type != gjson.String || strings.TrimSpace(reference.String()) == "" {
+			continue
+		}
+		content = append(content, map[string]any{
+			"type":      "image_url",
+			"image_url": map[string]any{"url": strings.TrimSpace(reference.String())},
+			"role":      "reference_image",
+		})
+	}
 	payload := map[string]any{
 		"model":   gjson.GetBytes(body, "model").String(),
 		"content": content,
+	}
+	if existing := gjson.GetBytes(body, "content"); existing.IsArray() && len(existing.Array()) > 0 {
+		payload["content"] = existing.Value()
 	}
 	copyNumber := func(source, target string) {
 		if value := gjson.GetBytes(body, source); value.Exists() && value.Type == gjson.Number {

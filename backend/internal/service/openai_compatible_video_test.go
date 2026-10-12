@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"net/http"
+	"reflect"
 	"testing"
 	"time"
 
@@ -141,5 +142,144 @@ func TestNormalizeArkVideoGenerationAddsLastFrameImage(t *testing.T) {
 	}
 	if got := gjson.GetBytes(body, "content.2.image_url.url").String(); got != "data:image/png;base64,REVG" {
 		t.Fatalf("last image url = %q", got)
+	}
+}
+
+func TestPlaygroundSeedanceVideoPreservesReferenceImagesThroughArkAdapter(t *testing.T) {
+	for _, withFrames := range []bool{false, true} {
+		name := "references_only"
+		if withFrames {
+			name = "frame_pair_and_references"
+		}
+		t.Run(name, func(t *testing.T) {
+			references := []string{
+				"https://example.test/reference-1.png",
+				"https://example.test/reference-2.png",
+				"https://example.test/reference-3.png",
+			}
+			request := PlaygroundRunRequest{Model: "seedance-2.0-fast-M", Prompt: "animate"}
+			if withFrames {
+				request.Images = append(request.Images,
+					PlaygroundRunImageInput{DataURL: "https://example.test/first.png", Frame: "first"},
+					PlaygroundRunImageInput{DataURL: "https://example.test/last.png", Frame: "last"},
+				)
+			}
+			for _, reference := range references {
+				request.Images = append(request.Images, PlaygroundRunImageInput{DataURL: reference})
+			}
+			payload, err := playgroundVideoGenerationPayload(request, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, err := json.Marshal(payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := gjson.GetBytes(body, "reference_images.#").Int(); got != int64(len(references)) {
+				t.Fatalf("reference image count = %d, want %d", got, len(references))
+			}
+			if got := gjson.GetBytes(body, "content.#").Int(); got != int64(len(request.Images)+1) {
+				t.Fatalf("content count = %d, want %d", got, len(request.Images)+1)
+			}
+			body, err = normalizeArkVideoGenerationBody(body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			content := gjson.GetBytes(body, "content").Array()
+			if len(content) != len(request.Images)+1 {
+				t.Fatalf("Ark content count = %d, want %d: %s", len(content), len(request.Images)+1, body)
+			}
+			offset := 1
+			if withFrames {
+				if content[1].Get("role").String() != "first_frame" || content[2].Get("role").String() != "last_frame" {
+					t.Fatalf("frame roles were not preserved: %s", body)
+				}
+				offset += 2
+			}
+			for index, reference := range references {
+				item := content[offset+index]
+				if item.Get("type").String() != "image_url" || item.Get("role").String() != "reference_image" || item.Get("image_url.url").String() != reference {
+					t.Fatalf("Ark reference %d was not preserved: %s", index, item.Raw)
+				}
+			}
+		})
+	}
+}
+
+func TestPlaygroundSeedanceVideoPreservesSingleFirstFrame(t *testing.T) {
+	for _, model := range []string{"doubao-seedance-1-5-pro", "seedance-2.0-fast-M"} {
+		t.Run(model, func(t *testing.T) {
+			payload, err := playgroundVideoGenerationPayload(PlaygroundRunRequest{
+				Model:  model,
+				Prompt: "animate",
+				Images: []PlaygroundRunImageInput{{DataURL: "https://example.test/first.png"}},
+			}, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, err := json.Marshal(payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, err = normalizeArkVideoGenerationBody(body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if gjson.GetBytes(body, "content.#").Int() != 2 || gjson.GetBytes(body, "content.1.role").String() != "first_frame" || gjson.GetBytes(body, "content.1.image_url.url").String() != "https://example.test/first.png" {
+				t.Fatalf("single first frame was changed or duplicated: %s", body)
+			}
+		})
+	}
+}
+
+func TestNormalizeArkVideoGenerationPreservesMultimodalContent(t *testing.T) {
+	input := []byte(`{
+		"model":"seedance-2.0-fast-M",
+		"prompt":"animate",
+		"image":"https://example.test/first.png",
+		"reference_images":["https://example.test/reference.png"],
+		"content":[
+			{"type":"text","text":"animate with references"},
+			{"type":"image_url","image_url":{"url":"https://example.test/first.png"},"role":"first_frame"},
+			{"type":"image_url","image_url":{"url":"https://example.test/reference.png"},"role":"reference_image"},
+			{"type":"video_url","video_url":{"url":"https://example.test/video.mp4"},"role":"reference_video"}
+		]
+	}`)
+	body, err := normalizeArkVideoGenerationBody(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want, got any
+	if err := json.Unmarshal([]byte(gjson.GetBytes(input, "content").Raw), &want); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(gjson.GetBytes(body, "content").Raw), &got); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Ark content was changed or duplicated: %s", body)
+	}
+}
+
+func TestNormalizeArkVideoGenerationAddsReferenceImagesWithoutContent(t *testing.T) {
+	body, err := normalizeArkVideoGenerationBody([]byte(`{
+		"model":"seedance-2.0-fast-M",
+		"prompt":"animate",
+		"image":"https://example.test/first.png",
+		"image_tail":"https://example.test/last.png",
+		"reference_images":["https://example.test/a.png","https://example.test/b.png","https://example.test/c.png"]
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := gjson.GetBytes(body, "content").Array()
+	if len(content) != 6 {
+		t.Fatalf("Ark content count = %d, want 6: %s", len(content), body)
+	}
+	for index, reference := range []string{"https://example.test/a.png", "https://example.test/b.png", "https://example.test/c.png"} {
+		item := content[index+3]
+		if item.Get("role").String() != "reference_image" || item.Get("image_url.url").String() != reference {
+			t.Fatalf("Ark reference %d was not preserved: %s", index, item.Raw)
+		}
 	}
 }

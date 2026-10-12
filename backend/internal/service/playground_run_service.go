@@ -1145,9 +1145,6 @@ func normalizePlaygroundVideoRequest(request *PlaygroundRunRequest) error {
 		if request.Duration < minDuration || request.Duration > maxDuration {
 			return fmt.Errorf("seedance duration must be between %d and %d seconds", minDuration, maxDuration)
 		}
-		if imageCount > 2 {
-			return errors.New("seedance supports at most two frame images")
-		}
 	case isPlaygroundVideoModel(request.Model, "h3video") || isPlaygroundVideoModel(request.Model, "minimax-h3"):
 		// H3video (Xiaowen) upstream only accepts 768p or 2K resolutions.
 		// Map the common 720p request to 768p to avoid upstream 400 errors.
@@ -1338,10 +1335,17 @@ func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo 
 		})
 	}
 	for _, refURL := range referenceImages {
-		content = append(content, map[string]any{
+		item := map[string]any{
 			"type":      "image_url",
 			"image_url": map[string]any{"url": refURL},
-		})
+		}
+		if playgroundSeedanceModelVersion(request.Model) != "" {
+			item["role"] = "reference_image"
+			if len(referenceImages) == 1 && firstFrame == "" && lastFrame == "" {
+				item["role"] = "first_frame"
+			}
+		}
+		content = append(content, item)
 	}
 	payload["content"] = content
 	return payload, nil
