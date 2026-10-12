@@ -1155,7 +1155,14 @@ func (s *APIKeyService) GetOrCreateCanvasManagedKey(ctx context.Context, userID,
 	if err != nil {
 		return nil, err
 	}
-	return value.(*APIKey), nil
+	// Both creation and the managed-key lookup return credentials without loaded
+	// relations. Precharge requires the current user and group, and each caller
+	// needs its own instance because group selection mutates the key.
+	key, err := s.apiKeyRepo.GetByID(ctx, value.(*APIKey).ID)
+	if err != nil {
+		return nil, fmt.Errorf("load canvas managed api key: %w", err)
+	}
+	return key, nil
 }
 
 // canUserBindGroupInternal 内部方法，检查用户是否可以绑定分组（使用预加载的订阅数据）
