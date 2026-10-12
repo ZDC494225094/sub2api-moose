@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_at": "2026-10-08",
-  "baseline": "745ff1d3ca79a7f39520f627f6aa44d778a11580",
+  "reviewed_at": "2026-10-12",
+  "baseline": "f2669c8cf62555cd92389b3f55920e9e6e7c6ff2",
   "note": "Exact-path ownership review, including the original 70 unmatched paths and Stage32 Seedance host seam. Records responsibility and host compatibility boundaries, not complete semantic coverage of regex-classified files. The sensitive dump.rdb runtime snapshot was removed from preservation and ownership ledgers; all other original inventory entries remain unchanged.",
   "reviews": [
     {
@@ -517,6 +517,39 @@
       "kind": "compatibility",
       "evidence": "v0.2.14 merge adds regression assertions for upstream remote Codex API-key model discovery across HTTP/WS, Grok/Composite and OS switches; file-catalog mode must not inject the discovery flag. Production configuration generation remains identical to upstream.",
       "next_step": "Retain both remote and file-mode coverage when updating the upstream UseKeyModal; this test extension does not claim ownership of native Codex features."
+    },
+    {
+      "paths": [
+        ".canvas-current-state.json"
+      ],
+      "owners": [
+        "local-artifacts"
+      ],
+      "kind": "runtime-artifact",
+      "evidence": "Existing tracked canvas state snapshot introduced before this merge; preserved byte-for-byte, not executable implementation.",
+      "next_step": "Preserve user state; any artifact cleanup requires separate authorization."
+    },
+    {
+      "paths": [
+        "backend/internal/service/codex_imagegen_merge_test.go"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "compatibility",
+      "evidence": "Merge regression for Codex image_gen.imagegen namespace request/history and response round trips through Anthropic conversion, including Responses Lite.",
+      "next_step": "Keep native upstream image tool semantics; this test does not claim image generation is a custom extension."
+    },
+    {
+      "paths": [
+        "docs/upstream-v0.2.15-merge.md"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "compatibility",
+      "evidence": "Release merge scope, conflict decisions, rollback reference and validation limitations for v0.2.15.",
+      "next_step": "Keep validation status accurate; no runtime ownership changes."
     }
   ]
 }

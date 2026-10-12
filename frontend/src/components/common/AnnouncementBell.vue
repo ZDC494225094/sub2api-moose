@@ -31,11 +31,13 @@ import { useI18n } from 'vue-i18n'
 import AnnouncementPanel from '@/features/premium-home/runtime/AnnouncementPanel.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useAnnouncementStore, useAuthStore } from '@/stores'
+import { useAppStore } from '@/stores/app'
 import type { UserAnnouncement } from '@/types'
 
 const { t } = useI18n()
 const announcementStore = useAnnouncementStore()
 const authStore = useAuthStore()
+const appStore = useAppStore()
 const { announcements } = storeToRefs(announcementStore)
 const unreadCount = computed(() => announcementStore.unreadCount)
 const isPanelOpen = ref(false)
@@ -62,9 +64,10 @@ function handleDismissToday() {
   closePanel()
 }
 
-function handleSelect(announcement: UserAnnouncement) {
+async function handleSelect(announcement: UserAnnouncement) {
   if (!announcement.read_at) {
-    void announcementStore.markAsRead(announcement.id)
+    const marked = await announcementStore.markAsRead(announcement.id)
+    if (!marked) appStore.showError(t('common.unknownError'))
   }
 }
 
