@@ -657,7 +657,7 @@ func shouldRecordGrokMediaUsage(endpoint service.GrokMediaEndpoint, requestModel
 
 // prepareGrokVideoCompletionBilling claims one-shot billing for a completed
 // video observation (create response, status poll, or content download).
-// Duration/model prefer the response; resolution uses the create-time request.
+// Actual response metadata wins; the create-time snapshot fills missing fields.
 func prepareGrokVideoCompletionBilling(
 	ctx context.Context,
 	h *OpenAIGatewayHandler,
@@ -685,8 +685,8 @@ func prepareGrokVideoCompletionBilling(
 		reqLog.Warn("grok_media.video_pending_billing_load_failed", zap.String("request_id", taskRequestID), zap.Error(loadErr))
 	}
 	if pending == nil {
-		// Status omits resolution; without pending we would silently default to 480p and underbill.
-		// Allow billing only when official status carries duration (still may default resolution).
+		// Without a snapshot or response metadata, defaults may underprice the task.
+		// Preserve the existing duration requirement before claiming billing.
 		if statusResult.VideoDurationSeconds <= 0 {
 			reqLog.Error("grok_media.video_billing_skipped_missing_pending",
 				zap.String("request_id", taskRequestID),
@@ -697,7 +697,8 @@ func prepareGrokVideoCompletionBilling(
 		reqLog.Error("grok_media.video_billing_without_pending",
 			zap.String("request_id", taskRequestID),
 			zap.Int("status_duration_seconds", statusResult.VideoDurationSeconds),
-			zap.String("note", "resolution falls back to default 480p; investigate pending store failures"),
+			zap.String("status_resolution", statusResult.VideoResolution),
+			zap.String("note", "use response metadata where available; investigate pending store failures"),
 		)
 	}
 	claimed, err := h.gatewayService.ClaimGrokVideoBilling(ctx, taskRequestID, subject.UserID, apiKey.ID)
@@ -709,7 +710,7 @@ func prepareGrokVideoCompletionBilling(
 		reqLog.Debug("grok_media.video_billing_already_claimed", zap.String("request_id", taskRequestID))
 		return nil
 	}
-	// Re-merge with pending: resolution is request-only; model/duration fill gaps.
+	// Re-merge with pending without replacing actual output metadata.
 	merged := *statusResult
 	if pending != nil {
 		if strings.TrimSpace(merged.Model) == "" {
@@ -721,8 +722,7 @@ func prepareGrokVideoCompletionBilling(
 		if strings.TrimSpace(merged.UpstreamModel) == "" {
 			merged.UpstreamModel = pending.UpstreamModel
 		}
-		// Official status omits resolution — always prefer create request.
-		if strings.TrimSpace(pending.VideoResolution) != "" {
+		if strings.TrimSpace(merged.VideoResolution) == "" {
 			merged.VideoResolution = pending.VideoResolution
 		}
 		if merged.VideoDurationSeconds <= 0 {

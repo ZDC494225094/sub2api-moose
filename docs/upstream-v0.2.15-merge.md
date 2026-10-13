@@ -26,6 +26,20 @@
 - 专项回归涵盖分组权限、桥接策略、跨协议 namespace、模型协议目录/路由；重复 3 次通过。新增 TestCodexImagegenCrossProtocolRoundTrip 对普通 Responses 与 Lite 的 imagegen 声明、历史调用及 SSE/JSON 输出名称还原连续 10 次通过。
 - 尚无用户实际失败请求、账号配置和真实上游调用证据，不能宣称 Codex 实际生图问题已修复。此次先完成指定版本源码合并。
 
+### 2026-10-13 生图故障跟进
+
+- 找到一处可复现的源码缺陷：非透传分支开启 Codex 生图桥接时，只有客户端 `image_gen` namespace 的请求也会收到“本次请求附带原生 `image_generation` 工具”的指令，但实际没有该 hosted 工具。原版 v0.2.15 同样包含该缺陷，并非已经证明的二开独有回归。
+- 修复 `openai_codex_transform.go`：仅在顶层确实附带 hosted `image_generation` 时追加对应指令和默认 `tool_choice`；namespace、客户端函数和 `additional_tools` 继续保持自己的调用方式。未修改分组权限、账号 strip 策略、Lite 不注入 hosted 工具的规则和计费。
+- 失败先行证据：`.tmp/codex-imagegen-bridge-red.log`；修复后专项连续 10 次通过：`.tmp/codex-imagegen-bridge-green.log`。新增测试覆盖 namespace/carrier 的指令边界，以及 24 组缓存序列化、原生/多组选组、普通/Lite、透传/非透传、allow/strip 组合；既有 hosted 工具注入和 WebSocket 回归一起执行。
+- 服务层全量首次失败于原版 `TestCommandCodeGatewayPassesThroughCatalogProtocols`：Windows 连续时间戳重复，使成功目录与“目录不可用”fixture 共用缓存。用 Go overlay 恢复修改前生产源码仍可复现（50 次中失败 32 次）；诊断日志直接记录了两种 fixture 的重复地址。仅给测试地址追加用例序号，连续 100 次通过，再跑 service 全量 unit 通过（233.909 秒）。失败日志保留，未修改生产目录或协议路由规则。
+- 普通标签生图专项、handler/middleware/routes/media-gateway/multi-group-billing 相关回归、归属和契约 audit、`git diff --check` 通过；后端源码构建成功，验证二进制 `-version` 为 0.2.15。该二进制未替换业务服务，也未包含远程真实验收结论。日志：`.tmp/codex-imagegen-production-tests.log`、`.tmp/codex-imagegen-gateway-regressions.log`、`.tmp/codex-imagegen-service-full-retry.log`、`.tmp/codex-imagegen-audit.log`、`.tmp/codex-imagegen-build.log`。
+- 实时查询两个服务公开版本均为 0.2.15；直接获取的 `gpt-6.1-sol` 工具能力字段一致，包括 `tool_mode=code_mode_only`、`use_responses_lite=true` 和 `supports_search_tool=false`。公开版本号不证明远程构建提交或账号配置与本地一致。
+- 使用同一份最小工具声明，直接请求两端的普通 Responses 和 Lite 共 4 次，全部 HTTP 200，并返回 `function_call(namespace=image_gen,name=imagegen)`。该测试未执行客户端函数，不能替代桌面端出图验收，也不证明故障时选中的账号一定相同。
+- 再通过本机 Magpie 请求相同的两组公开模型：号池的普通/Lite 仍返回客户端 imagegen 调用；麋鹿云普通请求返回 hosted `image_generation_call`，Lite 请求只返回 reasoning/message。这是已观察到的调用路径差异，不足以确定由代理改写、请求头差异还是账号选择引起。普通请求实际收到托管生图事件，因此这些代理探针不能描述成“完全没有触发生图”。
+- 本机 Magpie 的 `/v1/models?client_version=...` 返回标准 `data` 列表，不含直接服务提供的完整 Codex 工具能力字段；`/backend-api/codex/models` 返回自己的 manifest，工具字段也不同。该结果仅是当前代理响应，不是历史失败轮的请求工具定义。
+- 已核对用户贴出的失败会话：2026-10-12 17:38 的工具搜索返回 `tools=[]`，随后没有 imagegen 调用。该会话记录未保存完整的实际请求工具声明，因此仍缺“桌面端原始请求 → Magpie 出站请求 → 远程实际选中账号”对照；不能宣称本次局部源码修复已解决全部实际故障。
+- 未更改 Codex/Magpie 配置、数据库和业务进程，未 push 或部署。需要部署修复后，用失败时的同一调用路径进行真实验收。
+
 ## 验证
 
 - 冲突相关前端 4 文件 / 89 测试通过；独立前端全量 416 文件 / 3132 测试、lint 和类型检查通过。

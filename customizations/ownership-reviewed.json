@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "reviewed_at": "2026-10-12",
+  "reviewed_at": "2026-10-13",
   "baseline": "f2669c8cf62555cd92389b3f55920e9e6e7c6ff2",
   "note": "Exact-path ownership review, including the original 70 unmatched paths and Stage32 Seedance host seam. Records responsibility and host compatibility boundaries, not complete semantic coverage of regex-classified files. The sensitive dump.rdb runtime snapshot was removed from preservation and ownership ledgers; all other original inventory entries remain unchanged.",
   "reviews": [
@@ -537,8 +537,20 @@
         "shared-infrastructure"
       ],
       "kind": "compatibility",
-      "evidence": "Merge regression for Codex image_gen.imagegen namespace request/history and response round trips through Anthropic conversion, including Responses Lite.",
+      "evidence": "Merge regression for Codex image_gen.imagegen namespace request/history and response round trips through Anthropic conversion, including Responses Lite. Follow-up coverage serializes auth-cache snapshots, selects native/custom groups and verifies managed/passthrough allow/strip behavior plus hosted bridge guidance.",
       "next_step": "Keep native upstream image tool semantics; this test does not claim image generation is a custom extension."
+    },
+    {
+      "paths": [
+        "backend/internal/service/openai_codex_transform.go",
+        "backend/internal/service/model_protocol_catalog_test.go"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "compatibility",
+      "evidence": "Require an attached hosted image_generation tool before adding its bridge instructions or default tool_choice. Client image_gen namespace and additional_tools alone must not receive misleading hosted guidance. Image permissions, account strip policies and native injection stay upstream-owned. Validation also isolates Command Code test cache fixtures with a sequence number because Windows wall-clock timestamps can repeat; production catalog logic is unchanged.",
+      "next_step": "Retain failing-first namespace/carrier regressions when upstream updates this shared compatibility path; this fix is not proof of the reported desktop failure's root cause."
     },
     {
       "paths": [

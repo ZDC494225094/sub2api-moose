@@ -707,6 +707,18 @@ func hasOpenAIImageGenerationTool(reqBody map[string]any) bool {
 	return inputContainsImageGenerationTool(reqBody["input"])
 }
 
+// Hosted bridge guidance must describe a tool that is actually attached,
+// not the client's image_gen namespace or Responses Lite tool carrier.
+func hasOpenAIHostedImageGenerationTool(reqBody map[string]any) bool {
+	tools, _ := reqBody["tools"].([]any)
+	for _, rawTool := range tools {
+		if tool, ok := rawTool.(map[string]any); ok && isOpenAIImageGenerationType(firstNonEmptyString(tool["type"])) {
+			return true
+		}
+	}
+	return false
+}
+
 func hasCodexImageGenerationFunctionTool(reqBody map[string]any) bool {
 	return len(reqBody) > 0 &&
 		codexToolsContainFunctionName(reqBody["tools"], codexImageGenerationFunctionToolName)
@@ -1097,7 +1109,7 @@ func ensureOpenAIResponsesImageGenerationTool(reqBody map[string]any) bool {
 }
 
 func ensureOpenAIResponsesImageGenerationToolChoiceAuto(reqBody map[string]any) bool {
-	if len(reqBody) == 0 || hasCodexImageGenerationFunctionTool(reqBody) || !hasOpenAIImageGenerationTool(reqBody) {
+	if len(reqBody) == 0 || hasCodexImageGenerationFunctionTool(reqBody) || !hasOpenAIHostedImageGenerationTool(reqBody) {
 		return false
 	}
 	if isCodexSparkModel(firstNonEmptyString(reqBody["model"])) {
@@ -1111,7 +1123,7 @@ func ensureOpenAIResponsesImageGenerationToolChoiceAuto(reqBody map[string]any) 
 }
 
 func applyCodexImageGenerationBridgeInstructions(reqBody map[string]any) bool {
-	if len(reqBody) == 0 || hasCodexImageGenerationFunctionTool(reqBody) || !hasOpenAIImageGenerationTool(reqBody) {
+	if len(reqBody) == 0 || hasCodexImageGenerationFunctionTool(reqBody) || !hasOpenAIHostedImageGenerationTool(reqBody) {
 		return false
 	}
 	if isCodexSparkModel(firstNonEmptyString(reqBody["model"])) {

@@ -90,6 +90,27 @@ func TestNormalizeArkVideoGenerationAndStatus(t *testing.T) {
 	}
 }
 
+func TestNormalizeArkVideoStatusPreservesBillingMetadata(t *testing.T) {
+	normalized := normalizeArkVideoStatusResponse([]byte(`{
+		"id":"task-720p","status":"succeeded","model":"doubao-seedance-1-5-pro",
+		"resolution":"720p","duration":12,"content":{"video_url":"https://example.test/v.mp4"}
+	}`))
+	usage := openAICompatibleVideoUsageFromResponse(GrokMediaEndpointVideoStatus, GrokMediaRequestInfo{}, normalized)
+	if usage.VideoResolution != VideoBillingResolution720P || usage.VideoDurationSeconds != 12 || usage.Model != "doubao-seedance-1-5-pro" {
+		t.Fatalf("billing metadata lost: %+v; body=%s", usage, normalized)
+	}
+}
+
+func TestNormalizeArkVideoGenerationMapsOpenAIVideoParameters(t *testing.T) {
+	body, err := normalizeArkVideoGenerationBody([]byte(`{"model":"vendor-video","prompt":"waves","size":"720x1280","seconds":"12"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gjson.GetBytes(body, "resolution").String() != "720p" || gjson.GetBytes(body, "duration").Int() != 12 {
+		t.Fatalf("video parameters lost: %s", body)
+	}
+}
+
 func TestOpenAICompatibleVideoContentResultIsBillable(t *testing.T) {
 	headers := http.Header{"Content-Type": []string{"video/mp4"}}
 	result := openAICompatibleVideoContentResult("seedance-task", "upstream-request", headers, 5*time.Minute)

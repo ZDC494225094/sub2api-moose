@@ -115,6 +115,9 @@ func ParseGrokMediaRequest(contentType string, body []byte) GrokMediaRequestInfo
 	info.SizeTier = NormalizeImageBillingTierOrDefault(info.Size)
 	info.AspectRatio = strings.TrimSpace(info.AspectRatio)
 	info.ImageResolution = grokImagineImageResolution(info.ImageResolution)
+	if info.Resolution == "" && info.ImageResolution == "" {
+		info.Resolution = videoBillingResolutionFromSize(info.Size)
+	}
 	info.Resolution = NormalizeVideoBillingResolutionOrDefault(info.Resolution)
 	info.DurationSeconds = NormalizeVideoBillingDurationSecondsOrDefault(info.DurationSeconds)
 	if info.N <= 0 {
@@ -134,6 +137,11 @@ func parseGrokMediaJSONRequest(body []byte, info *GrokMediaRequestInfo) {
 	assignGrokMediaResolution(strings.TrimSpace(gjson.GetBytes(body, "resolution").String()), info)
 	if duration := gjson.GetBytes(body, "duration"); duration.Exists() && duration.Type == gjson.Number {
 		info.DurationSeconds = int(duration.Int())
+	}
+	if info.DurationSeconds <= 0 {
+		if seconds := gjson.GetBytes(body, "seconds"); seconds.Type == gjson.Number || seconds.Type == gjson.String {
+			info.DurationSeconds, _ = strconv.Atoi(strings.TrimSpace(seconds.String()))
+		}
 	}
 	if n := gjson.GetBytes(body, "n"); n.Exists() && n.Type == gjson.Number {
 		info.N = int(n.Int())
@@ -251,6 +259,10 @@ func parseGrokMediaMultipartRequest(contentType string, body []byte, info *GrokM
 		case "duration":
 			if duration, err := strconv.Atoi(value); err == nil {
 				info.DurationSeconds = duration
+			}
+		case "seconds":
+			if info.DurationSeconds <= 0 {
+				info.DurationSeconds, _ = strconv.Atoi(value)
 			}
 		case "n":
 			if n, err := strconv.Atoi(value); err == nil {
@@ -532,8 +544,7 @@ func StableGrokVideoBillingRequestID(taskRequestID string) string {
 //
 //	{"status":"done","model":"grok-imagine-video-1.5","video":{"url":"...","duration":8,"respect_moderation":true}}
 //
-// Request may include resolution ("480p"|"720p"|"1080p"); completed status does not
-// document a resolution field — bill resolution from the create-time request snapshot.
+// When status omits resolution, reuse the create-time request snapshot.
 
 // IsGrokVideoStatusBillable matches official xAI success: status == "done" AND
 // non-empty video.url. OpenAI-compatible providers use their dedicated helper
@@ -625,7 +636,7 @@ func isOpenAICompatibleVideoStatusSuccess(status string) bool {
 // Field priority (official docs):
 //   - duration: video.duration (seconds)
 //   - model: top-level model
-//   - resolution: not in status response → create-time pending snapshot → default 480p
+//   - resolution: upstream result → create-time pending snapshot → default 480p
 func ExtractGrokVideoBillingFromStatusBody(statusBody []byte, pending *GrokVideoPendingBilling, requestID string) *OpenAIForwardResult {
 	return extractVideoBillingFromStatusBody(statusBody, pending, requestID, false, "grok-imagine-video")
 }
@@ -654,6 +665,7 @@ func extractVideoBillingFromStatusBody(statusBody []byte, pending *GrokVideoPend
 		// Official: top-level model.
 		model = strings.TrimSpace(gjson.GetBytes(statusBody, "model").String())
 		durationSeconds = extractVideoStatusDurationSeconds(statusBody, allowCompleted)
+		resolution = extractVideoResponseResolution(statusBody)
 	}
 	if pending != nil {
 		if model == "" {
@@ -665,8 +677,9 @@ func extractVideoBillingFromStatusBody(statusBody []byte, pending *GrokVideoPend
 		if upstreamModel == "" {
 			upstreamModel = pending.UpstreamModel
 		}
-		// Official status has no resolution — always take create request when available.
-		resolution = pending.VideoResolution
+		if resolution == "" {
+			resolution = pending.VideoResolution
+		}
 		if durationSeconds <= 0 {
 			durationSeconds = pending.VideoDurationSeconds
 		}
@@ -678,7 +691,7 @@ func extractVideoBillingFromStatusBody(statusBody []byte, pending *GrokVideoPend
 	if billingModel == "" {
 		billingModel = model
 	}
-	// Resolution is request-only per docs; empty → handler applies official default 480p.
+	// Keep missing resolution empty until the handler merges the create snapshot.
 	if resolution != "" {
 		resolution = NormalizeVideoBillingResolutionOrDefault(resolution)
 	}
@@ -738,6 +751,47 @@ func extractVideoStatusDurationSeconds(statusBody []byte, allowCompatiblePaths b
 		}
 	}
 	return 0
+}
+
+func videoBillingResolutionFromSize(size string) string {
+	if tier, ok := LookupVideoBillingResolution(size); ok {
+		return tier
+	}
+	dimensions := strings.Split(strings.ToLower(strings.TrimSpace(size)), "x")
+	if len(dimensions) != 2 {
+		return ""
+	}
+	width, widthErr := strconv.Atoi(dimensions[0])
+	height, heightErr := strconv.Atoi(dimensions[1])
+	if widthErr != nil || heightErr != nil || width <= 0 || height <= 0 {
+		return ""
+	}
+	tier, _ := LookupVideoBillingResolution(strconv.Itoa(min(width, height)))
+	return tier
+}
+
+func extractVideoResponseResolution(body []byte) string {
+	// Read output metadata before envelope metadata; never turn an unknown
+	// upstream value into 480p before trying the remaining fields or snapshot.
+	for _, prefix := range []string{
+		"video.", "content.video.", "content.", "data.video.", "data.0.video.",
+		"data.0.", "data.", "result.video.", "result.", "output.video.", "output.", "videos.0.", "",
+	} {
+		if tier, ok := LookupVideoBillingResolution(gjson.GetBytes(body, prefix+"resolution").String()); ok {
+			return tier
+		}
+		if tier := videoBillingResolutionFromSize(gjson.GetBytes(body, prefix+"size").String()); tier != "" {
+			return tier
+		}
+		width := gjson.GetBytes(body, prefix+"width").Int()
+		height := gjson.GetBytes(body, prefix+"height").Int()
+		if width > 0 && height > 0 {
+			if tier, ok := LookupVideoBillingResolution(strconv.FormatInt(min(width, height), 10)); ok {
+				return tier
+			}
+		}
+	}
+	return ""
 }
 
 func (s *OpenAIGatewayService) ForwardGrokMedia(
@@ -1548,7 +1602,7 @@ func mediaUsageFromResponse(endpoint GrokMediaEndpoint, requestInfo GrokMediaReq
 		// a completed output. Some compatible relays block until generation is
 		// complete and return that same completed output directly from POST.
 		meta.ResponseID = extractGrokMediaVideoRequestID(responseBody)
-		meta.VideoResolution = requestInfo.Resolution
+		meta.VideoResolution = firstNonEmpty(extractVideoResponseResolution(responseBody), requestInfo.Resolution)
 		meta.VideoDurationSeconds = requestInfo.DurationSeconds
 		if allowCompletedVideoStatus && extractOpenAICompatibleVideoURL(responseBody) != "" {
 			// A successful generation POST that already contains the final asset is

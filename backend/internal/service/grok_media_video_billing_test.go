@@ -1,11 +1,71 @@
 package service
 
 import (
+	"bytes"
+	"mime/multipart"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestParseVideoRequestOpenAIParameters(t *testing.T) {
+	t.Parallel()
+	for _, size := range []string{"1280x720", "720x1280", "720p"} {
+		t.Run(size, func(t *testing.T) {
+			info := ParseGrokMediaRequest("application/json", []byte(`{"model":"vendor-video","size":"`+size+`","seconds":"12"}`))
+			require.Equal(t, VideoBillingResolution720P, info.Resolution)
+			require.Equal(t, 12, info.DurationSeconds)
+			var body bytes.Buffer
+			writer := multipart.NewWriter(&body)
+			require.NoError(t, writer.WriteField("model", "vendor-video"))
+			require.NoError(t, writer.WriteField("size", size))
+			require.NoError(t, writer.WriteField("seconds", "12"))
+			require.NoError(t, writer.Close())
+			multipartInfo := ParseGrokMediaRequest(writer.FormDataContentType(), body.Bytes())
+			require.Equal(t, info.Resolution, multipartInfo.Resolution)
+			require.Equal(t, info.DurationSeconds, multipartInfo.DurationSeconds)
+		})
+	}
+	info := ParseGrokMediaRequest("application/json", []byte(`{"resolution":"1080p","size":"1280x720","duration":10,"seconds":"12"}`))
+	require.Equal(t, VideoBillingResolution1080P, info.Resolution)
+	require.Equal(t, 10, info.DurationSeconds)
+}
+
+func TestVideoBillingUsesActualResponseResolution(t *testing.T) {
+	t.Parallel()
+	pending := &GrokVideoPendingBilling{Model: "grok-imagine-video", VideoResolution: "480p", VideoDurationSeconds: 8}
+	for _, metadata := range []string{
+		`"resolution":"720p"`,
+		`"resolution":720`,
+		`"video":{"resolution":"HD","url":"https://example.test/v.mp4"}`,
+		`"size":"1280x720"`,
+		`"width":720,"height":1280`,
+		`"content":{"resolution":"720p"}`,
+		`"data":[{"resolution":"720p"}]`,
+		`"result":{"video":{"resolution":"720p"}}`,
+	} {
+		body := []byte(`{"status":"done","video":{"url":"https://example.test/v.mp4"},` + metadata + `}`)
+		if strings.HasPrefix(metadata, `"video":`) {
+			body = []byte(`{"status":"done",` + metadata + `}`)
+		}
+		result := ExtractGrokVideoBillingFromStatusBody(body, pending, "task")
+		require.NotNil(t, result)
+		require.Equal(t, VideoBillingResolution720P, result.VideoResolution, string(body))
+		meta := openAICompatibleVideoUsageFromResponse(GrokMediaEndpointVideosGenerations,
+			GrokMediaRequestInfo{Resolution: "480p", DurationSeconds: 8}, body)
+		require.Equal(t, VideoBillingResolution720P, meta.VideoResolution, string(body))
+	}
+	for _, metadata := range []string{`"resolution":"4k"`, `"unrelated":true`} {
+		body := []byte(`{"status":"done","video":{"url":"https://example.test/v.mp4"},` + metadata + `}`)
+		result := ExtractGrokVideoBillingFromStatusBody(body, pending, "task")
+		require.Equal(t, VideoBillingResolution480P, result.VideoResolution)
+	}
+	// Output metadata wins over an envelope echo of the requested resolution.
+	result := ExtractGrokVideoBillingFromStatusBody([]byte(`{"status":"done","resolution":"480p","video":{"url":"https://example.test/v.mp4","resolution":"1080p"}}`), pending, "task")
+	require.Equal(t, VideoBillingResolution1080P, result.VideoResolution)
+}
 
 func TestGrokVideoE2EDurationFromCreatedAt(t *testing.T) {
 	t.Parallel()

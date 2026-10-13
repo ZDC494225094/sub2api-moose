@@ -2492,6 +2492,30 @@ func TestOpenAIGatewayServiceRecordUsage_GrokVideoUsesDefaultRateCard(t *testing
 	require.Equal(t, VideoBillingDefaultDurationSeconds, *usageRepo.lastLog.VideoDurationSeconds)
 }
 
+func TestVideoActualResolutionReachesUsageAndDeduction(t *testing.T) {
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{}, nil)
+	result := ExtractGrokVideoBillingFromStatusBody([]byte(`{
+		"status":"done","model":"grok-imagine-video-1.5","resolution":"720p",
+		"video":{"url":"https://example.test/v.mp4","duration":12}
+	}`), &GrokVideoPendingBilling{Model: "grok-imagine-video-1.5", VideoResolution: "480p", VideoDurationSeconds: 8}, "task-720p")
+	require.NotNil(t, result)
+	result.RequestID = StableGrokVideoBillingRequestID(result.ResponseID)
+	require.NoError(t, svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: result,
+		APIKey: &APIKey{ID: 20, GroupID: i64p(24), Group: &Group{ID: 24, Platform: PlatformGrok, RateMultiplier: 1}},
+		User:   &User{ID: 10}, Account: &Account{ID: 1, Platform: PlatformGrok},
+	}))
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, VideoBillingResolution720P, *usageRepo.lastLog.VideoResolution)
+	require.Equal(t, 12, *usageRepo.lastLog.VideoDurationSeconds)
+	require.InDelta(t, 0.14*12, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, 0.14*12, usageRepo.lastLog.ActualCost, 1e-12)
+	require.Equal(t, 1, userRepo.deductCalls)
+	require.InDelta(t, 0.14*12, userRepo.lastAmount, 1e-12)
+}
+
 func TestOpenAIGatewayServiceRecordUsage_GroupImagePriceOverridesChannelImagePrice(t *testing.T) {
 	groupID := int64(127)
 	channelPrice := 0.201

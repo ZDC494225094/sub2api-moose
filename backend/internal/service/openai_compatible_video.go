@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Wei-Shaw/sub2api/internal/customize/modules/mediagateway"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/mediagateway"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -290,6 +290,15 @@ func normalizeArkVideoGenerationBody(body []byte) ([]byte, error) {
 	copyString("aspect_ratio", "ratio")
 	copyString("resolution", "resolution")
 	copyString("watermark", "watermark")
+	info := ParseGrokMediaRequest("application/json", body)
+	if _, exists := payload["resolution"]; !exists && strings.TrimSpace(info.Size) != "" {
+		if resolution := videoBillingResolutionFromSize(info.Size); resolution != "" {
+			payload["resolution"] = resolution
+		}
+	}
+	if _, exists := payload["duration"]; !exists && gjson.GetBytes(body, "seconds").Exists() {
+		payload["duration"] = info.DurationSeconds
+	}
 	return json.Marshal(payload)
 }
 
@@ -358,6 +367,15 @@ func normalizeArkVideoStatusResponse(body []byte) []byte {
 	}
 	if videoURL != "" {
 		payload["video"] = map[string]any{"url": videoURL}
+	}
+	if resolution := extractVideoResponseResolution(body); resolution != "" {
+		payload["resolution"] = resolution
+	}
+	if duration := extractVideoStatusDurationSeconds(body, true); duration > 0 {
+		payload["duration"] = duration
+	}
+	if model := strings.TrimSpace(gjson.GetBytes(body, "model").String()); model != "" {
+		payload["model"] = model
 	}
 	if errMessage := firstNonEmpty(gjson.GetBytes(body, "error.message").String(), gjson.GetBytes(body, "message").String()); errMessage != "" && status == "failed" {
 		payload["error"] = map[string]any{"message": errMessage}

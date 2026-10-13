@@ -269,6 +269,60 @@ func grokMediaSlotContext(ctx context.Context, generation bool) (*gin.Context, *
 	return c, w
 }
 
+func TestGrokVideoCompletionBillingResolutionPriority(t *testing.T) {
+	for _, resolution := range []string{"720p", "1080p", ""} {
+		t.Run("actual_"+resolution, func(t *testing.T) {
+			h, _, _, _ := newGrokMediaSlotHandler(t, false, false)
+			ctx := context.Background()
+			key := &service.APIKey{ID: 20}
+			subject := middleware2.AuthSubject{UserID: 10}
+			require.NoError(t, h.gatewayService.StoreGrokVideoPendingBilling(ctx, "task", 10, 20,
+				service.GrokVideoPendingBilling{Model: "grok-imagine-video", VideoResolution: "480p", VideoDurationSeconds: 8}))
+			result := &service.OpenAIForwardResult{ResponseID: "task", VideoCount: 1, VideoResolution: resolution}
+			merged := prepareGrokVideoCompletionBilling(ctx, h, zap.NewNop(), key, subject, "task", result)
+			require.NotNil(t, merged)
+			want := resolution
+			if want == "" {
+				want = "480p"
+			}
+			require.Equal(t, want, merged.VideoResolution)
+			require.Equal(t, 8, merged.VideoDurationSeconds)
+			require.Equal(t, service.StableGrokVideoBillingRequestID("task"), merged.RequestID)
+			require.Nil(t, prepareGrokVideoCompletionBilling(ctx, h, zap.NewNop(), key, subject, "task", result), "repeated polls must not bill twice")
+		})
+	}
+}
+
+func TestArkVideoAPICompletionUsesActualResolution(t *testing.T) {
+	h, _, _, upstream := newGrokMediaSlotHandler(t, false, false, service.PlatformOpenAI)
+	ctx := context.Background()
+	account := &service.Account{ID: 1, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
+		Credentials: map[string]any{"api_key": "test-key", "base_url": "https://ark.cn-beijing.volces.com/api/v3"}}
+	upstream.call = func(req *http.Request, _ int64) (*http.Response, error) {
+		body := `{"id":"task"}`
+		if req.Method == http.MethodGet {
+			body = `{"id":"task","status":"succeeded","resolution":"720p","duration":12,"content":{"video_url":"https://example.test/v.mp4"}}`
+		}
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(body))}, nil
+	}
+	c, _ := grokMediaSlotContext(ctx, true)
+	create, err := h.gatewayService.ForwardOpenAICompatibleVideo(ctx, c, account, service.GrokMediaEndpointVideosGenerations, "",
+		[]byte(`{"model":"vendor-video","prompt":"waves","duration":8}`), "application/json")
+	require.NoError(t, err)
+	require.Equal(t, "480p", create.VideoResolution)
+	require.NoError(t, h.gatewayService.StoreGrokVideoPendingBilling(ctx, create.ResponseID, 10, 20,
+		service.GrokVideoPendingBilling{Model: create.Model, VideoResolution: create.VideoResolution, VideoDurationSeconds: create.VideoDurationSeconds}))
+	c, _ = grokMediaSlotContext(ctx, false)
+	status, err := h.gatewayService.ForwardOpenAICompatibleVideo(ctx, c, account, service.GrokMediaEndpointVideoStatus, "task", nil, "")
+	require.NoError(t, err)
+	merged := prepareGrokVideoCompletionBilling(ctx, h, zap.NewNop(), &service.APIKey{ID: 20}, middleware2.AuthSubject{UserID: 10}, "task", status)
+	require.NotNil(t, merged)
+	require.Equal(t, "720p", merged.VideoResolution)
+	require.Equal(t, 12, merged.VideoDurationSeconds)
+	require.Equal(t, "vendor-video", merged.BillingModel)
+}
+
 func TestGrokMediaLookupSlotLifecycle(t *testing.T) {
 	for _, scenario := range []string{"normal", "mismatch acquired", "mismatch wait", "full", "queue full", "cancel while waiting", "wait then acquired", "upstream error", "cancel", "panic"} {
 		t.Run(scenario, func(t *testing.T) {
