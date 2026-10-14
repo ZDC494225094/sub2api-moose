@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_at": "2026-10-13",
-  "baseline": "f2669c8cf62555cd92389b3f55920e9e6e7c6ff2",
+  "reviewed_at": "2026-10-14",
+  "baseline": "01842576b3d5c1e2545b5a99ad555d36e28ed306",
   "note": "Exact-path ownership review, including the original 70 unmatched paths and Stage32 Seedance host seam. Records responsibility and host compatibility boundaries, not complete semantic coverage of regex-classified files. The sensitive dump.rdb runtime snapshot was removed from preservation and ownership ledgers; all other original inventory entries remain unchanged.",
   "reviews": [
     {
@@ -562,6 +562,19 @@
       "kind": "compatibility",
       "evidence": "Release merge scope, conflict decisions, rollback reference and validation limitations for v0.2.15.",
       "next_step": "Keep validation status accurate; no runtime ownership changes."
+    },
+    {
+      "paths": [
+        "backend/internal/service/gemini_video_forward.go",
+        "docs/upstream-v0.2.16-merge.md"
+      ],
+      "owners": [
+        "shared-infrastructure",
+        "playground"
+      ],
+      "kind": "compatibility",
+      "evidence": "v0.2.16 merge keeps upstream Gemini model discovery and explicit cache routing; local-only Veo operation polling/content download is separated into a video helper using upstream Vertex authentication. Merge documentation records source target, conflicts and validation limits.",
+      "next_step": "Preserve native upstream discovery/cache behavior and historical video ownership; validate the merged release before deployment."
     }
   ]
 }

@@ -66,6 +66,71 @@ func TestValidateGeminiVideoContentURLNormalizesGCSURI(t *testing.T) {
 	require.Equal(t, "https://storage.googleapis.com/video-bucket/output/video%201.mp4", got)
 }
 
+func TestGeminiVideoOperationUsesVertexAPIKeyAfterV016Merge(t *testing.T) {
+	operation := "projects/my-project/locations/us-central1/publishers/google/models/veo-3.1-generate-preview/operations/op-123"
+	stub := &geminiCompatHTTPUpstreamStub{response: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"done":false}`)),
+	}}
+	svc := &GeminiMessagesCompatService{cfg: &config.Config{}, httpUpstream: stub}
+	account := &Account{ID: 42, Platform: PlatformGemini, Type: AccountTypeServiceAccount,
+		Credentials: map[string]any{"auth_mode": "apikey", "api_key": " vertex-key ", "project_id": "my-project"}}
+
+	result, err := svc.ForwardGeminiVideoOperation(context.Background(), account, "/v1beta/"+operation)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, result.StatusCode)
+	require.Equal(t, "https://us-central1-aiplatform.googleapis.com/v1/"+operation, stub.lastReq.URL.String())
+	require.Equal(t, "vertex-key", stub.lastReq.Header.Get("x-goog-api-key"))
+	require.Empty(t, stub.lastReq.Header.Get("Authorization"))
+
+	_, err = svc.ForwardGeminiVideoOperation(context.Background(), account,
+		"/v1beta/projects/other-project/locations/us-central1/operations/op-123")
+	require.ErrorContains(t, err, "project mismatch")
+	for _, unsafe := range []string{
+		"/v1beta/operations/%2Fescape",
+		"/v1beta/operations/%2E%2E",
+		"/v1beta/operations/op?key=secret",
+		"/v1beta/operations/op/cancel",
+		"/v1beta/projects/my-project/locations/us-central1/publishers/google/models/veo/operations/op/extra",
+	} {
+		_, err = svc.ForwardGeminiVideoOperation(context.Background(), account, unsafe)
+		require.Error(t, err, unsafe)
+	}
+	require.Equal(t, 1, stub.calls, "a mismatched operation must never reach upstream")
+}
+
+func TestGeminiVideoContentUsesVertexAPIKeyAfterV016Merge(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	stub := &geminiCompatHTTPUpstreamStub{response: &http.Response{
+		StatusCode: http.StatusPartialContent,
+		Header: http.Header{
+			"Content-Type":  []string{"video/mp4"},
+			"Content-Range": []string{"bytes 0-4/10"},
+		},
+		Body: io.NopCloser(strings.NewReader("video")),
+	}}
+	svc := &GeminiMessagesCompatService{cfg: &config.Config{}, httpUpstream: stub}
+	account := &Account{ID: 42, Platform: PlatformGemini, Type: AccountTypeServiceAccount,
+		Credentials: map[string]any{"auth_mode": "apikey", "api_key": "vertex-key"}}
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1beta/video-operations/op-123/content", nil)
+	c.Request.Header.Set("Range", "bytes=0-4")
+
+	err := svc.ForwardAIStudioVideoContent(context.Background(), c, account, "gs://video-bucket/output/video.mp4")
+	require.NoError(t, err)
+	require.Equal(t, "vertex-key", stub.lastReq.Header.Get("x-goog-api-key"))
+	require.Empty(t, stub.lastReq.Header.Get("Authorization"))
+	require.Equal(t, "bytes=0-4", stub.lastReq.Header.Get("Range"))
+	require.Equal(t, http.StatusPartialContent, recorder.Code)
+	require.Equal(t, "video", recorder.Body.String())
+
+	err = svc.ForwardAIStudioVideoContent(context.Background(), c, account, "https://untrusted.example/video.mp4")
+	require.ErrorContains(t, err, "unsupported video host")
+	require.Equal(t, 1, stub.calls)
+}
+
 func TestGeminiForwardAsChatCompletions_OAuthRoutesToGeminiAndReturnsChatFormat(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -726,6 +791,105 @@ func TestConvertClaudeMessagesToGeminiGenerateContent_AddsThoughtSignatureForToo
 	if !strings.Contains(s, "\"thoughtSignature\":\""+geminiDummyThoughtSignature+"\"") {
 		t.Fatalf("expected injected thoughtSignature %q, got: %s", geminiDummyThoughtSignature, s)
 	}
+}
+
+func TestConvertClaudeMessagesToGeminiGenerateContent_ExtractsToolResultImages(t *testing.T) {
+	claudeReq := map[string]any{
+		"messages": []any{
+			map[string]any{
+				"role": "assistant",
+				"content": []any{
+					map[string]any{
+						"type": "tool_use",
+						"id":   "toolu_123",
+						"name": "inspect",
+						"input": map[string]any{
+							"path": "image.png",
+						},
+					},
+				},
+			},
+			map[string]any{
+				"role": "user",
+				"content": []any{
+					map[string]any{
+						"type":        "tool_result",
+						"tool_use_id": "toolu_123",
+						"content": []any{
+							map[string]any{"type": "text", "text": "found it"},
+							map[string]any{
+								"type": "image",
+								"source": map[string]any{
+									"type":       "base64",
+									"media_type": "image/png",
+									"data":       "aGVsbG8=",
+								},
+							},
+						},
+					},
+					map[string]any{
+						"type":        "tool_result",
+						"tool_use_id": "toolu_123",
+						"content": []any{
+							map[string]any{
+								"type": "image",
+								"source": map[string]any{
+									"type":       "base64",
+									"media_type": "image/jpeg",
+									"data":       "d29ybGQ=",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	body, err := json.Marshal(claudeReq)
+	require.NoError(t, err)
+
+	converted, err := convertClaudeMessagesToGeminiGenerateContent(body)
+	require.NoError(t, err)
+
+	var geminiReq map[string]any
+	require.NoError(t, json.Unmarshal(converted, &geminiReq))
+	contents, ok := geminiReq["contents"].([]any)
+	require.True(t, ok)
+	content, ok := contents[1].(map[string]any)
+	require.True(t, ok)
+	parts, ok := content["parts"].([]any)
+	require.True(t, ok)
+	require.Len(t, parts, 4)
+
+	firstPart, ok := parts[0].(map[string]any)
+	require.True(t, ok)
+	firstResponse, ok := firstPart["functionResponse"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "inspect", firstResponse["name"])
+	firstResponseBody, ok := firstResponse["response"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "found it", firstResponseBody["content"])
+
+	secondPart, ok := parts[1].(map[string]any)
+	require.True(t, ok)
+	secondResponse, ok := secondPart["functionResponse"].(map[string]any)
+	require.True(t, ok)
+	secondResponseBody, ok := secondResponse["response"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "[image attached below]", secondResponseBody["content"])
+
+	firstImagePart, ok := parts[2].(map[string]any)
+	require.True(t, ok)
+	firstImage, ok := firstImagePart["inlineData"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "image/png", firstImage["mimeType"])
+	require.Equal(t, "aGVsbG8=", firstImage["data"])
+	secondImagePart, ok := parts[3].(map[string]any)
+	require.True(t, ok)
+	secondImage, ok := secondImagePart["inlineData"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "image/jpeg", secondImage["mimeType"])
+	require.Equal(t, "d29ybGQ=", secondImage["data"])
 }
 
 func TestEnsureGeminiFunctionCallThoughtSignatures_InsertsWhenMissing(t *testing.T) {
