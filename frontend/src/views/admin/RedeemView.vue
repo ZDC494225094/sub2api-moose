@@ -28,6 +28,7 @@
 
           <!-- Right: Action buttons -->
           <div class="flex flex-1 flex-wrap items-center justify-end gap-2">
+            <ExtensionSlot name="redeem-marketing-report" />
             <button
               @click="loadCodes"
               :disabled="loading"
@@ -293,6 +294,7 @@
             >
               {{ t('admin.redeem.marketingHint') }}
             </div>
+            <ExtensionSlot v-if="generateForm.type === 'marketing'" name="redeem-marketing-options" :bindings="{ options: marketingGeneration.options }" />
             <!-- 余额/并发/营销类型：显示数值输入 -->
             <div v-if="generateForm.type !== 'subscription' && generateForm.type !== 'invitation'">
               <label class="input-label">
@@ -654,6 +656,10 @@ import Select from '@/components/common/Select.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 import Icon from '@/components/icons/Icon.vue'
+import ExtensionSlot from '@/extensions/components/ExtensionSlot.vue'
+import { useMarketingGeneration } from '@/extensions/modules/redeem-marketing/generation'
+
+const marketingGeneration = useMarketingGeneration()
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -1057,7 +1063,7 @@ const handleGenerateCodes = async () => {
 
   generating.value = true
   try {
-    const result = await adminAPI.redeem.generate(
+    const result = await marketingGeneration.generate(
       generateForm.count,
       generateForm.type,
       generateForm.value,
@@ -1075,7 +1081,7 @@ const handleGenerateCodes = async () => {
     generateForm.custom_expiry_days = 7
     loadCodes()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToGenerate'))
+    appStore.showError(error.response?.data?.detail || error.message || t('admin.redeem.failedToGenerate'))
     console.error('Error generating codes:', error)
   } finally {
     generating.value = false

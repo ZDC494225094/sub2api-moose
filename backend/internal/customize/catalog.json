@@ -1,5 +1,15 @@
 [
   {
+    "id": "redeem-marketing",
+    "name": "营销兑换码转化",
+    "description": "营销码新注册用户限制与按批次的付费回购转化统计。",
+    "managed": true,
+    "disable_behavior": "停止新增受限批次并隐藏统计入口；已发行批次的新用户限制始终执行，不影响普通兑换码。",
+    "paths": [],
+    "gates": ["marketing-batch-generate", "marketing-batch-report"],
+    "slots": ["redeem-marketing-options", "redeem-marketing-report"]
+  },
+  {
     "id": "premium-home",
     "name": "品牌首页与文档中心",
     "description": "独立首页、动效、文档页面与首页公共公告接口；关闭后根地址返回上游 /home。",

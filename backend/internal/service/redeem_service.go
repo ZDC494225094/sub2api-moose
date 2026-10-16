@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/redeemmarketing"
+
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
@@ -501,7 +503,7 @@ func (s *RedeemService) redeem(ctx context.Context, userID int64, code string, r
 	}
 
 	// 获取用户信息
-	_, err = s.userRepo.GetByID(ctx, userID)
+	redeemingUser, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
@@ -517,6 +519,9 @@ func (s *RedeemService) redeem(ctx context.Context, userID int64, code string, r
 	txCtx := dbent.NewTxContext(ctx, tx)
 
 	if redeemCode.Type == RedeemTypeMarketing {
+		if err := redeemmarketing.CheckEligibility(txCtx, tx.Client(), strings.TrimSpace(*redeemCode.BatchID), redeemingUser.CreatedAt); err != nil {
+			return nil, err
+		}
 		if s.marketingBatchRepo == nil {
 			return nil, errors.New("marketing redeem batch repository not configured")
 		}

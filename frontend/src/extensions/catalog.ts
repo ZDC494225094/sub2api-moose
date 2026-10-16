@@ -1,6 +1,7 @@
 // Only fully managed extensions belong here. Unmigrated core changes must never be
 // presented as disabled merely because their navigation is hidden.
 export const extensionPaths = {
+  'redeem-marketing': [],
   'premium-home': ['/', '/docs'],
   playground: ['/playground'],
   'infinite-canvas': ['/canvas'],

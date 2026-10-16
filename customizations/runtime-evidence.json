@@ -4,6 +4,24 @@
   "note": "Static marker and frozen-baseline provenance checks complement executed behavioral tests; they are not a call-graph proof or production acceptance. Each catalog gate must have an evidence row.",
   "entries": [
     {
+      "module": "redeem-marketing",
+      "checkpoint": "marketing-batch-generate",
+      "read": { "file": "backend/internal/customize/modules/redeemmarketing/module.go", "marker": "func RequireEnabled(" },
+      "call": { "file": "backend/internal/service/redeem_marketing_extension.go", "marker": "redeemmarketing.RequireEnabled(txCtx, tx.Client())" },
+      "test": { "file": "backend/internal/service/redeem_marketing_extension_test.go", "marker": "TestMarketingBatchAtomicPolicyAndCodes" },
+      "feature": { "file": "backend/internal/service/redeem_marketing_extension.go", "marker": "func (s *RedeemService) GenerateMarketingBatch(" },
+      "scope": "New restricted batches require admission; policy and codes commit atomically. Existing eligibility is always enforced, even when disabled."
+    },
+    {
+      "module": "redeem-marketing",
+      "checkpoint": "marketing-batch-report",
+      "read": { "file": "backend/internal/customize/modules/redeemmarketing/module.go", "marker": "func RequireEnabled(" },
+      "call": { "file": "backend/internal/customize/modules/redeemmarketing/module.go", "marker": "if err := RequireEnabled(ctx, db); err != nil" },
+      "test": { "file": "backend/internal/customize/modules/redeemmarketing/module_test.go", "marker": "TestAdmissionAndReportScan" },
+      "feature": { "file": "backend/internal/customize/modules/redeemmarketing/module.go", "marker": "func ListBatches(" },
+      "scope": "Admin-only batch reports require admission. Currency-specific actual payments exclude pre-redemption orders and refunds; cohorts are not additive."
+    },
+    {
       "module": "premium-home",
       "checkpoint": "GET /api/v1/announcements/public",
       "read": {

@@ -1,5 +1,14 @@
 [
   {
+    "id": "redeem-marketing",
+    "patterns": [
+      "^backend/internal/customize/modules/redeemmarketing/",
+      "^backend/internal/customize/migrations/sql/redeem-marketing/",
+      "^backend/internal/(handler/admin|service)/redeem_marketing_extension(?:_test)?\\.go$",
+      "^frontend/src/extensions/modules/redeem-marketing/"
+    ]
+  },
+  {
     "id": "extension-host",
     "patterns": [
       "^backend/internal/customize/(?!modules/)",

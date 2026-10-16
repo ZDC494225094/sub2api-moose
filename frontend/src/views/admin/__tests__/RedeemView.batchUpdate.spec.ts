@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 
 import RedeemView from '../RedeemView.vue'
 
@@ -101,6 +102,7 @@ const SelectStub = {
 
 describe('admin RedeemView batch update', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     localStorage.clear()
     document.body.innerHTML = ''
 
@@ -161,6 +163,7 @@ describe('admin RedeemView batch update', () => {
           GroupBadge: true,
           GroupOptionItem: true,
           Icon: true,
+          ExtensionSlot: true,
           Teleport: true
         }
       }

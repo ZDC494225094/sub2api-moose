@@ -2,7 +2,7 @@ import { defineAsyncComponent, markRaw, type Component } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import type { ExtensionId, pendingExtensionPaths } from './catalog'
 
-export type ExtensionSlotName = 'application-overlay' | 'layout-overlay' | 'header-bottom' | 'checkout-summary' | 'checkout-amount' | 'checkout-overlay' | 'checkout-discount-selection' | 'checkout-discount-summary'
+export type ExtensionSlotName = 'redeem-marketing-options' | 'redeem-marketing-report' | 'application-overlay' | 'layout-overlay' | 'header-bottom' | 'checkout-summary' | 'checkout-amount' | 'checkout-overlay' | 'checkout-discount-selection' | 'checkout-discount-summary'
 interface ExtensionSlotBase {
   key: string
   slot: ExtensionSlotName
@@ -22,6 +22,8 @@ const rechargeTicker = markRaw(defineAsyncComponent(() => import('./modules/rech
 // Adding another visual extension only changes this owned registry, never the
 // upstream HomeView, AppHeader or AppLayout implementations.
 export const extensionSlots: readonly ExtensionSlotEntry[] = [
+  { key: 'redeem-marketing-options', extension: 'redeem-marketing', slot: 'redeem-marketing-options', component: markRaw(defineAsyncComponent(() => import('./modules/redeem-marketing/GenerationOptions.vue'))) },
+  { key: 'redeem-marketing-report', extension: 'redeem-marketing', slot: 'redeem-marketing-report', component: markRaw(defineAsyncComponent(() => import('./modules/redeem-marketing/BatchReport.vue'))) },
   { key: 'coupon-selection', extension: 'marketing-tools', slot: 'checkout-discount-selection', component: markRaw(defineAsyncComponent(() => import('./modules/marketing/CouponSelection.vue'))) },
   { key: 'coupon-summary', extension: 'marketing-tools', slot: 'checkout-discount-summary', component: markRaw(defineAsyncComponent(() => import('./modules/marketing/CouponSummary.vue'))) },
   { key: 'home-support', extension: 'customer-support', slot: 'application-overlay', component: customerSupport, visible: route => route.name === 'Home' },
