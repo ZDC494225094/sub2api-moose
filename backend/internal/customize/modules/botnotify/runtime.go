@@ -7,8 +7,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -398,11 +400,21 @@ func (r *Runtime) broadcast(ctx context.Context, e BotEntry, platform Platform) 
 	if err != nil || text == "" {
 		return
 	}
+	// Collect per-target failures and report them together: reporting each
+	// send in turn would let a later success erase an earlier failure.
+	var failures []string
 	for _, chat := range e.ChatIDs {
 		if !r.allowed(workCtx) {
 			return
 		}
-		r.report(e.ID, workCtx, platform.SendMessage(workCtx, e.BotToken, chat, text))
+		if err := platform.SendMessage(workCtx, e.BotToken, chat, text); err != nil {
+			failures = append(failures, fmt.Sprintf("%s（%v）", chat, err))
+		}
+	}
+	if len(failures) > 0 {
+		r.report(e.ID, workCtx, fmt.Errorf("定时推送失败：%s", strings.Join(failures, "；")))
+	} else {
+		r.report(e.ID, workCtx, nil)
 	}
 }
 
@@ -455,25 +467,48 @@ func (r *Runtime) announceWatch(ctx context.Context, e BotEntry, platform Platfo
 			return
 		}
 		changed := false
+		mark := func(a Announcement, chat, hash string) {
+			key := strconv.FormatInt(a.ID, 10)
+			if state.Delivered[key] == nil {
+				state.Delivered[key] = map[string]string{}
+			}
+			state.Delivered[key][chat] = hash
+		}
+		// Baseline any target that is new to this bot (including every target
+		// on the first pass): it must not receive announcements published
+		// before it was added, so enabling sync never replays history.
+		known := make(map[string]bool, len(state.Chats))
+		for _, chat := range state.Chats {
+			known[chat] = true
+		}
+		for _, chat := range e.ChatIDs {
+			if known[chat] {
+				continue
+			}
+			for _, a := range list {
+				mark(a, chat, announcementHash(a))
+			}
+			state.Chats = append(state.Chats, chat)
+			changed = true
+		}
 		// Deliver oldest first so group members read announcements in order.
+		// Only successful targets are marked; failures retry on the next pass.
 		for i := len(list) - 1; i >= 0; i-- {
 			a := list[i]
 			key := strconv.FormatInt(a.ID, 10)
 			hash := announcementHash(a)
-			if state.Hashes[key] == hash {
-				continue
-			}
-			if state.Seeded {
-				text := FormatAnnouncement(a)
-				for _, chat := range e.ChatIDs {
-					if err := platform.SendMessage(workCtx, e.BotToken, chat, text); err != nil {
-						r.report(e.ID, workCtx, err)
-						break
-					}
+			text := FormatAnnouncement(a)
+			for _, chat := range e.ChatIDs {
+				if state.Delivered[key][chat] == hash {
+					continue
 				}
+				if err := platform.SendMessage(workCtx, e.BotToken, chat, text); err != nil {
+					r.report(e.ID, workCtx, fmt.Errorf("公告推送到 %s 失败：%w", chat, err))
+					continue
+				}
+				mark(a, chat, hash)
+				changed = true
 			}
-			state.Hashes[key] = hash
-			changed = true
 		}
 		if !state.Seeded {
 			state.Seeded = true

@@ -40,8 +40,9 @@ func (t *Telegram) call(ctx context.Context, token, method string, input, output
 		if callErr == nil {
 			code = resp.StatusCode
 			var envelope struct {
-				OK     bool            `json:"ok"`
-				Result json.RawMessage `json:"result"`
+				OK          bool            `json:"ok"`
+				Result      json.RawMessage `json:"result"`
+				Description string          `json:"description"`
 			}
 			decodeErr := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&envelope)
 			resp.Body.Close()
@@ -50,6 +51,13 @@ func (t *Telegram) call(ctx context.Context, token, method string, input, output
 				return json.Unmarshal(envelope.Result, output)
 			}
 			if code >= 400 && code < 500 && code != 429 {
+				if envelope.Description != "" {
+					// Surface Telegram's reason (e.g. "chat not found"), but
+					// never let the credential itself leak through an echoed
+					// response body.
+					safe := strings.ReplaceAll(envelope.Description, token, "***")
+					return fmt.Errorf("telegram %s rejected (HTTP %d): %s", method, code, safe)
+				}
 				return fmt.Errorf("telegram %s rejected (HTTP %d)", method, code)
 			}
 		} else {

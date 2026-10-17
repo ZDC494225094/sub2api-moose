@@ -367,26 +367,30 @@ func (s *Store) Messages(ctx context.Context, botRowID int64, chat, keyword stri
 	return items, total, rows.Err()
 }
 
-// announceState is a bot's announcement-sync watermark: which announcement
-// IDs were already pushed, keyed by content hash so edits re-push.
+// announceState is a bot's announcement-sync watermark, tracked per push
+// target so a failed target retries without duplicating successful ones, and
+// a target added later never receives announcements that predate it.
 type announceState struct {
-	Seeded bool              `json:"seeded"`
-	Hashes map[string]string `json:"hashes"`
+	Seeded bool `json:"seeded"`
+	// Delivered[announcementID][chatID] = content hash last delivered there.
+	Delivered map[string]map[string]string `json:"delivered"`
+	// Chats lists targets that already have a baseline.
+	Chats []string `json:"chats"`
 }
 
 func (s *Store) AnnounceState(ctx context.Context, botID int64) (announceState, error) {
 	var raw []byte
-	state := announceState{Hashes: map[string]string{}}
+	state := announceState{Delivered: map[string]map[string]string{}}
 	if err := s.DB.QueryRowContext(ctx, "SELECT announce_state FROM bot_notify_bots WHERE id=$1", botID).Scan(&raw); err != nil {
 		return state, err
 	}
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &state); err != nil {
-			return announceState{Hashes: map[string]string{}}, err
+			return announceState{Delivered: map[string]map[string]string{}}, err
 		}
 	}
-	if state.Hashes == nil {
-		state.Hashes = map[string]string{}
+	if state.Delivered == nil {
+		state.Delivered = map[string]map[string]string{}
 	}
 	return state, nil
 }
