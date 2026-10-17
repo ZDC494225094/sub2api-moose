@@ -22,6 +22,7 @@ func (h *Handler) Register(group *gin.RouterGroup, manager *customize.Manager) {
 	g.DELETE("/bots/:id", h.deleteBot)
 	g.GET("/bots/:id/status", h.botStatus)
 	g.POST("/bots/:id/test-send", h.testSend)
+	g.POST("/bots/:id/push-now", h.pushNow)
 	g.GET("/bots/:id/messages", h.messages)
 	g.GET("/bots/:id/rules", h.listRules)
 	g.POST("/bots/:id/rules", h.saveRule)
@@ -170,6 +171,21 @@ func (h *Handler) testSend(c *gin.Context) {
 		req.Text = "sub2api 消息机器人测试成功"
 	}
 	if err := h.Runtime.Platform.SendMessage(ctx, entry.BotToken, req.ChatID, req.Text); err != nil {
+		h.Runtime.report(entry.ID, ctx, err)
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"sent": true})
+}
+
+func (h *Handler) pushNow(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Minute)
+	defer cancel()
+	entry, ok := h.loadBot(c, true)
+	if !ok {
+		return
+	}
+	if err := h.Runtime.PushNow(ctx, entry); err != nil {
 		h.Runtime.report(entry.ID, ctx, err)
 		response.BadRequest(c, err.Error())
 		return

@@ -40,6 +40,7 @@ export const botAPI = {
   async deleteBot(id: number) { await apiClient.delete(`${base}/bots/${id}`) },
   async status(id: number) { return (await apiClient.get<Status>(`${base}/bots/${id}/status`)).data },
   async test(id: number, chat_id: string) { await apiClient.post(`${base}/bots/${id}/test-send`, { chat_id }) },
+  async pushNow(id: number) { await apiClient.post(`${base}/bots/${id}/push-now`) },
   async messages(id: number, page: number, chat_id: string, keyword: string) { return (await apiClient.get<{ items: BotMessage[]; total: number }>(`${base}/bots/${id}/messages`, { params: { page, page_size: 20, chat_id, keyword } })).data },
   async rules(id: number) { return (await apiClient.get<{ items: Rule[] }>(`${base}/bots/${id}/rules`)).data.items },
   async saveRule(botId: number, rule: Rule) { if (rule.id) await apiClient.put(`${base}/bots/${botId}/rules/${rule.id}`, rule); else await apiClient.post(`${base}/bots/${botId}/rules`, rule) },

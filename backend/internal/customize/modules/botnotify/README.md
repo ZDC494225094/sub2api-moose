@@ -50,8 +50,10 @@ One worker per configured bot, each holding its own PostgreSQL advisory lock
 bot's offset or duplicate its broadcasts. Reconciliation runs every two
 seconds: workers start, stop and restart as bots are created, edited, deleted
 or the module switch changes. Disabled/unconfigured bots never poll or
-broadcast; rows and rules remain intact. The first broadcast occurs after the
-configured interval, and hot restart resets that interval.
+broadcast; rows and rules remain intact. Broadcasts are aligned to wall-clock
+boundaries: the interval counts whole multiples after local midnight, so a
+60-minute interval fires exactly on the hour and a hot restart never drifts
+the phase. `POST /bots/:id/push-now` broadcasts the saved template on demand.
 
 Telegram uses net/http with 30-second long polling, a 40-second per-attempt
 deadline, at most three attempts, bounded backoff and sanitized errors.
@@ -90,6 +92,7 @@ plus `customize.Require("bot-notify")`:
 | GET, PUT, DELETE | /bots/:id |
 | GET | /bots/:id/status |
 | POST | /bots/:id/test-send (chat_id, optional text) |
+| POST | /bots/:id/push-now |
 | GET | /bots/:id/messages (page, page_size <=100, chat_id, keyword) |
 | GET, POST | /bots/:id/rules |
 | PUT, DELETE | /bots/:id/rules/:ruleId |

@@ -335,28 +335,78 @@ func wait(ctx context.Context, d time.Duration) bool {
 	}
 }
 
+// nextPushDelay returns the wait until the next wall-clock boundary that is
+// a whole multiple of interval after local midnight, so a 60-minute interval
+// fires exactly on the hour (13:00, 14:00, ...) instead of drifting with the
+// worker's start time.
+func nextPushDelay(now time.Time, interval time.Duration) time.Duration {
+	if interval < time.Minute {
+		interval = time.Hour
+	}
+	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	elapsed := now.Sub(midnight)
+	next := (elapsed/interval + 1) * interval
+	return midnight.Add(next).Sub(now)
+}
+
 func (r *Runtime) push(ctx context.Context, e BotEntry) {
 	interval := time.Duration(e.IntervalMinutes) * time.Minute
 	if interval < time.Minute {
 		interval = time.Hour
 	}
-	for wait(ctx, interval) {
+	for {
+		if !wait(ctx, nextPushDelay(time.Now(), interval)) {
+			return
+		}
 		if !r.allowed(ctx) {
 			return
 		}
-		workCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-		text, err := Render(workCtx, r.Data, e.PushTemplate, time.Now())
-		r.report(e.ID, workCtx, err)
-		if err == nil && text != "" {
-			for _, chat := range e.ChatIDs {
-				if !r.allowed(workCtx) {
-					break
-				}
-				r.report(e.ID, workCtx, r.Platform.SendMessage(workCtx, e.BotToken, chat, text))
-			}
-		}
-		cancel()
+		r.broadcast(ctx, e)
 	}
+}
+
+func (r *Runtime) broadcast(ctx context.Context, e BotEntry) {
+	workCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	if len(e.ChatIDs) == 0 {
+		r.report(e.ID, workCtx, errors.New("已启用定时推送，但还没有配置推送目标 chat_id"))
+		return
+	}
+	text, err := Render(workCtx, r.Data, e.PushTemplate, time.Now())
+	r.report(e.ID, workCtx, err)
+	if err != nil || text == "" {
+		return
+	}
+	for _, chat := range e.ChatIDs {
+		if !r.allowed(workCtx) {
+			return
+		}
+		r.report(e.ID, workCtx, r.Platform.SendMessage(workCtx, e.BotToken, chat, text))
+	}
+}
+
+// PushNow renders the bot's push template and sends it to every push target
+// immediately; the admin UI uses it to verify a bot's push setup on demand.
+func (r *Runtime) PushNow(ctx context.Context, e BotEntry) error {
+	if e.BotToken == "" {
+		return errors.New("请先配置 bot token")
+	}
+	if len(e.ChatIDs) == 0 {
+		return errors.New("还没有配置推送目标 chat_id")
+	}
+	text, err := Render(ctx, r.Data, e.PushTemplate, time.Now())
+	if err != nil {
+		return err
+	}
+	if text == "" {
+		return errors.New("推送模板渲染结果为空")
+	}
+	for _, chat := range e.ChatIDs {
+		if err := r.Platform.SendMessage(ctx, e.BotToken, chat, text); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *Runtime) poll(ctx context.Context, e BotEntry) {
