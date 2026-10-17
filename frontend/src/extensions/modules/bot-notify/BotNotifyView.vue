@@ -38,8 +38,10 @@ async function action(fn: () => Promise<void>, success = '') {
   if (busy.value) return
   busy.value = true; error.value = ''; notice.value = ''
   try { await fn(); notice.value = success } catch (e: unknown) {
-    const detail = e as { response?: { data?: { message?: string } } }
-    error.value = detail.response?.data?.message || '操作失败，请重试。'
+    // The shared apiClient rejects with a flat { status, code, message }
+    // object (no .response), so the server's reason lives on e.message.
+    const detail = e as { response?: { data?: { message?: string } }; message?: string }
+    error.value = detail.response?.data?.message || detail.message || '操作失败，请重试。'
   } finally { busy.value = false }
 }
 

@@ -109,9 +109,19 @@ func (q *QQ) accessToken(ctx context.Context, creds qqCreds, force bool) (string
 		ExpiresIn   int64  `json:"expires_in"`
 		Code        int    `json:"code"`
 		Message     string `json:"message"`
+		Msg         string `json:"msg"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&out); err != nil || out.AccessToken == "" {
-		return "", fmt.Errorf("qq token rejected (HTTP %d, code %d)", resp.StatusCode, out.Code)
+		reason := out.Message
+		if reason == "" {
+			reason = out.Msg
+		}
+		if len(reason) > 200 {
+			reason = reason[:200]
+		}
+		// Common cause: the QQ console's IP whitelist does not yet include
+		// this server's public IP; QQ's own wording says so when present.
+		return "", fmt.Errorf("qq token rejected (HTTP %d, code %d): %s", resp.StatusCode, out.Code, reason)
 	}
 	ttl := time.Duration(out.ExpiresIn) * time.Second
 	if ttl <= 0 {
@@ -154,8 +164,12 @@ func (q *QQ) apiCall(ctx context.Context, creds qqCreds, method, path string, in
 		var envelope struct {
 			Code    int    `json:"code"`
 			Message string `json:"message"`
+			Msg     string `json:"msg"`
 		}
 		_ = json.Unmarshal(raw, &envelope)
+		if envelope.Message == "" {
+			envelope.Message = envelope.Msg
+		}
 		if resp.StatusCode == http.StatusUnauthorized && attempt == 0 {
 			token, err = q.accessToken(ctx, creds, true)
 			if err != nil {
