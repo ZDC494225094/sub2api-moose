@@ -78,9 +78,14 @@ func (h *Handler) createBot(c *gin.Context) {
 		return
 	}
 	entry.ID = 0
+	platform, ok := h.Runtime.PlatformFor(entry.Platform)
+	if !ok {
+		response.BadRequest(c, "不支持的机器人平台")
+		return
+	}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
-	id, err := h.Runtime.Store.CreateBot(ctx, entry, h.Runtime.Platform)
+	id, err := h.Runtime.Store.CreateBot(ctx, entry, platform)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -104,9 +109,19 @@ func (h *Handler) saveBot(c *gin.Context) {
 		return
 	}
 	entry.ID = id
+	stored, ok := h.loadBot(c, false)
+	if !ok {
+		return
+	}
+	entry.Platform = stored.Platform // a bot's platform never changes after creation
+	platform, ok := h.Runtime.PlatformFor(stored.Platform)
+	if !ok {
+		response.BadRequest(c, "不支持的机器人平台")
+		return
+	}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
-	err := h.Runtime.Store.SaveBot(ctx, entry, h.Runtime.Platform)
+	err := h.Runtime.Store.SaveBot(ctx, entry, platform)
 	if err == sql.ErrNoRows {
 		response.NotFound(c, "机器人不存在")
 		return
@@ -153,8 +168,8 @@ func (h *Handler) testSend(c *gin.Context) {
 		ChatID string `json:"chat_id"`
 		Text   string `json:"text"`
 	}
-	if c.ShouldBindJSON(&req) != nil || !ValidChatID(req.ChatID) || len(req.Text) > 32000 {
-		response.BadRequest(c, "无效 chat_id 或消息过长")
+	if c.ShouldBindJSON(&req) != nil || len(req.Text) > 32000 {
+		response.BadRequest(c, "请求格式错误或消息过长")
 		return
 	}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
@@ -163,14 +178,23 @@ func (h *Handler) testSend(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if !ValidTargetID(entry.Platform, req.ChatID) {
+		response.BadRequest(c, "无效的目标 ID 格式")
+		return
+	}
 	if entry.BotToken == "" {
-		response.BadRequest(c, "请先配置 bot token")
+		response.BadRequest(c, "请先配置机器人凭证")
+		return
+	}
+	platform, ok := h.Runtime.PlatformFor(entry.Platform)
+	if !ok {
+		response.BadRequest(c, "不支持的机器人平台")
 		return
 	}
 	if req.Text == "" {
 		req.Text = "sub2api 消息机器人测试成功"
 	}
-	if err := h.Runtime.Platform.SendMessage(ctx, entry.BotToken, req.ChatID, req.Text); err != nil {
+	if err := platform.SendMessage(ctx, entry.BotToken, req.ChatID, req.Text); err != nil {
 		h.Runtime.report(entry.ID, ctx, err)
 		response.BadRequest(c, err.Error())
 		return

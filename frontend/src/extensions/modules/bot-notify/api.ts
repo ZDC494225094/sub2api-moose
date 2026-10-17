@@ -12,6 +12,8 @@ export interface BotEntry {
   chat_ids: string[]
   interval_minutes: number
   push_template: string
+  app_id?: string
+  announce_sync_enabled: boolean
 }
 export interface Rule {
   id: number
@@ -29,7 +31,7 @@ export interface BotMessage {
 }
 export interface Status {
   bot: { id: number; username: string }
-  polling: boolean; pushing: boolean; last_error: string; last_error_at: string | null
+  polling: boolean; pushing: boolean; announcing: boolean; last_error: string; last_error_at: string | null
 }
 const base = '/admin/bot-notify'
 export const botAPI = {

@@ -26,6 +26,8 @@ const creating = ref(false)
 const newName = ref('')
 const newPlatform = ref('telegram')
 const newToken = ref('')
+const newAppID = ref('')
+const newSecret = ref('')
 let timer: ReturnType<typeof setInterval> | undefined
 let revision = 0
 
@@ -56,17 +58,21 @@ async function loadBots() {
 }
 
 async function createBot() {
+  const credential = newPlatform.value === 'qq'
+    ? JSON.stringify({ app_id: newAppID.value.trim(), client_secret: newSecret.value.trim() })
+    : newToken.value.trim()
   const created = await botAPI.createBot({
     name: newName.value.trim(),
     platform: newPlatform.value,
-    bot_token: newToken.value.trim(),
+    bot_token: credential,
     receive_enabled: true,
     push_enabled: false,
     chat_ids: [],
     interval_minutes: 60,
     push_template: '{channel_status}',
+    announce_sync_enabled: false,
   })
-  creating.value = false; newName.value = ''; newToken.value = ''
+  creating.value = false; newName.value = ''; newToken.value = ''; newAppID.value = ''; newSecret.value = ''
   await loadBots()
   await openBot(created)
 }
@@ -105,9 +111,12 @@ async function loadMessages(next = 1) {
 
 async function save() {
   if (!selected.value) return
+  const credential = selected.value.platform === 'qq'
+    ? (token.value.trim() ? JSON.stringify({ app_id: selected.value.app_id || '', client_secret: token.value.trim() }) : '')
+    : token.value.trim()
   selected.value = await botAPI.saveBot(selected.value.id, {
     ...selected.value,
-    bot_token: token.value.trim(),
+    bot_token: credential,
     chat_ids: chats.value.split('\n').map(value => value.trim()).filter(Boolean),
   })
   token.value = ''
@@ -142,7 +151,7 @@ onUnmounted(() => { if (timer) clearInterval(timer); revision++ })
     <div class="mx-auto w-full max-w-3xl space-y-5">
       <header>
         <h1 class="text-2xl font-semibold">消息机器人</h1>
-        <p class="mt-1 text-sm text-gray-500">Telegram · 定时推送、渠道状态与公告查询、关键词回复</p>
+        <p class="mt-1 text-sm text-gray-500">Telegram / QQ · 定时推送、公告自动同步、关键词回复</p>
       </header>
       <p v-if="error" role="alert" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
       <p v-if="notice" role="status" class="rounded-xl bg-green-50 p-3 text-sm text-green-700">{{ notice }}</p>
@@ -160,11 +169,15 @@ onUnmounted(() => { if (timer) clearInterval(timer); revision++ })
           <label class="block text-sm">平台
             <select v-model="newPlatform" class="input mt-2 w-full">
               <option value="telegram">Telegram</option>
-              <option value="qq" disabled>QQ（即将支持）</option>
+              <option value="qq">QQ 机器人</option>
             </select>
           </label>
-          <label class="block text-sm">Bot Token<input v-model="newToken" type="password" autocomplete="new-password" required class="input mt-2 w-full" placeholder="从 BotFather 获取" /></label>
-          <p class="text-xs leading-relaxed text-gray-500">创建时自动验证 token 并读取机器人用户名，同时生成默认规则：发送「渠道状态」或 /status 查询渠道状态。</p>
+          <template v-if="newPlatform === 'qq'">
+            <label class="block text-sm">AppID<input v-model="newAppID" required class="input mt-2 w-full" placeholder="QQ 开放平台的机器人 AppID" /></label>
+            <label class="block text-sm">AppSecret<input v-model="newSecret" type="password" autocomplete="new-password" required class="input mt-2 w-full" placeholder="QQ 开放平台的机器人密钥" /></label>
+          </template>
+          <label v-else class="block text-sm">Bot Token<input v-model="newToken" type="password" autocomplete="new-password" required class="input mt-2 w-full" placeholder="从 BotFather 获取" /></label>
+          <p class="text-xs leading-relaxed text-gray-500">创建时自动验证凭证并读取机器人名称，同时生成默认规则：发送「渠道状态」或 /status 查询渠道状态。</p>
           <div class="flex gap-3"><button type="submit" class="btn btn-primary flex-1">创建并配置</button><button type="button" class="btn btn-secondary" @click="creating = false">取消</button></div>
         </form>
 
@@ -174,16 +187,17 @@ onUnmounted(() => { if (timer) clearInterval(timer); revision++ })
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <h2 class="truncate text-base font-semibold">{{ bot.name }}</h2>
-              <p class="mt-0.5 truncate text-sm text-gray-500">{{ bot.bot_username ? '@' + bot.bot_username : '未配置 token' }}</p>
+              <p class="mt-0.5 truncate text-sm text-gray-500">{{ bot.platform === 'qq' ? (bot.bot_username || 'QQ 机器人') + (bot.app_id ? ' · AppID ' + bot.app_id : '') : (bot.bot_username ? '@' + bot.bot_username : '未配置凭证') }}</p>
             </div>
-            <span class="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600 dark:bg-dark-800">{{ bot.platform === 'telegram' ? 'Telegram' : bot.platform }}</span>
+            <span class="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600 dark:bg-dark-800">{{ bot.platform === 'telegram' ? 'Telegram' : bot.platform === 'qq' ? 'QQ' : bot.platform }}</span>
           </div>
           <div class="flex flex-wrap items-center gap-2 text-xs">
-            <span class="rounded-lg px-2 py-1" :class="statuses[bot.id]?.polling || statuses[bot.id]?.pushing ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500 dark:bg-dark-800'">
-              {{ !bot.bot_token ? '未配置' : (statuses[bot.id]?.polling || statuses[bot.id]?.pushing ? '运行中' : '已停止') }}
+            <span class="rounded-lg px-2 py-1" :class="statuses[bot.id]?.polling || statuses[bot.id]?.pushing || statuses[bot.id]?.announcing ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500 dark:bg-dark-800'">
+              {{ !bot.bot_token ? '未配置' : (statuses[bot.id]?.polling || statuses[bot.id]?.pushing || statuses[bot.id]?.announcing ? '运行中' : '已停止') }}
             </span>
             <span class="rounded-lg bg-gray-100 px-2 py-1 text-gray-600 dark:bg-dark-800">收消息 {{ bot.receive_enabled ? '开' : '关' }}</span>
             <span class="rounded-lg bg-gray-100 px-2 py-1 text-gray-600 dark:bg-dark-800">定时推送 {{ bot.push_enabled ? '开' : '关' }}</span>
+            <span class="rounded-lg bg-gray-100 px-2 py-1 text-gray-600 dark:bg-dark-800">公告同步 {{ bot.announce_sync_enabled ? '开' : '关' }}</span>
           </div>
           <p v-if="statuses[bot.id]?.last_error" class="break-words text-xs text-red-600">{{ statuses[bot.id]?.last_error }}</p>
           <div class="flex gap-3 pt-1">
@@ -198,7 +212,7 @@ onUnmounted(() => { if (timer) clearInterval(timer); revision++ })
         <div>
           <button class="text-sm text-primary-600" @click="closeBot">← 返回机器人列表</button>
           <h2 class="mt-2 text-xl font-semibold">{{ selected.name }}</h2>
-          <p v-if="selected.bot_username" class="mt-0.5 text-sm text-gray-500">@{{ selected.bot_username }}</p>
+          <p v-if="selected.bot_username" class="mt-0.5 text-sm text-gray-500">{{ selected.platform === 'qq' ? selected.bot_username : '@' + selected.bot_username }}</p>
         </div>
 
         <nav class="grid grid-cols-3 gap-1 rounded-2xl bg-gray-100 p-1 dark:bg-dark-800" aria-label="机器人管理页签">
@@ -211,15 +225,20 @@ onUnmounted(() => { if (timer) clearInterval(timer); revision++ })
             <section class="space-y-4 rounded-2xl border p-5">
               <h3 class="font-semibold">连接设置</h3>
               <label class="block text-sm">名称（备注名）<input v-model="selected.name" required class="input mt-2 w-full" /></label>
-              <label class="block text-sm">Bot Token <span class="text-gray-500">{{ selected.bot_token ? `已保存 ${selected.bot_token}` : '尚未配置' }}</span><input v-model="token" type="password" autocomplete="new-password" class="input mt-2 w-full" placeholder="留空保留原 token" /></label>
-              <p class="text-xs leading-relaxed text-gray-500">保存时自动验证并读取机器人用户名。群聊里需 @机器人或回复机器人消息才触发关键词规则。</p>
+              <template v-if="selected.platform === 'qq'">
+                <label class="block text-sm">AppID<input v-model="selected.app_id" class="input mt-2 w-full" /></label>
+                <label class="block text-sm">AppSecret <span class="text-gray-500">{{ selected.bot_token ? `已保存 ${selected.bot_token}` : '尚未配置' }}</span><input v-model="token" type="password" autocomplete="new-password" class="input mt-2 w-full" placeholder="留空保留原密钥；更换 AppID 时必须重填" /></label>
+              </template>
+              <label v-else class="block text-sm">Bot Token <span class="text-gray-500">{{ selected.bot_token ? `已保存 ${selected.bot_token}` : '尚未配置' }}</span><input v-model="token" type="password" autocomplete="new-password" class="input mt-2 w-full" placeholder="留空保留原 token" /></label>
+              <p class="text-xs leading-relaxed text-gray-500">保存时自动验证并读取机器人名称。群聊里需 @机器人或回复机器人消息才触发关键词规则。</p>
               <label class="flex items-center gap-3 py-1 text-sm"><input v-model="selected.receive_enabled" type="checkbox" class="h-4 w-4" />启用收消息（关键词回复）</label>
             </section>
 
             <section class="space-y-4 rounded-2xl border p-5">
               <h3 class="font-semibold">定时推送</h3>
               <label class="flex items-center gap-3 py-1 text-sm"><input v-model="selected.push_enabled" type="checkbox" class="h-4 w-4" />启用定时推送</label>
-              <label class="block text-sm">推送目标 chat_id（每行一个）<textarea v-model="chats" class="input mt-2 w-full font-mono" rows="4" placeholder="-1001234567890" /></label>
+              <label class="flex items-start gap-3 py-1 text-sm"><input v-model="selected.announce_sync_enabled" type="checkbox" class="mt-0.5 h-4 w-4" /><span>公告自动同步<span class="block text-xs leading-relaxed text-gray-500">网站发布或修改公告后，自动推送到下面这组目标；Markdown 公告会转成纯文本再发。首次开启只记录现有公告，不补发历史。</span></span></label>
+              <label class="block text-sm">推送目标（每行一个，定时推送与公告同步共用）<textarea v-model="chats" class="input mt-2 w-full font-mono" rows="4" :placeholder="selected.platform === 'qq' ? 'group:群OpenID\nuser:用户OpenID' : '-1001234567890'" /></label>
               <label class="block text-sm">推送间隔（分钟）<input v-model.number="selected.interval_minutes" type="number" min="1" max="43200" required class="input mt-2 w-full" /></label>
               <p class="text-xs leading-relaxed text-gray-500">推送时刻对齐整点：间隔 60 分钟即每小时 00 分推送，30 分钟即每小时 00 分、30 分推送。</p>
               <TemplateInput v-model="selected.push_template" label="推送模板" />
@@ -230,10 +249,10 @@ onUnmounted(() => { if (timer) clearInterval(timer); revision++ })
             <section class="space-y-4 rounded-2xl border p-5">
               <h3 class="font-semibold">状态与测试</h3>
               <div class="space-y-1.5 text-sm">
-                <p>轮询：{{ statuses[selected.id]?.polling ? '运行中' : '已停止' }} · 定时推送：{{ statuses[selected.id]?.pushing ? '运行中' : '已停止' }}</p>
+                <p>收消息：{{ statuses[selected.id]?.polling ? '运行中' : '已停止' }} · 定时推送：{{ statuses[selected.id]?.pushing ? '运行中' : '已停止' }} · 公告同步：{{ statuses[selected.id]?.announcing ? '运行中' : '已停止' }}</p>
                 <p v-if="statuses[selected.id]?.last_error" class="break-words text-red-600">最近错误：{{ statuses[selected.id]?.last_error }}<span v-if="statuses[selected.id]?.last_error_at">（{{ new Date(statuses[selected.id]?.last_error_at || '').toLocaleString() }}）</span></p>
               </div>
-              <label class="block text-sm">测试 chat_id<input v-model="testChat" class="input mt-2 w-full" placeholder="指定测试接收人或群聊 ID" /></label>
+              <label class="block text-sm">测试目标<input v-model="testChat" class="input mt-2 w-full" :placeholder="selected.platform === 'qq' ? 'group:群OpenID 或 user:用户OpenID' : '指定测试接收人或群聊 ID'" /></label>
               <button type="button" class="btn btn-secondary w-full" :disabled="!testChat" @click="action(() => botAPI.test(selected!.id, testChat), '测试消息已发送')">发送测试消息</button>
             </section>
 

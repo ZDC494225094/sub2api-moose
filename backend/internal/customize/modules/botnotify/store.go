@@ -22,7 +22,7 @@ func MaskToken(token string) string {
 	return "****" + token[len(token)-4:]
 }
 
-func ValidateConfig(c Config) error {
+func ValidateConfig(platform string, c Config) error {
 	if c.IntervalMinutes < 1 || c.IntervalMinutes > 43200 {
 		return errors.New("推送间隔须为 1 至 43200 分钟")
 	}
@@ -30,11 +30,29 @@ func ValidateConfig(c Config) error {
 		return errors.New("模板或推送目标过多")
 	}
 	for _, id := range c.ChatIDs {
-		if !ValidChatID(id) {
+		if !ValidTargetID(platform, id) {
+			if platform == "qq" {
+				return errors.New("QQ 推送目标格式：group:群openid 或 user:用户openid")
+			}
 			return errors.New("chat_id 必须是数字，可带负号")
 		}
 	}
 	return nil
+}
+
+// ValidTargetID checks one push/reply target identifier for a platform:
+// Telegram uses numeric chat ids; QQ uses group:/user: prefixed openids.
+func ValidTargetID(platform, id string) bool {
+	if platform == "qq" {
+		for _, prefix := range []string{"group:", "user:"} {
+			if strings.HasPrefix(id, prefix) {
+				rest := strings.TrimPrefix(id, prefix)
+				return rest != "" && len(rest) <= 128 && !strings.ContainsAny(rest, " \t\r\n")
+			}
+		}
+		return false
+	}
+	return ValidChatID(id)
 }
 
 func ValidChatID(id string) bool {
@@ -149,15 +167,22 @@ func (s *Store) CreateBot(ctx context.Context, e BotEntry, platform Platform) (i
 	if e.Platform == "" {
 		e.Platform = "telegram"
 	}
-	if e.Platform != "telegram" {
-		return 0, errors.New("暂只支持 Telegram 机器人")
+	if e.Platform != "telegram" && e.Platform != "qq" {
+		return 0, errors.New("不支持的机器人平台")
 	}
 	e.Config = normalizeConfig(e.Config)
-	if err := ValidateConfig(e.Config); err != nil {
+	if err := ValidateConfig(e.Platform, e.Config); err != nil {
 		return 0, err
 	}
 	if e.BotToken == "" {
-		return 0, errors.New("请填写 bot token")
+		return 0, errors.New("请填写机器人凭证")
+	}
+	if e.Platform == "qq" {
+		appID, err := ParseQQCredentials(e.BotToken)
+		if err != nil {
+			return 0, err
+		}
+		e.AppID = appID
 	}
 	username, tgID, encrypted, err := s.validateAndEncrypt(ctx, e.BotToken, platform)
 	if err != nil {
@@ -190,7 +215,7 @@ func (s *Store) CreateBot(ctx context.Context, e BotEntry, platform Platform) (i
 
 func (s *Store) SaveBot(ctx context.Context, e BotEntry, platform Platform) error {
 	e.Config = normalizeConfig(e.Config)
-	if err := ValidateConfig(e.Config); err != nil {
+	if err := ValidateConfig(e.Platform, e.Config); err != nil {
 		return err
 	}
 	// The row lock serializes simultaneous saves, including empty-token edits.
@@ -208,15 +233,29 @@ func (s *Store) SaveBot(ctx context.Context, e BotEntry, platform Platform) erro
 		return err
 	}
 	newBot := false
+	if e.Platform == "qq" && e.BotToken == "" && e.AppID != "" && old.AppID != "" && e.AppID != old.AppID {
+		return errors.New("更换 AppID 后必须重新填写 AppSecret")
+	}
 	if e.BotToken == "" {
 		e.BotToken, e.BotUsername, e.BotID = old.BotToken, old.BotUsername, old.BotID
+		if e.Platform == "qq" {
+			e.AppID = old.AppID
+		}
 	} else {
-		username, tgID, encrypted, encErr := s.validateAndEncrypt(ctx, e.BotToken, platform)
+		plainToken := e.BotToken
+		username, tgID, encrypted, encErr := s.validateAndEncrypt(ctx, plainToken, platform)
 		if encErr != nil {
 			return encErr
 		}
 		e.BotToken, e.BotUsername, e.BotID = encrypted, username, tgID
 		newBot = old.BotID != tgID
+		if e.Platform == "qq" {
+			appID, parseErr := ParseQQCredentials(plainToken)
+			if parseErr != nil {
+				return parseErr
+			}
+			e.AppID = appID
+		}
 	}
 	raw, err = json.Marshal(e.Config)
 	if err != nil {
@@ -326,6 +365,39 @@ func (s *Store) Messages(ctx context.Context, botRowID int64, chat, keyword stri
 		items = append(items, m)
 	}
 	return items, total, rows.Err()
+}
+
+// announceState is a bot's announcement-sync watermark: which announcement
+// IDs were already pushed, keyed by content hash so edits re-push.
+type announceState struct {
+	Seeded bool              `json:"seeded"`
+	Hashes map[string]string `json:"hashes"`
+}
+
+func (s *Store) AnnounceState(ctx context.Context, botID int64) (announceState, error) {
+	var raw []byte
+	state := announceState{Hashes: map[string]string{}}
+	if err := s.DB.QueryRowContext(ctx, "SELECT announce_state FROM bot_notify_bots WHERE id=$1", botID).Scan(&raw); err != nil {
+		return state, err
+	}
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &state); err != nil {
+			return announceState{Hashes: map[string]string{}}, err
+		}
+	}
+	if state.Hashes == nil {
+		state.Hashes = map[string]string{}
+	}
+	return state, nil
+}
+
+func (s *Store) SaveAnnounceState(ctx context.Context, botID int64, state announceState) error {
+	raw, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	_, err = s.DB.ExecContext(ctx, "UPDATE bot_notify_bots SET announce_state=$1 WHERE id=$2", raw, botID)
+	return err
 }
 
 func (s *Store) Prune(ctx context.Context) error {

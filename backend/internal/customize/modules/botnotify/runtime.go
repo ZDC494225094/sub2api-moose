@@ -23,6 +23,7 @@ type Status struct {
 	Bot         Bot        `json:"bot"`
 	Polling     bool       `json:"polling"`
 	Pushing     bool       `json:"pushing"`
+	Announcing  bool       `json:"announcing"`
 	LastError   string     `json:"last_error"`
 	LastErrorAt *time.Time `json:"last_error_at"`
 }
@@ -39,7 +40,7 @@ type botWorker struct {
 // Runtime supervises one worker per configured bot.
 type Runtime struct {
 	Store      *Store
-	Platform   Platform
+	Platforms  map[string]Platform
 	Data       Data
 	States     StateReader
 	mu         sync.Mutex
@@ -51,17 +52,26 @@ type Runtime struct {
 	unregister func()
 }
 
-func NewRuntime(store *Store, platform Platform, data Data, states StateReader) *Runtime {
+func NewRuntime(store *Store, platforms map[string]Platform, data Data, states StateReader) *Runtime {
 	return &Runtime{
-		Store:    store,
-		Platform: platform,
-		Data:     data,
-		States:   states,
-		statuses: map[int64]*Status{},
-		workers:  map[int64]*botWorker{},
-		wake:     make(chan struct{}, 1),
-		done:     make(chan struct{}),
+		Store:     store,
+		Platforms: platforms,
+		Data:      data,
+		States:    states,
+		statuses:  map[int64]*Status{},
+		workers:   map[int64]*botWorker{},
+		wake:      make(chan struct{}, 1),
+		done:      make(chan struct{}),
 	}
+}
+
+// PlatformFor resolves a bot's platform adapter ("telegram", "qq").
+func (r *Runtime) PlatformFor(name string) (Platform, bool) {
+	if name == "" {
+		name = "telegram"
+	}
+	p, ok := r.Platforms[name]
+	return p, ok
 }
 
 func (r *Runtime) Status(botID int64) Status {
@@ -196,7 +206,10 @@ func (r *Runtime) manage(ctx context.Context) {
 func (r *Runtime) reconcile(parent context.Context, entries []BotEntry) {
 	desired := make(map[int64]BotEntry, len(entries))
 	for _, e := range entries {
-		if e.BotToken == "" || (!e.ReceiveEnabled && !e.PushEnabled) {
+		if e.BotToken == "" || (!e.ReceiveEnabled && !e.PushEnabled && !e.AnnounceSync) {
+			continue
+		}
+		if _, ok := r.PlatformFor(e.Platform); !ok {
 			continue
 		}
 		desired[e.ID] = e
@@ -241,9 +254,10 @@ func (r *Runtime) reconcile(parent context.Context, entries []BotEntry) {
 		r.statuses[id].Bot = Bot{ID: e.BotID, Username: e.BotUsername}
 		r.mu.Unlock()
 		entry := e
+		platform, _ := r.PlatformFor(e.Platform)
 		go func() {
 			defer close(w.done)
-			r.runBot(workerCtx, entry)
+			r.runBot(workerCtx, entry, platform)
 		}()
 	}
 	// Forget statuses of deleted bots.
@@ -259,8 +273,9 @@ func (r *Runtime) reconcile(parent context.Context, entries []BotEntry) {
 }
 
 // runBot holds the bot's advisory lease for its lifetime, then runs its
-// receive/push loops. If another instance holds the lease it retries quietly.
-func (r *Runtime) runBot(ctx context.Context, e BotEntry) {
+// receive/push/announcement loops. If another instance holds the lease it
+// retries quietly.
+func (r *Runtime) runBot(ctx context.Context, e BotEntry, platform Platform) {
 	for ctx.Err() == nil {
 		lease, err := r.acquireLease(ctx, e.ID)
 		if err != nil {
@@ -272,18 +287,23 @@ func (r *Runtime) runBot(ctx context.Context, e BotEntry) {
 			}
 			continue
 		}
-		r.setRunning(e.ID, e.ReceiveEnabled, e.PushEnabled)
+		announcing := e.AnnounceSync && len(e.ChatIDs) > 0
+		r.setRunning(e.ID, e.ReceiveEnabled, e.PushEnabled, announcing)
 		var wg sync.WaitGroup
 		if e.ReceiveEnabled {
 			wg.Add(1)
-			go func() { defer wg.Done(); r.poll(ctx, e) }()
+			go func() { defer wg.Done(); r.poll(ctx, e, platform) }()
 		}
 		if e.PushEnabled {
 			wg.Add(1)
-			go func() { defer wg.Done(); r.push(ctx, e) }()
+			go func() { defer wg.Done(); r.push(ctx, e, platform) }()
+		}
+		if announcing {
+			wg.Add(1)
+			go func() { defer wg.Done(); r.announceWatch(ctx, e, platform) }()
 		}
 		wg.Wait()
-		r.setRunning(e.ID, false, false)
+		r.setRunning(e.ID, false, false, false)
 		lease.Close()
 		return
 	}
@@ -312,7 +332,7 @@ func (r *Runtime) acquireLease(ctx context.Context, botRowID int64) (*sql.Conn, 
 	return nil, ctx.Err()
 }
 
-func (r *Runtime) setRunning(botID int64, polling, pushing bool) {
+func (r *Runtime) setRunning(botID int64, polling, pushing, announcing bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	s, ok := r.statuses[botID]
@@ -322,6 +342,7 @@ func (r *Runtime) setRunning(botID int64, polling, pushing bool) {
 	}
 	s.Polling = polling
 	s.Pushing = pushing
+	s.Announcing = announcing
 }
 
 func wait(ctx context.Context, d time.Duration) bool {
@@ -349,7 +370,7 @@ func nextPushDelay(now time.Time, interval time.Duration) time.Duration {
 	return midnight.Add(next).Sub(now)
 }
 
-func (r *Runtime) push(ctx context.Context, e BotEntry) {
+func (r *Runtime) push(ctx context.Context, e BotEntry, platform Platform) {
 	interval := time.Duration(e.IntervalMinutes) * time.Minute
 	if interval < time.Minute {
 		interval = time.Hour
@@ -361,11 +382,11 @@ func (r *Runtime) push(ctx context.Context, e BotEntry) {
 		if !r.allowed(ctx) {
 			return
 		}
-		r.broadcast(ctx, e)
+		r.broadcast(ctx, e, platform)
 	}
 }
 
-func (r *Runtime) broadcast(ctx context.Context, e BotEntry) {
+func (r *Runtime) broadcast(ctx context.Context, e BotEntry, platform Platform) {
 	workCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 	if len(e.ChatIDs) == 0 {
@@ -381,18 +402,22 @@ func (r *Runtime) broadcast(ctx context.Context, e BotEntry) {
 		if !r.allowed(workCtx) {
 			return
 		}
-		r.report(e.ID, workCtx, r.Platform.SendMessage(workCtx, e.BotToken, chat, text))
+		r.report(e.ID, workCtx, platform.SendMessage(workCtx, e.BotToken, chat, text))
 	}
 }
 
 // PushNow renders the bot's push template and sends it to every push target
 // immediately; the admin UI uses it to verify a bot's push setup on demand.
 func (r *Runtime) PushNow(ctx context.Context, e BotEntry) error {
+	platform, ok := r.PlatformFor(e.Platform)
+	if !ok {
+		return errors.New("不支持的机器人平台")
+	}
 	if e.BotToken == "" {
-		return errors.New("请先配置 bot token")
+		return errors.New("请先配置机器人凭证")
 	}
 	if len(e.ChatIDs) == 0 {
-		return errors.New("还没有配置推送目标 chat_id")
+		return errors.New("还没有配置推送目标")
 	}
 	text, err := Render(ctx, r.Data, e.PushTemplate, time.Now())
 	if err != nil {
@@ -402,14 +427,81 @@ func (r *Runtime) PushNow(ctx context.Context, e BotEntry) error {
 		return errors.New("推送模板渲染结果为空")
 	}
 	for _, chat := range e.ChatIDs {
-		if err := r.Platform.SendMessage(ctx, e.BotToken, chat, text); err != nil {
+		if err := platform.SendMessage(ctx, e.BotToken, chat, text); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (r *Runtime) poll(ctx context.Context, e BotEntry) {
+// announceWatch polls the active announcements every 30 seconds and pushes
+// the ones this bot has not sent yet (new publications and content edits) to
+// its push targets. The first pass only records the baseline watermark, so
+// enabling sync never replays the announcement history.
+func (r *Runtime) announceWatch(ctx context.Context, e BotEntry, platform Platform) {
+	state, err := r.Store.AnnounceState(ctx, e.ID)
+	if err != nil {
+		r.report(e.ID, ctx, err)
+	}
+	check := func() {
+		if !r.allowed(ctx) {
+			return
+		}
+		workCtx, cancel := context.WithTimeout(ctx, time.Minute)
+		defer cancel()
+		list, err := r.Data.Announcements(workCtx)
+		if err != nil {
+			r.report(e.ID, workCtx, err)
+			return
+		}
+		changed := false
+		// Deliver oldest first so group members read announcements in order.
+		for i := len(list) - 1; i >= 0; i-- {
+			a := list[i]
+			key := strconv.FormatInt(a.ID, 10)
+			hash := announcementHash(a)
+			if state.Hashes[key] == hash {
+				continue
+			}
+			if state.Seeded {
+				text := FormatAnnouncement(a)
+				for _, chat := range e.ChatIDs {
+					if err := platform.SendMessage(workCtx, e.BotToken, chat, text); err != nil {
+						r.report(e.ID, workCtx, err)
+						break
+					}
+				}
+			}
+			state.Hashes[key] = hash
+			changed = true
+		}
+		if !state.Seeded {
+			state.Seeded = true
+			changed = true
+		}
+		if changed {
+			r.report(e.ID, workCtx, r.Store.SaveAnnounceState(workCtx, e.ID, state))
+		}
+	}
+	check()
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			check()
+		}
+	}
+}
+
+func announcementHash(a Announcement) string {
+	sum := sha256.Sum256([]byte(a.Title + "\x00" + a.Content))
+	return hex.EncodeToString(sum[:8])
+}
+
+func (r *Runtime) poll(ctx context.Context, e BotEntry, platform Platform) {
 	var offset int64
 	for ctx.Err() == nil {
 		if !r.allowed(ctx) {
@@ -423,7 +515,7 @@ func (r *Runtime) poll(ctx context.Context, e BotEntry) {
 			}
 			continue
 		}
-		messages, err := r.Platform.Poll(ctx, e.BotToken, offset)
+		messages, err := platform.Poll(ctx, e.BotToken, offset)
 		if err != nil {
 			r.report(e.ID, ctx, err)
 			if !wait(ctx, 5*time.Second) {
@@ -435,7 +527,7 @@ func (r *Runtime) poll(ctx context.Context, e BotEntry) {
 			if !r.allowed(ctx) {
 				return
 			}
-			if err = r.process(ctx, e, m); err != nil {
+			if err = r.process(ctx, e, platform, m); err != nil {
 				r.report(e.ID, ctx, err)
 				break
 			}
@@ -446,7 +538,7 @@ func (r *Runtime) poll(ctx context.Context, e BotEntry) {
 	}
 }
 
-func (r *Runtime) process(ctx context.Context, e BotEntry, m Message) error {
+func (r *Runtime) process(ctx context.Context, e BotEntry, platform Platform, m Message) error {
 	var id int64
 	err := r.Store.DB.QueryRowContext(ctx, `INSERT INTO bot_messages(platform,bot_id,bot_row_id,chat_id,chat_type,sender_id,sender_name,text,message_id,update_id)
 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(platform,bot_id,update_id) DO NOTHING RETURNING id`, m.Platform, e.BotID, e.ID, m.ChatID, m.ChatType, m.SenderID, m.SenderName, m.Text, m.MessageID, m.UpdateID).Scan(&id)
@@ -469,7 +561,7 @@ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(platform,bot_id,update_id) DO
 				return saveErr
 			}
 			if renderErr == nil && text != "" && r.allowed(ctx) {
-				renderErr = r.Platform.SendMessage(ctx, e.BotToken, m.ChatID, text)
+				renderErr = platform.SendMessage(ctx, e.BotToken, m.ChatID, text)
 				if renderErr == nil {
 					_, renderErr = r.Store.DB.ExecContext(ctx, "UPDATE bot_messages SET replied=true WHERE id=$1", id)
 				}

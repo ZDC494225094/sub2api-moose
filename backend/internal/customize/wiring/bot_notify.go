@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/botnotify"
@@ -44,13 +43,14 @@ func (d botData) Channels(ctx context.Context) ([]botnotify.Channel, error) {
 	return items, nil
 }
 
-func (d botData) Announcements(ctx context.Context) (string, error) {
-	// Read through the service, applying current schedules before taking five.
+func (d botData) Announcements(ctx context.Context) ([]botnotify.Announcement, error) {
+	// Read through the service, applying current schedules; formatting and
+	// truncation happen in the botnotify package.
 	var active []service.Announcement
 	for page := 1; ; page++ {
 		items, paging, err := d.announcements.List(ctx, pagination.PaginationParams{Page: page, PageSize: 100, SortBy: "created_at", SortOrder: "desc"}, service.AnnouncementListFilters{Status: service.AnnouncementStatusActive})
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		for _, a := range items {
 			if a.IsActiveAt(time.Now()) {
@@ -68,14 +68,11 @@ func (d botData) Announcements(ctx context.Context) (string, error) {
 		return a.CreatedAt
 	}
 	sort.SliceStable(active, func(i, j int) bool { return published(active[i]).After(published(active[j])) })
-	if len(active) > 5 {
-		active = active[:5]
-	}
-	parts := make([]string, 0, len(active))
+	out := make([]botnotify.Announcement, 0, len(active))
 	for _, a := range active {
-		parts = append(parts, a.Title+"\n"+a.Content)
+		out = append(out, botnotify.Announcement{ID: a.ID, Title: a.Title, Content: a.Content})
 	}
-	return strings.Join(parts, "\n\n"), nil
+	return out, nil
 }
 
 func (d botData) SiteName(ctx context.Context) (string, error) {
@@ -92,7 +89,7 @@ func (d botData) SiteName(ctx context.Context) (string, error) {
 
 // Wire's cleanup runs before database infrastructure is closed.
 func ProvideBotNotify(db *sql.DB, cipher service.SecretEncryptor, settings service.SettingRepository, settingService *service.SettingService, channels *service.ChannelMonitorService, announcements *service.AnnouncementService) *botnotify.Handler {
-	r := botnotify.NewRuntime(&botnotify.Store{DB: db, Cipher: cipher}, botnotify.NewTelegram(), botData{channels: channels, announcements: announcements, settings: settings}, settingService.CustomExtensions())
+	r := botnotify.NewRuntime(&botnotify.Store{DB: db, Cipher: cipher}, map[string]botnotify.Platform{"telegram": botnotify.NewTelegram(), "qq": botnotify.NewQQ()}, botData{channels: channels, announcements: announcements, settings: settings}, settingService.CustomExtensions())
 	r.Start()
 	return &botnotify.Handler{Runtime: r}
 }

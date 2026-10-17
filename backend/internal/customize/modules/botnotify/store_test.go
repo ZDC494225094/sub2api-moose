@@ -87,11 +87,11 @@ func TestProcessPersistsUnaddressedGroupAndOffset(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 	p := &testPlatform{}
-	r := NewRuntime(&Store{DB: db}, p, &testData{}, enabledState{true})
+	r := NewRuntime(&Store{DB: db}, map[string]Platform{"telegram": p}, &testData{}, enabledState{true})
 	m := Message{Platform: "telegram", UpdateID: 42, MessageID: 4, ChatID: "-123", ChatType: "group", Text: "渠道状态"}
 	mock.ExpectQuery("INSERT INTO bot_messages").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(7))
 	mock.ExpectExec("UPDATE bot_notify_bots SET update_offset").WithArgs(int64(43), int64(1), int64(12)).WillReturnResult(sqlmock.NewResult(0, 1))
-	require.NoError(t, r.process(context.Background(), BotEntry{ID: 1, Config: Config{BotID: 12}}, m))
+	require.NoError(t, r.process(context.Background(), BotEntry{ID: 1, Config: Config{BotID: 12}}, p, m))
 	require.Zero(t, p.sent)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
@@ -101,10 +101,10 @@ func TestProcessDuplicateDoesNotReplyAgain(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 	p := &testPlatform{}
-	r := NewRuntime(&Store{DB: db}, p, &testData{}, enabledState{true})
+	r := NewRuntime(&Store{DB: db}, map[string]Platform{"telegram": p}, &testData{}, enabledState{true})
 	mock.ExpectQuery("INSERT INTO bot_messages").WillReturnError(sql.ErrNoRows)
 	mock.ExpectExec("UPDATE bot_notify_bots SET update_offset").WillReturnResult(sqlmock.NewResult(0, 1))
-	require.NoError(t, r.process(context.Background(), BotEntry{ID: 1, Config: Config{BotID: 12}}, Message{ChatType: "private", Text: "/status"}))
+	require.NoError(t, r.process(context.Background(), BotEntry{ID: 1, Config: Config{BotID: 12}}, p, Message{ChatType: "private", Text: "/status"}))
 	require.Zero(t, p.sent)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
@@ -114,7 +114,7 @@ func TestProcessRepliesOnlyFirstMatchingRule(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 	p := &testPlatform{}
-	r := NewRuntime(&Store{DB: db}, p, &testData{}, enabledState{true})
+	r := NewRuntime(&Store{DB: db}, map[string]Platform{"telegram": p}, &testData{}, enabledState{true})
 	mock.ExpectQuery("INSERT INTO bot_messages").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(7))
 	now := time.Now()
 	mock.ExpectQuery("SELECT id,bot_id,keyword").WillReturnRows(sqlmock.NewRows([]string{"id", "bot_id", "keyword", "match_type", "reply_template", "enabled", "sort", "created_at", "updated_at"}).
@@ -123,7 +123,7 @@ func TestProcessRepliesOnlyFirstMatchingRule(t *testing.T) {
 	mock.ExpectExec("UPDATE bot_messages SET rule_id").WithArgs(int64(1), "first", int64(7)).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("UPDATE bot_messages SET replied=true").WithArgs(int64(7)).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("UPDATE bot_notify_bots SET update_offset").WillReturnResult(sqlmock.NewResult(0, 1))
-	require.NoError(t, r.process(context.Background(), BotEntry{ID: 1, Config: Config{BotID: 12}}, Message{ChatType: "private", Text: "/status"}))
+	require.NoError(t, r.process(context.Background(), BotEntry{ID: 1, Config: Config{BotID: 12}}, p, Message{ChatType: "private", Text: "/status"}))
 	require.Equal(t, 1, p.sent)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

@@ -49,6 +49,12 @@ type Config struct {
 	PushTemplate    string   `json:"push_template"`
 	BotUsername     string   `json:"bot_username"`
 	BotID           int64    `json:"bot_id"`
+	// AppID is the QQ bot's app id in clear text (the secret rides encrypted
+	// in BotToken as a JSON credential blob). Empty for Telegram bots.
+	AppID string `json:"app_id,omitempty"`
+	// AnnounceSync pushes newly published or edited announcements to the
+	// bot's push targets automatically.
+	AnnounceSync bool `json:"announce_sync_enabled"`
 }
 
 // BotEntry is one configured bot row: an admin label, a platform and the
@@ -83,8 +89,16 @@ type Channel struct {
 	Timeline                 []Point
 }
 
+// Announcement is one currently-active site announcement with its raw
+// Markdown body; formatting (Markdown flattening) happens in this package.
+type Announcement struct {
+	ID      int64
+	Title   string
+	Content string
+}
+
 type Data interface {
 	Channels(context.Context) ([]Channel, error)
-	Announcements(context.Context) (string, error)
+	Announcements(context.Context) ([]Announcement, error)
 	SiteName(context.Context) (string, error)
 }

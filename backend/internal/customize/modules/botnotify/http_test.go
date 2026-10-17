@@ -28,7 +28,7 @@ func TestRoutesGateDisabledModuleAndMaskConfig(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
-	h := &Handler{Runtime: NewRuntime(&Store{DB: db, Cipher: testCipher{}}, &testPlatform{}, &testData{}, enabledState{true})}
+	h := &Handler{Runtime: NewRuntime(&Store{DB: db, Cipher: testCipher{}}, map[string]Platform{"telegram": &testPlatform{}}, &testData{}, enabledState{true})}
 	router := gin.New()
 	h.Register(router.Group("/admin"), customize.NewManager(flagStore{false}))
 	for _, path := range []string{"bots", "bots/1", "bots/1/status", "bots/1/messages", "bots/1/rules"} {

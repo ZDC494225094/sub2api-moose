@@ -19,7 +19,9 @@ func (d *testData) Channels(context.Context) ([]Channel, error) {
 	d.calls++
 	return []Channel{{GroupName: "A", Model: "model", Status: "operational", LatencyMS: 42, Availability: 99.123}}, d.err
 }
-func (d *testData) Announcements(context.Context) (string, error) { return "公告 {now}", d.err }
+func (d *testData) Announcements(context.Context) ([]Announcement, error) {
+	return []Announcement{{ID: 1, Content: "公告 {now}"}}, d.err
+}
 func (d *testData) SiteName(context.Context) (string, error)      { return "测试站", d.err }
 
 func TestTemplateRendering(t *testing.T) {
@@ -90,9 +92,11 @@ func TestGroupAddressing(t *testing.T) {
 func TestValidationAndMasking(t *testing.T) {
 	require.Equal(t, "****abcd", MaskToken("123456:abcd"))
 	require.Equal(t, "****", MaskToken("abc"))
-	require.NoError(t, ValidateConfig(Config{IntervalMinutes: 60, ChatIDs: []string{"-100123", "123"}}))
-	require.Error(t, ValidateConfig(Config{IntervalMinutes: 0}))
-	require.Error(t, ValidateConfig(Config{IntervalMinutes: 60, ChatIDs: []string{"-"}}))
+	require.NoError(t, ValidateConfig("telegram", Config{IntervalMinutes: 60, ChatIDs: []string{"-100123", "123"}}))
+	require.Error(t, ValidateConfig("telegram", Config{IntervalMinutes: 0}))
+	require.Error(t, ValidateConfig("telegram", Config{IntervalMinutes: 60, ChatIDs: []string{"-"}}))
+	require.NoError(t, ValidateConfig("qq", Config{IntervalMinutes: 60, ChatIDs: []string{"group:ABC123", "user:XYZ789"}}))
+	require.Error(t, ValidateConfig("qq", Config{IntervalMinutes: 60, ChatIDs: []string{"123"}}))
 	require.Error(t, ValidateRule(Rule{Keyword: "", MatchType: "exact"}))
 	require.Error(t, ValidateRule(Rule{Keyword: "status@other", MatchType: "command"}))
 }

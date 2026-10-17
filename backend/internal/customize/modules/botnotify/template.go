@@ -57,6 +57,33 @@ func ChannelStatus(channels []Channel, abnormal bool, now time.Time) string {
 	return out.String()
 }
 
+// FormatAnnouncement renders one announcement as its title plus its body
+// flattened from Markdown to plain text (chat platforms get no parse mode).
+func FormatAnnouncement(a Announcement) string {
+	body := PlainText(a.Content)
+	if a.Title == "" {
+		return body
+	}
+	if body == "" {
+		return a.Title
+	}
+	return a.Title + "\n" + body
+}
+
+// FormatAnnouncements renders at most limit announcements, newest first.
+func FormatAnnouncements(list []Announcement, limit int) string {
+	if len(list) > limit {
+		list = list[:limit]
+	}
+	parts := make([]string, 0, len(list))
+	for _, a := range list {
+		if text := FormatAnnouncement(a); text != "" {
+			parts = append(parts, text)
+		}
+	}
+	return strings.Join(parts, "\n\n")
+}
+
 // Render loads each dependency once, only if referenced. Inserted data is never
 // interpreted as another template, so announcement text stays literal.
 func Render(ctx context.Context, data Data, template string, now time.Time) (string, error) {
@@ -69,11 +96,11 @@ func Render(ctx context.Context, data Data, template string, now time.Time) (str
 		pairs = append(pairs, "{channel_status}", ChannelStatus(channels, false, now), "{channel_status_abnormal}", ChannelStatus(channels, true, now))
 	}
 	if strings.Contains(template, "{announcements}") {
-		value, err := data.Announcements(ctx)
+		list, err := data.Announcements(ctx)
 		if err != nil {
 			return "", err
 		}
-		pairs = append(pairs, "{announcements}", value)
+		pairs = append(pairs, "{announcements}", FormatAnnouncements(list, 5))
 	}
 	if strings.Contains(template, "{site_name}") {
 		value, err := data.SiteName(ctx)

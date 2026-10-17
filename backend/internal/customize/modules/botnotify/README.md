@@ -2,12 +2,24 @@
 
 Module ID: `bot-notify`. Default: disabled for both native and legacy installs.
 The admin enables it in the existing customization page, then opens the
-「消息机器人」 item in the admin sidebar. No QQ transport (yet), webhook or
-user/account binding.
+「消息机器人」 item in the admin sidebar. Transports: Telegram (long polling)
+and QQ (official bot API: REST v2 send + WebSocket gateway receive). No
+webhook or user/account binding.
+
+Announcement sync: a per-bot switch makes a watcher poll the active
+announcements every 30 seconds and push newly published or content-edited
+ones to the bot's push targets; the watermark is `bot_notify_bots.
+announce_state`, seeded silently on the first pass so history never replays.
+Announcement bodies are Markdown and are flattened to plain text
+(`PlainText`, markdown.go) before anything is sent, including the
+`{announcements}` template placeholder. QQ credentials are AppID +
+AppSecret (encrypted JSON blob in the token field; AppID also in clear in
+`config.app_id`); QQ targets are `group:<group_openid>` / `user:<user_openid>`
+and proactive sends may hit QQ quotas — rejections surface in bot status.
 
 ## Ownership and wiring
 
-- Backend domain, SQL repository, HTTP API and Telegram transport: this folder.
+- Backend domain, SQL repository, HTTP API and Telegram/QQ transports: this folder.
 - Internal-service adapters and worker construction: `customize/wiring/bot_notify.go`.
 - Lifecycle switch notification: `customize/lifecycle.go`; changes from other
   processes are reconciled every two seconds. Workers are canceled and joined
@@ -18,7 +30,8 @@ user/account binding.
   management page), registered through the extension route/catalog and one
   admin sidebar entry.
 - Migrations: `migrations/sql/bot-notify/202610170001_bot_notify.sql` (v1
-  single-bot schema) and `202610170002_bot_notify_multi_bot.sql` (multi-bot).
+  single-bot schema), `202610170002_bot_notify_multi_bot.sql` (multi-bot) and
+  `202610170003_bot_notify_announce_state.sql` (announcement watermark).
 
 ## Storage
 
