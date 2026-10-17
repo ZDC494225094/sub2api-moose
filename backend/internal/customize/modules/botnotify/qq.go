@@ -10,6 +10,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -76,6 +77,21 @@ func NewQQ() *QQ {
 	}
 }
 
+// jsonFieldNames lists the top-level keys of a JSON object body (names only)
+// for error diagnostics; values are never included.
+func jsonFieldNames(raw []byte) string {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return "non-json"
+	}
+	names := make([]string, 0, len(obj))
+	for k := range obj {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	return strings.Join(names, ",")
+}
+
 func hashStringID(s string) int64 {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(s))
@@ -104,14 +120,24 @@ func (q *QQ) accessToken(ctx context.Context, creds qqCreds, force bool) (string
 		return "", errors.New("qq token request failed")
 	}
 	defer resp.Body.Close()
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	var out struct {
 		AccessToken string `json:"access_token"`
 		ExpiresIn   int64  `json:"expires_in"`
 		Code        int    `json:"code"`
 		Message     string `json:"message"`
 		Msg         string `json:"msg"`
+		Data        *struct {
+			AccessToken string `json:"access_token"`
+			ExpiresIn   int64  `json:"expires_in"`
+		} `json:"data"`
 	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&out); err != nil || out.AccessToken == "" {
+	_ = json.Unmarshal(raw, &out)
+	// Some QQ deployments nest the payload under "data".
+	if out.AccessToken == "" && out.Data != nil && out.Data.AccessToken != "" {
+		out.AccessToken, out.ExpiresIn = out.Data.AccessToken, out.Data.ExpiresIn
+	}
+	if out.AccessToken == "" {
 		reason := out.Message
 		if reason == "" {
 			reason = out.Msg
@@ -121,7 +147,9 @@ func (q *QQ) accessToken(ctx context.Context, creds qqCreds, force bool) (string
 		}
 		// Common cause: the QQ console's IP whitelist does not yet include
 		// this server's public IP; QQ's own wording says so when present.
-		return "", fmt.Errorf("qq token rejected (HTTP %d, code %d): %s", resp.StatusCode, out.Code, reason)
+		// The field list (names only, never values) makes shape mismatches
+		// diagnosable without leaking the token itself.
+		return "", fmt.Errorf("qq token rejected (HTTP %d, code %d): %s [fields: %s]", resp.StatusCode, out.Code, reason, jsonFieldNames(raw))
 	}
 	ttl := time.Duration(out.ExpiresIn) * time.Second
 	if ttl <= 0 {
@@ -204,9 +232,19 @@ func (q *QQ) ValidateToken(ctx context.Context, token string) (Bot, error) {
 	var me struct {
 		ID       string `json:"id"`
 		Username string `json:"username"`
+		Data     *struct {
+			ID       string `json:"id"`
+			Username string `json:"username"`
+		} `json:"data"`
 	}
 	if err := q.apiCall(ctx, creds, http.MethodGet, "/users/@me", nil, &me); err != nil {
 		return bot, err
+	}
+	if me.ID == "" && me.Data != nil {
+		me.ID, me.Username = me.Data.ID, me.Data.Username
+	}
+	if me.ID == "" {
+		return bot, errors.New("qq /users/@me 返回里没有机器人 id")
 	}
 	return Bot{ID: hashStringID("qq-bot:" + me.ID), Username: me.Username}, nil
 }
@@ -313,9 +351,18 @@ func (q *QQ) runSession(creds qqCreds, s *qqSession) {
 		return
 	}
 	var gateway struct {
-		URL string `json:"url"`
+		URL  string `json:"url"`
+		Data *struct {
+			URL string `json:"url"`
+		} `json:"data"`
 	}
-	if err := q.apiCall(ctx, creds, http.MethodGet, "/gateway", nil, &gateway); err != nil || gateway.URL == "" {
+	if err := q.apiCall(ctx, creds, http.MethodGet, "/gateway", nil, &gateway); err != nil {
+		return
+	}
+	if gateway.URL == "" && gateway.Data != nil {
+		gateway.URL = gateway.Data.URL
+	}
+	if gateway.URL == "" {
 		return
 	}
 	conn, _, err := websocket.DefaultDialer.DialContext(ctx, gateway.URL, nil)
