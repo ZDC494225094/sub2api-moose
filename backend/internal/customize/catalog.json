@@ -1,5 +1,15 @@
 [
   {
+    "id": "bot-notify",
+    "name": "消息机器人",
+    "description": "Telegram 定时推送、关键词回复与接收消息管理，支持渠道状态和公告模板。",
+    "managed": true,
+    "disable_behavior": "关闭后停止轮询与推送、隐藏管理入口，已存消息与规则保留。",
+    "paths": ["/admin/bot-notify"],
+    "slots": ["layout-overlay"],
+    "gates": ["/api/v1/admin/bot-notify/*"]
+  },
+  {
     "id": "redeem-marketing",
     "name": "营销兑换码转化",
     "description": "营销码新注册用户限制与按批次的付费回购转化统计。",

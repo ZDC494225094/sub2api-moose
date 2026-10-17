@@ -22,6 +22,7 @@ const rechargeTicker = markRaw(defineAsyncComponent(() => import('./modules/rech
 // Adding another visual extension only changes this owned registry, never the
 // upstream HomeView, AppHeader or AppLayout implementations.
 export const extensionSlots: readonly ExtensionSlotEntry[] = [
+  { key: 'bot-notify-entry', extension: 'bot-notify', slot: 'layout-overlay', component: markRaw(defineAsyncComponent(() => import('./modules/bot-notify/BotNotifyEntry.vue'))), visible: route => route.path === '/admin/custom-extensions' },
   { key: 'redeem-marketing-options', extension: 'redeem-marketing', slot: 'redeem-marketing-options', component: markRaw(defineAsyncComponent(() => import('./modules/redeem-marketing/GenerationOptions.vue'))) },
   { key: 'redeem-marketing-report', extension: 'redeem-marketing', slot: 'redeem-marketing-report', component: markRaw(defineAsyncComponent(() => import('./modules/redeem-marketing/BatchReport.vue'))) },
   { key: 'coupon-selection', extension: 'marketing-tools', slot: 'checkout-discount-selection', component: markRaw(defineAsyncComponent(() => import('./modules/marketing/CouponSelection.vue'))) },

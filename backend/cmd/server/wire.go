@@ -84,6 +84,7 @@ func providePluginHostInfo(buildInfo handler.BuildInfo) service.PluginHostInfo {
 }
 
 func provideCleanup(
+	extensions *handler.ExtensionHandlers,
 	entClient *ent.Client,
 	rdb *redis.Client,
 	opsMetricsCollector *service.OpsMetricsCollector,
@@ -137,6 +138,9 @@ func provideCleanup(
 	playgroundRuns *service.PlaygroundRunService,
 ) func() {
 	return func() {
+		if extensions != nil && extensions.BotNotify != nil {
+			extensions.BotNotify.Runtime.Stop()
+		}
 		// Stop producers before shutting down billing workers and storage.
 		if playgroundRuns != nil {
 			playgroundRuns.Stop()

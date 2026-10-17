@@ -17,6 +17,7 @@ import (
 )
 
 var ProviderSet = wire.NewSet(
+	ProvideBotNotify,
 	repository.NewOperationsRepository,
 	service.NewOperationsService,
 	service.NewOperationsMarketingEmailService,

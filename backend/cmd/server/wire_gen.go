@@ -341,7 +341,8 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	v11 := repository.NewLotteryConsumeProgressRepository(db)
 	v12 := wiring.ProvideLotteryService(client, v6, v7, v8, v9, v10, v11, userRepository, redeemService, v5, newBusinessAdmission)
 	marketingHandler := wiring.ProvideMarketingHandler(v5, v12)
-	extensionHandlers := handler.NewExtensionHandlers(operationsHandler, playgroundHandler, rechargecampaignsHandler, marketingHandler)
+	botnotifyHandler := wiring.ProvideBotNotify(db, secretEncryptor, settingRepository, settingService, channelMonitorService, announcementService)
+	extensionHandlers := handler.NewExtensionHandlers(operationsHandler, playgroundHandler, rechargecampaignsHandler, marketingHandler, botnotifyHandler)
 	modelPlazaService := service.NewModelPlazaService(channelRepository, groupRepository, pricingService, billingService, modelPricingResolver)
 	modelPlazaHandler := handler.NewModelPlazaHandler(modelPlazaService, apiKeyService, settingService)
 	imageTaskStore := repository.NewImageTaskStore(redisClient)
@@ -385,7 +386,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService, channelMonitorQuotaFetcher)
 	channelMonitorV2Aggregator := service.ProvideChannelMonitorV2Aggregator(channelMonitorV2Repository, db, settingService)
 	userPlatformQuotaUsageFlusher := service.ProvideUserPlatformQuotaUsageFlusher(configConfig, billingCache, serviceUserPlatformQuotaRepository, timingWheelService)
-	v13 := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, opsService, opsIngressRejectAggregator, apiKeyService, authCacheInvalidationWorker, schedulerSnapshotService, tokenRefreshService, accountExpiryService, cnProviderBalanceCheckService, openAICodexVersionSyncService, claudeCodeVersionSyncService, proxyExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, geminiCachedContentService, batchImageCleanupService, batchImageWorkerRuntime, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, userBalanceSnapshotService, paymentOrderExpiryService, channelMonitorRunner, channelMonitorV2Aggregator, userPlatformQuotaUsageFlusher, upstreamBillingProbeService, ollamaCloudUsageService, openCodeGoUsageService, auditLogService, openAIQuotaAutoResetService, promptService, pluginManager, playgroundRunService)
+	v13 := provideCleanup(extensionHandlers, client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, opsService, opsIngressRejectAggregator, apiKeyService, authCacheInvalidationWorker, schedulerSnapshotService, tokenRefreshService, accountExpiryService, cnProviderBalanceCheckService, openAICodexVersionSyncService, claudeCodeVersionSyncService, proxyExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, geminiCachedContentService, batchImageCleanupService, batchImageWorkerRuntime, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, userBalanceSnapshotService, paymentOrderExpiryService, channelMonitorRunner, channelMonitorV2Aggregator, userPlatformQuotaUsageFlusher, upstreamBillingProbeService, ollamaCloudUsageService, openCodeGoUsageService, auditLogService, openAIQuotaAutoResetService, promptService, pluginManager, playgroundRunService)
 	application := &Application{
 		Server:        httpServer,
 		PromptAudit:   promptService,
@@ -423,6 +424,7 @@ func providePluginHostInfo(buildInfo handler.BuildInfo) service.PluginHostInfo {
 }
 
 func provideCleanup(
+	extensions *handler.ExtensionHandlers,
 	entClient *ent.Client,
 	rdb *redis.Client,
 	opsMetricsCollector *service.OpsMetricsCollector,
@@ -476,6 +478,9 @@ func provideCleanup(
 	playgroundRuns *service.PlaygroundRunService,
 ) func() {
 	return func() {
+		if extensions != nil && extensions.BotNotify != nil {
+			extensions.BotNotify.Runtime.Stop()
+		}
 
 		if playgroundRuns != nil {
 			playgroundRuns.Stop()

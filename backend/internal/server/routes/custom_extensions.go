@@ -31,6 +31,9 @@ func registerCustomUserRoutes(authenticated *gin.RouterGroup, h *handler.Handler
 }
 
 func registerCustomOperationsRoutes(admin *gin.RouterGroup, h *handler.Handlers, extensions *customize.Manager) {
+	if h != nil && h.Extensions != nil && h.Extensions.BotNotify != nil {
+		h.Extensions.BotNotify.Register(admin, extensions)
+	}
 	if h == nil || h.Extensions == nil || h.Extensions.Operations == nil {
 		return
 	}

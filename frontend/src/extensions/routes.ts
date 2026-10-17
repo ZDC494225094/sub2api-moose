@@ -3,6 +3,12 @@ import { marketingRoutes } from './modules/marketing/routes'
 
 // Host route registration stays one spread, independent of the number of extensions.
 export const customExtensionRoutes: RouteRecordRaw[] = [
+  {
+    path: '/admin/bot-notify',
+    name: 'AdminBotNotify',
+    component: () => import('./modules/bot-notify/BotNotifyView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: '消息机器人' },
+  },
   ...marketingRoutes,
   {
     path: '/',

@@ -166,6 +166,7 @@ func (m *Manager) SetEnabled(ctx context.Context, id string, enabled bool) error
 	if err := m.store.Set(ctx, Key(id), strconv.FormatBool(enabled)); err != nil {
 		return unavailable()
 	}
+	notifyLifecycle(id)
 	return nil
 }
 
@@ -188,6 +189,8 @@ func RequestExtension(method, path string) string {
 		return "premium-home"
 	case pathUnder(path, "/canvas"):
 		return "infinite-canvas"
+	case pathUnder(path, "/admin/bot-notify"):
+		return "bot-notify"
 	case method == "POST" && path == "/api/v1/playground/runs":
 		return "playground"
 	case path == "/api/v1/canvas/config" || (method == "POST" && path == "/api/v1/canvas/runs"):
