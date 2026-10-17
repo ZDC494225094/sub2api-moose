@@ -25,7 +25,14 @@ func (d botData) Channels(ctx context.Context) ([]botnotify.Channel, error) {
 	}
 	items := make([]botnotify.Channel, 0, len(views))
 	for _, v := range views {
-		c := botnotify.Channel{GroupName: v.GroupName, Model: v.PrimaryModel, Status: v.PrimaryStatus, Availability: v.Availability7d}
+		// Monitors are usually labelled by name; group_name is an optional
+		// extra field that is often empty. Fall back to the monitor name so
+		// the rendered heading never loses its label.
+		label := v.GroupName
+		if label == "" {
+			label = v.Name
+		}
+		c := botnotify.Channel{GroupName: label, Model: v.PrimaryModel, Status: v.PrimaryStatus, Availability: v.Availability7d}
 		if v.PrimaryLatencyMs != nil {
 			c.LatencyMS = *v.PrimaryLatencyMs
 		}

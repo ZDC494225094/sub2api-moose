@@ -15,56 +15,136 @@ type Handler struct{ Runtime *Runtime }
 
 func (h *Handler) Register(group *gin.RouterGroup, manager *customize.Manager) {
 	g := group.Group("/bot-notify", manager.Require(ID))
-	g.GET("/config", h.config)
-	g.PUT("/config", h.saveConfig)
-	g.GET("/status", func(c *gin.Context) {
-		status := h.Runtime.Status()
-		cfg, err := h.Runtime.Store.Config(c.Request.Context(), false)
-		if response.ErrorFrom(c, err) {
-			return
-		}
-		status.Bot = Bot{ID: cfg.BotID, Username: cfg.BotUsername}
-		response.Success(c, status)
-	})
-	g.POST("/test-send", h.testSend)
-	g.GET("/messages", h.messages)
-	g.GET("/rules", func(c *gin.Context) {
-		items, err := h.Runtime.Store.Rules(c.Request.Context())
-		if !response.ErrorFrom(c, err) {
-			response.Success(c, gin.H{"items": items})
-		}
-	})
-	g.POST("/rules", h.saveRule)
-	g.PUT("/rules/:id", h.saveRule)
-	g.DELETE("/rules/:id", h.deleteRule)
+	g.GET("/bots", h.listBots)
+	g.POST("/bots", h.createBot)
+	g.GET("/bots/:id", h.getBot)
+	g.PUT("/bots/:id", h.saveBot)
+	g.DELETE("/bots/:id", h.deleteBot)
+	g.GET("/bots/:id/status", h.botStatus)
+	g.POST("/bots/:id/test-send", h.testSend)
+	g.GET("/bots/:id/messages", h.messages)
+	g.GET("/bots/:id/rules", h.listRules)
+	g.POST("/bots/:id/rules", h.saveRule)
+	g.PUT("/bots/:id/rules/:ruleId", h.saveRule)
+	g.DELETE("/bots/:id/rules/:ruleId", h.deleteRule)
 }
 
-func (h *Handler) config(c *gin.Context) {
+func parseBotID(c *gin.Context) (int64, bool) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id < 1 {
+		response.BadRequest(c, "无效机器人 ID")
+		return 0, false
+	}
+	return id, true
+}
+
+// loadBot fetches a bot for the handler or writes the error response itself.
+func (h *Handler) loadBot(c *gin.Context, decrypt bool) (BotEntry, bool) {
+	id, ok := parseBotID(c)
+	if !ok {
+		return BotEntry{}, false
+	}
+	entry, err := h.Runtime.Store.BotByID(c.Request.Context(), id, decrypt)
+	if err == sql.ErrNoRows {
+		response.NotFound(c, "机器人不存在")
+		return BotEntry{}, false
+	}
+	if response.ErrorFrom(c, err) {
+		return BotEntry{}, false
+	}
+	return entry, true
+}
+
+func (h *Handler) listBots(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
-	cfg, err := h.Runtime.Store.Config(c.Request.Context(), false)
+	items, err := h.Runtime.Store.Bots(c.Request.Context(), false)
 	if !response.ErrorFrom(c, err) {
-		response.Success(c, cfg)
+		response.Success(c, gin.H{"items": items})
 	}
 }
 
-func (h *Handler) saveConfig(c *gin.Context) {
-	var cfg Config
-	if err := c.ShouldBindJSON(&cfg); err != nil {
+func (h *Handler) getBot(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	if entry, ok := h.loadBot(c, false); ok {
+		response.Success(c, entry)
+	}
+}
+
+func (h *Handler) createBot(c *gin.Context) {
+	var entry BotEntry
+	if err := c.ShouldBindJSON(&entry); err != nil {
 		response.BadRequest(c, "配置格式错误")
 		return
 	}
-	if err := ValidateConfig(cfg); err != nil {
-		response.BadRequest(c, err.Error())
-		return
-	}
+	entry.ID = 0
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
-	if err := h.Runtime.Store.SaveConfig(ctx, cfg, h.Runtime.Platform); err != nil {
+	id, err := h.Runtime.Store.CreateBot(ctx, entry, h.Runtime.Platform)
+	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}
 	h.Runtime.signal()
-	h.config(c)
+	created, err := h.Runtime.Store.BotByID(c.Request.Context(), id, false)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	response.Success(c, created)
+}
+
+func (h *Handler) saveBot(c *gin.Context) {
+	id, ok := parseBotID(c)
+	if !ok {
+		return
+	}
+	var entry BotEntry
+	if err := c.ShouldBindJSON(&entry); err != nil {
+		response.BadRequest(c, "配置格式错误")
+		return
+	}
+	entry.ID = id
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancel()
+	err := h.Runtime.Store.SaveBot(ctx, entry, h.Runtime.Platform)
+	if err == sql.ErrNoRows {
+		response.NotFound(c, "机器人不存在")
+		return
+	}
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	h.Runtime.signal()
+	if saved, ok := h.loadBot(c, false); ok {
+		response.Success(c, saved)
+	}
+}
+
+func (h *Handler) deleteBot(c *gin.Context) {
+	id, ok := parseBotID(c)
+	if !ok {
+		return
+	}
+	deleted, err := h.Runtime.Store.DeleteBot(c.Request.Context(), id)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	if !deleted {
+		response.NotFound(c, "机器人不存在")
+		return
+	}
+	h.Runtime.signal()
+	response.Success(c, gin.H{"deleted": true})
+}
+
+func (h *Handler) botStatus(c *gin.Context) {
+	entry, ok := h.loadBot(c, false)
+	if !ok {
+		return
+	}
+	status := h.Runtime.Status(entry.ID)
+	status.Bot = Bot{ID: entry.BotID, Username: entry.BotUsername}
+	response.Success(c, status)
 }
 
 func (h *Handler) testSend(c *gin.Context) {
@@ -78,19 +158,19 @@ func (h *Handler) testSend(c *gin.Context) {
 	}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
-	cfg, err := h.Runtime.Store.Config(ctx, true)
-	if response.ErrorFrom(c, err) {
+	entry, ok := h.loadBot(c, true)
+	if !ok {
 		return
 	}
-	if cfg.BotToken == "" {
+	if entry.BotToken == "" {
 		response.BadRequest(c, "请先配置 bot token")
 		return
 	}
 	if req.Text == "" {
 		req.Text = "sub2api 消息机器人测试成功"
 	}
-	if err = h.Runtime.Platform.SendMessage(ctx, cfg.BotToken, req.ChatID, req.Text); err != nil {
-		h.Runtime.report(ctx, err)
+	if err := h.Runtime.Platform.SendMessage(ctx, entry.BotToken, req.ChatID, req.Text); err != nil {
+		h.Runtime.report(entry.ID, ctx, err)
 		response.BadRequest(c, err.Error())
 		return
 	}
@@ -98,6 +178,10 @@ func (h *Handler) testSend(c *gin.Context) {
 }
 
 func (h *Handler) messages(c *gin.Context) {
+	id, ok := parseBotID(c)
+	if !ok {
+		return
+	}
 	page, size := response.ParsePagination(c)
 	if size > 100 {
 		size = 100
@@ -106,26 +190,42 @@ func (h *Handler) messages(c *gin.Context) {
 		response.BadRequest(c, "页码过大")
 		return
 	}
-	items, total, err := h.Runtime.Store.Messages(c.Request.Context(), c.Query("chat_id"), c.Query("keyword"), page, size)
+	items, total, err := h.Runtime.Store.Messages(c.Request.Context(), id, c.Query("chat_id"), c.Query("keyword"), page, size)
 	if !response.ErrorFrom(c, err) {
 		response.Success(c, gin.H{"items": items, "total": total, "page": page, "page_size": size})
 	}
 }
 
+func (h *Handler) listRules(c *gin.Context) {
+	id, ok := parseBotID(c)
+	if !ok {
+		return
+	}
+	items, err := h.Runtime.Store.Rules(c.Request.Context(), id)
+	if !response.ErrorFrom(c, err) {
+		response.Success(c, gin.H{"items": items})
+	}
+}
+
 func (h *Handler) saveRule(c *gin.Context) {
+	botID, ok := parseBotID(c)
+	if !ok {
+		return
+	}
 	var rule Rule
 	if c.ShouldBindJSON(&rule) != nil {
 		response.BadRequest(c, "规则格式错误")
 		return
 	}
+	rule.BotID = botID
 	rule.ID = 0
 	if c.Request.Method == "PUT" {
-		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-		if err != nil || id < 1 {
+		ruleID, err := strconv.ParseInt(c.Param("ruleId"), 10, 64)
+		if err != nil || ruleID < 1 {
 			response.BadRequest(c, "无效规则 ID")
 			return
 		}
-		rule.ID = id
+		rule.ID = ruleID
 	}
 	if err := ValidateRule(rule); err != nil {
 		response.BadRequest(c, err.Error())
@@ -142,20 +242,20 @@ func (h *Handler) saveRule(c *gin.Context) {
 }
 
 func (h *Handler) deleteRule(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil || id < 1 {
+	botID, ok := parseBotID(c)
+	if !ok {
+		return
+	}
+	ruleID, err := strconv.ParseInt(c.Param("ruleId"), 10, 64)
+	if err != nil || ruleID < 1 {
 		response.BadRequest(c, "无效规则 ID")
 		return
 	}
-	result, err := h.Runtime.Store.DB.ExecContext(c.Request.Context(), "DELETE FROM bot_reply_rules WHERE id=$1", id)
+	deleted, err := h.Runtime.Store.DeleteRule(c.Request.Context(), botID, ruleID)
 	if response.ErrorFrom(c, err) {
 		return
 	}
-	n, err := result.RowsAffected()
-	if response.ErrorFrom(c, err) {
-		return
-	}
-	if n == 0 {
+	if !deleted {
 		response.NotFound(c, "规则不存在")
 		return
 	}

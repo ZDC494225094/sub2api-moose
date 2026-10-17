@@ -51,8 +51,18 @@ type Config struct {
 	BotID           int64    `json:"bot_id"`
 }
 
+// BotEntry is one configured bot row: an admin label, a platform and the
+// per-bot Config (flattened into the same JSON object).
+type BotEntry struct {
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	Platform string `json:"platform"`
+	Config
+}
+
 type Rule struct {
 	ID            int64     `json:"id"`
+	BotID         int64     `json:"bot_id"`
 	Keyword       string    `json:"keyword"`
 	MatchType     string    `json:"match_type"`
 	ReplyTemplate string    `json:"reply_template"`

@@ -6,7 +6,6 @@
     "managed": true,
     "disable_behavior": "关闭后停止轮询与推送、隐藏管理入口，已存消息与规则保留。",
     "paths": ["/admin/bot-notify"],
-    "slots": ["layout-overlay"],
     "gates": ["/api/v1/admin/bot-notify/*"]
   },
   {

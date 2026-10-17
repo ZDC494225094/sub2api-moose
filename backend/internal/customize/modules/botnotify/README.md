@@ -1,8 +1,9 @@
 # Bot Notify
 
 Module ID: `bot-notify`. Default: disabled for both native and legacy installs.
-The admin enables it in the existing customization page, then follows the
-module's management link. No QQ transport, webhook or user/account binding.
+The admin enables it in the existing customization page, then opens the
+「消息机器人」 item in the admin sidebar. No QQ transport (yet), webhook or
+user/account binding.
 
 ## Ownership and wiring
 
@@ -13,58 +14,69 @@ module's management link. No QQ transport, webhook or user/account binding.
   before the next configuration starts. Shutdown joins workers before DB close.
 - Registration: customize catalog/provider, extension handler container, existing
   custom route registrar, Wire composition/cleanup; no upstream business edits.
-- Frontend: `frontend/src/extensions/modules/bot-notify`, registered through the
-  extension route/catalog and existing layout slot on the customization page.
-- Migration: `migrations/sql/bot-notify/202610170001_bot_notify.sql` only.
+- Frontend: `frontend/src/extensions/modules/bot-notify` (list + per-bot
+  management page), registered through the extension route/catalog and one
+  admin sidebar entry.
+- Migrations: `migrations/sql/bot-notify/202610170001_bot_notify.sql` (v1
+  single-bot schema) and `202610170002_bot_notify_multi_bot.sql` (multi-bot).
 
 ## Storage
 
-`bot_notify_config`: singleton JSONB config and persistent Telegram offset.
-Only the token is encrypted, using the existing SecretEncryptor (AES-256-GCM).
-GET returns `****` plus the final four characters; PUT with an empty token
+`bot_notify_bots`: one row per configured bot — admin label, platform
+(`telegram`), JSONB config and that bot's persistent Telegram offset. Only the
+token is encrypted, using the existing SecretEncryptor (AES-256-GCM). GET
+returns `****` plus the final four characters; PUT with an empty token
 preserves it. Changing bot identity resets the offset; rotating its token does
-not. `getMe` validates replacements and fills username and bot ID.
+not. `getMe` validates replacements and fills username and bot ID. The v1
+singleton table `bot_notify_config` is kept for history; migration 002 copies
+its row into `bot_notify_bots` as the first bot.
 
-`bot_messages`: platform/bot/update uniqueness, chat/sender/text/message IDs,
-nullable rule FK, reply status/content and ingestion timestamp. All received
-events are stored, including unaddressed group messages. Rule deletion preserves
-messages and clears their FK. Retention is 30 days AND at most 2000 messages,
-checked after each received batch and hourly while workers run.
+`bot_messages`: platform/bot/update uniqueness, owning bot row (`bot_row_id`),
+chat/sender/text/message IDs, nullable rule FK, reply status/content and
+ingestion timestamp. All received events are stored, including unaddressed
+group messages. Rule deletion preserves messages and clears their FK;
+deleting a bot cascades its messages and rules. Retention is 30 days AND at
+most 2000 messages, pruned hourly.
 
-`bot_reply_rules`: keyword, contains/exact/command, template, enable, sort and
-timestamps. Match order: sort then ID ascending, first match only. Two default
-entries implement the requested contains keyword and command using one match
-type per row.
+`bot_reply_rules`: owning bot (`bot_id`), keyword, contains/exact/command,
+template, enable, sort and timestamps. Match order: sort then ID ascending,
+first match only. Every newly created bot is seeded with the two default
+entries (contains 渠道状态 and the /status command).
 
 ## Runtime
+
+One worker per configured bot, each holding its own PostgreSQL advisory lock
+(`20261017, 770000 + bot row id`), so multiple instances never consume the same
+bot's offset or duplicate its broadcasts. Reconciliation runs every two
+seconds: workers start, stop and restart as bots are created, edited, deleted
+or the module switch changes. Disabled/unconfigured bots never poll or
+broadcast; rows and rules remain intact. The first broadcast occurs after the
+configured interval, and hot restart resets that interval.
 
 Telegram uses net/http with 30-second long polling, a 40-second per-attempt
 deadline, at most three attempts, bounded backoff and sanitized errors.
 Messages are split into 2000-rune chunks. Group mentions are parsed from
-Telegram UTF-16 entities, including `/status@bot`; replies check bot numeric ID.
-Plain `/status` in a group requires replying to the bot. Private chats match
-normally. Bot privacy mode/permissions must allow Telegram to deliver the events
-the administrator expects; events Telegram does not deliver cannot be stored.
-
-A pinned PostgreSQL advisory lock elects one active worker across instances.
-It consumes one DB connection while active, in addition to normal DB operations.
-Lock health is checked during reconciliation. Disabled/unconfigured modules
-never poll or broadcast; rows and rules remain intact. An admitted send can
-finish while a switch changes. The first broadcast occurs after the configured
-interval, and hot restart resets that interval.
+Telegram UTF-16 entities, including `/status@bot`; replies check bot numeric
+ID. Plain `/status` in a group requires replying to the bot. Private chats
+match normally. Bot privacy mode/permissions must allow Telegram to deliver
+the events the administrator expects; events Telegram does not deliver cannot
+be stored.
 
 Inbound rows are persisted before matching/sending; only completed sends set
-`replied=true`. Telegram has no idempotency key: ambiguous network failures can
-duplicate a send during bounded retries; a previously persisted update is not
-sent again on restart. Thus replies are best-effort, not exactly-once delivery.
+`replied=true`. Telegram has no idempotency key: ambiguous network failures
+can duplicate a send during bounded retries; a previously persisted update is
+not sent again on restart. Thus replies are best-effort, not exactly-once
+delivery.
 
-Both scheduled pushes and rules call the same renderer. It fetches only referenced
-data and substitutes once, leaving unknown placeholders and inserted text literal.
-Channels use `ChannelMonitorService.ListUserView`, the same source as the V1 user
-monitor endpoint; its primary-model timeline is sorted and trimmed to ten.
-Announcements use `AnnouncementService.List`, active status plus `IsActiveAt`,
-latest publication time (starts_at, falling back to created_at), at most five.
-This is a global bot feed, including targeted active announcements; use trusted
+Both scheduled pushes and rules call the same renderer. It fetches only
+referenced data and substitutes once, leaving unknown placeholders and
+inserted text literal. Channels use `ChannelMonitorService.ListUserView`, the
+same source as the V1 user monitor endpoint; the heading label is the
+monitor's group_name, falling back to its name when group_name is empty. Its
+primary-model timeline is sorted and trimmed to ten. Announcements use
+`AnnouncementService.List`, active status plus `IsActiveAt`, latest
+publication time (starts_at, falling back to created_at), at most five. This
+is a global bot feed, including targeted active announcements; use trusted
 destination chats. Site name is read through the settings repository.
 
 ## Admin API
@@ -74,22 +86,24 @@ plus `customize.Require("bot-notify")`:
 
 | Method | Path under /api/v1/admin/bot-notify |
 | --- | --- |
-| GET, PUT | /config |
-| GET | /status |
-| POST | /test-send (chat_id, optional text) |
-| GET | /messages (page, page_size <=100, chat_id, keyword) |
-| GET, POST | /rules |
-| PUT, DELETE | /rules/:id |
+| GET, POST | /bots |
+| GET, PUT, DELETE | /bots/:id |
+| GET | /bots/:id/status |
+| POST | /bots/:id/test-send (chat_id, optional text) |
+| GET | /bots/:id/messages (page, page_size <=100, chat_id, keyword) |
+| GET, POST | /bots/:id/rules |
+| PUT, DELETE | /bots/:id/rules/:ruleId |
 
-Frontend config receives masked token in a label; the password input stays
-empty, so editing other fields never submits the mask as a new secret.
+Frontend config receives the masked token in a label; the password input
+stays empty, so editing other fields never submits the mask as a new secret.
 
 ## Verification
 
 Run `go build ./...`, `go test ./internal/customize/...` in backend.
 In frontend run `pnpm --config.verify-deps-before-run=false run typecheck` and
-the bot TemplateInput/extension catalog/slot Vitest suites. Unit tests cover
+the bot TemplateInput/extension catalog Vitest suites. Unit tests cover
 rendering, status blocks/chronology/abnormal thresholds, addressing/rules,
 UTF-16 Telegram parsing, error redaction, configuration encryption and token
-preservation, duplicate updates, unaddressed persistence, retention and lifecycle.
-Real PostgreSQL and Telegram acceptance requires a running DB and a valid token.
+preservation, duplicate updates, unaddressed persistence, retention and
+lifecycle. Real PostgreSQL and Telegram acceptance requires a running DB and
+a valid token.
