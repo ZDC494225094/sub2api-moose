@@ -52,6 +52,7 @@ type Runtime struct {
 	cancel     context.CancelFunc
 	done       chan struct{}
 	unregister func()
+	AI         AIProvider
 }
 
 func NewRuntime(store *Store, platforms map[string]Platform, data Data, states StateReader) *Runtime {
@@ -66,6 +67,10 @@ func NewRuntime(store *Store, platforms map[string]Platform, data Data, states S
 		done:      make(chan struct{}),
 	}
 }
+
+// SetAIProvider installs the optional, server-owned completion port. Keeping it
+// nil is a safe no-op and preserves the original keyword-only behavior.
+func (r *Runtime) SetAIProvider(provider AIProvider) { r.AI = provider }
 
 // PlatformFor resolves a bot's platform adapter ("telegram", "qq").
 func (r *Runtime) PlatformFor(name string) (Platform, bool) {
@@ -587,10 +592,12 @@ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(platform,bot_id,update_id) DO
 		if ruleErr != nil {
 			return ruleErr
 		}
+		matched := false
 		for _, rule := range rules {
 			if !Matches(rule, m.Text, e.BotUsername) {
 				continue
 			}
+			matched = true
 			text, renderErr := Render(ctx, r.Data, rule.ReplyTemplate, time.Now())
 			if _, saveErr := r.Store.DB.ExecContext(ctx, "UPDATE bot_messages SET rule_id=$1,reply_content=$2 WHERE id=$3", rule.ID, text, id); saveErr != nil {
 				return saveErr
@@ -604,7 +611,65 @@ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(platform,bot_id,update_id) DO
 			r.report(e.ID, ctx, renderErr)
 			break
 		}
+		// Keyword rules are authoritative. AI is only a fallback for messages
+		// that were not matched, so enabling it cannot change existing replies.
+		if !matched && r.AI != nil {
+			r.handleAI(ctx, e, platform, m, id)
+		}
 	}
 	_, err = r.Store.DB.ExecContext(ctx, "UPDATE bot_notify_bots SET update_offset=GREATEST(update_offset,$1) WHERE id=$2 AND (config->>'bot_id')::bigint=$3", m.UpdateID+1, e.ID, e.BotID)
 	return err
+}
+
+func (r *Runtime) handleAI(ctx context.Context, e BotEntry, platform Platform, m Message, messageID int64) {
+	config, err := r.Store.AIConfig(ctx, e.ID)
+	if err != nil || !config.Enabled {
+		return
+	}
+	guard := InspectInput(m.Text)
+	if !guard.Allowed {
+		text := SafeReply()
+		_ = r.persistAI(ctx, e, m, messageID, config, "", text, true, guard.Reason, nil)
+		if sendErr := platform.SendMessage(ctx, e.BotToken, m.ChatID, text); sendErr == nil {
+			_, _ = r.Store.DB.ExecContext(ctx, "UPDATE bot_messages SET replied=true,reply_content=$1 WHERE id=$2", text, messageID)
+		}
+		return
+	}
+	text, err := r.AI.Complete(ctx, AIRequest{Config: config, Message: m, Context: PublicDTO{}})
+	if err != nil || !InspectOutput(text).Allowed {
+		reason := "provider_error"
+		if err == nil {
+			reason = InspectOutput(text).Reason
+		}
+		text = SafeReply()
+		_ = r.persistAI(ctx, e, m, messageID, config, "", text, true, reason, err)
+	} else {
+		_ = r.persistAI(ctx, e, m, messageID, config, text, text, false, "", nil)
+	}
+	if text != "" {
+		if sendErr := platform.SendMessage(ctx, e.BotToken, m.ChatID, text); sendErr == nil {
+			_, _ = r.Store.DB.ExecContext(ctx, "UPDATE bot_messages SET replied=true,reply_content=$1 WHERE id=$2", text, messageID)
+		}
+	}
+}
+
+func (r *Runtime) persistAI(ctx context.Context, e BotEntry, m Message, messageID int64, c AIConfig, answer, _ string, blocked bool, reason string, callErr error) error {
+	var conversationID int64
+	if err := r.Store.DB.QueryRowContext(ctx, `INSERT INTO bot_ai_conversations(bot_id,platform,chat_id,external_user_id,last_message_at) VALUES($1,$2,$3,$4,CURRENT_TIMESTAMP) ON CONFLICT(bot_id,platform,chat_id) DO UPDATE SET last_message_at=CURRENT_TIMESTAMP RETURNING id`, e.ID, m.Platform, m.ChatID, m.SenderID).Scan(&conversationID); err != nil {
+		return err
+	}
+	errCode := ""
+	if callErr != nil {
+		errCode = "provider_error"
+	}
+	_, err := r.Store.DB.ExecContext(ctx, `INSERT INTO bot_ai_messages(conversation_id,direction,external_message_id,question_redacted,sender_name,content_redacted,blocked,blocked_reason,model,api_key_id,error_code) VALUES($1,'assistant',$2,$3,$4,$5,$6,$7,$8,$9,$10)`, conversationID, fmt.Sprint(m.MessageID), auditText(m.Text), auditText(m.SenderName), auditText(answer), blocked, reason, c.Model, c.APIKeyID, errCode)
+	return err
+}
+
+func auditText(s string) string {
+	s = strings.TrimSpace(s)
+	if len([]rune(s)) > 2000 {
+		s = string([]rune(s)[:2000])
+	}
+	return s
 }

@@ -95,10 +95,10 @@ func TestInstallationProvenanceAndDefaultFlags(t *testing.T) {
 			require.Equal(t, tc.enabled, got[customize.Key("multi-group-billing")])
 			require.Equal(t, tc.enabled, got[customize.Key("admin-efficiency")])
 			require.Equal(t, tc.enabled, got[customize.Key("access-policy")])
-			require.Equal(t, 14, recorded(t, conn))
+			require.Equal(t, 15, recorded(t, conn))
 			require.NoError(t, (Runner{}).Apply(ctx, conn))
 			require.Equal(t, got, flags(t, conn))
-			require.Equal(t, 14, recorded(t, conn))
+			require.Equal(t, 15, recorded(t, conn))
 			var original string
 			require.NoError(t, conn.QueryRowContext(ctx, "SELECT checksum FROM schema_migrations WHERE filename='239_custom_api_key_platform_sync.sql'").Scan(&original))
 			require.Equal(t, "unchanged", original, "do not rewrite host history")
@@ -139,11 +139,11 @@ func TestFailedHostAdoptionRollsBackItsFlagsAndCanRetry(t *testing.T) {
 	require.ErrorContains(t, (Runner{}).Apply(ctx, conn), "fixture write failed")
 	// Each module commits independently; the alphabetically earlier access and admin migrations survive.
 	require.Equal(t, map[string]string{customize.Key("access-policy"): "false", customize.Key("admin-efficiency"): "false", customize.Key("billing-scheduling"): "false", customize.Key("bot-notify"): "false"}, flags(t, conn))
-	require.Equal(t, 6, recorded(t, conn))
+	require.Equal(t, 7, recorded(t, conn))
 	execute(t, conn, "DROP TRIGGER reject_campaign")
 	require.NoError(t, (Runner{}).Apply(ctx, conn))
 	require.Len(t, flags(t, conn), 16)
-	require.Equal(t, 14, recorded(t, conn))
+	require.Equal(t, 15, recorded(t, conn))
 }
 
 func TestCustomMigrationChecksumAndLineEndingStability(t *testing.T) {
@@ -161,7 +161,7 @@ func TestCustomMigrationChecksumAndLineEndingStability(t *testing.T) {
 	require.NoError(t, applyFS(ctx, conn, crlf))
 	changed := fstest.MapFS{name: &fstest.MapFile{Data: []byte(lf + "\n-- changed historical migration")}}
 	require.ErrorContains(t, applyFS(ctx, conn, changed), "checksum mismatch")
-	require.Equal(t, 14, recorded(t, conn))
+	require.Equal(t, 15, recorded(t, conn))
 	require.Len(t, flags(t, conn), 16)
 }
 

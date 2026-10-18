@@ -50,7 +50,7 @@ func TestMediaGatewayAdoptionDefaultsAndLedgerRollback(t *testing.T) {
 WHEN NEW.module_id='media-gateway' BEGIN SELECT RAISE(ABORT,'media ledger failed'); END`)
 			require.ErrorContains(t, (Runner{}).Apply(ctx, conn), "media ledger failed")
 			require.NotContains(t, flags(t, conn), customize.Key("media-gateway"))
-			require.Equal(t, 8, recorded(t, conn))
+			require.Equal(t, 9, recorded(t, conn))
 			execute(t, conn, "DROP TRIGGER reject_media_ledger")
 			require.NoError(t, (Runner{}).Apply(ctx, conn))
 			require.Equal(t, map[bool]string{false: "false", true: "true"}[legacy], flags(t, conn)[customize.Key("media-gateway")])

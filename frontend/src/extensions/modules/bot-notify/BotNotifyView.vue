@@ -5,7 +5,16 @@ import Icon from '@/components/icons/Icon.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import PlatformLogo from './PlatformLogo.vue'
 import TemplateInput from './TemplateInput.vue'
-import { botAPI, type BotEntry, type Rule, type Status, type BotMessage } from './api'
+import {
+  botAPI,
+  type AiConfig,
+  type AiKeyOption,
+  type AiRecord,
+  type BotEntry,
+  type Rule,
+  type Status,
+  type BotMessage,
+} from './api'
 
 const bots = ref<BotEntry[]>([])
 const statuses = ref<Record<number, Status>>({})
@@ -31,10 +40,27 @@ const newPlatform = ref('telegram')
 const newToken = ref('')
 const newAppID = ref('')
 const newSecret = ref('')
+const aiConfig = ref<AiConfig>({
+  enabled: false,
+  api_key_id: null,
+  model: '',
+  max_input_chars: 4000,
+  max_output_tokens: 800,
+  cooldown_seconds: 10,
+  daily_limit: 100,
+  allow_recharge: true,
+  allow_technical: true,
+})
+const aiKeys = ref<AiKeyOption[]>([])
+const aiRecords = ref<AiRecord[]>([])
+const aiTotal = ref(0)
+const aiPage = ref(1)
+const aiKeyword = ref('')
+const aiBlocked = ref('')
 let timer: ReturnType<typeof setInterval> | undefined
 let revision = 0
 
-const tabs = ['机器人配置', '收到的消息', '关键词回复'] as const
+const tabs = ['机器人配置', '收到的消息', '关键词回复', 'AI 客服'] as const
 const matchLabels: Record<Rule['match_type'], string> = {
   contains: '包含',
   exact: '完全匹配',
@@ -51,7 +77,7 @@ const runningBots = computed(
     ).length,
 )
 const targetCount = computed(() => chats.value.split('\n').filter((value) => value.trim()).length)
-const tabIcons = { 机器人配置: 'cog', 收到的消息: 'inbox', 关键词回复: 'chat' } as const
+const tabIcons = { 机器人配置: 'cog', 收到的消息: 'inbox', 关键词回复: 'chat', 'AI 客服': 'lightbulb' } as const
 function platformLabel(platform: string) {
   return platform === 'telegram' ? 'Telegram' : platform === 'qq' ? 'QQ' : platform
 }
@@ -147,6 +173,7 @@ async function openBot(bot: BotEntry) {
   chatFilter.value = ''
   keywordFilter.value = ''
   rules.value = await botAPI.rules(fresh.id)
+  await loadAi()
   await loadMessages()
 }
 
@@ -155,6 +182,42 @@ function closeBot() {
   rules.value = []
   messages.value = []
   total.value = 0
+  aiRecords.value = []
+  aiTotal.value = 0
+}
+
+async function loadAi() {
+  if (!selected.value) return
+  try {
+    const [config, keys] = await Promise.all([
+      botAPI.aiConfig(selected.value.id),
+      botAPI.aiKeys(selected.value.id),
+    ])
+    aiConfig.value = { ...aiConfig.value, ...config }
+    aiKeys.value = keys
+    if (!aiConfig.value.model && keys[0]?.models?.[0]) aiConfig.value.model = keys[0].models[0]
+    await loadAiRecords()
+  } catch {
+    // Older deployments may not have the optional AI endpoints yet.
+    aiKeys.value = []
+  }
+}
+async function loadAiRecords(next = 1) {
+  if (!selected.value) return
+  try {
+    const result = await botAPI.aiRecords(selected.value.id, next, aiKeyword.value, aiBlocked.value)
+    aiRecords.value = result.items
+    aiTotal.value = result.total
+    aiPage.value = next
+  } catch {
+    aiRecords.value = []
+    aiTotal.value = 0
+  }
+}
+async function saveAi() {
+  if (!selected.value) return
+  aiConfig.value = await botAPI.saveAiConfig(selected.value.id, aiConfig.value)
+  await loadAiRecords()
 }
 
 async function loadMessages(next = 1) {
@@ -417,7 +480,7 @@ onUnmounted(() => {
             </div>
           </div>
           <nav
-            class="grid grid-cols-3 border-t border-gray-100 px-2 dark:border-dark-700 sm:px-5"
+            class="grid grid-cols-2 border-t border-gray-100 px-2 dark:border-dark-700 sm:grid-cols-4 sm:px-5"
             aria-label="机器人管理页签"
           >
             <button
@@ -431,9 +494,9 @@ onUnmounted(() => {
             >
               <Icon :name="tabIcons[name]" size="sm" class="hidden shrink-0 sm:block" /><span>{{ name }}</span
               ><span
-                v-if="index === 1 || index === 2"
+                v-if="index === 1 || index === 2 || index === 3"
                 class="hidden rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] leading-none text-gray-500 dark:bg-dark-700 dark:text-gray-400 sm:inline"
-                >{{ index === 1 ? total : rules.length }}</span
+                >{{ index === 1 ? total : index === 2 ? rules.length : aiTotal }}</span
               >
             </button>
           </nav>
@@ -758,7 +821,7 @@ onUnmounted(() => {
             <p class="helper">消息清理任务每小时执行。</p>
           </section>
 
-          <section v-else class="space-y-5">
+          <section v-else-if="tab === '关键词回复'" class="space-y-5">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 class="font-semibold">
@@ -845,6 +908,42 @@ onUnmounted(() => {
                 </div>
               </article>
             </div>
+          </section>
+          <section v-else class="space-y-5">
+            <form class="bot-panel overflow-hidden" @submit.prevent="action(saveAi, 'AI 客服配置已保存')">
+              <div class="config-status flex items-start gap-3">
+                <Icon name="shield" size="sm" class="mt-0.5 text-emerald-600" />
+                <p class="helper">AI 仅使用经过服务端脱敏的公开资料，不会读取管理员数据、密钥或任意数据库。敏感请求会在调用模型前拦截。</p>
+              </div>
+              <div class="config-section">
+                <div class="config-section-title"><h3>AI 客服开关</h3><p>为当前机器人提供充值、技术与操作咨询。</p></div>
+                <div class="min-w-0 space-y-4">
+                  <label class="setting-toggle"><span class="field-label">启用 AI 客服</span><input v-model="aiConfig.enabled" type="checkbox" class="bot-check" /></label>
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <label class="field-label">API Key<select v-model="aiConfig.api_key_id" class="input mt-2"><option :value="null">请选择已创建的 API Key</option><option v-for="key in aiKeys" :key="key.id" :value="key.id">{{ key.name }}{{ key.platform ? ` · ${key.platform}` : '' }}{{ key.status && key.status !== 'active' ? ` · ${key.status}` : '' }}</option></select><span class="helper mt-1 block">仅保存 Key 引用，前端不会接触密钥明文。</span></label>
+                    <label class="field-label">模型<select v-model="aiConfig.model" class="input mt-2"><option value="">请选择模型</option><option v-for="model in (aiKeys.find((key) => String(key.id) === String(aiConfig.api_key_id))?.models || [])" :key="model" :value="model">{{ model }}</option></select></label>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-3">
+                    <label class="field-label">最大输入字符<input v-model.number="aiConfig.max_input_chars" type="number" min="500" max="20000" class="input mt-2" /></label>
+                    <label class="field-label">最大输出 Token<input v-model.number="aiConfig.max_output_tokens" type="number" min="100" max="4000" class="input mt-2" /></label>
+                    <label class="field-label">单聊冷却（秒）<input v-model.number="aiConfig.cooldown_seconds" type="number" min="0" max="3600" class="input mt-2" /></label>
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-3">
+                    <label class="field-label">每日上限<input v-model.number="aiConfig.daily_limit" type="number" min="0" max="100000" class="input mt-2" /><span class="helper mt-1 block">0 表示禁用额度限制。</span></label>
+                    <label class="setting-toggle sm:col-span-1"><span class="field-label">允许充值咨询</span><input v-model="aiConfig.allow_recharge" type="checkbox" class="bot-check" /></label>
+                    <label class="setting-toggle sm:col-span-1"><span class="field-label">允许技术咨询</span><input v-model="aiConfig.allow_technical" type="checkbox" class="bot-check" /></label>
+                  </div>
+                </div>
+              </div>
+              <div class="config-footer"><p class="helper">建议先用测试群验证敏感问题拦截和回答范围。</p><button type="submit" class="btn btn-primary">保存 AI 配置</button></div>
+            </form>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div><h3 class="font-semibold">AI 回答记录 <span class="ml-1 font-normal text-gray-400">{{ aiTotal }} 条</span></h3><p class="helper mt-1">仅展示脱敏后的问题、回答和拦截原因。</p></div>
+              <form class="flex flex-wrap gap-2" @submit.prevent="action(() => loadAiRecords())"><input v-model="aiKeyword" class="input" placeholder="搜索问题或聊天 ID" /><select v-model="aiBlocked" class="input"><option value="">全部状态</option><option value="false">已回答</option><option value="true">已拦截</option></select><button class="btn btn-secondary">筛选</button></form>
+            </div>
+            <div v-if="!aiRecords.length" class="bot-panel empty-state"><div class="empty-symbol"><Icon name="lightbulb" size="xl" /></div><h3 class="mt-4 font-semibold">暂无 AI 回答记录</h3><p class="mt-2 text-sm text-gray-500 dark:text-gray-400">启用 AI 客服并收到消息后，记录会显示在这里。</p></div>
+            <div v-else class="bot-panel overflow-x-auto"><table class="message-table min-w-[760px]"><thead><tr><th>时间 / 聊天</th><th>问题</th><th>回答</th><th>状态</th><th>模型 / 耗时</th></tr></thead><tbody><tr v-for="record in aiRecords" :key="record.id"><td><time class="block text-xs">{{ new Date(record.created_at).toLocaleString() }}</time><span class="mt-1 block font-mono text-xs text-gray-500">{{ record.chat_id }}</span><span class="mt-1 block text-xs text-gray-400">{{ record.sender_name || '—' }}</span></td><td class="max-w-xs whitespace-pre-wrap break-words">{{ record.question }}</td><td class="max-w-md whitespace-pre-wrap break-words">{{ record.answer || '—' }}</td><td><span class="badge" :class="record.blocked ? 'badge-neutral' : record.error_code ? 'badge-neutral' : 'badge-success'">{{ record.blocked ? '已拦截' : record.error_code ? '失败' : '已回答' }}</span><span v-if="record.blocked_reason" class="mt-1 block max-w-32 text-xs text-gray-500">{{ record.blocked_reason }}</span></td><td><span class="block text-xs">{{ record.model || '—' }}</span><span v-if="record.latency_ms" class="mt-1 block text-xs text-gray-400">{{ record.latency_ms }} ms</span></td></tr></tbody></table></div>
+            <div class="flex items-center justify-between"><span class="text-xs text-gray-500">第 {{ aiPage }} 页 · 共 {{ aiTotal }} 条</span><div class="flex gap-2"><button class="btn btn-secondary" :disabled="aiPage <= 1" @click="action(() => loadAiRecords(aiPage - 1))">上一页</button><button class="btn btn-secondary" :disabled="aiPage * 20 >= aiTotal" @click="action(() => loadAiRecords(aiPage + 1))">下一页</button></div></div>
           </section>
         </fieldset>
       </div>

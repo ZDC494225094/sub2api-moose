@@ -33,6 +33,38 @@ export interface Status {
   bot: { id: number; username: string }
   polling: boolean; pushing: boolean; announcing: boolean; last_error: string; last_error_at: string | null
 }
+/** AI 客服配置只保存 API Key 引用，绝不回传密钥明文。 */
+export interface AiConfig {
+  enabled: boolean
+  api_key_id: string | number | null
+  model: string
+  max_input_chars: number
+  max_output_tokens: number
+  cooldown_seconds: number
+  daily_limit: number
+  allow_recharge: boolean
+  allow_technical: boolean
+}
+export interface AiKeyOption {
+  id: string | number
+  name: string
+  platform?: string
+  status?: string
+  models?: string[]
+}
+export interface AiRecord {
+  id: number | string
+  created_at: string
+  chat_id: string
+  sender_name?: string
+  question: string
+  answer?: string
+  blocked: boolean
+  blocked_reason?: string
+  model?: string
+  latency_ms?: number
+  error_code?: string
+}
 const base = '/admin/bot-notify'
 export const botAPI = {
   async listBots() { return (await apiClient.get<{ items: BotEntry[] }>(`${base}/bots`)).data.items },
@@ -47,4 +79,10 @@ export const botAPI = {
   async rules(id: number) { return (await apiClient.get<{ items: Rule[] }>(`${base}/bots/${id}/rules`)).data.items },
   async saveRule(botId: number, rule: Rule) { if (rule.id) await apiClient.put(`${base}/bots/${botId}/rules/${rule.id}`, rule); else await apiClient.post(`${base}/bots/${botId}/rules`, rule) },
   async deleteRule(botId: number, ruleId: number) { await apiClient.delete(`${base}/bots/${botId}/rules/${ruleId}`) },
+  async aiConfig(botId: number) { return (await apiClient.get<AiConfig>(`${base}/bots/${botId}/ai/config`)).data },
+  async saveAiConfig(botId: number, config: AiConfig) { return (await apiClient.put<AiConfig>(`${base}/bots/${botId}/ai/config`, config)).data },
+  async aiKeys(botId: number) { return (await apiClient.get<{ items: AiKeyOption[] }>(`${base}/bots/${botId}/ai/keys`)).data.items },
+  async aiRecords(botId: number, page: number, keyword = '', blocked = '') {
+    return (await apiClient.get<{ items: AiRecord[]; total: number }>(`${base}/bots/${botId}/ai/records`, { params: { page, page_size: 20, keyword, blocked } })).data
+  },
 }

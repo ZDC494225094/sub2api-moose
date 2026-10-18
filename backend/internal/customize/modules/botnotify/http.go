@@ -28,6 +28,77 @@ func (h *Handler) Register(group *gin.RouterGroup, manager *customize.Manager) {
 	g.POST("/bots/:id/rules", h.saveRule)
 	g.PUT("/bots/:id/rules/:ruleId", h.saveRule)
 	g.DELETE("/bots/:id/rules/:ruleId", h.deleteRule)
+	g.GET("/bots/:id/ai/config", h.aiConfig)
+	g.PUT("/bots/:id/ai/config", h.saveAIConfig)
+	g.GET("/bots/:id/ai/keys", h.aiKeys)
+	g.GET("/bots/:id/ai/records", h.aiRecords)
+}
+
+func (h *Handler) aiConfig(c *gin.Context) {
+	id, ok := parseBotID(c)
+	if !ok {
+		return
+	}
+	if _, ok = h.loadBot(c, false); !ok {
+		return
+	}
+	value, err := h.Runtime.Store.AIConfig(c.Request.Context(), id)
+	if !response.ErrorFrom(c, err) {
+		response.Success(c, value)
+	}
+}
+
+func (h *Handler) saveAIConfig(c *gin.Context) {
+	id, ok := parseBotID(c)
+	if !ok {
+		return
+	}
+	if _, ok = h.loadBot(c, false); !ok {
+		return
+	}
+	var value AIConfig
+	if err := c.ShouldBindJSON(&value); err != nil {
+		response.BadRequest(c, "AI 配置格式错误")
+		return
+	}
+	value.BotID = id
+	if err := h.Runtime.Store.SaveAIConfig(c.Request.Context(), value); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	h.Runtime.signal()
+	response.Success(c, value)
+}
+
+func (h *Handler) aiKeys(c *gin.Context) {
+	if _, ok := h.loadBot(c, false); !ok {
+		return
+	}
+	items, err := h.Runtime.Store.AIKeys(c.Request.Context())
+	if !response.ErrorFrom(c, err) {
+		response.Success(c, gin.H{"items": items})
+	}
+}
+
+func (h *Handler) aiRecords(c *gin.Context) {
+	id, ok := parseBotID(c)
+	if !ok {
+		return
+	}
+	if _, ok = h.loadBot(c, false); !ok {
+		return
+	}
+	page, size := response.ParsePagination(c)
+	if size > 100 {
+		size = 100
+	}
+	if page < 1 {
+		page = 1
+	}
+	items, total, err := h.Runtime.Store.AIRecords(c.Request.Context(), id, c.Query("keyword"), c.Query("blocked"), page, size)
+	if !response.ErrorFrom(c, err) {
+		response.Success(c, gin.H{"items": items, "total": total, "page": page, "page_size": size})
+	}
 }
 
 func parseBotID(c *gin.Context) (int64, bool) {
