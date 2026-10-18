@@ -621,19 +621,15 @@ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(platform,bot_id,update_id) DO
 	return err
 }
 
-// aiContext assembles the public-only context an AI provider may see: the
-// site name plus the same rendered channel status and announcements the
-// broadcast templates use. It never includes admin or credential data.
+// aiContext assembles the public-only context an AI provider may see.
+// Only the site name is baked in: the prompt stays byte-stable so upstream
+// prompt caches stay effective, and live site information (group status,
+// groups, announcements) reaches the model through the provider's
+// read-only query tools instead of being stuffed into every prompt.
 func (r *Runtime) aiContext(ctx context.Context) PublicDTO {
 	dto := PublicDTO{}
 	if name, err := r.Data.SiteName(ctx); err == nil {
 		dto.SiteName = name
-	}
-	if status, err := Render(ctx, r.Data, "{channel_status}", time.Now()); err == nil {
-		dto.ChannelStatus = status
-	}
-	if announcements, err := Render(ctx, r.Data, "{announcements}", time.Now()); err == nil {
-		dto.Announcements = announcements
 	}
 	return dto
 }
