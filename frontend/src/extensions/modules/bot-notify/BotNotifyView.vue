@@ -52,6 +52,16 @@ const aiConfig = ref<AiConfig>({
   allow_technical: true,
 })
 const aiKeys = ref<AiKeyOption[]>([])
+const aiKeysError = ref('')
+const aiModelSuggestions = [
+  'gpt-6.1-sol',
+  'gpt-6-astra',
+  'gpt-6-luna',
+  'gpt-5.6-luna',
+  'claude-sonnet-5-5',
+  'claude-opus-5-5',
+  'claude-fable-5',
+]
 const aiRecords = ref<AiRecord[]>([])
 const aiTotal = ref(0)
 const aiPage = ref(1)
@@ -188,19 +198,21 @@ function closeBot() {
 
 async function loadAi() {
   if (!selected.value) return
+  // Load each resource independently: a failing key list must not take the
+  // saved configuration down with it, and its error is shown inline.
   try {
-    const [config, keys] = await Promise.all([
-      botAPI.aiConfig(selected.value.id),
-      botAPI.aiKeys(selected.value.id),
-    ])
-    aiConfig.value = { ...aiConfig.value, ...config }
-    aiKeys.value = keys
-    if (!aiConfig.value.model && keys[0]?.models?.[0]) aiConfig.value.model = keys[0].models[0]
-    await loadAiRecords()
+    aiConfig.value = { ...aiConfig.value, ...(await botAPI.aiConfig(selected.value.id)) }
   } catch {
-    // Older deployments may not have the optional AI endpoints yet.
-    aiKeys.value = []
+    // Keep the defaults; saving still works once the endpoint responds.
   }
+  try {
+    aiKeys.value = await botAPI.aiKeys(selected.value.id)
+    aiKeysError.value = ''
+  } catch (e) {
+    aiKeys.value = []
+    aiKeysError.value = (e as { message?: string })?.message || '加载失败'
+  }
+  await loadAiRecords()
 }
 async function loadAiRecords(next = 1) {
   if (!selected.value) return
@@ -912,38 +924,222 @@ onUnmounted(() => {
           <section v-else class="space-y-5">
             <form class="bot-panel overflow-hidden" @submit.prevent="action(saveAi, 'AI 客服配置已保存')">
               <div class="config-status flex items-start gap-3">
-                <Icon name="shield" size="sm" class="mt-0.5 text-emerald-600" />
-                <p class="helper">AI 仅使用经过服务端脱敏的公开资料，不会读取管理员数据、密钥或任意数据库。敏感请求会在调用模型前拦截。</p>
+                <Icon name="shield" size="sm" class="mt-0.5 shrink-0 text-emerald-600" />
+                <p class="helper">
+                  AI 仅使用经过服务端脱敏的公开资料回答，不会读取管理员数据、密钥或任意数据库。敏感请求会在调用模型前拦截。
+                </p>
               </div>
               <div class="config-section">
-                <div class="config-section-title"><h3>AI 客服开关</h3><p>为当前机器人提供充值、技术与操作咨询。</p></div>
+                <div class="config-section-title">
+                  <h3>启用与模型</h3>
+                  <p>关键词未命中的消息由 AI 依据公开资料回答。</p>
+                </div>
                 <div class="min-w-0 space-y-4">
-                  <label class="setting-toggle"><span class="field-label">启用 AI 客服</span><input v-model="aiConfig.enabled" type="checkbox" class="bot-check" /></label>
-                  <div class="grid gap-4 sm:grid-cols-2">
-                    <label class="field-label">API Key<select v-model="aiConfig.api_key_id" class="input mt-2"><option :value="null">请选择已创建的 API Key</option><option v-for="key in aiKeys" :key="key.id" :value="key.id">{{ key.name }}{{ key.platform ? ` · ${key.platform}` : '' }}{{ key.status && key.status !== 'active' ? ` · ${key.status}` : '' }}</option></select><span class="helper mt-1 block">仅保存 Key 引用，前端不会接触密钥明文。</span></label>
-                    <label class="field-label">模型<select v-model="aiConfig.model" class="input mt-2"><option value="">请选择模型</option><option v-for="model in (aiKeys.find((key) => String(key.id) === String(aiConfig.api_key_id))?.models || [])" :key="model" :value="model">{{ model }}</option></select></label>
-                  </div>
-                  <div class="grid gap-4 sm:grid-cols-3">
-                    <label class="field-label">最大输入字符<input v-model.number="aiConfig.max_input_chars" type="number" min="500" max="20000" class="input mt-2" /></label>
-                    <label class="field-label">最大输出 Token<input v-model.number="aiConfig.max_output_tokens" type="number" min="100" max="4000" class="input mt-2" /></label>
-                    <label class="field-label">单聊冷却（秒）<input v-model.number="aiConfig.cooldown_seconds" type="number" min="0" max="3600" class="input mt-2" /></label>
-                  </div>
-                  <div class="grid gap-4 sm:grid-cols-3">
-                    <label class="field-label">每日上限<input v-model.number="aiConfig.daily_limit" type="number" min="0" max="100000" class="input mt-2" /><span class="helper mt-1 block">0 表示禁用额度限制。</span></label>
-                    <label class="setting-toggle sm:col-span-1"><span class="field-label">允许充值咨询</span><input v-model="aiConfig.allow_recharge" type="checkbox" class="bot-check" /></label>
-                    <label class="setting-toggle sm:col-span-1"><span class="field-label">允许技术咨询</span><input v-model="aiConfig.allow_technical" type="checkbox" class="bot-check" /></label>
-                  </div>
+                  <label class="setting-toggle">
+                    <span class="field-label">启用 AI 客服</span>
+                    <input v-model="aiConfig.enabled" type="checkbox" class="bot-check" />
+                  </label>
+                  <label class="field-label">
+                    API Key
+                    <select v-model="aiConfig.api_key_id" class="input mt-2">
+                      <option :value="null">请选择已创建的 API Key</option>
+                      <option
+                        v-if="
+                          aiConfig.api_key_id != null &&
+                          !aiKeys.some((key) => String(key.id) === String(aiConfig.api_key_id))
+                        "
+                        :value="aiConfig.api_key_id"
+                      >
+                        已保存的 Key（#{{ aiConfig.api_key_id }}）
+                      </option>
+                      <option v-for="key in aiKeys" :key="key.id" :value="key.id">
+                        {{ key.name }}{{ key.platform ? ` · ${key.platform}` : ''
+                        }}{{ key.status && key.status !== 'active' ? ` · ${key.status}` : '' }}
+                      </option>
+                    </select>
+                    <span v-if="aiKeysError" class="mt-1 block text-xs font-normal text-red-500">
+                      Key 列表加载失败：{{ aiKeysError }}
+                    </span>
+                    <span v-else class="helper mt-1 block">
+                      站内全部未删除的 Key 都会列出；仅保存 Key 引用，前端不会接触密钥明文。
+                    </span>
+                  </label>
+                  <label class="field-label">
+                    模型
+                    <input
+                      v-model="aiConfig.model"
+                      class="input mt-2"
+                      list="ai-model-suggestions"
+                      placeholder="如 gpt-6.1-sol"
+                    />
+                    <datalist id="ai-model-suggestions">
+                      <option v-for="model in aiModelSuggestions" :key="model" :value="model" />
+                    </datalist>
+                    <span class="helper mt-1 block">
+                      填所选 Key 分组支持的模型名，可从候选中选或直接输入。
+                    </span>
+                  </label>
                 </div>
               </div>
-              <div class="config-footer"><p class="helper">建议先用测试群验证敏感问题拦截和回答范围。</p><button type="submit" class="btn btn-primary">保存 AI 配置</button></div>
+              <div class="config-section">
+                <div class="config-section-title">
+                  <h3>限额与频率</h3>
+                  <p>控制单次长度、同一会话的冷却和每日总量。</p>
+                </div>
+                <div class="min-w-0 space-y-4">
+                  <div class="grid gap-4 sm:grid-cols-3">
+                    <label class="field-label">
+                      最大输入字符
+                      <input
+                        v-model.number="aiConfig.max_input_chars"
+                        type="number"
+                        min="500"
+                        max="20000"
+                        class="input mt-2"
+                      />
+                    </label>
+                    <label class="field-label">
+                      最大输出 Token
+                      <input
+                        v-model.number="aiConfig.max_output_tokens"
+                        type="number"
+                        min="100"
+                        max="4000"
+                        class="input mt-2"
+                      />
+                    </label>
+                    <label class="field-label">
+                      单聊冷却（秒）
+                      <input
+                        v-model.number="aiConfig.cooldown_seconds"
+                        type="number"
+                        min="0"
+                        max="3600"
+                        class="input mt-2"
+                      />
+                    </label>
+                  </div>
+                  <label class="field-label">
+                    每日上限
+                    <input
+                      v-model.number="aiConfig.daily_limit"
+                      type="number"
+                      min="0"
+                      max="100000"
+                      class="input mt-2"
+                    />
+                    <span class="helper mt-1 block">当前机器人每天最多回答的条数，0 表示不限制。</span>
+                  </label>
+                </div>
+              </div>
+              <div class="config-section">
+                <div class="config-section-title">
+                  <h3>咨询范围</h3>
+                  <p>关闭的类型会引导用户联系人工客服。</p>
+                </div>
+                <div class="min-w-0 space-y-4">
+                  <label class="setting-toggle">
+                    <span class="field-label">允许充值咨询</span>
+                    <input v-model="aiConfig.allow_recharge" type="checkbox" class="bot-check" />
+                  </label>
+                  <label class="setting-toggle">
+                    <span class="field-label">允许技术咨询</span>
+                    <input v-model="aiConfig.allow_technical" type="checkbox" class="bot-check" />
+                  </label>
+                </div>
+              </div>
+              <div class="config-footer">
+                <p class="helper">建议先用测试群验证敏感问题拦截和回答范围。</p>
+                <button type="submit" class="btn btn-primary">保存 AI 配置</button>
+              </div>
             </form>
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div><h3 class="font-semibold">AI 回答记录 <span class="ml-1 font-normal text-gray-400">{{ aiTotal }} 条</span></h3><p class="helper mt-1">仅展示脱敏后的问题、回答和拦截原因。</p></div>
-              <form class="flex flex-wrap gap-2" @submit.prevent="action(() => loadAiRecords())"><input v-model="aiKeyword" class="input" placeholder="搜索问题或聊天 ID" /><select v-model="aiBlocked" class="input"><option value="">全部状态</option><option value="false">已回答</option><option value="true">已拦截</option></select><button class="btn btn-secondary">筛选</button></form>
+
+            <div class="bot-panel overflow-hidden">
+              <div
+                class="config-status flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <h3 class="font-semibold">
+                    AI 回答记录
+                    <span class="ml-1 font-normal text-gray-400">{{ aiTotal }} 条</span>
+                  </h3>
+                  <p class="helper mt-1">仅展示脱敏后的问题、回答和拦截原因。</p>
+                </div>
+                <form class="flex flex-wrap gap-2" @submit.prevent="action(() => loadAiRecords())">
+                  <input v-model="aiKeyword" class="input" placeholder="搜索问题或聊天 ID" />
+                  <select v-model="aiBlocked" class="input">
+                    <option value="">全部状态</option>
+                    <option value="false">已回答</option>
+                    <option value="true">已拦截</option>
+                  </select>
+                  <button class="btn btn-secondary">筛选</button>
+                </form>
+              </div>
+              <div v-if="!aiRecords.length" class="empty-state">
+                <div class="empty-symbol"><Icon name="lightbulb" size="xl" /></div>
+                <h3 class="mt-4 font-semibold">暂无 AI 回答记录</h3>
+                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  启用 AI 客服并收到消息后，记录会显示在这里。
+                </p>
+              </div>
+              <div v-else class="overflow-x-auto">
+                <table class="message-table min-w-[760px]">
+                  <thead>
+                    <tr>
+                      <th>时间 / 聊天</th>
+                      <th>问题</th>
+                      <th>回答</th>
+                      <th>状态</th>
+                      <th>模型 / 耗时</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="record in aiRecords" :key="record.id">
+                      <td>
+                        <time class="block text-xs">{{ new Date(record.created_at).toLocaleString() }}</time>
+                        <span class="mt-1 block font-mono text-xs text-gray-500">{{ record.chat_id }}</span>
+                        <span class="mt-1 block text-xs text-gray-400">{{ record.sender_name || '—' }}</span>
+                      </td>
+                      <td class="max-w-xs whitespace-pre-wrap break-words">{{ record.question }}</td>
+                      <td class="max-w-md whitespace-pre-wrap break-words">{{ record.answer || '—' }}</td>
+                      <td>
+                        <span class="badge" :class="record.blocked || record.error_code ? 'badge-neutral' : 'badge-success'">
+                          {{ record.blocked ? '已拦截' : record.error_code ? '失败' : '已回答' }}
+                        </span>
+                        <span v-if="record.blocked_reason" class="mt-1 block max-w-32 text-xs text-gray-500">
+                          {{ record.blocked_reason }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="block text-xs">{{ record.model || '—' }}</span>
+                        <span v-if="record.latency_ms" class="mt-1 block text-xs text-gray-400">
+                          {{ record.latency_ms }} ms
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="config-footer">
+                <span class="text-xs text-gray-500">第 {{ aiPage }} 页 · 共 {{ aiTotal }} 条</span>
+                <div class="flex gap-2">
+                  <button
+                    class="btn btn-secondary"
+                    :disabled="aiPage <= 1"
+                    @click="action(() => loadAiRecords(aiPage - 1))"
+                  >
+                    上一页
+                  </button>
+                  <button
+                    class="btn btn-secondary"
+                    :disabled="aiPage * 20 >= aiTotal"
+                    @click="action(() => loadAiRecords(aiPage + 1))"
+                  >
+                    下一页
+                  </button>
+                </div>
+              </div>
             </div>
-            <div v-if="!aiRecords.length" class="bot-panel empty-state"><div class="empty-symbol"><Icon name="lightbulb" size="xl" /></div><h3 class="mt-4 font-semibold">暂无 AI 回答记录</h3><p class="mt-2 text-sm text-gray-500 dark:text-gray-400">启用 AI 客服并收到消息后，记录会显示在这里。</p></div>
-            <div v-else class="bot-panel overflow-x-auto"><table class="message-table min-w-[760px]"><thead><tr><th>时间 / 聊天</th><th>问题</th><th>回答</th><th>状态</th><th>模型 / 耗时</th></tr></thead><tbody><tr v-for="record in aiRecords" :key="record.id"><td><time class="block text-xs">{{ new Date(record.created_at).toLocaleString() }}</time><span class="mt-1 block font-mono text-xs text-gray-500">{{ record.chat_id }}</span><span class="mt-1 block text-xs text-gray-400">{{ record.sender_name || '—' }}</span></td><td class="max-w-xs whitespace-pre-wrap break-words">{{ record.question }}</td><td class="max-w-md whitespace-pre-wrap break-words">{{ record.answer || '—' }}</td><td><span class="badge" :class="record.blocked ? 'badge-neutral' : record.error_code ? 'badge-neutral' : 'badge-success'">{{ record.blocked ? '已拦截' : record.error_code ? '失败' : '已回答' }}</span><span v-if="record.blocked_reason" class="mt-1 block max-w-32 text-xs text-gray-500">{{ record.blocked_reason }}</span></td><td><span class="block text-xs">{{ record.model || '—' }}</span><span v-if="record.latency_ms" class="mt-1 block text-xs text-gray-400">{{ record.latency_ms }} ms</span></td></tr></tbody></table></div>
-            <div class="flex items-center justify-between"><span class="text-xs text-gray-500">第 {{ aiPage }} 页 · 共 {{ aiTotal }} 条</span><div class="flex gap-2"><button class="btn btn-secondary" :disabled="aiPage <= 1" @click="action(() => loadAiRecords(aiPage - 1))">上一页</button><button class="btn btn-secondary" :disabled="aiPage * 20 >= aiTotal" @click="action(() => loadAiRecords(aiPage + 1))">下一页</button></div></div>
           </section>
         </fieldset>
       </div>

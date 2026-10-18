@@ -621,6 +621,44 @@ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(platform,bot_id,update_id) DO
 	return err
 }
 
+// aiContext assembles the public-only context an AI provider may see: the
+// site name plus the same rendered channel status and announcements the
+// broadcast templates use. It never includes admin or credential data.
+func (r *Runtime) aiContext(ctx context.Context) PublicDTO {
+	dto := PublicDTO{}
+	if name, err := r.Data.SiteName(ctx); err == nil {
+		dto.SiteName = name
+	}
+	if status, err := Render(ctx, r.Data, "{channel_status}", time.Now()); err == nil {
+		dto.ChannelStatus = status
+	}
+	if announcements, err := Render(ctx, r.Data, "{announcements}", time.Now()); err == nil {
+		dto.Announcements = announcements
+	}
+	return dto
+}
+
+// aiLimited enforces the per-bot daily answer cap and the per-chat cooldown
+// from the AI configuration. Limited messages are skipped silently: they
+// are routine traffic shaping, not errors worth reporting.
+func (r *Runtime) aiLimited(ctx context.Context, e BotEntry, m Message, c AIConfig) bool {
+	if c.CooldownSeconds > 0 {
+		var last *time.Time
+		err := r.Store.DB.QueryRowContext(ctx, `SELECT last_message_at FROM bot_ai_conversations WHERE bot_id=$1 AND platform=$2 AND chat_id=$3`, e.ID, m.Platform, m.ChatID).Scan(&last)
+		if err == nil && last != nil && time.Since(*last) < time.Duration(c.CooldownSeconds)*time.Second {
+			return true
+		}
+	}
+	if c.DailyLimit > 0 {
+		var answered int
+		err := r.Store.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM bot_ai_messages msg JOIN bot_ai_conversations conv ON conv.id=msg.conversation_id WHERE conv.bot_id=$1 AND msg.direction='assistant' AND msg.created_at >= CURRENT_DATE`, e.ID).Scan(&answered)
+		if err == nil && answered >= c.DailyLimit {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *Runtime) handleAI(ctx context.Context, e BotEntry, platform Platform, m Message, messageID int64) {
 	config, err := r.Store.AIConfig(ctx, e.ID)
 	if err != nil || !config.Enabled {
@@ -635,7 +673,10 @@ func (r *Runtime) handleAI(ctx context.Context, e BotEntry, platform Platform, m
 		}
 		return
 	}
-	text, err := r.AI.Complete(ctx, AIRequest{Config: config, Message: m, Context: PublicDTO{}})
+	if r.aiLimited(ctx, e, m, config) {
+		return
+	}
+	text, err := r.AI.Complete(ctx, AIRequest{Config: config, Message: m, Context: r.aiContext(ctx)})
 	if err != nil || !InspectOutput(text).Allowed {
 		reason := "provider_error"
 		if err == nil {
