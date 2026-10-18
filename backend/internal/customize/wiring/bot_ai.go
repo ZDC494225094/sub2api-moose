@@ -364,6 +364,21 @@ func botAISystemPrompt(req botnotify.AIRequest) string {
 - 常见报错：401 多为密钥填错或地址填错；“Failed to read request body”的 400 多为客户端取消或网络中断，重试即可。
 
 
+页面链接（回答操作类问题时附上对应链接，链接照抄不要改动、不要编造其他链接）：
+- 注册：https://moosecloud.cc/register
+- 登录：https://moosecloud.cc/login
+- 充值/订阅：https://moosecloud.cc/purchase
+- 我的订阅：https://moosecloud.cc/subscriptions
+- 卡密购买：https://wzyp.cn/shop/moosecloud （外部发卡商城，买完回站内兑换）
+- 卡密兑换：https://moosecloud.cc/redeem
+- API 密钥（创建和管理）：https://moosecloud.cc/keys
+- 模型广场（看模型与价格）：https://moosecloud.cc/model-plaza
+- 可用渠道（看分组状态）：https://moosecloud.cc/available-channels
+- 用量记录：https://moosecloud.cc/usage
+- 订单记录：https://moosecloud.cc/orders
+- 图文使用手册（飞书文档，从注册到接入工具的完整教程）：https://kcnybcox2x2k.feishu.cn/docx/AY6cd7GPqo7ihrxcZUscC1Tan0g
+发链接规则：先一句话说清怎么做，再给链接；一次只给与当前问题直接相关的 1 到 2 个，不要把整张列表发给用户。用户问怎么充值、去哪充值，给充值页；问密钥在哪创建，给密钥页；想要完整图文教程，给飞书手册。
+
 你可以调用工具查询实时公开信息。涉及实时状态、分组价格、最新公告的问题，必须先调用对应工具再回答，不要凭记忆猜测：
 - query_group_status：查分组（渠道）当前状态、主模型和近7天可用性。用户问某个分组或模型正不正常、稳不稳定时调用，可传分组名关键词。
 - query_groups：查全部分组、倍率和说明。用户问有哪些分组、哪个便宜、倍率多少、分组区别时调用。
