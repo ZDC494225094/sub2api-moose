@@ -8,6 +8,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/customize"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
+	middleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -74,7 +75,12 @@ func (h *Handler) aiKeys(c *gin.Context) {
 	if _, ok := h.loadBot(c, false); !ok {
 		return
 	}
-	items, err := h.Runtime.Store.AIKeys(c.Request.Context())
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	items, err := h.Runtime.Store.AIKeys(c.Request.Context(), subject.UserID)
 	if !response.ErrorFrom(c, err) {
 		response.Success(c, gin.H{"items": items})
 	}

@@ -89,7 +89,7 @@ func (d botData) SiteName(ctx context.Context) (string, error) {
 
 // Wire's cleanup runs before database infrastructure is closed.
 func ProvideBotNotify(db *sql.DB, cipher service.SecretEncryptor, settings service.SettingRepository, settingService *service.SettingService, channels *service.ChannelMonitorService, announcements *service.AnnouncementService) *botnotify.Handler {
-	store := &botnotify.Store{DB: db, Cipher: cipher, KeyLister: botAIKeyLister(db)}
+	store := &botnotify.Store{DB: db, Cipher: cipher, KeyLister: botAIKeyLister(db), KeyValidator: botAIKeyValidator(db)}
 	r := botnotify.NewRuntime(store, map[string]botnotify.Platform{"telegram": botnotify.NewTelegram(), "qq": botnotify.NewQQ()}, botData{channels: channels, announcements: announcements, settings: settings}, settingService.CustomExtensions())
 	r.SetAIProvider(newBotAIProvider(db))
 	r.Start()

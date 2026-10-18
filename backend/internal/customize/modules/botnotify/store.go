@@ -14,8 +14,10 @@ type Store struct {
 	DB     *sql.DB
 	Cipher Encryptor
 	// KeyLister is supplied by the composition root and must return redacted
-	// metadata only. An absent lister fails closed instead of scanning keys.
-	KeyLister func(context.Context) ([]AIKeyOption, error)
+	// metadata only, scoped to the requesting admin's own keys (the same set
+	// the API keys page shows). An absent lister fails closed instead of
+	// scanning keys.
+	KeyLister func(context.Context, int64) ([]AIKeyOption, error)
 	// KeyValidator re-checks status and model policy on every save/use.
 	KeyValidator func(context.Context, int64, string) error
 }

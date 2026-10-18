@@ -961,7 +961,7 @@ onUnmounted(() => {
                       Key 列表加载失败：{{ aiKeysError }}
                     </span>
                     <span v-else class="helper mt-1 block">
-                      站内全部未删除的 Key 都会列出；仅保存 Key 引用，前端不会接触密钥明文。
+                      只列出你名下的 Key，与「API 密钥」页一致；仅保存 Key 引用，前端不会接触密钥明文。
                     </span>
                   </label>
                   <label class="field-label">

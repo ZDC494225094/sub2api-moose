@@ -95,9 +95,9 @@ func (s *Store) SaveAIConfig(ctx context.Context, c AIConfig) error {
 	return err
 }
 
-func (s *Store) AIKeys(ctx context.Context) ([]AIKeyOption, error) {
+func (s *Store) AIKeys(ctx context.Context, userID int64) ([]AIKeyOption, error) {
 	if s.KeyLister != nil {
-		return s.KeyLister(ctx)
+		return s.KeyLister(ctx, userID)
 	}
 	return nil, errors.New("AI 客服尚未配置安全的 API Key 列表提供器")
 }
