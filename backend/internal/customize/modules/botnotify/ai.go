@@ -137,11 +137,19 @@ type PublicDTO struct {
 	ChannelStatus string
 	Announcements string
 }
+
+// AIHistoryTurn is one past exchange in the same conversation, taken from
+// the redacted audit store. Blocked or failed exchanges are never loaded.
+type AIHistoryTurn struct {
+	User      string
+	Assistant string
+}
+
 type AIRequest struct {
 	Config  AIConfig
 	Message Message
 	Context PublicDTO
-	History []string
+	History []AIHistoryTurn
 }
 type AIProvider interface {
 	Complete(context.Context, AIRequest) (string, error)

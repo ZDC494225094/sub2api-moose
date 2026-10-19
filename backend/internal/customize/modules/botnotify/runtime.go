@@ -634,6 +634,53 @@ func (r *Runtime) aiContext(ctx context.Context) PublicDTO {
 	return dto
 }
 
+// aiHistory loads the most recent successful exchanges of this
+// conversation (same bot, platform and chat) so follow-up questions keep
+// their context and the shared prefix can hit upstream prompt caches.
+// Blocked and failed exchanges are excluded, and every side is truncated
+// so history stays a bounded, small part of the request.
+func (r *Runtime) aiHistory(ctx context.Context, e BotEntry, m Message) []AIHistoryTurn {
+	rows, err := r.Store.DB.QueryContext(ctx, `
+		SELECT msg.question_redacted, msg.content_redacted
+		FROM bot_ai_messages msg
+		JOIN bot_ai_conversations conv ON conv.id = msg.conversation_id
+		WHERE conv.bot_id = $1 AND conv.platform = $2 AND conv.chat_id = $3
+		  AND msg.direction = 'assistant' AND msg.blocked = false AND msg.error_code = ''
+		ORDER BY msg.id DESC
+		LIMIT 4`, e.ID, m.Platform, m.ChatID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var turns []AIHistoryTurn
+	for rows.Next() {
+		var turn AIHistoryTurn
+		if err := rows.Scan(&turn.User, &turn.Assistant); err != nil {
+			return nil
+		}
+		turn.User = truncateAudit(turn.User, 600)
+		turn.Assistant = truncateAudit(turn.Assistant, 600)
+		if turn.User != "" && turn.Assistant != "" {
+			turns = append(turns, turn)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil
+	}
+	for i, j := 0, len(turns)-1; i < j; i, j = i+1, j-1 {
+		turns[i], turns[j] = turns[j], turns[i]
+	}
+	return turns
+}
+
+func truncateAudit(s string, maxRunes int) string {
+	r := []rune(s)
+	if len(r) <= maxRunes {
+		return s
+	}
+	return string(r[:maxRunes])
+}
+
 // aiLimited enforces the per-bot daily answer cap and the per-chat cooldown
 // from the AI configuration. Limited messages are skipped silently: they
 // are routine traffic shaping, not errors worth reporting.
@@ -672,7 +719,7 @@ func (r *Runtime) handleAI(ctx context.Context, e BotEntry, platform Platform, m
 	if r.aiLimited(ctx, e, m, config) {
 		return
 	}
-	text, err := r.AI.Complete(ctx, AIRequest{Config: config, Message: m, Context: r.aiContext(ctx)})
+	text, err := r.AI.Complete(ctx, AIRequest{Config: config, Message: m, Context: r.aiContext(ctx), History: r.aiHistory(ctx, e, m)})
 	if err != nil || !InspectOutput(text).Allowed {
 		reason := "provider_error"
 		if err == nil {

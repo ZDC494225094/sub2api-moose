@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -88,7 +89,7 @@ type botAIProvider struct {
 }
 
 func newBotAIProvider(db *sql.DB, data botnotify.Data) botAIProvider {
-	return botAIProvider{db: db, data: data, client: &http.Client{Timeout: 60 * time.Second}}
+	return botAIProvider{db: db, data: data, client: &http.Client{Timeout: 120 * time.Second}}
 }
 
 type aiChatMessage struct {
@@ -152,8 +153,19 @@ func (p botAIProvider) Complete(ctx context.Context, req botnotify.AIRequest) (s
 	}
 	messages := []aiChatMessage{
 		{Role: "system", Content: botAISystemPrompt(req)},
-		{Role: "user", Content: truncateRunes(req.Message.Text, cfg.MaxInputChars)},
 	}
+	// Conversation history keeps follow-ups in context; the long shared
+	// prefix (system prompt plus prior turns) is also what upstream prompt
+	// caches reuse, instead of every message starting cold.
+	for _, turn := range req.History {
+		if turn.User != "" {
+			messages = append(messages, aiChatMessage{Role: "user", Content: turn.User})
+		}
+		if turn.Assistant != "" {
+			messages = append(messages, aiChatMessage{Role: "assistant", Content: turn.Assistant})
+		}
+	}
+	messages = append(messages, aiChatMessage{Role: "user", Content: truncateRunes(req.Message.Text, cfg.MaxInputChars)})
 	// Up to three tool rounds, then a final answer without tools. If the
 	// model or gateway does not support tool calling at all, fall back to
 	// one plain call so basic Q&A still works.
@@ -194,7 +206,7 @@ func (p botAIProvider) chat(ctx context.Context, key string, cfg botnotify.AICon
 		"messages":    messages,
 		"max_tokens":  cfg.MaxOutputTokens,
 		"temperature": 0.3,
-		"stream":      false,
+		"stream":      true,
 	}
 	if withTools {
 		payload["tools"] = aiTools
@@ -216,12 +228,17 @@ func (p botAIProvider) chat(ctx context.Context, key string, cfg botnotify.AICon
 		return aiChatMessage{}, fmt.Errorf("ai_provider_unreachable: %w", err)
 	}
 	defer resp.Body.Close()
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if err != nil {
 		return aiChatMessage{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		return aiChatMessage{}, fmt.Errorf("ai_provider_http_%d", resp.StatusCode)
+	}
+	// Streaming responses are assembled from SSE deltas; a gateway that
+	// ignores the stream flag and answers plain JSON is handled below.
+	if msg, ok := parseAIStreamBody(raw); ok {
+		return msg, nil
 	}
 	var decoded struct {
 		Choices []struct {
@@ -235,6 +252,87 @@ func (p botAIProvider) chat(ctx context.Context, key string, cfg botnotify.AICon
 		return aiChatMessage{}, errors.New("ai_provider_empty")
 	}
 	return decoded.Choices[0].Message, nil
+}
+
+// parseAIStreamBody assembles an SSE chat completions stream into a single
+// message: content deltas are concatenated and tool calls are merged by
+// delta index (id and name arrive in the first fragment, arguments stream
+// in pieces). The assembled message feeds the same tool loop as before.
+func parseAIStreamBody(body []byte) (aiChatMessage, bool) {
+	text := strings.TrimSpace(string(body))
+	if !strings.HasPrefix(text, "data:") {
+		return aiChatMessage{}, false
+	}
+	var content strings.Builder
+	type callAcc struct{ id, name, args string }
+	calls := map[int]*callAcc{}
+	var order []int
+	sawChunk := false
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if data == "" || data == "[DONE]" {
+			continue
+		}
+		var chunk struct {
+			Choices []struct {
+				Delta struct {
+					Content   string `json:"content"`
+					ToolCalls []struct {
+						Index    int    `json:"index"`
+						ID       string `json:"id"`
+						Function struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						} `json:"function"`
+					} `json:"tool_calls"`
+				} `json:"delta"`
+			} `json:"choices"`
+		}
+		if json.Unmarshal([]byte(data), &chunk) != nil {
+			continue
+		}
+		sawChunk = true
+		if len(chunk.Choices) == 0 {
+			continue
+		}
+		delta := chunk.Choices[0].Delta
+		content.WriteString(delta.Content)
+		for _, tc := range delta.ToolCalls {
+			acc, ok := calls[tc.Index]
+			if !ok {
+				acc = &callAcc{}
+				calls[tc.Index] = acc
+				order = append(order, tc.Index)
+			}
+			if tc.ID != "" {
+				acc.id = tc.ID
+			}
+			if tc.Function.Name != "" {
+				acc.name = tc.Function.Name
+			}
+			acc.args += tc.Function.Arguments
+		}
+	}
+	if !sawChunk {
+		return aiChatMessage{}, false
+	}
+	msg := aiChatMessage{Role: "assistant", Content: content.String()}
+	sort.Ints(order)
+	for _, idx := range order {
+		acc := calls[idx]
+		if acc.name == "" {
+			continue
+		}
+		call := aiToolCall{ID: acc.id, Type: "function"}
+		call.Function.Name = acc.name
+		call.Function.Arguments = acc.args
+		msg.ToolCalls = append(msg.ToolCalls, call)
+	}
+	return msg, true
 }
 
 // execTool runs one whitelisted, read-only lookup and returns compact text
