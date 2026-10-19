@@ -64,7 +64,7 @@ func TestCatalogAndDefaultDisabled(t *testing.T) {
 			require.Nil(t, state.Enabled)
 		}
 	}
-	require.Equal(t, 16, count)
+	require.Equal(t, 17, count)
 }
 
 func TestPersistentIndependentSwitchesAcrossManagers(t *testing.T) {
@@ -116,7 +116,7 @@ func TestHTTPGateMatrixAndDrain(t *testing.T) {
 		method, path, id string
 		code             int
 	}{
-		{"GET", "/", "premium-home", 307}, {"GET", "/docs", "premium-home", 307}, {"HEAD", "/docs/guide", "premium-home", 307},
+		{"GET", "/", "premium-home", 307}, {"GET", "/docs", "user-guide", 403}, {"HEAD", "/docs/guide", "user-guide", 403},
 		{"POST", "/api/v1/playground/runs", "playground", 403}, {"GET", "/api/v1/playground/runs/123", "playground", 200}, {"DELETE", "/api/v1/playground/runs/123", "playground", 200},
 		{"GET", "/api/v1/playground/runs/123/images/0", "playground", 200},
 		{"GET", "/canvas/", "infinite-canvas", 403}, {"GET", "/canvas/assets/app.js", "infinite-canvas", 403},

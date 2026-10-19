@@ -9,6 +9,12 @@ export const customExtensionRoutes: RouteRecordRaw[] = [
     component: () => import('./modules/bot-notify/BotNotifyView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true, title: '消息机器人' },
   },
+  {
+    path: '/admin/guide',
+    name: 'AdminUserGuide',
+    component: () => import('./modules/user-guide/AdminGuideView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: '用户手册' },
+  },
   ...marketingRoutes,
   {
     path: '/',
@@ -21,8 +27,8 @@ export const customExtensionRoutes: RouteRecordRaw[] = [
   },
   {
     path: '/docs',
-    name: 'PremiumDocs',
-    component: () => import('@/features/premium-home/runtime/PremiumDocsView.vue'),
+    name: 'UserGuideDocs',
+    component: () => import('./modules/user-guide/GuideView.vue'),
     meta: {
       requiresAuth: false,
       title: '文档中心'

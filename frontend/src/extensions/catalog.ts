@@ -2,8 +2,9 @@
 // presented as disabled merely because their navigation is hidden.
 export const extensionPaths = {
   'bot-notify': ['/admin/bot-notify'],
+  'user-guide': ['/docs', '/admin/guide'],
   'redeem-marketing': [],
-  'premium-home': ['/', '/docs'],
+  'premium-home': ['/'],
   playground: ['/playground'],
   'infinite-canvas': ['/canvas'],
   'operations-analytics': ['/admin/operations'],

@@ -20,17 +20,25 @@
   },
   {
     "id": "premium-home",
-    "name": "品牌首页与文档中心",
-    "description": "独立首页、动效、文档页面与首页公共公告接口；关闭后根地址返回上游 /home。",
+    "name": "品牌首页",
+    "description": "独立首页、动效与首页公共公告接口；关闭后根地址返回上游 /home。",
     "gates": [
       "GET /api/v1/announcements/public"
     ],
     "managed": true,
-    "disable_behavior": "停止进入品牌首页和文档中心，不修改上游首页配置。",
+    "disable_behavior": "停止进入品牌首页，不修改上游首页配置。",
     "paths": [
-      "/",
-      "/docs"
+      "/"
     ]
+  },
+  {
+    "id": "user-guide",
+    "name": "用户手册",
+    "description": "文档中心（/docs）手册内容，后台可编辑标题与 Markdown 正文，内置默认手册。",
+    "managed": true,
+    "disable_behavior": "关闭后文档中心与手册接口停止访问，已保存内容保留。",
+    "paths": ["/docs", "/admin/guide"],
+    "gates": ["/api/v1/admin/guide/*", "GET /api/v1/guide"]
   },
   {
     "id": "playground",

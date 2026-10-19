@@ -18,6 +18,7 @@ func RegisterUserRoutes(
 	panelRateLimiter *middleware.PanelRateLimiter,
 ) {
 	registerCustomPublicAnnouncementRoute(v1, settingService.CustomExtensions(), h.Announcement.ListPublic)
+	registerCustomPublicGuideRoute(v1, h, settingService.CustomExtensions())
 
 	authenticated := v1.Group("")
 	authenticated.Use(gin.HandlerFunc(jwtAuth))

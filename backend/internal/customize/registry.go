@@ -185,8 +185,12 @@ func pathUnder(path, prefix string) bool {
 // Running task reads/cancellation are deliberately drained after disablement.
 func RequestExtension(method, path string) string {
 	switch {
-	case (method == "GET" || method == "HEAD") && (path == "/" || pathUnder(path, "/docs")):
+	case (method == "GET" || method == "HEAD") && path == "/":
 		return "premium-home"
+	case (method == "GET" || method == "HEAD") && pathUnder(path, "/docs"):
+		return "user-guide"
+	case pathUnder(path, "/admin/guide"):
+		return "user-guide"
 	case pathUnder(path, "/canvas"):
 		return "infinite-canvas"
 	case pathUnder(path, "/admin/bot-notify"):

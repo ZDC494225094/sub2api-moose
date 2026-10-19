@@ -1,0 +1,225 @@
+/* User guide (docs center) article layout. Page chrome (topbar) comes from
+   premium-home.css; colors mirror the premium home palette. */
+.guide-shell {
+  padding-top: 28px;
+  padding-bottom: 56px;
+}
+
+.guide-state {
+  background: #fff;
+  border: 1px solid rgba(34, 52, 74, 0.1);
+  border-radius: 16px;
+  padding: 40px 28px;
+  text-align: center;
+  color: #5b6b7f;
+}
+
+.guide-layout {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.guide-toc {
+  position: sticky;
+  top: 84px;
+}
+
+.guide-toc-card {
+  background: #fff;
+  border: 1px solid rgba(34, 52, 74, 0.1);
+  border-radius: 14px;
+  padding: 14px 10px;
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+}
+
+.guide-toc-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #8a97a8;
+  margin: 2px 10px 8px;
+}
+
+.guide-toc-card a {
+  display: block;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: #22344a;
+  font-size: 14px;
+  text-decoration: none;
+  line-height: 1.45;
+}
+
+.guide-toc-card a:hover {
+  background: #f3ead3;
+}
+
+.guide-toc-card a.is-h3 {
+  padding-left: 24px;
+  font-size: 13px;
+  color: #5b6b7f;
+}
+
+.guide-article {
+  background: #fff;
+  border: 1px solid rgba(34, 52, 74, 0.1);
+  border-radius: 16px;
+  padding: 30px 34px;
+  min-width: 0;
+}
+
+.guide-title {
+  font-size: 24px;
+  line-height: 1.4;
+  margin: 0 0 14px;
+  color: #22344a;
+}
+
+.guide-article .markdown-body {
+  color: #2c3e55;
+  line-height: 1.8;
+  font-size: 15.5px;
+}
+
+.guide-article .markdown-body h2 {
+  font-size: 20px;
+  margin: 30px 0 10px;
+  padding-top: 16px;
+  border-top: 1px solid #eee5d0;
+  color: #22344a;
+}
+
+.guide-article .markdown-body h2:first-child {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 6px;
+}
+
+.guide-article .markdown-body h3 {
+  font-size: 16.5px;
+  margin: 20px 0 8px;
+  color: #22344a;
+}
+
+.guide-article .markdown-body p {
+  margin: 8px 0;
+}
+
+.guide-article .markdown-body a {
+  color: #b45309;
+  word-break: break-all;
+}
+
+.guide-article .markdown-body code {
+  background: #f1ead8;
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-size: 0.9em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.guide-article .markdown-body pre {
+  background: #1f2937;
+  color: #e5e7eb;
+  border-radius: 10px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  line-height: 1.65;
+}
+
+.guide-article .markdown-body pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.guide-article .markdown-body blockquote {
+  background: #fbf3dc;
+  border: 1px solid #ebd9a0;
+  border-left: 4px solid #d97706;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 12px 0;
+}
+
+.guide-article .markdown-body blockquote p {
+  margin: 2px 0;
+}
+
+.guide-article .markdown-body table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14.5px;
+  margin: 12px 0;
+  display: block;
+  overflow-x: auto;
+}
+
+.guide-article .markdown-body th,
+.guide-article .markdown-body td {
+  border: 1px solid #e7dfce;
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.guide-article .markdown-body th {
+  background: #f6efdd;
+}
+
+.guide-article .markdown-body img {
+  width: 100%;
+  border: 1px solid #e7dfce;
+  border-radius: 10px;
+  cursor: zoom-in;
+  display: block;
+  margin: 12px 0;
+}
+
+.guide-article .markdown-body ol,
+.guide-article .markdown-body ul {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.guide-lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 26, 38, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+  padding: 18px;
+}
+
+.guide-lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+}
+
+@media (max-width: 860px) {
+  .guide-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .guide-toc {
+    position: static;
+  }
+
+  .guide-toc-card {
+    max-height: none;
+  }
+
+  .guide-article {
+    padding: 20px 16px;
+  }
+
+  .guide-title {
+    font-size: 20px;
+  }
+}

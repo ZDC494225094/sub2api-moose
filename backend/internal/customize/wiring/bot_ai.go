@@ -474,8 +474,8 @@ func botAISystemPrompt(req botnotify.AIRequest) string {
 - 可用渠道（看分组状态）：https://moosecloud.cc/available-channels
 - 用量记录：https://moosecloud.cc/usage
 - 订单记录：https://moosecloud.cc/orders
-- 图文使用手册（飞书文档，从注册到接入工具的完整教程）：https://kcnybcox2x2k.feishu.cn/docx/A3OCdlYI8ox5L3xdL7zcPUVCnBh
-发链接规则：先一句话说清怎么做，再给链接；一次只给与当前问题直接相关的 1 到 2 个，不要把整张列表发给用户。用户问怎么充值、去哪充值，给充值页；问密钥在哪创建，给密钥页；想要完整图文教程，给飞书手册。
+- 图文使用手册（站内文档中心，从注册到接入工具的完整教程）：https://moosecloud.cc/docs
+发链接规则：先一句话说清怎么做，再给链接；一次只给与当前问题直接相关的 1 到 2 个，不要把整张列表发给用户。用户问怎么充值、去哪充值，给充值页；问密钥在哪创建，给密钥页；想要完整图文教程，给站内文档中心（/docs）。
 
 你可以调用工具查询实时公开信息。涉及实时状态、分组价格、最新公告的问题，必须先调用对应工具再回答，不要凭记忆猜测：
 - query_group_status：查分组（渠道）当前状态、主模型和近7天可用性。用户问某个分组或模型正不正常、稳不稳定时调用，可传分组名关键词。

@@ -34,6 +34,9 @@ func registerCustomOperationsRoutes(admin *gin.RouterGroup, h *handler.Handlers,
 	if h != nil && h.Extensions != nil && h.Extensions.BotNotify != nil {
 		h.Extensions.BotNotify.Register(admin, extensions)
 	}
+	if h != nil && h.Extensions != nil && h.Extensions.UserGuide != nil {
+		h.Extensions.UserGuide.RegisterAdmin(admin, extensions)
+	}
 	if h == nil || h.Extensions == nil || h.Extensions.Operations == nil {
 		return
 	}
@@ -88,4 +91,13 @@ func registerCustomPaymentAdminRoutes(group *gin.RouterGroup, h *handler.Extensi
 // announcement routes remain independent of this switch.
 func registerCustomPublicAnnouncementRoute(v1 *gin.RouterGroup, extensions *customize.Manager, list gin.HandlerFunc) {
 	v1.GET("/announcements/public", extensions.Require("premium-home"), list)
+}
+
+// The public user guide is a user-guide extension addition, mounted next to
+// the public announcements route and gated by its own switch.
+func registerCustomPublicGuideRoute(v1 *gin.RouterGroup, h *handler.Handlers, extensions *customize.Manager) {
+	if h == nil || h.Extensions == nil || h.Extensions.UserGuide == nil {
+		return
+	}
+	v1.GET("/guide", extensions.Require("user-guide"), h.Extensions.UserGuide.Public)
 }

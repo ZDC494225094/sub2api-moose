@@ -43,11 +43,11 @@ describe('custom extension management', () => {
     expect(wrapper.text()).toContain('尚不可切换')
     expect(wrapper.text()).toContain('不是全部二开的可卸载插件')
   })
-  it('renders the actual 15-managed catalog without a security bypass toggle', async () => {
+  it('renders the actual 17-managed catalog without a security bypass toggle', async () => {
     const catalog = JSON.parse(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../../backend/internal/customize/catalog.json'), 'utf8'))
     vi.mocked(extensionAPI.list).mockResolvedValue({ data: { items: catalog.map((item: { managed: boolean }) => ({ ...item, enabled: item.managed ? true : null })) } } as never)
     const wrapper = mount(CustomExtensionsView, { global: { stubs } }); await flushPromises()
-    expect(wrapper.findAll('[role="switch"]')).toHaveLength(15)
+    expect(wrapper.findAll('[role="switch"]')).toHaveLength(17)
     const security = wrapper.findAll('article').find(article => article.text().includes('访问与注册策略增强'))!
     expect(security.exists()).toBe(true)
     expect(security.find('[role="switch"]').exists()).toBe(true)
