@@ -10,7 +10,7 @@ import { imageToDataUrl } from "@/services/image-storage";
 import { boolConfig, buildSeedancePromptText, isSeedanceVideoConfig, normalizeSeedanceDuration, normalizeSeedanceRatio, normalizeSeedanceResolution } from "@/lib/seedance-video";
 import { buildApiUrl, isManagedCanvasModel, modelOptionName, resolveModelRequestConfig, resolveModelScript, withLocalProxy, type AiConfig } from "@/stores/use-config-store";
 import { runModelPlugin } from "./model-plugin";
-import { canvasRunVideoResult, getCanvasRun, startCanvasRun } from "./canvas";
+import { canvasRunError, canvasRunVideoResult, getCanvasRun, startCanvasRun } from "./canvas";
 import type { ReferenceImage } from "@/types/image";
 import type { ReferenceAudio, ReferenceVideo } from "@/types/media";
 
@@ -107,7 +107,7 @@ export async function pollVideoGenerationTask(config: AiConfig, task: VideoGener
     if (task.provider === "canvas") {
         const run = await getCanvasRun(task.id, options?.signal);
         if (run.status === "succeeded") return { status: "completed", result: await canvasRunVideoResult(run, options?.signal) };
-        if (run.status === "failed" || run.status === "canceled") return { status: "failed", error: run.error || apiText("videoGenerationFailed") };
+        if (run.status === "failed" || run.status === "canceled") return { status: "failed", error: canvasRunError(run) };
         return { status: "pending" };
     }
     const requestConfig = resolveModelRequestConfig(config, task.model);

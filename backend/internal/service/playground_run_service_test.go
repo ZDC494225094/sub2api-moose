@@ -45,7 +45,7 @@ func TestPlaygroundFailedChargePreservesRunError(t *testing.T) {
 	delete(service.runs, key)
 	mini.FlushAll()
 	run, found = service.Get(7, "failed-video")
-	if !found || run.Status != PlaygroundRunFailed || run.Error != "任务已中止，预扣费用已退回" {
+	if !found || run.Status != PlaygroundRunFailed || !strings.Contains(run.Error, "历史任务未记录失败详情") {
 		t.Fatalf("missing run must retain refunded ledger fallback: %#v", run)
 	}
 }

@@ -70,7 +70,7 @@ func (s *S3ImageStorage) Save(ctx context.Context, key, contentType string, data
 	if s.db != nil {
 		_, err = s.db.ExecContext(ctx, `INSERT INTO object_storage_assets(user_id,bucket,object_key,content_type,bytes) VALUES(NULLIF($1,0),$2,$3,$4,$5) ON CONFLICT(bucket,object_key) DO NOTHING`, service.StorageUser(ctx), s.bucket, key, contentType, size)
 		if err != nil {
-			return "", fmt.Errorf("record object storage upload: %w", err)
+			return "", fmt.Errorf("%w: %w", service.ErrObjectStorageAssetRecord, err)
 		}
 	}
 	return s.assetURL(ctx, key)

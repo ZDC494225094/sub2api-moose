@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
@@ -58,10 +59,11 @@ type ImageStorageSettingService struct {
 	// 保证升级前已用配置文件开启该功能的部署不被打断。
 	fallback config.ImageStorageConfig
 
-	mu       sync.Mutex
-	resolved bool
-	uploader *ImageResultUploader
-	enabled  bool
+	mu         sync.Mutex
+	resolved   bool
+	uploader   *ImageResultUploader
+	enabled    bool
+	resolveErr error
 }
 
 func NewImageStorageSettingService(
@@ -88,41 +90,68 @@ func (s *ImageStorageSettingService) Resolver() ImageStorageResolver {
 }
 
 func (s *ImageStorageSettingService) resolve() (*ImageResultUploader, bool) {
+	uploader, enabled, _ := s.resolveStrict()
+	return uploader, enabled
+}
+
+func (s *ImageStorageSettingService) resolveStrict() (*ImageResultUploader, bool, error) {
 	if s == nil {
-		return nil, false
+		return nil, false, nil
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer func() {
+		if s.resolveErr != nil {
+			s.resolved = false
+		}
+	}()
 	if s.resolved {
-		return s.uploader, s.enabled
+		return s.uploader, s.enabled, s.resolveErr
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	s.resolved = true
 	s.uploader, s.enabled = nil, false
+	s.resolveErr = nil
 
-	cfg, err := s.effectiveConfig(ctx)
+	fallback := s.fallback
+	cfg := &fallback
+	settings, err := s.load(ctx)
+	if err == nil && settings != nil {
+		if !settings.Enabled {
+			return nil, false, nil
+		}
+		cfg, err = s.toImageStorageConfig(ctx, settings)
+	}
 	if err != nil {
 		logger.L().Warn("image_storage.settings_load_failed; async image tasks stay disabled", zap.Error(err))
-		return nil, false
+		s.resolveErr = errors.New("读取对象存储配置失败，请检查数据库、备份 S3 复用配置和服务端日志")
+		return nil, false, s.resolveErr
 	}
 	if !cfg.Enabled {
-		return nil, false
+		return nil, false, nil
 	}
 	if !cfg.IsConfigured() {
 		logger.L().Warn("image_storage is enabled but not fully configured; async image tasks are disabled",
 			zap.Strings("missing_keys", cfg.MissingCredentialKeys()))
-		return nil, false
+		s.resolveErr = fmt.Errorf("对象存储已启用，但桶名称或访问凭证不完整：%w", ErrImageStorageIncomplete)
+		return nil, false, s.resolveErr
 	}
 
+	if s.factory == nil {
+		s.resolveErr = errors.New("对象存储客户端未配置")
+		return nil, false, s.resolveErr
+	}
 	storage, err := s.factory(ctx, cfg)
 	if err != nil {
 		logger.L().Error("image_storage.client_build_failed; async image tasks stay disabled", zap.Error(err))
-		return nil, false
+		s.resolveErr = errors.New("对象存储客户端初始化失败，请检查端点、桶和凭证配置")
+		return nil, false, s.resolveErr
 	}
 	s.uploader = NewImageResultUploader(storage, cfg.Prefix, cfg.MaxDownloadByte, nil)
 	s.enabled = true
-	return s.uploader, true
+	return s.uploader, true, nil
 }
 
 // Invalidate 丢弃缓存，使下一次请求按最新设置重新解析。
@@ -134,6 +163,7 @@ func (s *ImageStorageSettingService) Invalidate() {
 	s.resolved = false
 	s.uploader = nil
 	s.enabled = false
+	s.resolveErr = nil
 	s.mu.Unlock()
 }
 
@@ -294,7 +324,10 @@ func (s *ImageStorageSettingService) load(ctx context.Context) (*ImageStorageSet
 		return nil, nil //nolint:nilnil // no repository means no stored settings
 	}
 	raw, err := s.settingRepo.GetValue(ctx, settingKeyImageStorageConfig)
-	if err != nil || strings.TrimSpace(raw) == "" {
+	if err != nil && !errors.Is(err, ErrSettingNotFound) {
+		return nil, err
+	}
+	if strings.TrimSpace(raw) == "" {
 		return nil, nil //nolint:nilnil // never configured is a valid state
 	}
 	var settings ImageStorageSettings

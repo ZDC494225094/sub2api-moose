@@ -41,7 +41,15 @@ export type CanvasRun = {
     videos?: CanvasRunVideo[];
     audios?: CanvasRunAudio[];
     error?: string;
+    phase?: string;
+    upstreamTaskId?: string;
 };
+
+export function canvasRunError(run: CanvasRun) {
+    const phases: Record<string, string> = { queued: "等待执行", task_persist: "任务保存", reference_upload: "参考素材转存", upstream_submit: "提交上游", upstream_poll: "等待上游结果", result_store: "保存结果" };
+    const phase = run.phase ? `；阶段：${phases[run.phase] || run.phase}` : "";
+    return `${run.error || "画布任务未完成"}（任务：${run.id}${phase}）`;
+}
 
 export type CanvasRunPayload = Record<string, unknown> & { model: string };
 
@@ -85,7 +93,7 @@ export async function waitForExistingCanvasRun(id: string, signal?: AbortSignal,
         }
         if (run.status === "failed" || run.status === "canceled") {
             refreshCanvasBillingStatus();
-            const error = new Error(run.error || "画布任务未完成");
+            const error = new Error(canvasRunError(run));
             reportInsufficientBalance(error);
             throw error;
         }

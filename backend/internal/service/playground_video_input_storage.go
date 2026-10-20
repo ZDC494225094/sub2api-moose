@@ -18,7 +18,7 @@ import (
 // Resolve storage per job and replace inline references before building the
 // upstream payload. Keep caller slices untouched, including on partial failure.
 func (s *PlaygroundRunService) prepareVideoInputImages(ctx context.Context, request *PlaygroundRunRequest) error {
-	if s.imageStorageResolver == nil {
+	if s.imageStorageResolver == nil && s.videoStorageResolver == nil {
 		return nil
 	}
 	images := append([]PlaygroundRunImageInput(nil), request.Images...)
@@ -54,16 +54,29 @@ func (s *PlaygroundRunService) prepareVideoInputImages(ctx context.Context, requ
 		}
 	}
 	if !hasInline {
+		logger.L().Info("playground.video_reference_storage_no_inline", zap.String("run_id", request.ID), zap.Int("references", len(refs)))
 		return nil
 	}
-	uploader, enabled := s.imageStorageResolver()
+	var uploader *ImageResultUploader
+	var enabled bool
+	if s.videoStorageResolver != nil {
+		var err error
+		uploader, enabled, err = s.videoStorageResolver()
+		if err != nil {
+			return fmt.Errorf("参考素材对象存储配置异常：%w", err)
+		}
+	} else {
+		uploader, enabled = s.imageStorageResolver()
+	}
 	if !enabled {
+		logger.L().Info("playground.video_reference_storage_disabled", zap.String("run_id", request.ID), zap.Int("references", len(refs)))
 		return nil
 	}
 	if uploader == nil || uploader.storage == nil {
 		return fmt.Errorf("参考素材对象存储不可用，请检查异步生图对象存储配置")
 	}
 	objectID := "video-inputs/" + uuid.NewString()
+	logger.L().Info("playground.video_reference_storage_started", zap.String("run_id", request.ID), zap.Int("references", len(refs)))
 	uploaded := make(map[string]string)
 	for i, ref := range refs {
 		raw := strings.TrimSpace(*ref.value)
@@ -116,6 +129,7 @@ func (s *PlaygroundRunService) prepareVideoInputImages(ctx context.Context, requ
 			// Never log the original SDK error: it may contain credentials,
 			// signed URLs or a provider-controlled error message.
 			logger.L().Warn("playground.video_reference_storage_failed",
+				zap.String("run_id", request.ID),
 				zap.Int("image_index", i+1), zap.Int("attempts", attempts),
 				zap.String("category", failure.category), zap.Int("http_status", failure.status))
 			return fmt.Errorf("参考%s %d 转存对象存储失败：%s", ref.kind, i+1, failure.hint)
@@ -126,6 +140,7 @@ func (s *PlaygroundRunService) prepareVideoInputImages(ctx context.Context, requ
 		}
 		uploaded[raw] = imageURL
 		*ref.value = imageURL
+		logger.L().Info("playground.video_reference_storage_saved", zap.String("run_id", request.ID), zap.Int("reference_index", i+1), zap.String("content_type", contentType), zap.Int("bytes", len(data)))
 	}
 	request.Images = images
 	request.ReferenceVideos = videos

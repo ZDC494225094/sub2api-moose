@@ -19,6 +19,32 @@ type stubSettingRepo struct {
 	values map[string]string
 }
 
+type unavailableStorageSettingRepo struct{ SettingRepository }
+
+func (unavailableStorageSettingRepo) GetValue(context.Context, string) (string, error) {
+	return "", errors.New("database unavailable")
+}
+
+func TestImageStorageStrictResolverDistinguishesFailureAndDisabled(t *testing.T) {
+	svc := NewImageStorageSettingService(unavailableStorageSettingRepo{}, nil, nil, nil, config.ImageStorageConfig{})
+	_, enabled, err := svc.resolveStrict()
+	require.False(t, enabled)
+	require.ErrorContains(t, err, "读取对象存储配置失败")
+	require.False(t, svc.resolved, "transient configuration errors must not remain cached until restart")
+
+	svc = NewImageStorageSettingService(nil, nil, nil, nil, config.ImageStorageConfig{Enabled: true})
+	_, enabled, err = svc.resolveStrict()
+	require.False(t, enabled)
+	require.ErrorIs(t, err, ErrImageStorageIncomplete)
+
+	repo := newStubSettingRepo()
+	require.NoError(t, repo.Set(context.Background(), settingKeyImageStorageConfig, `{"enabled":false,"reuse_backup_s3":true}`))
+	svc = NewImageStorageSettingService(repo, nil, nil, nil, config.ImageStorageConfig{})
+	_, enabled, err = svc.resolveStrict()
+	require.NoError(t, err, "disabled storage must not attempt to resolve backup credentials")
+	require.False(t, enabled)
+}
+
 func newStubSettingRepo() *stubSettingRepo {
 	return &stubSettingRepo{values: map[string]string{}}
 }

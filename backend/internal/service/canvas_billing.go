@@ -34,6 +34,8 @@ type CanvasCharge struct {
 	UsageRecorded                                           bool
 	DailyWindowStart, WeeklyWindowStart, MonthlyWindowStart *time.Time
 	CreatedAt                                               time.Time
+	Phase, UpstreamTaskID, ErrorMessage                     string
+	UpdatedAt                                               time.Time
 }
 type CanvasChargeReservation struct {
 	CanvasCharge
@@ -280,10 +282,13 @@ func canvasRecoveredRun(c *CanvasCharge) *PlaygroundRun {
 	message := ""
 	if c.Status == "failed" {
 		status = PlaygroundRunFailed
-		message = "任务已中止，预扣费用已退回"
+		message = c.ErrorMessage
+		if message == "" {
+			message = "任务已中止，预扣费用已退回；历史任务未记录失败详情"
+		}
 	}
 	if c.Status == "succeeded" {
 		status = PlaygroundRunSucceeded
 	}
-	return &PlaygroundRun{ID: c.RunID, UserID: c.UserID, Mode: c.Mode, Model: c.Model, Status: status, CreatedAt: c.CreatedAt, UpdatedAt: time.Now(), Error: message}
+	return &PlaygroundRun{ID: c.RunID, UserID: c.UserID, Mode: c.Mode, Model: c.Model, Status: status, Phase: c.Phase, UpstreamTaskID: c.UpstreamTaskID, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt, Error: message}
 }

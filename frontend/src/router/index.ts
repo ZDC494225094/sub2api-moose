@@ -22,6 +22,12 @@ import { resolveRouteDocumentTitle } from './title'
  */
 const routes: RouteRecordRaw[] = [
   {
+    path: '/admin/canvas-runs',
+    name: 'AdminCanvasRuns',
+    component: () => import('@/views/admin/CanvasRunsView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: '画布任务' }
+  },
+  {
     path: '/admin/storage-assets',
     name: 'AdminStorageAssets',
     component: () => import('@/views/admin/StorageAssetsView.vue'),

@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+var ErrObjectStorageAssetRecord = errors.New("object uploaded but asset record could not be saved")
+
 type storageUserContextKey struct{}
 
 func WithStorageUser(ctx context.Context, userID int64) context.Context {

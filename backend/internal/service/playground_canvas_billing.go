@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"log"
 	"time"
 )
@@ -17,8 +18,8 @@ func (s *PlaygroundRunService) Stop() {
 		s.mu.RLock()
 		defer s.mu.RUnlock()
 		for _, r := range s.runs {
-			if r.cancel != nil && !isTerminalPlaygroundRunStatus(r.Status) {
-				r.cancel()
+			if r.cancelCause != nil && !isTerminalPlaygroundRunStatus(r.Status) {
+				r.cancelCause(errors.New("服务正在关闭，任务执行已中断"))
 			}
 		}
 	})
@@ -62,8 +63,12 @@ func (s *PlaygroundRunService) heartbeatCanvasCharge(ctx context.Context, key st
 					// Stop the producer before an expired lease can be refunded.
 					s.mu.RLock()
 					r := s.runs[key]
-					if r != nil && r.cancel != nil {
-						r.cancel()
+					if r != nil && r.cancelCause != nil {
+						reason := "任务执行租约已失效，已停止生成"
+						if err != nil {
+							reason = "任务计费心跳续期失败：" + sanitizeCanvasRunError(err.Error())
+						}
+						r.cancelCause(errors.New(reason))
 					}
 					s.mu.RUnlock()
 					return
@@ -76,8 +81,23 @@ func (s *PlaygroundRunService) heartbeatCanvasCharge(ctx context.Context, key st
 
 func (s *PlaygroundRunService) settleCanvasCharge(ctx context.Context, request PlaygroundRunRequest, runErr error) (*CanvasCharge, error) {
 	for {
+		s.mu.RLock()
+		run := s.runs[playgroundRunKey(request.canvasCharge.UserID, request.ID)]
+		diagnostic := CanvasRunDiagnostics{Phase: "queued"}
+		if run != nil {
+			diagnostic.Phase, diagnostic.UpstreamTaskID = run.Phase, run.UpstreamTaskID
+		}
+		s.mu.RUnlock()
+		if runErr != nil {
+			diagnostic.Error = runErr.Error()
+		} else if ctx.Err() != nil {
+			diagnostic.Error = context.Cause(ctx).Error()
+		} else {
+			diagnostic.Phase = "completed"
+		}
 		success := runErr == nil && ctx.Err() == nil
-		charge, err := s.canvasBilling.finish(request.canvasCharge.ID, success)
+		// Commit the cause and refund together, including queries on other instances.
+		charge, err := s.canvasBilling.finishWithDiagnostics(request.canvasCharge.ID, success, diagnostic)
 		if err == nil {
 			return charge, nil
 		}

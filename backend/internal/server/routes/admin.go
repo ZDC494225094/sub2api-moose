@@ -31,6 +31,9 @@ func RegisterAdminRoutes(
 	admin.Use(gin.HandlerFunc(auditLog))
 	admin.Use(middleware.AdminComplianceGuard(settingService))
 	{
+		if h.Extensions != nil && h.Extensions.Playground != nil {
+			admin.GET("/canvas-runs", h.Extensions.Playground.ListCanvasRuns)
+		}
 		// Business extensions use the existing admin authentication, audit and compliance chain.
 		admin.GET("/custom-extensions", settingService.CustomExtensions().AdminList)
 		admin.PUT("/custom-extensions/:id", settingService.CustomExtensions().AdminUpdate)

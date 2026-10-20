@@ -14,13 +14,13 @@ func NewCanvasBillingRepository(db *sql.DB) service.CanvasBillingRepository {
 	return &usageBillingRepository{db: db}
 }
 
-const canvasChargeColumns = `id,user_id,api_key_id,group_id,subscription_id,run_id,payload_hash,mode,model,status,reserved_cost,actual_cost,charged_cost,usage_recorded,daily_window_start,weekly_window_start,monthly_window_start,created_at`
+const canvasChargeColumns = `id,user_id,api_key_id,group_id,subscription_id,run_id,payload_hash,mode,model,status,reserved_cost,actual_cost,charged_cost,usage_recorded,daily_window_start,weekly_window_start,monthly_window_start,created_at,phase,upstream_task_id,error_message,updated_at`
 
 type canvasRowScanner interface{ Scan(...any) error }
 
 func scanCanvasCharge(row canvasRowScanner) (*service.CanvasCharge, error) {
 	c := &service.CanvasCharge{}
-	err := row.Scan(&c.ID, &c.UserID, &c.APIKeyID, &c.GroupID, &c.SubscriptionID, &c.RunID, &c.PayloadHash, &c.Mode, &c.Model, &c.Status, &c.ReservedCost, &c.ActualCost, &c.ChargedCost, &c.UsageRecorded, &c.DailyWindowStart, &c.WeeklyWindowStart, &c.MonthlyWindowStart, &c.CreatedAt)
+	err := row.Scan(&c.ID, &c.UserID, &c.APIKeyID, &c.GroupID, &c.SubscriptionID, &c.RunID, &c.PayloadHash, &c.Mode, &c.Model, &c.Status, &c.ReservedCost, &c.ActualCost, &c.ChargedCost, &c.UsageRecorded, &c.DailyWindowStart, &c.WeeklyWindowStart, &c.MonthlyWindowStart, &c.CreatedAt, &c.Phase, &c.UpstreamTaskID, &c.ErrorMessage, &c.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -43,8 +43,8 @@ func (r *usageBillingRepository) ReserveCanvasCharge(ctx context.Context, in *se
 	defer tx.Rollback()
 	var id string
 	err = tx.QueryRowContext(ctx, `INSERT INTO canvas_run_charges
-        (id,token_hash,user_id,api_key_id,group_id,subscription_id,run_id,payload_hash,mode,model,reserved_cost,daily_window_start,weekly_window_start,monthly_window_start)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+        (id,token_hash,user_id,api_key_id,group_id,subscription_id,run_id,payload_hash,mode,model,reserved_cost,daily_window_start,weekly_window_start,monthly_window_start,phase)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'queued')
         ON CONFLICT (user_id,run_id) DO NOTHING RETURNING id`, in.ID, in.TokenHash, in.UserID, in.APIKeyID, in.GroupID, in.SubscriptionID, in.RunID, in.PayloadHash, in.Mode, in.Model, in.ReservedCost, in.DailyWindowStart, in.WeeklyWindowStart, in.MonthlyWindowStart).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		c, err := scanCanvasCharge(tx.QueryRowContext(ctx, `SELECT `+canvasChargeColumns+` FROM canvas_run_charges WHERE user_id=$1 AND run_id=$2`, in.UserID, in.RunID))
@@ -155,12 +155,15 @@ func canvasSettlementCost(c *service.CanvasCharge) float64 {
 	return c.ReservedCost
 }
 func (r *usageBillingRepository) FinishCanvasCharge(ctx context.Context, id string, success bool) (*service.CanvasCharge, error) {
-	return r.finishCanvasCharge(ctx, id, success, false)
+	return r.finishCanvasCharge(ctx, id, success, false, nil)
+}
+func (r *usageBillingRepository) FinishCanvasChargeWithDiagnostics(ctx context.Context, id string, success bool, diagnostic service.CanvasRunDiagnostics) (*service.CanvasCharge, error) {
+	return r.finishCanvasCharge(ctx, id, success, false, &diagnostic)
 }
 func (r *usageBillingRepository) FailExpiredCanvasCharge(ctx context.Context, id string) (*service.CanvasCharge, error) {
-	return r.finishCanvasCharge(ctx, id, false, true)
+	return r.finishCanvasCharge(ctx, id, false, true, nil)
 }
-func (r *usageBillingRepository) finishCanvasCharge(ctx context.Context, id string, success, expiredOnly bool) (*service.CanvasCharge, error) {
+func (r *usageBillingRepository) finishCanvasCharge(ctx context.Context, id string, success, expiredOnly bool, diagnostic *service.CanvasRunDiagnostics) (*service.CanvasCharge, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -183,6 +186,12 @@ func (r *usageBillingRepository) finishCanvasCharge(ctx context.Context, id stri
 	if c.Status != "reserved" {
 		return c, nil
 	}
+	if diagnostic != nil {
+		c.Phase, c.UpstreamTaskID, c.ErrorMessage = diagnostic.Phase, diagnostic.UpstreamTaskID, diagnostic.Error
+		if _, err = tx.ExecContext(ctx, `UPDATE canvas_run_charges SET phase=$2,upstream_task_id=$3,error_message=$4 WHERE id=$1`, id, c.Phase, c.UpstreamTaskID, c.ErrorMessage); err != nil {
+			return nil, err
+		}
+	}
 	target := 0.0
 	c.Status = "failed"
 	if success {
@@ -191,6 +200,12 @@ func (r *usageBillingRepository) finishCanvasCharge(ctx context.Context, id stri
 	}
 	if err = adjustCanvasMoney(ctx, tx, c, target, true); err != nil {
 		return nil, err
+	}
+	if expiredOnly && c.ErrorMessage == "" {
+		c.ErrorMessage = "任务执行租约已过期（进程重启、退出或心跳未续期），预扣费用已退回"
+		if _, err = tx.ExecContext(ctx, `UPDATE canvas_run_charges SET error_message=$2 WHERE id=$1`, id, c.ErrorMessage); err != nil {
+			return nil, err
+		}
 	}
 	if _, err = tx.ExecContext(ctx, `UPDATE canvas_run_charges SET status=$2,charged_cost=$3,updated_at=NOW() WHERE id=$1`, id, c.Status, c.ChargedCost); err != nil {
 		return nil, err

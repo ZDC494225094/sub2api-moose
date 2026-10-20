@@ -31,6 +31,28 @@ type canvasRunRequest struct {
 	service.PlaygroundRunRequest
 }
 
+func (h *PlaygroundHandler) ListCanvasRuns(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	size, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if size < 1 || size > 100 {
+		size = 20
+	}
+	status := c.Query("status")
+	if status != "" && status != "reserved" && status != "succeeded" && status != "failed" {
+		response.BadRequest(c, "Invalid task status")
+		return
+	}
+	result, err := h.runService.ListCanvasRuns(c.Request.Context(), page, size, strings.TrimSpace(c.Query("search")), status)
+	if err != nil {
+		response.InternalError(c, "读取画布任务失败，请检查数据库迁移及服务端日志")
+		return
+	}
+	response.Success(c, result)
+}
+
 type canvasGroupConfig struct {
 	ID             int64               `json:"id"`
 	Name           string              `json:"name"`

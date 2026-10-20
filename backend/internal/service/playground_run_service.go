@@ -148,23 +148,27 @@ type playgroundImageUpstreamResponse struct {
 }
 
 type PlaygroundRun struct {
-	ID          string               `json:"id"`
-	UserID      int64                `json:"-"`
-	Mode        string               `json:"mode"`
-	Status      PlaygroundRunStatus  `json:"status"`
-	Model       string               `json:"model,omitempty"`
-	Content     string               `json:"content,omitempty"`
-	Images      []PlaygroundRunImage `json:"images,omitempty"`
-	Videos      []PlaygroundRunVideo `json:"videos,omitempty"`
-	Audios      []PlaygroundRunAudio `json:"audios,omitempty"`
-	Error       string               `json:"error,omitempty"`
-	Raw         json.RawMessage      `json:"raw,omitempty"`
-	CreatedAt   time.Time            `json:"createdAt"`
-	UpdatedAt   time.Time            `json:"updatedAt"`
-	CompletedAt *time.Time           `json:"completedAt,omitempty"`
-	DurationMs  int64                `json:"durationMs,omitempty"`
+	ID             string               `json:"id"`
+	UserID         int64                `json:"-"`
+	Mode           string               `json:"mode"`
+	Status         PlaygroundRunStatus  `json:"status"`
+	Model          string               `json:"model,omitempty"`
+	Content        string               `json:"content,omitempty"`
+	Images         []PlaygroundRunImage `json:"images,omitempty"`
+	Videos         []PlaygroundRunVideo `json:"videos,omitempty"`
+	Audios         []PlaygroundRunAudio `json:"audios,omitempty"`
+	Error          string               `json:"error,omitempty"`
+	Phase          string               `json:"phase,omitempty"`
+	UpstreamTaskID string               `json:"upstreamTaskId,omitempty"`
+	Raw            json.RawMessage      `json:"raw,omitempty"`
+	CreatedAt      time.Time            `json:"createdAt"`
+	UpdatedAt      time.Time            `json:"updatedAt"`
+	CompletedAt    *time.Time           `json:"completedAt,omitempty"`
+	DurationMs     int64                `json:"durationMs,omitempty"`
 
-	cancel context.CancelFunc
+	cancel      context.CancelFunc
+	cancelCause context.CancelCauseFunc
+	chargeID    string
 }
 
 type PlaygroundRunService struct {
@@ -179,6 +183,7 @@ type PlaygroundRunService struct {
 	ttl                  time.Duration
 	videoPollInterval    time.Duration
 	imageStorageResolver ImageStorageResolver
+	videoStorageResolver func() (*ImageResultUploader, bool, error)
 }
 
 func NewPlaygroundRunService() *PlaygroundRunService {
@@ -196,6 +201,7 @@ func ProvidePlaygroundRunService(rdb *redis.Client, videoAssetRepo PlaygroundVid
 	}
 	if imageStorage != nil {
 		s.imageStorageResolver = imageStorage.Resolver()
+		s.videoStorageResolver = imageStorage.resolveStrict
 	}
 	return s
 }
@@ -287,14 +293,21 @@ func (s *PlaygroundRunService) Start(userID int64, request PlaygroundRunRequest,
 		UserID:    userID,
 		Mode:      request.Mode,
 		Status:    PlaygroundRunQueued,
+		Phase:     "queued",
 		Model:     request.Model,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
+	if request.canvasCharge != nil {
+		run.chargeID = request.canvasCharge.ID
+	}
 	if existing, claimed, err := s.claimPersistentRun(run); err != nil {
 		if request.canvasCharge != nil {
-			_, _ = s.canvasBilling.finish(request.canvasCharge.ID, false)
-			return nil, ErrCanvasChargeUnavailable
+			message := "任务启动失败：无法保存任务到 Redis，请检查服务端 Redis 连接。" + sanitizeCanvasRunError(err.Error())
+			if _, settleErr := s.canvasBilling.finishWithDiagnostics(run.chargeID, false, CanvasRunDiagnostics{Phase: "task_persist", Error: message}); settleErr != nil {
+				log.Printf("canvas startup settlement pending run=%s: %s", request.ID, sanitizeCanvasRunError(settleErr.Error()))
+			}
+			return nil, fmt.Errorf("%s（任务 %s）", message, request.ID)
 		}
 		log.Printf("playground run persistence unavailable for user %d run %s: %v", userID, request.ID, err)
 	} else if !claimed {
@@ -314,12 +327,13 @@ func (s *PlaygroundRunService) Start(userID int64, request PlaygroundRunRequest,
 		return out, nil
 	}
 	// Canvas jobs can legitimately outlive a browser session or a fixed proxy
-	// timeout. They are canceled only by the user through Cancel.
-	ctx, cancel := context.WithCancel(context.Background())
+	// timeout. Explicit cancellation, shutdown and billing lease loss stop them.
+	ctx, cancelCause := context.WithCancelCause(context.Background())
 	if request.canvasCharge != nil {
 		ctx = context.WithValue(ctx, canvasTransportContextKey{}, canvasTransportCredentials{token: request.canvasToken, origin: baseURL, key: request.APIKey})
 	}
-	run.cancel = cancel
+	run.cancel = func() { cancelCause(context.Canceled) }
+	run.cancelCause = cancelCause
 	s.runs[key] = run
 	out := clonePlaygroundRunForClient(run)
 	s.mu.Unlock()
@@ -351,7 +365,7 @@ func (s *PlaygroundRunService) Get(userID int64, id string) (*PlaygroundRun, boo
 			s.mu.RUnlock()
 			// Settlement completes before execute publishes its terminal error. Keep
 			// polling a local producer instead of replacing its error with recovery text.
-			if local != nil && local.Status != PlaygroundRunSucceeded {
+			if local != nil && local.Status != PlaygroundRunSucceeded && (isTerminalPlaygroundRunStatus(local.Status) || charge.ErrorMessage == "") {
 				return local, true
 			}
 			persisted, found, loadErr := s.loadPersistentRun(userID, id)
@@ -572,7 +586,7 @@ func (s *PlaygroundRunService) Cancel(userID int64, id string) (*PlaygroundRun, 
 			return s.Get(userID, id)
 		}
 		if charge != nil {
-			settled, err := s.canvasBilling.finish(charge.ID, false)
+			settled, err := s.canvasBilling.finishWithDiagnostics(charge.ID, false, CanvasRunDiagnostics{Phase: charge.Phase, UpstreamTaskID: charge.UpstreamTaskID, Error: "用户已取消任务，预扣费用已退回"})
 			if err != nil || (settled != nil && settled.Status == "succeeded") {
 				return s.Get(userID, id)
 			}
@@ -633,6 +647,9 @@ func (s *PlaygroundRunService) execute(ctx context.Context, key string, request 
 		run.Status = PlaygroundRunRunning
 		run.UpdatedAt = started
 	})
+	if request.Mode != "video" {
+		s.setRunPhase(key, "upstream_submit", "")
+	}
 
 	var raw json.RawMessage
 	var err error
@@ -649,13 +666,17 @@ func (s *PlaygroundRunService) execute(ctx context.Context, key string, request 
 
 	if request.canvasCharge != nil {
 		if ctx.Err() != nil {
-			err = ctx.Err()
+			if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				err = context.Cause(ctx)
+			}
 		}
 		charge, billingErr := s.settleCanvasCharge(ctx, request, err)
 		if billingErr != nil {
 			err = fmt.Errorf("任务账务结算待恢复: %w", billingErr)
 		} else if charge == nil || charge.Status != "succeeded" {
-			if err == nil {
+			if charge != nil && charge.ErrorMessage != "" && (err == nil || sanitizeCanvasRunError(err.Error()) != charge.ErrorMessage) {
+				err = errors.New(charge.ErrorMessage)
+			} else if err == nil {
 				err = context.Canceled
 			}
 		}
@@ -666,12 +687,21 @@ func (s *PlaygroundRunService) execute(ctx context.Context, key string, request 
 		if errors.Is(err, context.Canceled) {
 			status = PlaygroundRunCanceled
 		}
+		message := sanitizeCanvasRunError(err.Error())
+		s.mu.RLock()
+		failedRun := s.runs[key]
+		phase := ""
+		if failedRun != nil {
+			phase = failedRun.Phase
+		}
+		s.mu.RUnlock()
+		log.Printf("canvas run failed run=%s mode=%s model=%s phase=%s error=%s", request.ID, request.Mode, request.Model, phase, message)
 		s.update(key, func(run *PlaygroundRun) {
 			if isTerminalPlaygroundRunStatus(run.Status) && run.Status == PlaygroundRunCanceled {
 				return
 			}
 			run.Status = status
-			run.Error = err.Error()
+			run.Error = message
 			run.UpdatedAt = completed
 			run.CompletedAt = &completed
 			run.DurationMs = completed.Sub(started).Milliseconds()
@@ -684,6 +714,7 @@ func (s *PlaygroundRunService) execute(ctx context.Context, key string, request 
 			return
 		}
 		run.Status = PlaygroundRunSucceeded
+		run.Phase = "completed"
 		if request.Mode == "image" || request.Mode == "video" || request.Mode == "audio" {
 			run.Raw = nil
 		} else {
@@ -922,6 +953,7 @@ func (s *PlaygroundRunService) executeVideo(ctx context.Context, key string, req
 		ctx = WithStorageUser(ctx, run.UserID)
 	}
 	s.mu.RUnlock()
+	s.setRunPhase(key, "reference_upload", "")
 	if err := s.prepareVideoInputImages(ctx, &request); err != nil {
 		return nil, err
 	}
@@ -930,6 +962,7 @@ func (s *PlaygroundRunService) executeVideo(ctx context.Context, key string, req
 	if err != nil {
 		return nil, err
 	}
+	s.setRunPhase(key, "upstream_submit", "")
 	endpointBase := request.EndpointBase
 	endpoint := "/v1/videos/generations"
 	if geminiVideo {
@@ -949,6 +982,7 @@ func (s *PlaygroundRunService) executeVideo(ctx context.Context, key string, req
 		return nil, err
 	}
 	if videos := extractPlaygroundVideosFromAny(result); len(videos) > 0 {
+		s.setRunPhase(key, "result_store", "")
 		return nil, s.commitPlaygroundVideos(ctx, key, request, baseURL, started, videos)
 	}
 
@@ -956,6 +990,7 @@ func (s *PlaygroundRunService) executeVideo(ctx context.Context, key string, req
 	if taskID == "" {
 		return nil, errors.New("video provider returned neither a video nor a task id")
 	}
+	s.setRunPhase(key, "upstream_poll", taskID)
 	encodedOperation := ""
 	statusEndpointBase := request.EndpointBase
 	statusEndpoint := "/v1/videos/" + url.PathEscape(taskID)
@@ -981,6 +1016,7 @@ func (s *PlaygroundRunService) executeVideo(ctx context.Context, key string, req
 		state, taskErr := playgroundVideoTaskState(statusPayload, geminiVideo)
 		switch state {
 		case playgroundVideoTaskSucceeded:
+			s.setRunPhase(key, "result_store", "")
 			videos := extractPlaygroundVideosFromAny(statusPayload)
 			if geminiVideo {
 				videos = []PlaygroundRunVideo{{
@@ -2146,8 +2182,9 @@ func (s *PlaygroundRunService) update(key string, fn func(*PlaygroundRun)) {
 	var snapshot *PlaygroundRun
 	if run := s.runs[key]; run != nil {
 		previousStatus := run.Status
+		previousPhase := run.Phase
 		fn(run)
-		if run.Mode == "image" || previousStatus != run.Status || isTerminalPlaygroundRunStatus(run.Status) {
+		if run.Mode == "image" || previousStatus != run.Status || previousPhase != run.Phase || isTerminalPlaygroundRunStatus(run.Status) {
 			snapshot = clonePlaygroundRunForPersistence(run)
 		}
 	}
@@ -2375,6 +2412,8 @@ func clonePlaygroundRunForClient(run *PlaygroundRun) *PlaygroundRun {
 	}
 	out := *run
 	out.cancel = nil
+	out.cancelCause = nil
+	out.chargeID = ""
 	out.Images = append([]PlaygroundRunImage(nil), run.Images...)
 	for index := range out.Images {
 		if len(run.Images[index].data) > 0 {

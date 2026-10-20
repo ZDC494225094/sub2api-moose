@@ -43,6 +43,11 @@ func TestVideoStorageFailureClassification(t *testing.T) {
 	require.Equal(t, "canceled", classifyVideoStorageFailure(context.Canceled).category)
 	require.False(t, classifyVideoStorageFailure(context.DeadlineExceeded).retry)
 	require.Equal(t, "dns", classifyVideoStorageFailure(&net.DNSError{Err: "secret", Name: "private-endpoint"}).category)
+	recordFailure := classifyVideoStorageFailure(fmt.Errorf("%w: secret DB message", ErrObjectStorageAssetRecord))
+	require.Equal(t, "asset_record_failed", recordFailure.category)
+	require.False(t, recordFailure.retry)
+	require.Contains(t, recordFailure.hint, "素材记录写入失败")
+	require.NotContains(t, recordFailure.hint, "secret")
 }
 
 func TestVideoInputStorageDeniedAndCanceled(t *testing.T) {

@@ -918,6 +918,7 @@ const adminNavItems = computed((): NavItem[] => {
     },
     { path: '/admin/usage', label: t('nav.usage'), icon: ChartIcon },
     { path: '/admin/storage-assets', label: '存储素材', icon: PlaygroundIcon },
+    { path: '/admin/canvas-runs', label: '画布任务', icon: PlaygroundIcon },
     { path: '/admin/audit-logs', label: t('nav.auditLogs'), icon: ShieldIcon, hideInSimpleMode: true }
   ]
 

@@ -15,7 +15,7 @@ import (
 )
 
 func canvasRows(c service.CanvasCharge) *sqlmock.Rows {
-	return sqlmock.NewRows(strings.Split(canvasChargeColumns, ",")).AddRow(c.ID, c.UserID, c.APIKeyID, c.GroupID, c.SubscriptionID, c.RunID, c.PayloadHash, c.Mode, c.Model, c.Status, c.ReservedCost, c.ActualCost, c.ChargedCost, c.UsageRecorded, c.DailyWindowStart, c.WeeklyWindowStart, c.MonthlyWindowStart, c.CreatedAt)
+	return sqlmock.NewRows(strings.Split(canvasChargeColumns, ",")).AddRow(c.ID, c.UserID, c.APIKeyID, c.GroupID, c.SubscriptionID, c.RunID, c.PayloadHash, c.Mode, c.Model, c.Status, c.ReservedCost, c.ActualCost, c.ChargedCost, c.UsageRecorded, c.DailyWindowStart, c.WeeklyWindowStart, c.MonthlyWindowStart, c.CreatedAt, c.Phase, c.UpstreamTaskID, c.ErrorMessage, c.UpdatedAt)
 }
 func canvasTestCharge() service.CanvasCharge {
 	return service.CanvasCharge{ID: "charge", UserID: 7, APIKeyID: 9, GroupID: 11, RunID: "run", PayloadHash: "payload", Mode: "image", Model: "model", Status: "reserved", ReservedCost: 3, CreatedAt: time.Now()}

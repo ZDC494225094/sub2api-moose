@@ -20,6 +20,10 @@ type videoStorageFailure struct {
 
 func classifyVideoStorageFailure(err error) videoStorageFailure {
 	f := videoStorageFailure{category: "storage_error", hint: "请检查存储配置及连接", retry: true}
+	if errors.Is(err, ErrObjectStorageAssetRecord) {
+		f.category, f.hint, f.retry = "asset_record_failed", "文件已上传，但素材记录写入失败，请检查数据库连接及 object_storage_assets 迁移", false
+		return f
+	}
 	if errors.Is(err, context.Canceled) {
 		f.category, f.hint, f.retry = "canceled", "上传已取消", false
 		return f

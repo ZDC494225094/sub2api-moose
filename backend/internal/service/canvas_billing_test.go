@@ -89,6 +89,23 @@ func (r *canvasRepoStub) AuthenticateCanvasCharge(_ context.Context, hash string
 func (*canvasRepoStub) ExpiredCanvasCharges(context.Context) ([]CanvasCharge, error) { return nil, nil }
 func (*canvasRepoStub) RenewCanvasCharge(context.Context, string) (bool, error)      { return true, nil }
 
+func (r *canvasRepoStub) UpdateCanvasRunDiagnostics(_ context.Context, id string, d CanvasRunDiagnostics) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.charge != nil && r.charge.ID == id && r.charge.Status == "reserved" {
+		r.charge.Phase, r.charge.UpstreamTaskID, r.charge.ErrorMessage = d.Phase, d.UpstreamTaskID, d.Error
+		r.charge.UpdatedAt = time.Now()
+	}
+	return nil
+}
+
+func (r *canvasRepoStub) FinishCanvasChargeWithDiagnostics(ctx context.Context, id string, success bool, d CanvasRunDiagnostics) (*CanvasCharge, error) {
+	if err := r.UpdateCanvasRunDiagnostics(ctx, id, d); err != nil {
+		return nil, err
+	}
+	return r.FinishCanvasCharge(ctx, id, success)
+}
+
 type canvasKeyRepoStub struct{ APIKeyRepository }
 
 func (canvasKeyRepoStub) ListKeysByUserID(context.Context, int64) ([]string, error) { return nil, nil }
