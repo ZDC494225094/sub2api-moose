@@ -3,6 +3,7 @@ package repository
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 
 // S3ImageStorage 用 S3 兼容对象存储实现 service.ImageStorage。
 type S3ImageStorage struct {
+	db            *sql.DB
 	client        *s3.Client
 	bucket        string
 	publicBaseURL string
@@ -65,7 +67,16 @@ func (s *S3ImageStorage) Save(ctx context.Context, key, contentType string, data
 	if err != nil {
 		return "", fmt.Errorf("S3 PutObject: %w", err)
 	}
+	if s.db != nil {
+		_, err = s.db.ExecContext(ctx, `INSERT INTO object_storage_assets(user_id,bucket,object_key,content_type,bytes) VALUES(NULLIF($1,0),$2,$3,$4,$5) ON CONFLICT(bucket,object_key) DO NOTHING`, service.StorageUser(ctx), s.bucket, key, contentType, size)
+		if err != nil {
+			return "", fmt.Errorf("record object storage upload: %w", err)
+		}
+	}
+	return s.assetURL(ctx, key)
+}
 
+func (s *S3ImageStorage) assetURL(ctx context.Context, key string) (string, error) {
 	if s.publicBaseURL != "" {
 		return s.publicBaseURL + "/" + strings.TrimLeft(key, "/"), nil
 	}

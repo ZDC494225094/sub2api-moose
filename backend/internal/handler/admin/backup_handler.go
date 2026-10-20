@@ -5,7 +5,25 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
+	"strconv"
 )
+
+func (h *BackupHandler) ListStorageAssets(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	size, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if size < 1 || size > 100 {
+		size = 20
+	}
+	result, err := h.imageStorage.ListAssets(c.Request.Context(), page, size, c.Query("search"))
+	if err != nil {
+		response.InternalError(c, "读取存储素材失败，请检查对象存储配置及数据库迁移")
+		return
+	}
+	response.Success(c, result)
+}
 
 type BackupHandler struct {
 	backupService *service.BackupService

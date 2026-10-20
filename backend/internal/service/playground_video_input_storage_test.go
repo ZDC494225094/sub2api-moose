@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +16,53 @@ import (
 
 func videoInputDataURL() string {
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngBytes)
+}
+
+func TestVideoInputStorageUploadsAllMedia(t *testing.T) {
+	for _, gemini := range []bool{false, true} {
+		storage := &fakeImageStorage{}
+		svc := NewPlaygroundRunService()
+		svc.imageStorageResolver = func() (*ImageResultUploader, bool) {
+			return NewImageResultUploader(storage, "images/", 0, nil), true
+		}
+		videos := []PlaygroundRunVideoInput{
+			{DataURL: "data:video/mp4;base64,QUJD", Type: "video/mp4"},
+			{DataURL: "data:video/webm;base64,REVG", Type: "video/webm"},
+		}
+		request := PlaygroundRunRequest{Images: []PlaygroundRunImageInput{{DataURL: videoInputDataURL(), Type: "image/png"}}, ReferenceVideos: videos,
+			ReferenceVideo:  &PlaygroundRunVideoInput{DataURL: videos[0].DataURL},
+			ReferenceAudios: []PlaygroundRunVideoInput{{DataURL: "data:audio/mpeg;base64,R0hJ", Type: "audio/mpeg"}},
+		}
+		if gemini {
+			request.Platform = PlatformGemini
+		}
+		require.NoError(t, svc.prepareVideoInputImages(context.Background(), &request))
+		require.Len(t, storage.saved, 4)
+		require.True(t, strings.HasSuffix(storage.saved[1].key, ".mp4"))
+		require.True(t, strings.HasSuffix(storage.saved[2].key, ".webm"))
+		require.True(t, strings.HasSuffix(storage.saved[3].key, ".mp3"))
+		require.Equal(t, "video/webm", storage.saved[2].contentType)
+		require.Equal(t, "DEF", string(storage.saved[2].data))
+		require.Equal(t, request.ReferenceVideos[0].DataURL, request.ReferenceVideo.DataURL)
+		require.Equal(t, "data:video/mp4;base64,QUJD", videos[0].DataURL)
+		payload, err := playgroundVideoGenerationPayload(request, gemini)
+		require.NoError(t, err)
+		encoded, err := json.Marshal(payload)
+		require.NoError(t, err)
+		require.NotContains(t, string(encoded), "data:")
+		require.NotContains(t, string(encoded), "blob:")
+		require.Contains(t, string(encoded), "https://cdn.test/")
+	}
+}
+
+func TestVideoInputStorageMediaFailureKeepsCaller(t *testing.T) {
+	storage := &fakeImageStorage{}
+	svc := NewPlaygroundRunService()
+	svc.imageStorageResolver = func() (*ImageResultUploader, bool) { return NewImageResultUploader(storage, "images/", 0, nil), true }
+	request := PlaygroundRunRequest{Images: []PlaygroundRunImageInput{{DataURL: videoInputDataURL()}}, ReferenceVideos: []PlaygroundRunVideoInput{{DataURL: "data:video/mp4;base64,!!!"}}}
+	require.Error(t, svc.prepareVideoInputImages(context.Background(), &request))
+	require.Equal(t, videoInputDataURL(), request.Images[0].DataURL)
+	require.Equal(t, "data:video/mp4;base64,!!!", request.ReferenceVideos[0].DataURL)
 }
 
 func TestVideoInputStorageFramesAndReferences(t *testing.T) {
@@ -66,12 +114,12 @@ func TestVideoInputStorageSwitchAndGemini(t *testing.T) {
 	for _, model := range []string{"veo-3.1", "gemini-omni-flash"} {
 		request := PlaygroundRunRequest{Model: model, Images: []PlaygroundRunImageInput{{DataURL: videoInputDataURL()}}}
 		require.NoError(t, svc.prepareVideoInputImages(context.Background(), &request))
-		require.Equal(t, videoInputDataURL(), request.Images[0].DataURL)
+		require.True(t, strings.HasPrefix(request.Images[0].DataURL, "https://cdn.test/"))
 	}
 	request := PlaygroundRunRequest{Model: "minimax-h3", Images: []PlaygroundRunImageInput{{DataURL: "https://existing.test/a.png"}}}
 	require.NoError(t, svc.prepareVideoInputImages(context.Background(), &request))
-	require.Equal(t, 3, calls, "Gemini and HTTP references do not resolve storage")
-	require.Len(t, storage.saved, 1)
+	require.Equal(t, 5, calls, "all inline protocols resolve storage; HTTP references are retained")
+	require.Len(t, storage.saved, 3)
 }
 
 func TestVideoInputStorageRejectsInvalidInputsAndFailures(t *testing.T) {

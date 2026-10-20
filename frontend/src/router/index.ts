@@ -21,6 +21,12 @@ import { resolveRouteDocumentTitle } from './title'
  * Route definitions with lazy loading
  */
 const routes: RouteRecordRaw[] = [
+  {
+    path: '/admin/storage-assets',
+    name: 'AdminStorageAssets',
+    component: () => import('@/views/admin/StorageAssetsView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: '存储素材' }
+  },
   ...customExtensionRoutes,
   // ==================== Setup Routes ====================
   {

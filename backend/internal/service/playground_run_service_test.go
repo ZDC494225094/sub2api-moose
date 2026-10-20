@@ -20,6 +20,36 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+func TestPlaygroundFailedChargePreservesRunError(t *testing.T) {
+	mini := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: mini.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+	repo := &canvasRepoStub{charge: &CanvasCharge{ID: "charge", UserID: 7, RunID: "failed-video", Status: "failed"}}
+	service := newPlaygroundRunService(client, nil)
+	service.canvasBilling = &CanvasBillingService{repo: repo}
+	key := playgroundRunKey(7, "failed-video")
+	service.runs[key] = &PlaygroundRun{ID: "failed-video", UserID: 7, Status: PlaygroundRunRunning}
+	run, found := service.Get(7, "failed-video")
+	if !found || run.Status != PlaygroundRunRunning || run.Error != "" {
+		t.Fatalf("settlement race replaced local producer: %#v", run)
+	}
+	failed := &PlaygroundRun{ID: "failed-video", UserID: 7, Status: PlaygroundRunFailed, Error: "upstream rejected reference video"}
+	if err := service.persistRun(failed); err != nil {
+		t.Fatal(err)
+	}
+	delete(service.runs, key)
+	run, found = service.Get(7, "failed-video")
+	if !found || run.Error != failed.Error {
+		t.Fatalf("persisted upstream error lost: %#v", run)
+	}
+	delete(service.runs, key)
+	mini.FlushAll()
+	run, found = service.Get(7, "failed-video")
+	if !found || run.Status != PlaygroundRunFailed || run.Error != "任务已中止，预扣费用已退回" {
+		t.Fatalf("missing run must retain refunded ledger fallback: %#v", run)
+	}
+}
+
 func TestPlaygroundRunServicePersistsImageRunAcrossInstances(t *testing.T) {
 	mini := miniredis.RunT(t)
 	redisClient := redis.NewClient(&redis.Options{Addr: mini.Addr()})

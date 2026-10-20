@@ -349,8 +349,17 @@ func (s *PlaygroundRunService) Get(userID int64, id string) (*PlaygroundRun, boo
 				local = clonePlaygroundRunForClient(local)
 			}
 			s.mu.RUnlock()
-			if local != nil && (local.Status == PlaygroundRunFailed || local.Status == PlaygroundRunCanceled) {
+			// Settlement completes before execute publishes its terminal error. Keep
+			// polling a local producer instead of replacing its error with recovery text.
+			if local != nil && local.Status != PlaygroundRunSucceeded {
 				return local, true
+			}
+			persisted, found, loadErr := s.loadPersistentRun(userID, id)
+			if loadErr != nil {
+				log.Printf("playground failed run persistence read failed for user %d run %s: %v", userID, id, loadErr)
+			}
+			if loadErr == nil && found && (persisted.Status == PlaygroundRunFailed || persisted.Status == PlaygroundRunCanceled) {
+				return clonePlaygroundRunForClient(persisted), true
 			}
 			return canvasRecoveredRun(charge), true
 		}
@@ -908,6 +917,11 @@ func (s *PlaygroundRunService) executeImage(ctx context.Context, key string, req
 }
 
 func (s *PlaygroundRunService) executeVideo(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string, started time.Time) (json.RawMessage, error) {
+	s.mu.RLock()
+	if run := s.runs[key]; run != nil {
+		ctx = WithStorageUser(ctx, run.UserID)
+	}
+	s.mu.RUnlock()
 	if err := s.prepareVideoInputImages(ctx, &request); err != nil {
 		return nil, err
 	}
@@ -1385,6 +1399,10 @@ func playgroundGeminiReferenceMedia(item PlaygroundRunVideoInput, kind string) (
 }
 
 func playgroundGeminiImageMedia(image PlaygroundRunImageInput) (map[string]any, error) {
+	value := strings.TrimSpace(image.DataURL)
+	if strings.HasPrefix(value, "https://") || strings.HasPrefix(value, "http://") {
+		return map[string]any{"uri": value, "mimeType": image.Type}, nil
+	}
 	data, mimeType, err := decodePlaygroundImageDataURL(image.DataURL)
 	if err != nil {
 		return nil, err

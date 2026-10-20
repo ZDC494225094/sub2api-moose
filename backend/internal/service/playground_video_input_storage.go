@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"mime"
 	"net/url"
 	"strings"
 	"time"
@@ -13,16 +15,40 @@ import (
 	"go.uber.org/zap"
 )
 
-// prepareVideoInputImages offloads inline references only for URL-based video
-// protocols. Resolve per job so changes to the existing storage switch apply
-// without restarting; disabled storage retains the previous inline behavior.
+// Resolve storage per job and replace inline references before building the
+// upstream payload. Keep caller slices untouched, including on partial failure.
 func (s *PlaygroundRunService) prepareVideoInputImages(ctx context.Context, request *PlaygroundRunRequest) error {
-	if isGeminiPlaygroundVideoRequest(*request) || s.imageStorageResolver == nil {
+	if s.imageStorageResolver == nil {
 		return nil
 	}
+	images := append([]PlaygroundRunImageInput(nil), request.Images...)
+	videos := append([]PlaygroundRunVideoInput(nil), request.ReferenceVideos...)
+	audios := append([]PlaygroundRunVideoInput(nil), request.ReferenceAudios...)
+	var video *PlaygroundRunVideoInput
+	if request.ReferenceVideo != nil {
+		copy := *request.ReferenceVideo
+		video = &copy
+	}
+	type reference struct {
+		value *string
+		kind  string
+	}
+	refs := make([]reference, 0, len(images)+len(videos)+len(audios)+1)
+	for i := range images {
+		refs = append(refs, reference{&images[i].DataURL, "图片"})
+	}
+	for i := range videos {
+		refs = append(refs, reference{&videos[i].DataURL, "视频"})
+	}
+	for i := range audios {
+		refs = append(refs, reference{&audios[i].DataURL, "音频"})
+	}
+	if video != nil {
+		refs = append(refs, reference{&video.DataURL, "视频"})
+	}
 	hasInline := false
-	for _, image := range request.Images {
-		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(image.DataURL)), "data:") {
+	for _, ref := range refs {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(*ref.value)), "data:") {
 			hasInline = true
 			break
 		}
@@ -35,27 +61,22 @@ func (s *PlaygroundRunService) prepareVideoInputImages(ctx context.Context, requ
 		return nil
 	}
 	if uploader == nil || uploader.storage == nil {
-		return fmt.Errorf("视频参考图对象存储不可用，请检查异步生图对象存储配置")
+		return fmt.Errorf("参考素材对象存储不可用，请检查异步生图对象存储配置")
 	}
-	// Do not mutate the caller's images or use a caller-controlled run ID in S3 keys.
-	images := append([]PlaygroundRunImageInput(nil), request.Images...)
 	objectID := "video-inputs/" + uuid.NewString()
 	uploaded := make(map[string]string)
-	for i := range images {
-		raw := strings.TrimSpace(images[i].DataURL)
+	for i, ref := range refs {
+		raw := strings.TrimSpace(*ref.value)
 		if !strings.HasPrefix(strings.ToLower(raw), "data:") {
 			continue
 		}
 		if cached, ok := uploaded[raw]; ok {
-			images[i].DataURL = cached
+			*ref.value = cached
 			continue
 		}
-		data, contentType, err := uploader.decodeImageDataURL(raw)
+		data, contentType, err := decodeVideoReferenceData(uploader, raw, ref.kind)
 		if err != nil {
-			return fmt.Errorf("视频参考图 %d 校验失败: %w", i+1, err)
-		}
-		if detectedImageContentType(data) == "" {
-			return fmt.Errorf("视频参考图 %d 不是有效的图片内容", i+1)
+			return fmt.Errorf("参考%s %d 校验失败: %w", ref.kind, i+1, err)
 		}
 		uploadCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 		// Retry transient failures only; a denied bucket or invalid signature
@@ -76,12 +97,12 @@ func (s *PlaygroundRunService) prepareVideoInputImages(ctx context.Context, requ
 				case <-uploadCtx.Done():
 					timer.Stop()
 					cancel()
-					return fmt.Errorf("视频参考图 %d 转存对象存储失败：%s", i+1, classifyVideoStorageFailure(uploadCtx.Err()).hint)
+					return fmt.Errorf("参考%s %d 转存对象存储失败：%s", ref.kind, i+1, classifyVideoStorageFailure(uploadCtx.Err()).hint)
 				case <-timer.C:
 				}
 			}
 			attempts++
-			imageURL, saveErr = uploader.storage.Save(uploadCtx, uploader.buildKey(objectID, i, contentType), contentType, data)
+			imageURL, saveErr = uploader.storage.Save(uploadCtx, uploader.prefix+objectID+fmt.Sprintf("-%d", i)+videoReferenceExtension(contentType), contentType, data)
 			if saveErr == nil {
 				break
 			}
@@ -97,15 +118,74 @@ func (s *PlaygroundRunService) prepareVideoInputImages(ctx context.Context, requ
 			logger.L().Warn("playground.video_reference_storage_failed",
 				zap.Int("image_index", i+1), zap.Int("attempts", attempts),
 				zap.String("category", failure.category), zap.Int("http_status", failure.status))
-			return fmt.Errorf("视频参考图 %d 转存对象存储失败：%s", i+1, failure.hint)
+			return fmt.Errorf("参考%s %d 转存对象存储失败：%s", ref.kind, i+1, failure.hint)
 		}
 		parsed, err := url.Parse(imageURL)
 		if err != nil || parsed.Hostname() == "" || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-			return fmt.Errorf("视频参考图 %d 的对象存储地址不是有效的 HTTP(S) URL", i+1)
+			return fmt.Errorf("参考%s %d 的对象存储地址不是有效的 HTTP(S) URL", ref.kind, i+1)
 		}
 		uploaded[raw] = imageURL
-		images[i].DataURL = imageURL
+		*ref.value = imageURL
 	}
 	request.Images = images
+	request.ReferenceVideos = videos
+	request.ReferenceAudios = audios
+	request.ReferenceVideo = video
 	return nil
+}
+
+func decodeVideoReferenceData(uploader *ImageResultUploader, raw, kind string) ([]byte, string, error) {
+	if kind == "图片" {
+		data, contentType, err := uploader.decodeImageDataURL(raw)
+		if err != nil {
+			return nil, "", err
+		}
+		if detectedImageContentType(data) == "" {
+			return nil, "", fmt.Errorf("不是有效的图片内容")
+		}
+		return data, contentType, nil
+	}
+	header, payload, ok := strings.Cut(raw, ",")
+	if !ok || !strings.HasSuffix(strings.ToLower(header), ";base64") {
+		return nil, "", fmt.Errorf("素材必须为 base64 data URL")
+	}
+	contentType, _, err := mime.ParseMediaType(header[len("data:") : len(header)-len(";base64")])
+	prefix, limit := "video/", playgroundVideoMaxBytes
+	if kind == "音频" {
+		prefix, limit = "audio/", playgroundAudioMaxBytes
+	}
+	if err != nil || !strings.HasPrefix(strings.ToLower(contentType), prefix) {
+		return nil, "", fmt.Errorf("素材 MIME 类型不匹配")
+	}
+	if base64.StdEncoding.DecodedLen(len(payload)) > limit+2 {
+		return nil, "", fmt.Errorf("素材超过大小上限")
+	}
+	data, err := base64.StdEncoding.DecodeString(payload)
+	if err != nil || len(data) == 0 || len(data) > limit {
+		return nil, "", fmt.Errorf("素材为空、base64 无效或超过大小上限")
+	}
+	return data, strings.ToLower(contentType), nil
+}
+
+func videoReferenceExtension(contentType string) string {
+	switch contentType {
+	case "video/mp4", "audio/mp4":
+		return ".mp4"
+	case "video/webm", "audio/webm":
+		return ".webm"
+	case "video/quicktime":
+		return ".mov"
+	case "audio/mpeg":
+		return ".mp3"
+	case "audio/wav", "audio/x-wav":
+		return ".wav"
+	case "audio/ogg", "video/ogg":
+		return ".ogg"
+	case "audio/flac":
+		return ".flac"
+	}
+	if strings.HasPrefix(contentType, "image/") {
+		return extensionForContentType(contentType)
+	}
+	return ".bin"
 }

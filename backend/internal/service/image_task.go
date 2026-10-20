@@ -192,6 +192,11 @@ func (s *ImageTaskService) Complete(ctx context.Context, id string, statusCode i
 		return s.Fail(ctx, id, http.StatusBadGateway, imageTaskErrorJSON("api_error", "upstream returned a non-JSON image response"))
 	}
 	if uploader, _ := s.current(); uploader != nil {
+		task, err := s.store.Get(ctx, strings.TrimSpace(id))
+		if err != nil {
+			return err
+		}
+		ctx = WithStorageUser(ctx, task.UserID)
 		rewritten, err := uploader.Rewrite(ctx, id, result)
 		if err != nil {
 			// 转存失败不回退存 base64，避免大 blob 撑爆 Redis：直接把任务标记为失败。
