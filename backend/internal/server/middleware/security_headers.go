@@ -124,6 +124,11 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) g
 
 	return func(c *gin.Context) {
 		finalPolicy := policy
+		if c.Request.URL.Path == "/canvas" || strings.HasPrefix(c.Request.URL.Path, "/canvas/") {
+			// Depth Anything V2 runs ONNX WebAssembly in a same-origin canvas worker.
+			finalPolicy = addToDirective(finalPolicy, "script-src", "'wasm-unsafe-eval'")
+			finalPolicy = addToDirective(finalPolicy, "worker-src", "'self'")
+		}
 		if getFrameSrcOrigins != nil {
 			for _, origin := range getFrameSrcOrigins() {
 				if origin != "" {

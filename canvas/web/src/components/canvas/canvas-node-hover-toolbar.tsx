@@ -30,6 +30,7 @@ type CanvasNodeHoverToolbarProps = {
     onCrop: (node: CanvasNodeData) => void;
     onSplit: (node: CanvasNodeData) => void;
     onUpscale: (node: CanvasNodeData) => void;
+    onVideoDepth: (node: CanvasNodeData) => void;
     onSuperResolve: (node: CanvasNodeData) => void;
     onAngle: (node: CanvasNodeData) => void;
     onViewImage: (node: CanvasNodeData) => void;
@@ -68,6 +69,7 @@ export function CanvasNodeHoverToolbar({
     onCrop,
     onSplit,
     onUpscale,
+    onVideoDepth,
     onSuperResolve,
     onAngle,
     onViewImage,
@@ -143,6 +145,7 @@ export function CanvasNodeHoverToolbar({
         { id: "delete", title: t("canvas.nodeToolbar.removeTitle"), label: t("common.delete"), icon: <Trash2 className="size-4" />, onClick: () => onDelete(node), danger: true },
     ];
     const nodeToolbarTools: ToolbarTool[] = [
+        ...(hasVideo ? [{ id: "videoDepth", title: "使用 Depth Anything V2 逐帧生成灰度深度视频", label: "深度视频", icon: <Video className="size-4" />, onClick: () => onVideoDepth(node) }] : []),
         ...(canQueryVideoTask ? [{ id: "queryVideoTask", title: t("canvas.nodeToolbar.queryVideoTaskTitle"), label: t("canvas.nodeToolbar.queryVideoTask"), icon: <RefreshCw className="size-4" />, onClick: () => onRetry(node) }] : []),
         ...(canRetry ? [{ id: "retry", title: t("canvas.nodeToolbar.retryTitle"), label: t("canvas.node.retry"), icon: <RefreshCw className="size-4" />, onClick: () => onRetry(node) }] : []),
         ...(hasImage || hasVideo || isText ? [{ id: "saveAsset", title: t("common.addToAssets"), label: t("canvas.nodeToolbar.saveAsset"), icon: <FolderPlus className="size-4" />, onClick: () => onSaveAsset(node) }] : []),

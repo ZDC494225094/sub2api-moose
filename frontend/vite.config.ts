@@ -9,11 +9,13 @@ const canvasMimeTypes: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.ico': 'image/x-icon',
   '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
+  '.wasm': 'application/wasm',
   '.webp': 'image/webp',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2'

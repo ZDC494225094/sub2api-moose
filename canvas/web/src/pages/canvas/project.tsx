@@ -36,6 +36,7 @@ import { CanvasNodeSplitDialog, type CanvasImageSplitParams } from "@/components
 import { CanvasNodeUpscaleDialog, type CanvasImageUpscaleParams } from "@/components/canvas/canvas-node-upscale-dialog";
 import { buildNodeGenerationContext, buildNodeGenerationInputs, buildNodeResponseMessages, hydrateNodeGenerationContext, type NodeGenerationInput } from "@/components/canvas/canvas-node-generation";
 import { CanvasNodeHoverToolbar, CanvasNodeInfoModal } from "@/components/canvas/canvas-node-hover-toolbar";
+import { VIDEO_DEPTH_NODE_TYPE } from "@/components/canvas/nodes/video-depth-node";
 import { CanvasSelectionToolbar } from "@/components/canvas/canvas-selection-toolbar";
 import { InfiniteCanvas } from "@/components/canvas/infinite-canvas";
 import { Minimap } from "@/components/canvas/canvas-mini-map";
@@ -2079,7 +2080,7 @@ function InfiniteCanvasPage() {
 
     const downloadNodeImage = useCallback((node: CanvasNodeData) => {
         if ((node.type !== CanvasNodeType.Image && node.type !== CanvasNodeType.Video && node.type !== CanvasNodeType.Audio) || !node.metadata?.content) return;
-        saveAs(node.metadata.content, `canvas-${node.type}-${node.id}.${node.type === CanvasNodeType.Video ? "mp4" : node.type === CanvasNodeType.Audio ? audioExtension(node.metadata.mimeType) : imageExtension(node.metadata.content)}`);
+        saveAs(node.metadata.content, `canvas-${node.type}-${node.id}.${node.type === CanvasNodeType.Video ? (node.metadata.mimeType?.includes("webm") ? "webm" : "mp4") : node.type === CanvasNodeType.Audio ? audioExtension(node.metadata.mimeType) : imageExtension(node.metadata.content)}`);
     }, []);
 
     const downloadBatchImage = useCallback((node: CanvasNodeData, imageId: string) => {
@@ -3572,6 +3573,18 @@ function InfiniteCanvasPage() {
                     onCrop={(node) => setCropNodeId(node.id)}
                     onSplit={(node) => setSplitNodeId(node.id)}
                     onUpscale={(node) => setUpscaleNodeId(node.id)}
+                    onVideoDepth={(node) => {
+                        const child = createCanvasNode(VIDEO_DEPTH_NODE_TYPE, { x: 0, y: 0 });
+                        const x = node.position.x + node.width + 96;
+                        let y = node.position.y;
+                        while (nodesRef.current.some((item) => item.position.x < x + child.width && item.position.x + item.width > x && item.position.y < y + child.height && item.position.y + item.height > y)) y += child.height + 24;
+                        child.position = { x, y };
+                        setNodes((prev) => [...prev, child]);
+                        setConnections((prev) => [...prev, { id: nanoid(), fromNodeId: node.id, toNodeId: child.id }]);
+                        setSelectedNodeIds(new Set([child.id]));
+                        setSelectedConnectionId(null);
+                        setDialogNodeId(null);
+                    }}
                     onSuperResolve={(node) => setSuperResolveNodeId(node.id)}
                     onAngle={(node) => setAngleNodeId(node.id)}
                     onViewImage={handleNodeViewImage}

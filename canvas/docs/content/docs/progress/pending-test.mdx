@@ -3,6 +3,16 @@ title: Pending Tests
 description: Implemented changes that still need manual verification
 ---
 
+- 深度节点拖动：仅参数分段选择器及操作按钮拦截鼠标事件，空白、源名称、采样标签和进度区允许事件传递至节点拖动逻辑；待手动确认拖动、参数切换和开始 / 取消操作。按项目约定未运行构建或测试。
+
+- 深度处理节点：点击视频工具栏“深度视频”直接在旁边创建并连接处理节点，不再打开弹窗。节点内仅保留源视频名称、GPU / CPU、5 / 10 / 15 FPS / 逐帧、开始 / 取消及进度预计时间；参数随画布保存。转换完成后由处理节点连接新的普通视频结果节点，重复创建和输出避让已有节点；删除处理节点或离开画布时终止本节点任务，断开视频输入后禁止开始。待验证参数持久化、连接更新、节点拖动与表单交互、取消删除、反复转换和结果持久化；按项目约定未构建或测试。TODO 无对应条目需要迁移。
+
+- 深度视频性能：默认自动选择 WebGPU，支持 `shader-f16` 时加载 FP16 模型，否则使用 FP32；无 GPU 或 GPU 初始化失败时使用 WASM Q8，也可手动选择 CPU。跨源隔离环境最多启用 4 个 WASM 线程，其他环境单线程。支持 5 / 10 / 15 FPS 深度采样及逐帧模式，默认 10 FPS，按源时间戳划分采样区间，只推理区间内首帧，其余源帧复用已有深度图，仍编码全部源帧以保留原帧率和时长。进度显示实际后端、输出与推理帧数、输出帧/秒、已用时间；完成至少 3 次推理后根据视频处理进度和实际耗时显示预计剩余及转换总耗时，不包含模型下载加载和最终封装保存。需验证 30 FPS、低帧率、可变帧率及非零起始时间视频的采样次数、输出时间戳和时长，GPU 初始化与 CPU 回退，以及预估随处理速度更新；尚未执行构建或浏览器性能实测，不承诺固定提速倍数。
+
+- 本地深度模块加载：修复 Sub2API 前端开发服务 `/canvas/` 静态文件的 `.mjs` / `.wasm` 响应类型，分别返回 `text/javascript` / `application/wasm`，避免以 `application/octet-stream` 返回导致动态模块加载失败。需继续验证模型下载及实际视频转换。
+
+- 视频深度转换：已有视频节点的悬浮工具栏新增“深度视频”，使用 Depth Anything V2 Small 的 ONNX 量化模型在独立浏览器 Worker 内逐帧估计相对深度，近亮远暗，保留源尺寸和帧时间戳，输出无声 VP9 WebM 并通过本地媒体存储保存为相连的新视频节点。首次需访问 Hugging Face 下载模型，ONNX 运行文件随站点同源发布；Sub2API 仅对 `/canvas` 范围的 CSP 开放 WebAssembly 编译及同源 Worker。待验证首次下载与缓存、完整帧数与时长、竖屏旋转、取消及关闭页面后的资源释放、刷新后回显、下载和素材保存、无法联网与不支持 WebCodecs / 编解码器时的错误提示。逐帧模型不保证时间一致性，可能有亮度闪动。本次按项目约定未运行构建、测试或浏览器实测。
+
 - Video reference storage: merged upstream upload retries, set explicit Content-Length, stop retrying permanent failures and honor the upload deadline. Failures expose sanitized categories without credentials or signed URLs. Actual bucket upload and upstream retrieval remain pending; no deployment or production root-cause confirmation.
 
 ## Sub2API v0.19.0 同步待验收

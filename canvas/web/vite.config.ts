@@ -38,9 +38,30 @@ function localPluginsManifest(): Plugin {
     };
 }
 
+// Keep ONNX runtime modules on this origin, including deployments below /canvas/.
+function depthRuntimeAssets(): Plugin {
+    const runtimeDir = resolve(webDir, "node_modules/@huggingface/transformers/dist");
+    const files = ["ort-wasm-simd-threaded.jsep.mjs", "ort-wasm-simd-threaded.jsep.wasm"];
+    return {
+        name: "depth-runtime-assets",
+        configureServer(server) {
+            server.middlewares.use((req, res, next) => {
+                const file = files.find((name) => req.url?.split("?")[0].endsWith(`/depth-runtime/${name}`));
+                if (!file) return next();
+                res.setHeader("Content-Type", file.endsWith(".wasm") ? "application/wasm" : "text/javascript");
+                res.end(readFileSync(resolve(runtimeDir, file)));
+            });
+        },
+        generateBundle() {
+            for (const file of files) this.emitFile({ type: "asset", fileName: `depth-runtime/${file}`, source: readFileSync(resolve(runtimeDir, file)) });
+        },
+    };
+}
+
 export default defineConfig({
     base: process.env.VITE_BASE || "/",
-    plugins: [react(), localPluginsManifest()],
+    plugins: [react(), localPluginsManifest(), depthRuntimeAssets()],
+    worker: { format: "es" },
     resolve: {
         alias: {
             "@": resolve(webDir, "src"),
