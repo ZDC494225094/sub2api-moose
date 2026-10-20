@@ -7,7 +7,7 @@ import i18n from "@/i18n";
 import { dataUrlToBlob, dataUrlToFile, readFileAsDataUrl } from "@/lib/image-utils";
 import { getMediaBlob, resolveMediaUrl, uploadMediaFile, type UploadedFile } from "@/services/file-storage";
 import { imageToDataUrl } from "@/services/image-storage";
-import { boolConfig, buildSeedancePromptText, isSeedanceVideoConfig, normalizeSeedanceDuration, normalizeSeedanceRatio, normalizeSeedanceResolution, seedanceVideoReferenceError, SEEDANCE_REFERENCE_LIMITS } from "@/lib/seedance-video";
+import { boolConfig, buildSeedancePromptText, isSeedanceVideoConfig, normalizeSeedanceDuration, normalizeSeedanceRatio, normalizeSeedanceResolution } from "@/lib/seedance-video";
 import { buildApiUrl, isManagedCanvasModel, modelOptionName, resolveModelRequestConfig, resolveModelScript, withLocalProxy, type AiConfig } from "@/stores/use-config-store";
 import { runModelPlugin } from "./model-plugin";
 import { canvasRunVideoResult, getCanvasRun, startCanvasRun } from "./canvas";
@@ -96,10 +96,7 @@ export async function createVideoGenerationTask(config: AiConfig, prompt: string
         return createSeedanceTask(requestConfig, selectedModel, prompt, references, videoReferences, audioReferences, options);
     }
     if (requestConfig.apiFormat === "gemini") return createGeminiVideoTask(requestConfig, selectedModel, prompt, references, { ...options, videos: videoReferences, audios: audioReferences });
-    if (videoReferences.length || audioReferences.length) {
-        throw new Error(apiText("videoReferencesUnsupported"));
-    }
-    return createOpenAIVideoTask(requestConfig, selectedModel, prompt, references, options);
+    return createOpenAIVideoTask(requestConfig, selectedModel, prompt, references, { ...options, videos: videoReferences, audios: audioReferences });
 }
 
 export async function pollVideoGenerationTask(config: AiConfig, task: VideoGenerationTask, options?: RequestOptions): Promise<VideoGenerationTaskState> {
@@ -129,7 +126,14 @@ async function createManagedCanvasVideoTask(
     audioReferences: ReferenceAudio[],
     options?: RequestOptions,
 ): Promise<VideoGenerationTask> {
-    if (videoReferences.length || audioReferences.length) throw new Error(apiText("videoReferencesUnsupported"));
+    const mediaInput = async (item: ReferenceVideo | ReferenceAudio, kind: "Video" | "Audio") => ({
+        name: item.name,
+        type: item.type,
+        dataUrl: isPublicMediaUrl(item.url) || item.url.startsWith("asset://") ? item.url : await readFileAsDataUrl(await referenceMediaToFile(item, kind === "Video" ? "reference.mp4" : "reference.mp3", kind === "Video" ? "invalidReferenceVideo" : "invalidReferenceAudio", options)),
+        durationSeconds: (item.durationMs || 0) / 1000,
+    });
+    const videos = await Promise.all(videoReferences.map((item) => mediaInput(item, "Video")));
+    const audios = await Promise.all(audioReferences.map((item) => mediaInput(item, "Audio")));
     const images = await Promise.all(
         references.map(async (image, index) => ({
             name: image.name || `reference-${index + 1}.png`,
@@ -144,6 +148,8 @@ async function createManagedCanvasVideoTask(
             model,
             prompt,
             images,
+            referenceVideos: videos,
+            referenceAudios: audios,
             duration: Number(normalizeVideoSeconds(config.videoSeconds)),
             size: normalizeVideoSize(config.size) || "",
             resolution: normalizeVideoResolution(config.vquality, model),
@@ -212,7 +218,7 @@ export async function storeGeneratedVideo(result: VideoGenerationResult): Promis
     throw new Error(apiText("noPlayableVideo"));
 }
 
-async function createOpenAIVideoTask(config: AiConfig, model: string, prompt: string, references: ReferenceImage[], options?: RequestOptions): Promise<VideoGenerationTask> {
+async function createOpenAIVideoTask(config: AiConfig, model: string, prompt: string, references: ReferenceImage[], options?: VideoMediaOptions): Promise<VideoGenerationTask> {
     const body = new FormData();
     body.append("model", modelOptionName(model));
     body.append("prompt", prompt);
@@ -220,8 +226,12 @@ async function createOpenAIVideoTask(config: AiConfig, model: string, prompt: st
     if (normalizeVideoSize(config.size)) body.append("size", normalizeVideoSize(config.size)!);
     body.append("resolution_name", normalizeVideoResolution(config.vquality, model));
     body.append("preset", "normal");
-    const files = await Promise.all(references.slice(0, 7).map(async (image) => dataUrlToFile({ ...image, dataUrl: await imageToDataUrl(image) })));
+    const files = await Promise.all(references.map(async (image) => dataUrlToFile({ ...image, dataUrl: await imageToDataUrl(image) })));
     files.forEach((file) => body.append("input_reference[]", file));
+    const videos = await Promise.all((options?.videos || []).map((item) => referenceMediaToFile(item, "reference.mp4", "invalidReferenceVideo", options)));
+    const audios = await Promise.all((options?.audios || []).map((item) => referenceMediaToFile(item, "reference.mp3", "invalidReferenceAudio", options)));
+    videos.forEach((file) => body.append("input_reference[]", file));
+    audios.forEach((file) => body.append("input_reference[]", file));
     try {
         const created = unwrapVideoResponse((await axios.post<ApiVideoResponse>(aiApiUrl(config, "/videos"), body, { headers: aiHeaders(config), signal: options?.signal })).data);
         if (!created.id) throw new Error(apiText("noVideoTaskId"));
@@ -249,11 +259,6 @@ async function pollOpenAIVideoTask(config: AiConfig, task: VideoGenerationTask, 
 }
 
 async function createSeedanceTask(config: AiConfig, model: string, prompt: string, references: ReferenceImage[], videoReferences: ReferenceVideo[], audioReferences: ReferenceAudio[], options?: RequestOptions): Promise<VideoGenerationTask> {
-    if (audioReferences.length && !references.length && !videoReferences.length) {
-        throw new Error(apiText("seedanceAudioRequiresVisual"));
-    }
-    assertSeedanceVideoReferences(videoReferences);
-    assertSeedanceAudioReferences(audioReferences);
     const content = await buildSeedanceContent(config, prompt, references, videoReferences, audioReferences);
     if (!content.length) throw new Error(apiText("videoPromptRequired"));
     const payload = {
@@ -288,28 +293,6 @@ async function pollSeedanceTask(config: AiConfig, task: VideoGenerationTask, opt
     }
 }
 
-function assertSeedanceVideoReferences(videoReferences: ReferenceVideo[]) {
-    const error = seedanceVideoReferenceError(videoReferences);
-    if (error) throw new Error(error);
-    let total = 0;
-    for (const video of videoReferences) {
-        if (!video.durationMs) continue;
-        if (video.durationMs < 2000 || video.durationMs > 15000) throw new Error(apiText("seedanceVideoDuration"));
-        total += video.durationMs;
-    }
-    if (total > 15000) throw new Error(apiText("seedanceVideoTotalDuration"));
-}
-
-function assertSeedanceAudioReferences(audioReferences: ReferenceAudio[]) {
-    let total = 0;
-    for (const audio of audioReferences) {
-        if (!audio.durationMs) continue;
-        if (audio.durationMs < 2000 || audio.durationMs > 15000) throw new Error(apiText("seedanceAudioDuration"));
-        total += audio.durationMs;
-    }
-    if (total > 15000) throw new Error(apiText("seedanceAudioTotalDuration"));
-}
-
 function seedanceApiUrl(config: AiConfig, taskId?: string) {
     return buildApiUrl(config.baseUrl, `/contents/generations/tasks${taskId ? `/${encodeURIComponent(taskId)}` : ""}`);
 }
@@ -318,13 +301,13 @@ async function buildSeedanceContent(config: AiConfig, prompt: string, references
     const content: Array<Record<string, unknown>> = [];
     const text = buildSeedancePromptText(prompt, references, videoReferences, audioReferences);
     if (text) content.push({ type: "text", text });
-    for (const image of references.slice(0, SEEDANCE_REFERENCE_LIMITS.images)) {
+    for (const image of references) {
         content.push({ type: "image_url", image_url: { url: await resolveSeedanceImageUrl(config, image) }, role: "reference_image" });
     }
-    for (const video of videoReferences.slice(0, SEEDANCE_REFERENCE_LIMITS.videos)) {
+    for (const video of videoReferences) {
         content.push({ type: "video_url", video_url: { url: await resolveSeedanceVideoUrl(video) }, role: "reference_video" });
     }
-    for (const audio of audioReferences.slice(0, SEEDANCE_REFERENCE_LIMITS.audios)) {
+    for (const audio of audioReferences) {
         content.push({ type: "audio_url", audio_url: { url: await resolveSeedanceAudioUrl(audio) }, role: "reference_audio" });
     }
     return content;
@@ -381,6 +364,8 @@ async function createGeminiVideoTask(config: AiConfig, model: string, prompt: st
     }
     if (videos[0]) instance.video = await fileToGeminiInline(videos[0]);
     if (audios[0]) instance.audio = await fileToGeminiInline(audios[0]);
+    if (videos.length > 1) instance.referenceVideos = await Promise.all(videos.map(fileToGeminiInline));
+    if (audios.length > 1) instance.referenceAudios = await Promise.all(audios.map(fileToGeminiInline));
     try {
         const created = unwrapEnvelope((await axios.post<ApiEnvelope<GeminiVideoOperation>>(geminiVideoUrl(config, model, "predictLongRunning"), {
             instances: [instance],

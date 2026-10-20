@@ -70,6 +70,8 @@ type PlaygroundRunRequest struct {
 	OutputFormat     string                     `json:"outputFormat"`
 	Images           []PlaygroundRunImageInput  `json:"images"`
 	ReferenceVideo   *PlaygroundRunVideoInput   `json:"referenceVideo"`
+	ReferenceVideos  []PlaygroundRunVideoInput  `json:"referenceVideos,omitempty"`
+	ReferenceAudios  []PlaygroundRunVideoInput  `json:"referenceAudios,omitempty"`
 	Duration         int                        `json:"duration"`
 	FPS              int                        `json:"fps"`
 	AspectRatio      string                     `json:"aspectRatio"`
@@ -1063,7 +1065,6 @@ func normalizePlaygroundVideoRequest(request *PlaygroundRunRequest) error {
 		return errors.New("video request is required")
 	}
 	imageCount := len(filterPlaygroundImageInputs(request.Images))
-	hasReferenceVideo := request.ReferenceVideo != nil && strings.TrimSpace(request.ReferenceVideo.DataURL) != ""
 
 	switch {
 	case isPlaygroundVideoModel(request.Model, "xiaowen"):
@@ -1084,9 +1085,6 @@ func normalizePlaygroundVideoRequest(request *PlaygroundRunRequest) error {
 			request.AspectRatio = "16:9"
 		}
 	case isPlaygroundVideoModel(request.Model, "grok-video-10"):
-		if hasReferenceVideo {
-			return errors.New("grok-video-10 does not support reference videos")
-		}
 		if request.Duration == 0 {
 			request.Duration = 10
 		}
@@ -1103,35 +1101,20 @@ func normalizePlaygroundVideoRequest(request *PlaygroundRunRequest) error {
 			return errors.New("grok-video-10 aspect ratio is not supported")
 		}
 	case isPlaygroundVideoModel(request.Model, "grok-video-r"):
-		if hasReferenceVideo {
-			return errors.New("grok-video-r does not support reference videos")
-		}
 		if request.Duration == 0 {
 			request.Duration = 10
 		}
 		if request.Duration < 6 || request.Duration > 30 {
 			return errors.New("grok-video-r duration must be between 6 and 30 seconds")
 		}
-		if imageCount > 7 {
-			return errors.New("grok-video-r supports at most 7 reference images")
-		}
 	case isPlaygroundVideoModel(request.Model, "kling"), isPlaygroundVideoModel(request.Model, "keling"):
-		if hasReferenceVideo {
-			return errors.New("kling does not support reference videos")
-		}
 		if request.Duration == 0 {
 			request.Duration = 5
 		}
 		if request.Duration != 5 && request.Duration != 10 && request.Duration != 15 {
 			return errors.New("kling duration must be 5, 10, or 15 seconds")
 		}
-		if imageCount > 2 {
-			return errors.New("kling supports at most two frame images")
-		}
 	case playgroundSeedanceModelVersion(request.Model) != "":
-		if hasReferenceVideo {
-			return errors.New("seedance does not support reference videos")
-		}
 		if request.Duration == 0 {
 			request.Duration = 8
 		}
@@ -1160,12 +1143,6 @@ func normalizePlaygroundVideoRequest(request *PlaygroundRunRequest) error {
 		if request.Duration < 1 || request.Duration > 10 {
 			return errors.New("gemini-omni-flash duration cannot exceed 10 seconds")
 		}
-		if imageCount > 5 {
-			return errors.New("gemini-omni-flash supports at most 5 reference images")
-		}
-		if hasReferenceVideo && request.ReferenceVideo.DurationSeconds > 10.05 {
-			return errors.New("gemini-omni-flash reference video cannot exceed 10 seconds")
-		}
 		if geminiOmniPromptRatioPattern.MatchString(request.Prompt) {
 			return errors.New("gemini-omni-flash prompt cannot contain 16:9 or 9:16 aspect ratios")
 		}
@@ -1174,10 +1151,6 @@ func normalizePlaygroundVideoRequest(request *PlaygroundRunRequest) error {
 		}
 		if geminiOmniPromptStoryboardPattern.MatchString(request.Prompt) {
 			return errors.New("gemini-omni-flash does not support storyboard prompts")
-		}
-	default:
-		if hasReferenceVideo {
-			return errors.New("the selected video model does not support a reference video")
 		}
 	}
 	return nil
@@ -1201,9 +1174,13 @@ func isGeminiPlaygroundVideoRequest(request PlaygroundRunRequest) bool {
 
 func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo bool) (map[string]any, error) {
 	images := filterPlaygroundImageInputs(request.Images)
+	videos := append([]PlaygroundRunVideoInput(nil), request.ReferenceVideos...)
+	if request.ReferenceVideo != nil && strings.TrimSpace(request.ReferenceVideo.DataURL) != "" {
+		videos = append(videos, *request.ReferenceVideo)
+	}
 	if geminiVideo {
 		instance := map[string]any{"prompt": request.Prompt}
-		if isPlaygroundVideoModel(request.Model, "gemini-omni-flash") {
+		if isPlaygroundVideoModel(request.Model, "gemini-omni-flash") || len(images) > 2 {
 			referenceImages := make([]map[string]any, 0, len(images))
 			for _, image := range images {
 				encoded, err := playgroundGeminiImageMedia(image)
@@ -1224,18 +1201,32 @@ func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo 
 				return nil, err
 			}
 			instance["image"] = encoded
+			if len(images) > 1 {
+				lastFrame, err := playgroundGeminiImageMedia(images[1])
+				if err != nil {
+					return nil, err
+				}
+				instance["lastFrame"] = lastFrame
+			}
 		}
-		if request.ReferenceVideo != nil && strings.TrimSpace(request.ReferenceVideo.DataURL) != "" {
-			data, mimeType, err := decodePlaygroundVideoDataURL(request.ReferenceVideo.DataURL)
-			if err != nil {
-				return nil, err
+		for _, media := range []struct {
+			items []PlaygroundRunVideoInput
+			kind  string
+			field string
+		}{{videos, "video", "referenceVideos"}, {request.ReferenceAudios, "audio", "referenceAudios"}} {
+			encoded := make([]map[string]any, 0, len(media.items))
+			for _, item := range media.items {
+				value, err := playgroundGeminiReferenceMedia(item, media.kind)
+				if err != nil {
+					return nil, err
+				}
+				encoded = append(encoded, value)
 			}
-			if requestType := strings.TrimSpace(request.ReferenceVideo.Type); strings.HasPrefix(strings.ToLower(requestType), "video/") {
-				mimeType = requestType
+			if len(encoded) > 0 {
+				instance[media.kind] = encoded[0]
 			}
-			instance["video"] = map[string]any{
-				"bytesBase64Encoded": base64.StdEncoding.EncodeToString(data),
-				"mimeType":           mimeType,
+			if len(encoded) > 1 {
+				instance[media.field] = encoded
 			}
 		}
 		parameters := map[string]any{}
@@ -1297,8 +1288,8 @@ func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo 
 	} else if len(referenceImages) > 1 {
 		payload["reference_images"] = referenceImages
 	}
-	if request.ReferenceVideo != nil && strings.TrimSpace(request.ReferenceVideo.DataURL) != "" {
-		payload["video"] = request.ReferenceVideo.DataURL
+	if len(videos) > 0 {
+		payload["video"] = videos[0].DataURL
 	}
 	if request.Duration > 0 {
 		payload["duration"] = request.Duration
@@ -1347,8 +1338,50 @@ func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo 
 		}
 		content = append(content, item)
 	}
+	for _, media := range []struct {
+		items []PlaygroundRunVideoInput
+		kind  string
+		field string
+	}{{videos, "video", "reference_videos"}, {request.ReferenceAudios, "audio", "reference_audios"}} {
+		urls := make([]string, 0, len(media.items))
+		for _, item := range media.items {
+			value := strings.TrimSpace(item.DataURL)
+			if value == "" {
+				continue
+			}
+			urls = append(urls, value)
+			content = append(content, map[string]any{
+				"type":              media.kind + "_url",
+				media.kind + "_url": map[string]any{"url": value},
+				"role":              "reference_" + media.kind,
+			})
+		}
+		if len(urls) > 0 {
+			payload[media.field] = urls
+		}
+	}
 	payload["content"] = content
 	return payload, nil
+}
+
+func playgroundGeminiReferenceMedia(item PlaygroundRunVideoInput, kind string) (map[string]any, error) {
+	value := strings.TrimSpace(item.DataURL)
+	if strings.HasPrefix(value, "https://") || strings.HasPrefix(value, "http://") {
+		return map[string]any{"uri": value, "mimeType": item.Type}, nil
+	}
+	header, encoded, ok := strings.Cut(value, ";base64,")
+	if !ok || !strings.HasPrefix(strings.ToLower(header), "data:"+kind+"/") {
+		return nil, fmt.Errorf("reference %s must be an HTTP(S) URL or base64 %s data URL", kind, kind)
+	}
+	data, err := base64.StdEncoding.DecodeString(encoded)
+	limit := playgroundVideoMaxBytes
+	if kind == "audio" {
+		limit = playgroundAudioMaxBytes
+	}
+	if err != nil || len(data) == 0 || len(data) > limit {
+		return nil, fmt.Errorf("invalid or oversized reference %s data", kind)
+	}
+	return map[string]any{"bytesBase64Encoded": encoded, "mimeType": header[len("data:"):]}, nil
 }
 
 func playgroundGeminiImageMedia(image PlaygroundRunImageInput) (map[string]any, error) {

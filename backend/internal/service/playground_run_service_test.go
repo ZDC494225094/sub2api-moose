@@ -1072,6 +1072,59 @@ func TestPlaygroundVideoGenerationPayloadMapsConfigByProvider(t *testing.T) {
 	})
 }
 
+func TestPlaygroundVideoMultimodalReferences(t *testing.T) {
+	for _, model := range []string{"seedance-2.0-fast-M", "kling", "grok-video-r", "custom-video"} {
+		t.Run(model, func(t *testing.T) {
+			request := PlaygroundRunRequest{
+				Model: model, Duration: 10,
+				ReferenceVideos: []PlaygroundRunVideoInput{{DataURL: "https://example.test/a.mp4"}, {DataURL: "https://example.test/b.mp4"}},
+				ReferenceAudios: []PlaygroundRunVideoInput{{DataURL: "https://example.test/a.mp3"}},
+			}
+			if err := normalizePlaygroundVideoRequest(&request); err != nil {
+				t.Fatal(err)
+			}
+			payload, err := playgroundVideoGenerationPayload(request, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(payload["reference_videos"].([]string)) != 2 || len(payload["reference_audios"].([]string)) != 1 {
+				t.Fatalf("references lost: %#v", payload)
+			}
+			content := payload["content"].([]map[string]any)
+			if len(content) != 4 || content[1]["type"] != "video_url" || content[3]["type"] != "audio_url" {
+				t.Fatalf("invalid content: %#v", content)
+			}
+		})
+	}
+	t.Run("legacy video reference is forwarded", func(t *testing.T) {
+		request := PlaygroundRunRequest{Model: "custom-video", ReferenceVideo: &PlaygroundRunVideoInput{DataURL: "https://example.test/old.mp4"}}
+		if err := normalizePlaygroundVideoRequest(&request); err != nil {
+			t.Fatal(err)
+		}
+		payload, err := playgroundVideoGenerationPayload(request, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if payload["video"] != request.ReferenceVideo.DataURL {
+			t.Fatalf("legacy video lost: %#v", payload)
+		}
+	})
+	t.Run("Gemini includes every video and audio", func(t *testing.T) {
+		media := []PlaygroundRunVideoInput{{DataURL: "data:video/mp4;base64,QUJD"}, {DataURL: "data:video/mp4;base64,REVG"}}
+		payload, err := playgroundVideoGenerationPayload(PlaygroundRunRequest{
+			ReferenceVideos: media,
+			ReferenceAudios: []PlaygroundRunVideoInput{{DataURL: "data:audio/mpeg;base64,QUJD"}},
+		}, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		instance := payload["instances"].([]map[string]any)[0]
+		if len(instance["referenceVideos"].([]map[string]any)) != 2 || instance["audio"].(map[string]any)["mimeType"] != "audio/mpeg" {
+			t.Fatalf("references lost: %#v", instance)
+		}
+	})
+}
+
 func TestNormalizePlaygroundVideoRequestAppliesNamedModelRules(t *testing.T) {
 	t.Run("grok imagine defaults unsupported legacy ratios to landscape", func(t *testing.T) {
 		request := PlaygroundRunRequest{Model: "grok-imagine-video", AspectRatio: "1:1"}
@@ -1108,13 +1161,13 @@ func TestNormalizePlaygroundVideoRequestAppliesNamedModelRules(t *testing.T) {
 		}
 	})
 
-	t.Run("grok-video-r rejects more than seven images", func(t *testing.T) {
+	t.Run("grok-video-r forwards more than seven images", func(t *testing.T) {
 		request := PlaygroundRunRequest{Model: "grok-video-r", Duration: 6}
 		for range 8 {
 			request.Images = append(request.Images, PlaygroundRunImageInput{DataURL: "data:image/png;base64,QUJD"})
 		}
-		if err := normalizePlaygroundVideoRequest(&request); err == nil {
-			t.Fatal("expected reference image limit error")
+		if err := normalizePlaygroundVideoRequest(&request); err != nil {
+			t.Fatal(err)
 		}
 	})
 
@@ -1174,13 +1227,13 @@ func TestNormalizePlaygroundVideoRequestAppliesNamedModelRules(t *testing.T) {
 		}
 	})
 
-	t.Run("Kling frame image limit is unchanged", func(t *testing.T) {
+	t.Run("Kling reference count is validated upstream", func(t *testing.T) {
 		request := PlaygroundRunRequest{Model: "kling", Duration: 5, Images: []PlaygroundRunImageInput{
 			{DataURL: "https://example.test/first.png"},
 			{DataURL: "https://example.test/last.png"},
 			{DataURL: "https://example.test/reference.png"},
 		}}
-		if err := normalizePlaygroundVideoRequest(&request); err == nil || err.Error() != "kling supports at most two frame images" {
+		if err := normalizePlaygroundVideoRequest(&request); err != nil {
 			t.Fatalf("Kling validation error = %v", err)
 		}
 	})
@@ -1201,14 +1254,14 @@ func TestNormalizePlaygroundVideoRequestAppliesNamedModelRules(t *testing.T) {
 		}
 	})
 
-	t.Run("Gemini Omni rejects forbidden prompt and long reference video", func(t *testing.T) {
+	t.Run("Gemini Omni rejects forbidden prompt but forwards reference duration", func(t *testing.T) {
 		request := PlaygroundRunRequest{Model: "gemini-omni-flash", Duration: 10, Prompt: "生成 16:9 的分镜视频"}
 		if err := normalizePlaygroundVideoRequest(&request); err == nil || !strings.Contains(err.Error(), "aspect ratios") {
 			t.Fatalf("prompt validation error = %v", err)
 		}
 		request.Prompt = "人物走入街道"
 		request.ReferenceVideo = &PlaygroundRunVideoInput{DataURL: "data:video/mp4;base64,QUJD", DurationSeconds: 10.5}
-		if err := normalizePlaygroundVideoRequest(&request); err == nil || !strings.Contains(err.Error(), "reference video") {
+		if err := normalizePlaygroundVideoRequest(&request); err != nil {
 			t.Fatalf("reference video validation error = %v", err)
 		}
 	})
