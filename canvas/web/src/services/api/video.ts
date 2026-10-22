@@ -6,6 +6,7 @@ import i18n from "@/i18n";
 import { dataUrlToBlob, dataUrlToFile, readFileAsDataUrl } from "@/lib/image-utils";
 import { getMediaBlob, resolveMediaUrl, uploadMediaFile, type UploadedFile } from "@/services/file-storage";
 import { imageToDataUrl } from "@/services/image-storage";
+import { isWebMReference, transcodeReferenceToMP4 } from "@/services/video-reference-transcode";
 import { boolConfig, buildSeedancePromptText } from "@/lib/seedance-video";
 import { buildApiUrl, isManagedCanvasModel, modelOptionName, resolveModelRequestConfig, resolveModelScript, withLocalProxy, type AiConfig } from "@/stores/use-config-store";
 import { runModelPlugin } from "./model-plugin";
@@ -26,7 +27,7 @@ type SeedanceTask = {
     video_url?: string;
 };
 type ApiEnvelope<T> = T | { code?: number | string; data?: T | null; msg?: string; message?: string; error?: { message?: string } };
-type RequestOptions = { signal?: AbortSignal; onRunStarted?: (runId: string) => void | Promise<void> };
+type RequestOptions = { signal?: AbortSignal; onRunStarted?: (runId: string) => void | Promise<void>; onPreparationProgress?: (label: string) => void };
 type VideoMediaOptions = RequestOptions & { videos?: ReferenceVideo[]; audios?: ReferenceAudio[] };
 const apiText = (key: string, options?: Record<string, unknown>) => i18n.t(`apiErrors.${key}`, options);
 
@@ -88,6 +89,22 @@ function videoTaskFailed(message: string) {
 export async function createVideoGenerationTask(config: AiConfig, prompt: string, references: ReferenceImage[] = [], videoReferences: ReferenceVideo[] = [], audioReferences: ReferenceAudio[] = [], options?: RequestOptions): Promise<VideoGenerationTask> {
     config = prepareVideoConfig(config, references.length, videoReferences.length, audioReferences.length);
     assertVideoReferences(config, references, videoReferences, audioReferences);
+    if (videoProfile(config).protocol === "ark") {
+        const prepared: ReferenceVideo[] = [];
+        for (const [index, video] of videoReferences.entries()) {
+            options?.signal?.throwIfAborted();
+            if (!isWebMReference(video)) { prepared.push(video); continue; }
+            options?.onPreparationProgress?.(`参考视频 ${index + 1}：正在读取并转为 MP4`);
+            const file = await referenceMediaToFile(video, "reference.webm", "invalidReferenceVideo", options);
+            const key = video.storageKey ? `${video.storageKey}:${file.size}:${video.type}` : undefined;
+            const blob = await transcodeReferenceToMP4(file, key, { signal: options?.signal, onProgress: (percent) => options?.onPreparationProgress?.(`参考视频 ${index + 1}：转为 MP4 ${percent}%`) });
+            options?.signal?.throwIfAborted();
+            prepared.push({ ...video, name: `${(video.name || `reference-${index + 1}`).replace(/\.[^.]+$/, "")}.mp4`, type: "video/mp4", bytes: blob.size, url: await readFileAsDataUrl(blob), storageKey: undefined });
+        }
+        videoReferences = prepared;
+    }
+    options?.signal?.throwIfAborted();
+    options?.onPreparationProgress?.("");
     const selectedModel = (config.model || config.videoModel).trim();
     const requestConfig = resolveModelRequestConfig(config, selectedModel);
     if (isManagedCanvasModel(config, selectedModel)) return createManagedCanvasVideoTask(config, selectedModel, requestConfig.model, prompt, references, videoReferences, audioReferences, options);
@@ -134,7 +151,7 @@ async function createManagedCanvasVideoTask(
     const mediaInput = async (item: ReferenceVideo | ReferenceAudio, kind: "Video" | "Audio") => ({
         name: item.name,
         type: item.type,
-        dataUrl: isPublicMediaUrl(item.url) || item.url.startsWith("asset://") ? item.url : await readFileAsDataUrl(await referenceMediaToFile(item, kind === "Video" ? "reference.mp4" : "reference.mp3", kind === "Video" ? "invalidReferenceVideo" : "invalidReferenceAudio", options)),
+        dataUrl: isPublicMediaUrl(item.url) || item.url.startsWith("asset://") || item.url.startsWith("data:") ? item.url : await readFileAsDataUrl(await referenceMediaToFile(item, kind === "Video" ? "reference.mp4" : "reference.mp3", kind === "Video" ? "invalidReferenceVideo" : "invalidReferenceAudio", options)),
         durationSeconds: (item.durationMs || 0) / 1000,
     });
     const videos = await Promise.all(videoReferences.map((item) => mediaInput(item, "Video")));
@@ -576,7 +593,12 @@ async function referenceMediaToFile(item: { name: string; type?: string; url?: s
         const url = item.storageKey ? await resolveMediaUrl(item.storageKey, item.url || "") : item.url || "";
         if (!url) throw new Error(apiText(errorKey));
         try {
-            blob = url.startsWith("data:") ? dataUrlToBlob(url) : await (await fetch(withLocalProxy(url), { signal: options?.signal })).blob();
+            if (url.startsWith("data:")) blob = dataUrlToBlob(url);
+            else {
+                const response = await fetch(withLocalProxy(url), { signal: options?.signal });
+                if (!response.ok) throw new Error(`读取参考素材失败 (${response.status})`);
+                blob = await response.blob();
+            }
         } catch (error) {
             if (error instanceof DOMException && error.name === "AbortError") throw error;
             throw new Error(apiText(errorKey));

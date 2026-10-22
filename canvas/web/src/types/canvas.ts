@@ -57,6 +57,7 @@ export type CanvasNodeMetadata = {
     generationRunId?: string;
     errorDetails?: string;
     fontSize?: number;
+    generationProgress?: string;
     generationMode?: CanvasGenerationMode;
     generationType?: CanvasImageGenerationType;
     model?: string;

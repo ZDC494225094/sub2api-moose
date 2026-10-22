@@ -123,8 +123,9 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 			}
 			contentType = "application/json"
 		} else if !arkNative && gjson.ValidBytes(body) {
-			for _, field := range []string{"_video_protocol", "video_standard", "video_mode"} {
-				body, _ = sjson.DeleteBytes(body, field)
+			body, err = normalizeOpenAICompatibleVideoRelayBody(body, requestInfo.Model)
+			if err != nil {
+				return nil, err
 			}
 		}
 		logVideoReferencePayload(ctx, "upstream_forward", account.ID, body)
@@ -434,6 +435,39 @@ func (s *OpenAIGatewayService) openAICompatibleVideoURL(account *Account, endpoi
 	return parsed.String(), arkNative, nil
 }
 
+func normalizeOpenAICompatibleVideoRelayBody(body []byte, requestModel string) ([]byte, error) {
+	standard := strings.TrimSpace(gjson.GetBytes(body, "video_standard").String())
+	seedance := strings.HasPrefix(standard, "seedance-") || (standard == "" &&
+		(playgroundSeedanceModelVersion(requestModel) != "" || playgroundSeedanceModelVersion(gjson.GetBytes(body, "model").String()) != ""))
+	fields := []string{"_video_protocol", "video_standard", "video_mode"}
+	// Keep the relay endpoint and unrelated provider options. Remove only aliases
+	// after converting every reference into the authoritative Seedance content array.
+	if gjson.GetBytes(body, "_video_protocol").String() != "relay" && seedance {
+		normalized, err := normalizeArkVideoGenerationBody(body)
+		if err != nil {
+			return nil, err
+		}
+		for _, field := range []string{"content", "ratio", "framespersecond", "resolution", "duration"} {
+			if value := gjson.GetBytes(normalized, field); value.Exists() {
+				body, err = sjson.SetRawBytes(body, field, []byte(value.Raw))
+				if err != nil {
+					return nil, fmt.Errorf("normalize Seedance field %s: %w", field, err)
+				}
+			}
+		}
+		fields = append(fields, "prompt", "image", "image_url", "image_tail", "first_frame_image", "last_frame_image", "last_frame",
+			"reference_images", "video", "reference_videos", "audio", "reference_audios", "aspect_ratio", "fps", "size", "seconds")
+	}
+	var err error
+	for _, field := range fields {
+		body, err = sjson.DeleteBytes(body, field)
+		if err != nil {
+			return nil, fmt.Errorf("remove video alias field %s: %w", field, err)
+		}
+	}
+	return body, nil
+}
+
 func normalizeArkVideoGenerationBody(body []byte) ([]byte, error) {
 	if !gjson.ValidBytes(body) {
 		return nil, errors.New("invalid video generation JSON")
@@ -509,7 +543,9 @@ func normalizeArkVideoGenerationBody(body []byte) ([]byte, error) {
 	}
 	copyNumber("duration", "duration")
 	copyNumber("fps", "framespersecond")
+	copyNumber("framespersecond", "framespersecond")
 	copyString("aspect_ratio", "ratio")
+	copyString("ratio", "ratio")
 	copyString("resolution", "resolution")
 	for _, field := range []string{"watermark", "generate_audio", "seed", "camera_fixed", "return_last_frame", "draft", "service_tier", "output_format", "omni_reference_task_type"} {
 		if value := gjson.GetBytes(body, field); value.Exists() {

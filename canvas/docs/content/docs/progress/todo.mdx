@@ -12,5 +12,5 @@ description: Planned follow-up work
 - 视频标准后续：补齐 Gemini 分组的 Omni Interactions 原生路由，以及可灵元素 / 声线 / 分镜的专用控件；继续核验旧型号能力与各渠道别名，不能由同厂商名称推定能力相同。当前基础标准见[视频模型适配待验收](/docs/progress/video-model-standards)。
 - Agent 工作台视频工具：将旧固定秒数和模式枚举迁移到分型号参数配置；当前画布节点与视频工作台共用设置和请求层，不代表 Agent 工具说明已同步。
 - Seedance 第三方直连 / 模型脚本：接入当前渠道的素材上传接口或用户授权的公网存储后提交 HTTP(S) 参考地址；托管视频调用已接入后台对象存储，服务器 R2 和上游读取仍待验收。
-- 托管视频服务器验收：部署任务诊断后，以新任务核对 R2 上传记录、`canvas_submit` / `upstream_forward` 的各类参考数量、上游提交 / 轮询错误、参考素材公网读取与深度 WebM 接受情况，确认实际部署故障原因。
+- 托管视频服务器验收：部署任务诊断后，以新任务核对 R2 上传记录、`canvas_submit` / `upstream_forward` 的各类参考数量、上游提交 / 轮询错误与公网读取；Seedance 自动模式出口应无 `reference_videos` / `reference_audios`，全部参考保留在 `content`，显式兼容格式按渠道核实；历史 WebM 已增加浏览器转码，需确认上传为 H.264 MP4 并被上游接受，其他标准按各自格式验证。
 - 继续核实参考图生图 `image file is required` 的实际请求分支（普通 API / 模型脚本），固定上传文件名的修改不作为完整修复验收。

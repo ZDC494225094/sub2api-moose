@@ -159,6 +159,7 @@ export function resetInterruptedGeneration(nodes: CanvasNodeData[], linkedResuma
                 ...node.metadata,
                 status: resumable ? ("loading" as const) : ("error" as const),
                 errorDetails: resumable ? undefined : i18n.t("canvas.generation.interrupted"),
+                generationProgress: undefined,
                 images,
                 texts,
             },

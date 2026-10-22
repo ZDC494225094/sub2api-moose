@@ -532,7 +532,11 @@ function InfiniteCanvasPage() {
         async (nodeId: string, config: Parameters<typeof buildGenerationConfig>[0], prompt: string, images: Parameters<typeof createVideoGenerationTask>[2], signal: AbortSignal, extra: CanvasNodeData["metadata"] = {}, videos: ReferenceVideo[] = [], audios: ReferenceAudio[] = []) => {
             config = prepareVideoConfig(config, images?.length || 0, videos.length, audios.length);
             setNodes((prev) => prev.map((item) => item.id === nodeId ? { ...item, metadata: { ...item.metadata, ...buildVideoGenerationMetadata(config) } } : item));
-            const task = await createVideoGenerationTask(config, prompt, images, videos, audios, { signal, onRunStarted: (runId) => rememberGenerationRun(nodeId, runId) });
+            const task = await createVideoGenerationTask(config, prompt, images, videos, audios, {
+                signal,
+                onRunStarted: (runId) => rememberGenerationRun(nodeId, runId),
+                onPreparationProgress: (label) => setNodes((prev) => prev.map((item) => item.id === nodeId ? { ...item, metadata: { ...item.metadata, generationProgress: label || undefined } } : item)),
+            }).finally(() => setNodes((prev) => prev.map((item) => item.id === nodeId ? { ...item, metadata: { ...item.metadata, generationProgress: undefined } } : item)));
             if (task.provider !== "plugin" && task.provider !== "canvas") {
                 const provider = task.provider;
                 setNodes((prev) => prev.map((item) => (item.id === nodeId ? { ...item, metadata: { ...item.metadata, videoTaskId: task.id, videoTaskProvider: provider, videoTaskPath: task.path, model: config.model } } : item)));

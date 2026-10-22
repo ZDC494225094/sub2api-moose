@@ -106,7 +106,6 @@ export function videoReferenceWarning(config: AiConfig, images: ReferenceImage[]
     const p = videoProfile(config);
     const counts = videoReferenceCountWarning(config, images.length, videos.length, audios.length);
     if (counts) return counts;
-    if (p.protocol === "ark" && videos.some((item) => item.type === "video/webm" || /\.webm$/i.test(item.name))) return "Seedance 官方视频参考支持 MP4 / MOV，WebM 深度视频需转码或使用支持 WebM 的网关。";
     if (p.protocol === "kling-v3" && videos.some((item) => item.durationMs && (item.durationMs < 3000 || item.durationMs > (p.id === "kling-o1" ? 10000 : 15500)))) return `${p.label} 参考视频需为 3–${p.id === "kling-o1" ? "10" : "15.5"} 秒。`;
     if (p.id === "seedance-2.5" && videos.some((item) => item.durationMs && item.durationMs < (config.videoMode === "edit" ? 4000 : 2000))) return "Seedance 2.5 参考视频至少 2 秒，编辑源视频至少 4 秒。";
     if (p.id === "gemini-omni" && videos.some((item) => (item.durationMs || 0) > (config.videoMode === "reference" ? 3000 : 10000))) return "Gemini Omni：参考视频每段最多 3 秒，编辑 / 延长源视频最多 10 秒。";

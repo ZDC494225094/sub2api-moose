@@ -8,8 +8,101 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
+
+func TestNormalizeSeedanceRelayWirePayload(t *testing.T) {
+	for _, tc := range []struct {
+		name, model, requestModel, standard, protocol string
+		seedance                                      bool
+	}{
+		{"manual fast profile", "seedance2.0-fast", "seedance2.0-fast", "seedance-2-fast", "auto", true},
+		{"manual alias", "private-model", "private-model", "seedance-2-fast", "auto", true},
+		{"legacy model", "seedance2.0-fast", "seedance2.0-fast", "", "", true},
+		{"mapped model", "doubao-seedance-2-0-fast-260128", "private-model", "", "auto", true},
+		{"original model", "private-model", "seedance2.0-fast", "", "auto", true},
+		{"explicit relay", "seedance2.0-fast", "seedance2.0-fast", "seedance-2-fast", "relay", false},
+		{"custom standard override", "seedance2.0-fast", "seedance2.0-fast", "custom", "auto", false},
+		{"unrelated provider", "other-video", "other-video", "kling-3", "auto", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			request := PlaygroundRunRequest{
+				Model: tc.model, VideoStandard: tc.standard, VideoProtocol: tc.protocol, VideoMode: "reference",
+				Prompt: "replace the actor", Duration: 15, Resolution: "720p", AspectRatio: "16:9", FPS: 24,
+				GenerateAudio: new(true), Watermark: new(false), Seed: new(int64(123)),
+				Images: []PlaygroundRunImageInput{{DataURL: "https://cdn.test/actor.png"}},
+				ReferenceVideos: []PlaygroundRunVideoInput{
+					{DataURL: "https://cdn.test/depth.mp4"}, {DataURL: "https://cdn.test/source.mp4"},
+				},
+				ReferenceAudios: []PlaygroundRunVideoInput{{DataURL: "https://cdn.test/sound.mp3"}},
+			}
+			payload, err := playgroundVideoGenerationPayload(request, false)
+			require.NoError(t, err)
+			// Legacy requests can carry the protocol without a versioned profile.
+			payload["_video_protocol"] = tc.protocol
+			payload["priority"] = 5
+			payload["callback_url"] = "https://callback.test/completed"
+			body, err := json.Marshal(payload)
+			require.NoError(t, err)
+			out, err := normalizeOpenAICompatibleVideoRelayBody(body, tc.requestModel)
+			require.NoError(t, err)
+			for _, field := range []string{"_video_protocol", "video_standard", "video_mode"} {
+				require.False(t, gjson.GetBytes(out, field).Exists(), field)
+			}
+			parts := gjson.GetBytes(out, "content").Array()
+			require.Len(t, parts, 5)
+			require.JSONEq(t, gjson.GetBytes(body, "content").Raw, gjson.GetBytes(out, "content").Raw)
+			require.Equal(t, "https://cdn.test/depth.mp4", parts[2].Get("video_url.url").String())
+			require.Equal(t, "https://cdn.test/source.mp4", parts[3].Get("video_url.url").String())
+			require.Equal(t, "reference_audio", parts[4].Get("role").String())
+			require.Equal(t, tc.model, gjson.GetBytes(out, "model").String())
+			require.Equal(t, int64(15), gjson.GetBytes(out, "duration").Int())
+			require.True(t, gjson.GetBytes(out, "generate_audio").Bool())
+			require.Equal(t, gjson.False, gjson.GetBytes(out, "watermark").Type)
+			require.Equal(t, int64(123), gjson.GetBytes(out, "seed").Int())
+			require.Equal(t, int64(5), gjson.GetBytes(out, "priority").Int())
+			require.Equal(t, "https://callback.test/completed", gjson.GetBytes(out, "callback_url").String())
+			if tc.seedance {
+				for _, field := range []string{"reference_videos", "reference_audios", "reference_images", "image", "video", "prompt", "aspect_ratio", "fps"} {
+					require.False(t, gjson.GetBytes(out, field).Exists(), field)
+				}
+				require.Equal(t, "16:9", gjson.GetBytes(out, "ratio").String())
+				require.Equal(t, int64(24), gjson.GetBytes(out, "framespersecond").Int())
+				second, err := normalizeArkVideoGenerationBody(out)
+				require.NoError(t, err)
+				require.Equal(t, "16:9", gjson.GetBytes(second, "ratio").String())
+				require.Equal(t, int64(24), gjson.GetBytes(second, "framespersecond").Int())
+			} else {
+				require.Len(t, gjson.GetBytes(out, "reference_videos").Array(), 2)
+				require.Len(t, gjson.GetBytes(out, "reference_audios").Array(), 1)
+				require.Equal(t, "16:9", gjson.GetBytes(out, "aspect_ratio").String())
+			}
+		})
+	}
+}
+
+func TestNormalizeSeedanceRelayLegacyReferences(t *testing.T) {
+	for _, content := range []string{"", `,"content":[]`} {
+		body, err := normalizeOpenAICompatibleVideoRelayBody([]byte(`{
+			"model":"private-model","video_standard":"seedance-2-fast","_video_protocol":"auto",
+			"prompt":"replace the actor","aspect_ratio":"16:9","duration":15,
+			"image":"https://cdn.test/actor.png",
+			"video":"https://cdn.test/depth.mp4",
+			"reference_videos":["https://cdn.test/depth.mp4","https://cdn.test/source.mp4"],
+			"reference_audios":["https://cdn.test/sound.mp3"]`+content+`}`), "private-model")
+		require.NoError(t, err)
+		parts := gjson.GetBytes(body, "content").Array()
+		require.Len(t, parts, 5, "legacy video must not be duplicated")
+		for i, kind := range []string{"image", "video", "video", "audio"} {
+			require.Equal(t, kind+"_url", parts[i+1].Get("type").String())
+			require.Equal(t, "reference_"+kind, parts[i+1].Get("role").String())
+		}
+		require.Equal(t, "https://cdn.test/source.mp4", parts[3].Get("video_url.url").String())
+		require.False(t, gjson.GetBytes(body, "reference_videos").Exists())
+		require.False(t, gjson.GetBytes(body, "reference_audios").Exists())
+	}
+}
 
 func TestOpenAICompatibleVideoURLSupportsStandardAndNativeArkAccounts(t *testing.T) {
 	svc := &OpenAIGatewayService{cfg: &config.Config{}}

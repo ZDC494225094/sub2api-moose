@@ -1,5 +1,5 @@
 import { env, pipeline, RawImage } from "@huggingface/transformers";
-import { ALL_FORMATS, BlobSource, BufferTarget, CanvasSource, Input, Output, QUALITY_HIGH, VideoSampleSink, WebMOutputFormat, canEncodeVideo } from "mediabunny";
+import { ALL_FORMATS, BlobSource, BufferTarget, CanvasSource, Input, Mp4OutputFormat, Output, QUALITY_HIGH, VideoSampleSink, WebMOutputFormat, canEncodeVideo } from "mediabunny";
 
 self.onmessage = async ({ data }: MessageEvent<{ blob: Blob; mode: "auto" | "cpu"; samplingFps: number; wasm: { mjs: string; wasm: string } }>) => {
     const input = new Input({ source: new BlobSource(data.blob), formats: ALL_FORMATS });
@@ -12,7 +12,8 @@ self.onmessage = async ({ data }: MessageEvent<{ blob: Blob; mode: "auto" | "cpu
         if (!track || !(await track.canDecode())) throw new Error("浏览器无法解码这个视频，请先将源视频转为 H.264 MP4 或 VP9 WebM。");
         const width = track.displayWidth;
         const height = track.displayHeight;
-        if (!(await canEncodeVideo("vp9", { width, height }))) throw new Error("当前浏览器不支持此尺寸的 VP9 视频编码。");
+        const codec = await canEncodeVideo("avc", { width, height }) ? "avc" : "vp9";
+        if (codec === "vp9" && !(await canEncodeVideo("vp9", { width, height }))) throw new Error("当前浏览器不支持此尺寸的 H.264 或 VP9 视频编码。");
         const duration = await track.computeDuration();
         progress("加载模型…");
         env.allowLocalModels = false;
@@ -40,8 +41,8 @@ self.onmessage = async ({ data }: MessageEvent<{ blob: Blob; mode: "auto" | "cpu
         const sourceContext = sourceCanvas.getContext("2d")!;
         const depthContext = depthCanvas.getContext("2d")!;
         const target = new BufferTarget();
-        output = new Output({ format: new WebMOutputFormat(), target });
-        const source = new CanvasSource(depthCanvas, { codec: "vp9", bitrate: QUALITY_HIGH });
+        output = new Output({ format: codec === "avc" ? new Mp4OutputFormat() : new WebMOutputFormat(), target });
+        const source = new CanvasSource(depthCanvas, { codec, bitrate: QUALITY_HIGH });
         output.addVideoTrack(source);
         await output.start();
         let count = 0;
@@ -83,7 +84,7 @@ self.onmessage = async ({ data }: MessageEvent<{ blob: Blob; mode: "auto" | "cpu
         progress("正在封装深度视频", 99);
         await output.finalize();
         if (!target.buffer) throw new Error("深度视频封装失败。");
-        self.postMessage({ type: "complete", blob: new Blob([target.buffer], { type: "video/webm" }) });
+        self.postMessage({ type: "complete", blob: new Blob([target.buffer], { type: codec === "avc" ? "video/mp4" : "video/webm" }) });
     } catch (error) {
         self.postMessage({ type: "error", message: error instanceof Error ? error.message : "深度视频转换失败" });
     } finally {

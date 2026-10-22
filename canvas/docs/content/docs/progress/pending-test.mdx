@@ -5,11 +5,15 @@ description: Implemented changes that still need manual verification
 
 ## 视频标准当前验收
 
+本轮 422 修复：托管 Seedance 自动模式在网关最终出口将所有参考保留为 `content`，移除 `reference_videos` / `reference_audios`、重复单素材字段和内部协议字段，比例及帧率转换为 `ratio` / `framespersecond`；不改变第三方 `/videos/generations` 地址、模型映射、参考顺序或角色，保留回调等渠道扩展参数。手动指定 Seedance 标准的别名同样生效；显式选择「兼容网关」或通用标准仍保留原兼容字段。后端回归覆盖 1 图 + 2 视频 + 1 音频、旧数组重建、原生 Ark 与显式兼容分支；服务器部署、真实 R2 和厂家接收仍待验收。本修复只需更新后端，无新增迁移；前述 WebM 转码另需更新画布资源。
+
+本轮格式修复：深度处理优先编码 H.264 MP4，仅在浏览器不能编码该尺寸时回退 VP9 WebM。历史 WebM 参考（按 MIME / 文件名 / URL 判断）选择 Seedance 标准后，提交前在浏览器 Worker 转为 H.264 / AAC MP4，不重新推理深度；节点显示转码进度，取消 / 删除节点 / 离开画布应终止本次编码且不创建服务端任务。保持原素材和引用顺序，全部图 / 视频 / 音频继续提交；源视频帧时间、时长和音轨需浏览器实测，奇数尺寸最多补一像素，解码或编码失败、轨道将被丢弃时终止提交。仅内存复用最近一份不超过 128 MB 的本地不可变素材转码结果，原始素材不覆盖。托管路径按 `video/mp4` 转存 R2；直连原生仍需公网视频地址，自动转码不提供公网托管。严格校验不再仅因 WebM 格式阻止提交。本轮未运行画布语法检查、构建、测试、浏览器验收、真实上传或付费生成。
+
 以下规则替代本页旧版同步说明中的固定时长及模式限制。完整能力、协议、官方来源和已知边界见[视频模型适配待验收](/docs/progress/video-model-standards)。
 
 - 型号识别与手动标准：分别切换 Seedance 2.0 / Fast / Mini / 2.5、H3 / Max / Hailuo、Veo / Omni、可灵 3.0 / Turbo / O1 / 旧版；未知别名手动指定标准，不改变实际模型 ID，通用配置保留常用参数。切换后确认比例、时长、分辨率、音频、水印、种子及负面提示词显示合理。
 - 参数联动：Seedance 2.5 编辑为随源时长及 adaptive，纯文生不被误改为首帧比例；Hailuo 1080p 为 6 秒；Veo 高分辨率 / 参考 / 延长为 8 秒，延长为 720p；O1 纯首尾帧为 5 / 10 秒。按实际参考数量解析自动模式，不能在规范化时把全能参考重置成首尾帧。
-- 参考完整性：1 图 + 2 视频（含深度 WebM）+ 音频默认显示提示但不按名称删除素材，严格校验才拦截已知数量 / 时长条件；原生协议无法表达组合时明确报错。检查首尾帧与普通参考的角色、R2 记录及同一任务的提交 / 出口日志；WebM 不自动转成 Seedance 官方支持的视频格式。
+- 参考完整性：1 图 + 2 视频（含深度 WebM）+ 音频默认显示提示但不按名称删除素材，严格校验才拦截已知数量 / 时长条件；原生协议无法表达组合时明确报错。检查首尾帧与普通参考的角色、R2 记录及同一任务的提交 / 出口日志；Seedance 标准下 WebM 按本节格式修复转成 MP4，其他标准保持原格式。
 - 创建与恢复：自动 / 兼容网关 / 厂家原生分别核对真实出口；H3 嵌套 task、Hailuo file_id 二次查询、可灵旧版 succeed / 新版 outputs、Omni Files ACTIVE 与鉴权下载均需真实渠道验证。刷新、重试及工作台历史保持新参数和原生查询路径，不重复创建或计费；未知、停用和无权限型号显示真实错误。
 - 后端边界：受管请求仍经过原鉴权、调度、预扣、R2 和任务归属；确认更改包装任务编号或跨用户查询被拒绝，完成响应中的原始计费模型、实际时长及预估分辨率正确合并，重复查询不重复结算。Veo 原生使用 Gemini 分组，Omni Interactions 当前使用配置 Google 地址的 OpenAI API Key 分组或兼容渠道，不自动跨分组。
 - 验证范围：后端以假上游验证协议与任务完整链路，不调用付费模型；画布按项目约定未执行语法检查、构建、测试或浏览器验收，未部署、未做真实 R2 上传和厂家生成。本项无新增迁移，需要同时更新后端与内嵌画布静态资源；Agent 工作台工具的旧参数枚举另列待办。
@@ -34,7 +38,7 @@ description: Implemented changes that still need manual verification
 
 - 本地深度模块加载：修复 Sub2API 前端开发服务 `/canvas/` 静态文件的 `.mjs` / `.wasm` 响应类型，分别返回 `text/javascript` / `application/wasm`，避免以 `application/octet-stream` 返回导致动态模块加载失败。需继续验证模型下载及实际视频转换。
 
-- 视频深度转换：已有视频节点的悬浮工具栏新增“深度视频”，使用 Depth Anything V2 Small 的 ONNX 量化模型在独立浏览器 Worker 内逐帧估计相对深度，近亮远暗，保留源尺寸和帧时间戳，输出无声 VP9 WebM 并通过本地媒体存储保存为相连的新视频节点。首次需访问 Hugging Face 下载模型，ONNX 运行文件随站点同源发布；Sub2API 仅对 `/canvas` 范围的 CSP 开放 WebAssembly 编译及同源 Worker。待验证首次下载与缓存、完整帧数与时长、竖屏旋转、取消及关闭页面后的资源释放、刷新后回显、下载和素材保存、无法联网与不支持 WebCodecs / 编解码器时的错误提示。逐帧模型不保证时间一致性，可能有亮度闪动。本次按项目约定未运行构建、测试或浏览器实测。
+- 视频深度转换：已有视频节点的悬浮工具栏新增“深度视频”，使用 Depth Anything V2 Small 的 ONNX 量化模型在独立浏览器 Worker 内逐帧估计相对深度，近亮远暗，保留源尺寸和帧时间戳，优先输出无声 H.264 MP4，不支持时回退 VP9 WebM，并通过本地媒体存储保存为相连的新视频节点。首次需访问 Hugging Face 下载模型，ONNX 运行文件随站点同源发布；Sub2API 仅对 `/canvas` 范围的 CSP 开放 WebAssembly 编译及同源 Worker。待验证首次下载与缓存、完整帧数与时长、竖屏旋转、取消及关闭页面后的资源释放、刷新后回显、下载和素材保存、无法联网与不支持 WebCodecs / 编解码器时的错误提示。逐帧模型不保证时间一致性，可能有亮度闪动。本次按项目约定未运行构建、测试或浏览器实测。
 
 - Video reference storage: merged upstream upload retries, set explicit Content-Length, stop retrying permanent failures and honor the upload deadline. Failures expose sanitized categories without credentials or signed URLs. Actual bucket upload and upstream retrieval remain pending; no deployment or production root-cause confirmation.
 
