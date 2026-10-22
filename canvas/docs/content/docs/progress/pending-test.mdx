@@ -5,11 +5,11 @@ description: Implemented changes that still need manual verification
 
 ## 视频标准当前验收
 
+协议恢复：移除 wxart 域名自动切换官渠及精确模型别名转换，保留账号配置的模型映射结果（包括日期后缀）；恢复发送显式 watermark=false。第三方地址需要原生协议时在节点明确选择原生，自动模式不再因 wxart 域名改变线路。保留通用 HTTP 错误详情、异步错误及过期状态修复。待部署后确认实际请求协议与模型名，未做真实付费生成。
+
 提交错误详情补漏：公共 HTTP 错误提取支持 `{"error":"具体原因"}` 和 error 数组，经过既有脱敏及错误策略回传，覆盖此前仅处理异步任务失败而遗漏的 HTTP 422 分支。待部署后核对 wxart 实际拒绝原因；此修改修复诊断，不证明上游参数已被接受。TODO 的官渠部署验收仍未完成。
 
-wxart 官渠适配：账号域名精确为 `api.wxart.space` 时，自动模式识别映射后的 Seedance 2.0 / Fast / Mini / 2.5 模型，转换为文档中的无日期 `doubao-*` 名称，创建和查询走 `/api/v3/contents/generations/tasks`。保留原生 content、watermark 和 generate_audio；显式兼容模式不自动切线，2.5-pcs 不映射为官渠。补齐字符串 / 数组失败详情和旧 Ark 路径的 expired 终态。仅需部署后端，节点用自动或原生协议；真实官渠权限、计费和素材读取仍需部署验收，切到官渠后适用其计费规则。
 
-水印字段修复：Seedance 自动适配第三方接口时省略布尔 `watermark=false`；原生 Ark、显式兼容网关及其他标准保持原行为，`watermark=true` 仍传递用户意图，不做失败后自动重试。省略字段后的实际水印行为由渠道默认值决定；wxart 文档需登录，尚未确认其完整参数合同和默认水印行为。需部署后端后验证该渠道接收及输出，不能由本地测试推定付费生成成功。TODO 的服务器验收项继续保留。
 
 本轮 422 修复：托管 Seedance 自动模式在网关最终出口将所有参考保留为 `content`，移除 `reference_videos` / `reference_audios`、重复单素材字段和内部协议字段，比例及帧率转换为 `ratio` / `framespersecond`；不改变第三方 `/videos/generations` 地址、模型映射、参考顺序或角色，保留回调等渠道扩展参数。手动指定 Seedance 标准的别名同样生效；显式选择「兼容网关」或通用标准仍保留原兼容字段。后端回归覆盖 1 图 + 2 视频 + 1 音频、旧数组重建、原生 Ark 与显式兼容分支；服务器部署、真实 R2 和厂家接收仍待验收。本修复只需更新后端，无新增迁移；前述 WebM 转码另需更新画布资源。
 

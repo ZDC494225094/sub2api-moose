@@ -105,10 +105,9 @@ func TestNativeVideoTaskAndResponse(t *testing.T) {
 }
 
 func TestNativeVideoProtocolAndManualProfiles(t *testing.T) {
-	require.Equal(t, "ark", nativeVideoProtocol("https://api.wxart.space/v1", []byte(`{"model":"seedance2.0-fast"}`)))
+	require.Equal(t, "", nativeVideoProtocol("https://api.wxart.space/v1", []byte(`{"model":"seedance2.0-fast"}`)))
 	require.Equal(t, "", nativeVideoProtocol("https://api.wxart.space/v1", []byte(`{"model":"seedance2.0-fast","_video_protocol":"relay"}`)))
 	require.Equal(t, "", nativeVideoProtocol("https://api.wxart.space.evil.test", []byte(`{"model":"seedance2.0-fast"}`)))
-	require.Empty(t, wxartNativeVideoModel("seedance2.5-pcs"))
 	require.Equal(t, "", nativeVideoProtocol("https://api.minimax.io", []byte(`{"_video_protocol":"relay"}`)))
 	require.Equal(t, "minimax-h3", nativeVideoProtocol("https://relay.test/v1", []byte(`{"_video_protocol":"minimax-h3"}`)))
 	require.Equal(t, "", nativeVideoProtocol("https://api.minimax.io.evil.test", []byte(`{}`)))

@@ -102,16 +102,6 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 			}
 		}
 		protocol = nativeVideoProtocol(baseURL, body)
-		parsedBase, _ := url.Parse(baseURL)
-		if protocol == "ark" && parsedBase != nil && strings.EqualFold(parsedBase.Hostname(), "api.wxart.space") {
-			if model := wxartNativeVideoModel(upstreamModel); model != "" {
-				upstreamModel = model
-				body, err = sjson.SetBytes(body, "model", model)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
 		if arkNative && protocol == "" {
 			body, err = normalizeArkVideoGenerationBody(body)
 			if err != nil {
@@ -453,11 +443,6 @@ func normalizeOpenAICompatibleVideoRelayBody(body []byte, requestModel string) (
 	// Keep the relay endpoint and unrelated provider options. Remove only aliases
 	// after converting every reference into the authoritative Seedance content array.
 	if gjson.GetBytes(body, "_video_protocol").String() != "relay" && seedance {
-		// Some relays reject even the default false; keep explicit opt-in and
-		// leave the native Ark serializer's watermark support unchanged.
-		if gjson.GetBytes(body, "watermark").Type == gjson.False {
-			fields = append(fields, "watermark")
-		}
 		normalized, err := normalizeArkVideoGenerationBody(body)
 		if err != nil {
 			return nil, err

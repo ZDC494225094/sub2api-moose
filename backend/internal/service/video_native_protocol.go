@@ -63,10 +63,6 @@ func nativeVideoProtocol(base string, body []byte) string {
 	host := strings.ToLower(parsed.Hostname())
 	model := strings.ToLower(gjson.GetBytes(body, "model").String())
 	switch host {
-	case "api.wxart.space":
-		if wxartNativeVideoModel(model) != "" {
-			return "ark"
-		}
 	case "api.minimax.io", "api.minimax.chat", "api.minimaxi.com":
 		if strings.Contains(model, "h3") || strings.HasPrefix(gjson.GetBytes(body, "video_standard").String(), "minimax-h3") {
 			return "minimax-h3"
@@ -81,20 +77,6 @@ func nativeVideoProtocol(base string, body []byte) string {
 		if strings.Contains(model, "omni") || gjson.GetBytes(body, "video_standard").String() == "gemini-omni" {
 			return "omni"
 		}
-	}
-	return ""
-}
-
-func wxartNativeVideoModel(model string) string {
-	switch strings.ToLower(strings.TrimSpace(model)) {
-	case "seedance2.0-fast", "doubao-seedance-2-0-fast", "doubao-seedance-2-0-fast-260128":
-		return "doubao-seedance-2-0-fast"
-	case "seedance2.0", "doubao-seedance-2-0", "doubao-seedance-2-0-260128":
-		return "doubao-seedance-2-0"
-	case "seedance2.0-mini", "doubao-seedance-2-0-mini":
-		return "doubao-seedance-2-0-mini"
-	case "seedance2.5", "doubao-seedance-2-5":
-		return "doubao-seedance-2-5"
 	}
 	return ""
 }
