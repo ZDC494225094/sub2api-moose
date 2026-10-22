@@ -120,3 +120,24 @@ func TestCanvasVideoReferencesReachFinalUpstreamRequest(t *testing.T) {
 		})
 	}
 }
+
+func TestWxartSeedanceFinalRequest(t *testing.T) {
+	upstream := &videoReferenceForwardUpstream{}
+	settings := &SettingService{settingRepo: &upstreamBillingProbeSettingRepo{values: map[string]string{"custom_extensions.media-gateway.enabled": "true"}}}
+	gateway := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream, settingService: settings}
+	account := &Account{ID: 9, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{
+		"base_url": "https://api.wxart.space/v1", "api_key": "test",
+		"model_mapping": map[string]any{"alias": "seedance2.0-fast"},
+	}}
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", nil)
+	body := []byte(`{"model":"alias","_video_protocol":"auto","watermark":false,"generate_audio":true,"duration":15,"resolution":"720p","aspect_ratio":"16:9","content":[{"type":"text","text":"move"},{"type":"image_url","image_url":{"url":"https://cdn.test/a.png"},"role":"reference_image"},{"type":"video_url","video_url":{"url":"https://cdn.test/depth.mp4"},"role":"reference_video"},{"type":"video_url","video_url":{"url":"https://cdn.test/source.mp4"},"role":"reference_video"},{"type":"audio_url","audio_url":{"url":"https://cdn.test/a.mp3"},"role":"reference_audio"}]}`)
+	_, err := gateway.ForwardOpenAICompatibleVideo(context.Background(), c, account, GrokMediaEndpointVideosGenerations, "", body, "application/json")
+	require.ErrorContains(t, err, "no task id") // Fake upstream intentionally returns {}.
+	require.Equal(t, "https://api.wxart.space/api/v3/contents/generations/tasks", upstream.url)
+	require.Equal(t, "doubao-seedance-2-0-fast", gjson.GetBytes(upstream.body, "model").String())
+	require.JSONEq(t, gjson.GetBytes(body, "content").Raw, gjson.GetBytes(upstream.body, "content").Raw)
+	require.Equal(t, gjson.False, gjson.GetBytes(upstream.body, "watermark").Type)
+	require.True(t, gjson.GetBytes(upstream.body, "generate_audio").Bool())
+	require.Equal(t, "16:9", gjson.GetBytes(upstream.body, "ratio").String())
+}

@@ -60,6 +60,19 @@ func TestNativeVideoSerializers(t *testing.T) {
 	require.False(t, gjson.GetBytes(converted, "duration").Exists())
 }
 
+func TestArkFailureDetailsAndExpiry(t *testing.T) {
+	for _, detail := range []string{`"source unavailable"`, `{"message":"source unavailable"}`, `["source unavailable"]`} {
+		body := []byte(`{"id":"task-test","status":"expired","error":` + detail + `}`)
+		legacy := normalizeArkVideoStatusResponse(body)
+		require.Equal(t, "failed", gjson.GetBytes(legacy, "status").String())
+		require.Contains(t, gjson.GetBytes(legacy, "error.message").String(), "source unavailable")
+		native, _, err := normalizeNativeVideoResponse(body, nativeVideoTask{Protocol: "ark"}, true)
+		require.NoError(t, err)
+		require.Equal(t, "failed", gjson.GetBytes(native, "status").String())
+		require.Contains(t, gjson.GetBytes(native, "error.message").String(), "source unavailable")
+	}
+}
+
 func TestNativeVideoTaskAndResponse(t *testing.T) {
 	for _, tt := range []struct{ protocol, path, response, output string }{
 		{"minimax-h3", "/v2/query/video_generation/", `{"base_resp":{"status_code":0},"task":{"task_id":"42","status":"succeeded","content":{"url":"https://cdn.test/h3.mp4"},"duration":12}}`, "https://cdn.test/h3.mp4"},
@@ -92,6 +105,10 @@ func TestNativeVideoTaskAndResponse(t *testing.T) {
 }
 
 func TestNativeVideoProtocolAndManualProfiles(t *testing.T) {
+	require.Equal(t, "ark", nativeVideoProtocol("https://api.wxart.space/v1", []byte(`{"model":"seedance2.0-fast"}`)))
+	require.Equal(t, "", nativeVideoProtocol("https://api.wxart.space/v1", []byte(`{"model":"seedance2.0-fast","_video_protocol":"relay"}`)))
+	require.Equal(t, "", nativeVideoProtocol("https://api.wxart.space.evil.test", []byte(`{"model":"seedance2.0-fast"}`)))
+	require.Empty(t, wxartNativeVideoModel("seedance2.5-pcs"))
 	require.Equal(t, "", nativeVideoProtocol("https://api.minimax.io", []byte(`{"_video_protocol":"relay"}`)))
 	require.Equal(t, "minimax-h3", nativeVideoProtocol("https://relay.test/v1", []byte(`{"_video_protocol":"minimax-h3"}`)))
 	require.Equal(t, "", nativeVideoProtocol("https://api.minimax.io.evil.test", []byte(`{}`)))

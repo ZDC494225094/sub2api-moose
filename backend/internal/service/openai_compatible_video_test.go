@@ -59,7 +59,11 @@ func TestNormalizeSeedanceRelayWirePayload(t *testing.T) {
 			require.Equal(t, tc.model, gjson.GetBytes(out, "model").String())
 			require.Equal(t, int64(15), gjson.GetBytes(out, "duration").Int())
 			require.True(t, gjson.GetBytes(out, "generate_audio").Bool())
-			require.Equal(t, gjson.False, gjson.GetBytes(out, "watermark").Type)
+			if tc.seedance {
+				require.False(t, gjson.GetBytes(out, "watermark").Exists())
+			} else {
+				require.Equal(t, gjson.False, gjson.GetBytes(out, "watermark").Type)
+			}
 			require.Equal(t, int64(123), gjson.GetBytes(out, "seed").Int())
 			require.Equal(t, int64(5), gjson.GetBytes(out, "priority").Int())
 			require.Equal(t, "https://callback.test/completed", gjson.GetBytes(out, "callback_url").String())
@@ -78,6 +82,23 @@ func TestNormalizeSeedanceRelayWirePayload(t *testing.T) {
 				require.Len(t, gjson.GetBytes(out, "reference_audios").Array(), 1)
 				require.Equal(t, "16:9", gjson.GetBytes(out, "aspect_ratio").String())
 			}
+		})
+	}
+}
+
+func TestNormalizeSeedanceWatermark(t *testing.T) {
+	for _, value := range []string{"", ",\"watermark\":false", ",\"watermark\":true"} {
+		t.Run(value, func(t *testing.T) {
+			body := []byte(`{"model":"seedance2.0-fast","prompt":"ocean"` + value + `}`)
+			relay, err := normalizeOpenAICompatibleVideoRelayBody(body, "seedance2.0-fast")
+			require.NoError(t, err)
+			require.Equal(t, value == ",\"watermark\":true", gjson.GetBytes(relay, "watermark").Exists())
+			if value == ",\"watermark\":true" {
+				require.True(t, gjson.GetBytes(relay, "watermark").Bool())
+			}
+			native, err := normalizeArkVideoGenerationBody(body)
+			require.NoError(t, err)
+			require.Equal(t, gjson.GetBytes(body, "watermark").Type, gjson.GetBytes(native, "watermark").Type)
 		})
 	}
 }

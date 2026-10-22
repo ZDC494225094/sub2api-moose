@@ -95,11 +95,21 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 			writeGrokMediaErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "当前账号地址是 /api/v3 原生方舟接口，兼容网关格式需配置网关地址")
 			return nil, errors.New("relay format requires a relay account base URL")
 		}
-		protocol = nativeVideoProtocol(baseURL, body)
 		if upstreamModel != requestInfo.Model && gjson.ValidBytes(body) {
 			body, err = sjson.SetBytes(body, "model", upstreamModel)
 			if err != nil {
 				return nil, fmt.Errorf("rewrite video model: %w", err)
+			}
+		}
+		protocol = nativeVideoProtocol(baseURL, body)
+		parsedBase, _ := url.Parse(baseURL)
+		if protocol == "ark" && parsedBase != nil && strings.EqualFold(parsedBase.Hostname(), "api.wxart.space") {
+			if model := wxartNativeVideoModel(upstreamModel); model != "" {
+				upstreamModel = model
+				body, err = sjson.SetBytes(body, "model", model)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 		if arkNative && protocol == "" {
@@ -443,6 +453,11 @@ func normalizeOpenAICompatibleVideoRelayBody(body []byte, requestModel string) (
 	// Keep the relay endpoint and unrelated provider options. Remove only aliases
 	// after converting every reference into the authoritative Seedance content array.
 	if gjson.GetBytes(body, "_video_protocol").String() != "relay" && seedance {
+		// Some relays reject even the default false; keep explicit opt-in and
+		// leave the native Ark serializer's watermark support unchanged.
+		if gjson.GetBytes(body, "watermark").Type == gjson.False {
+			fields = append(fields, "watermark")
+		}
 		normalized, err := normalizeArkVideoGenerationBody(body)
 		if err != nil {
 			return nil, err
@@ -631,7 +646,7 @@ func normalizeArkVideoStatusResponse(body []byte) []byte {
 	switch status {
 	case "succeeded", "success", "completed":
 		status = "completed"
-	case "failed", "error", "cancelled", "canceled":
+	case "failed", "error", "cancelled", "canceled", "expired":
 		status = "failed"
 	case "queued", "pending", "submitted":
 		status = "queued"
@@ -659,7 +674,7 @@ func normalizeArkVideoStatusResponse(body []byte) []byte {
 	if model := strings.TrimSpace(gjson.GetBytes(body, "model").String()); model != "" {
 		payload["model"] = model
 	}
-	if errMessage := firstNonEmpty(gjson.GetBytes(body, "error.message").String(), gjson.GetBytes(body, "message").String()); errMessage != "" && status == "failed" {
+	if errMessage := firstNonEmpty(gjson.GetBytes(body, "error.message").String(), gjson.GetBytes(body, "error").String(), gjson.GetBytes(body, "message").String()); errMessage != "" && status == "failed" {
 		payload["error"] = map[string]any{"message": errMessage}
 	}
 	normalized, err := json.Marshal(payload)
