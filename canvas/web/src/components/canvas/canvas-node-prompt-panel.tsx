@@ -17,6 +17,7 @@ import { CanvasTextSettingsPopover } from "./canvas-text-settings-popover";
 import { CanvasNodeType, type CanvasGenerationMode, type CanvasNodeData } from "@/types/canvas";
 import type { CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
 import { CanvasNodeReferenceBar } from "./canvas-node-reference-bar";
+import { normalizeVideoConfig, videoReferenceCountWarning } from "@/lib/video-models";
 
 export type CanvasNodeGenerationMode = CanvasGenerationMode;
 
@@ -48,6 +49,8 @@ export function CanvasNodePromptPanel({ node, nodes, isRunning, onPromptChange, 
     const isEditingExistingContent = hasTextContent || hasImageContent;
     const [prompt, setPrompt] = useState(node.metadata?.composerContent ?? node.metadata?.prompt ?? "");
     const [expanded, setExpanded] = useState(false);
+    const referenceCount = (kind: "image" | "video" | "audio") => mentionReferences.filter((ref) => ref.active && ref.kind === kind).length;
+    const videoWarning = mode === "video" ? videoReferenceCountWarning(config, referenceCount("image"), referenceCount("video"), referenceCount("audio")) : "";
 
     // Restore prompts only when switching nodes; preserve the current input after generation on the same node.
     useEffect(() => {
@@ -112,7 +115,10 @@ export function CanvasNodePromptPanel({ node, nodes, isRunning, onPromptChange, 
                         </>
                     ) : mode === "video" ? (
                         <>
-                            <ModelPicker config={config} value={config.model} onChange={(model) => onConfigChange(node.id, { model })} capability="video" onMissingConfig={() => openConfigDialog(true)} className="max-w-[190px]" />
+                            <ModelPicker config={config} value={config.model} onChange={(model) => {
+                                const next = normalizeVideoConfig({ ...config, model, videoStandard: "auto", videoMode: "auto" });
+                                onConfigChange(node.id, { model, videoStandard: "auto", videoMode: "auto", seconds: next.videoSeconds, vquality: next.vquality, videoAspectRatio: next.videoAspectRatio });
+                            }} capability="video" onMissingConfig={() => openConfigDialog(true)} className="max-w-[190px]" />
                             <CanvasVideoSettingsPopover config={config} buttonClassName="!h-10 !max-w-[220px] !justify-start !rounded-full !px-3" onConfigChange={(key, value) => onConfigChange(node.id, videoConfigPatch(key, value))} />
                         </>
                     ) : mode === "audio" ? (
@@ -148,6 +154,7 @@ export function CanvasNodePromptPanel({ node, nodes, isRunning, onPromptChange, 
                     </span>
                 </Button>
             </div>
+            {videoWarning && <div className="mt-2 text-xs" role="status" style={{ color: theme.node.muted }}>{videoWarning}</div>}
             <Modal title={t("canvas.promptPanel.editorTitle")} open={expanded} centered width={760} footer={null} onCancel={() => setExpanded(false)} destroyOnHidden>
                 <div data-canvas-no-zoom className="pt-2" onWheelCapture={(event) => event.stopPropagation()}>
                     <CanvasNodeReferenceBar nodeId={node.id} nodes={nodes} connectedNodes={connectedNodes} onDisconnect={onDisconnectReference} onStartSelection={(nodeId) => { setExpanded(false); onStartReferenceSelection?.(nodeId); }} />
@@ -184,6 +191,12 @@ function buildNodeConfig(globalConfig: AiConfig, node: CanvasNodeData, mode: Can
         videoGenerateAudio: node.metadata?.generateAudio || globalConfig.videoGenerateAudio || defaultConfig.videoGenerateAudio,
         videoWatermark: node.metadata?.watermark || globalConfig.videoWatermark || defaultConfig.videoWatermark,
         videoMode: node.metadata?.videoMode || globalConfig.videoMode || defaultConfig.videoMode,
+        videoStandard: node.metadata?.videoStandard || globalConfig.videoStandard || "auto",
+        videoTransport: node.metadata?.videoTransport || globalConfig.videoTransport || "auto",
+        videoValidation: node.metadata?.videoValidation || globalConfig.videoValidation || "warn",
+        videoNegativePrompt: node.metadata?.videoNegativePrompt ?? globalConfig.videoNegativePrompt ?? "",
+        videoSeed: node.metadata?.videoSeed ?? globalConfig.videoSeed ?? "",
+        videoKlingMode: node.metadata?.videoKlingMode || globalConfig.videoKlingMode || "pro",
         audioVoice: node.metadata?.audioVoice || globalConfig.audioVoice || defaultConfig.audioVoice,
         audioFormat: node.metadata?.audioFormat || globalConfig.audioFormat || defaultConfig.audioFormat,
         audioSpeed: node.metadata?.audioSpeed || globalConfig.audioSpeed || defaultConfig.audioSpeed,

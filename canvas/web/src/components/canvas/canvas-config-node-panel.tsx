@@ -11,6 +11,7 @@ import { CanvasImageSettingsPopover } from "./canvas-image-settings-popover";
 import { CanvasImageCountControl } from "./canvas-image-count-control";
 import { CanvasAudioSettingsPopover, type CanvasAudioSettingKey } from "./canvas-audio-settings-popover";
 import { CanvasVideoSettingsPopover } from "./canvas-video-settings-popover";
+import { normalizeVideoConfig, videoReferenceCountWarning } from "@/lib/video-models";
 import { CanvasTextSettingsPopover } from "./canvas-text-settings-popover";
 import type { CanvasGenerationMode, CanvasNodeData, CanvasNodeMetadata } from "@/types/canvas";
 
@@ -35,6 +36,7 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
     const hasAnyInput = Boolean(inputSummary.textCount || inputSummary.imageCount || inputSummary.videoCount || inputSummary.audioCount);
     const hasComposerContent = Boolean((node.metadata?.composerContent ?? node.metadata?.prompt ?? "").trim());
     const canGenerate = hasComposerContent || (mode === "audio" ? inputSummary.textCount > 0 : hasAnyInput);
+    const videoWarning = mode === "video" ? videoReferenceCountWarning(config, inputSummary.imageCount, inputSummary.videoCount, inputSummary.audioCount) : "";
 
     return (
         <div className="flex h-full w-full cursor-move flex-col px-3 pb-3 pt-7 text-sm" style={{ color: theme.node.text }} onWheel={(event) => event.stopPropagation()}>
@@ -100,7 +102,11 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
             </div>
 
             <div className="mb-2 grid min-w-0 cursor-default grid-cols-[minmax(0,1fr)_76px] items-center gap-2" onMouseDown={(event) => event.stopPropagation()}>
-                <ModelPicker className="canvas-compact-control col-span-2 h-10" config={config} value={config.model} onChange={(model) => onConfigChange(node.id, { model })} capability={mode} onMissingConfig={() => openConfigDialog(true)} fullWidth />
+                <ModelPicker className="canvas-compact-control col-span-2 h-10" config={config} value={config.model} onChange={(model) => {
+                    if (mode !== "video") return onConfigChange(node.id, { model });
+                    const next = normalizeVideoConfig({ ...config, model, videoStandard: "auto", videoMode: "auto" });
+                    onConfigChange(node.id, { model, videoStandard: "auto", videoMode: "auto", seconds: next.videoSeconds, vquality: next.vquality, videoAspectRatio: next.videoAspectRatio });
+                }} capability={mode} onMissingConfig={() => openConfigDialog(true)} fullWidth />
                 {mode === "video" ? (
                     <CanvasVideoSettingsPopover config={config} placement="topRight" buttonClassName="canvas-compact-control col-span-2 !h-10 !w-full !justify-start !rounded-lg !px-2" onConfigChange={(key, value) => onConfigChange(node.id, videoConfigPatch(key, value))} />
                 ) : mode === "image" ? (
@@ -115,6 +121,7 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
                 )}
             </div>
 
+            {videoWarning && <div className="mb-2 text-xs" role="status" style={{ color: theme.node.muted }}>{videoWarning}</div>}
             <Button
                 type="primary"
                 className="mt-auto !h-9 !w-full !cursor-pointer !rounded-lg"
@@ -162,9 +169,16 @@ function buildNodeConfig(globalConfig: AiConfig, node: CanvasNodeData, mode: Can
         background: node.metadata?.background ?? globalConfig.background ?? defaultConfig.background,
         videoSeconds: node.metadata?.seconds || globalConfig.videoSeconds || defaultConfig.videoSeconds,
         vquality: node.metadata?.vquality || globalConfig.vquality || defaultConfig.vquality,
+        videoAspectRatio: node.metadata?.videoAspectRatio || globalConfig.videoAspectRatio || defaultConfig.videoAspectRatio,
         videoGenerateAudio: node.metadata?.generateAudio || globalConfig.videoGenerateAudio || defaultConfig.videoGenerateAudio,
         videoWatermark: node.metadata?.watermark || globalConfig.videoWatermark || defaultConfig.videoWatermark,
         videoMode: node.metadata?.videoMode || globalConfig.videoMode || defaultConfig.videoMode,
+        videoStandard: node.metadata?.videoStandard || globalConfig.videoStandard || "auto",
+        videoTransport: node.metadata?.videoTransport || globalConfig.videoTransport || "auto",
+        videoValidation: node.metadata?.videoValidation || globalConfig.videoValidation || "warn",
+        videoNegativePrompt: node.metadata?.videoNegativePrompt ?? globalConfig.videoNegativePrompt ?? "",
+        videoSeed: node.metadata?.videoSeed ?? globalConfig.videoSeed ?? "",
+        videoKlingMode: node.metadata?.videoKlingMode || globalConfig.videoKlingMode || "pro",
         audioVoice: node.metadata?.audioVoice || globalConfig.audioVoice || defaultConfig.audioVoice,
         audioFormat: node.metadata?.audioFormat || globalConfig.audioFormat || defaultConfig.audioFormat,
         audioSpeed: node.metadata?.audioSpeed || globalConfig.audioSpeed || defaultConfig.audioSpeed,

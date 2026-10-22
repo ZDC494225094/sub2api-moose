@@ -263,7 +263,9 @@ func TestNormalizeArkVideoGenerationPreservesMultimodalContent(t *testing.T) {
 			{"type":"text","text":"animate with references"},
 			{"type":"image_url","image_url":{"url":"https://example.test/first.png"},"role":"first_frame"},
 			{"type":"image_url","image_url":{"url":"https://example.test/reference.png"},"role":"reference_image"},
-			{"type":"video_url","video_url":{"url":"https://example.test/video.mp4"},"role":"reference_video"}
+			{"type":"video_url","video_url":{"url":"https://example.test/video.mp4"},"role":"reference_video"},
+			{"type":"video_url","video_url":{"url":"https://example.test/depth.webm"},"role":"reference_video"},
+			{"type":"audio_url","audio_url":{"url":"https://example.test/audio.mp3"},"role":"reference_audio"}
 		]
 	}`)
 	body, err := normalizeArkVideoGenerationBody(input)
@@ -302,5 +304,60 @@ func TestNormalizeArkVideoGenerationAddsReferenceImagesWithoutContent(t *testing
 		if item.Get("role").String() != "reference_image" || item.Get("image_url.url").String() != reference {
 			t.Fatalf("Ark reference %d was not preserved: %s", index, item.Raw)
 		}
+	}
+}
+
+func TestNormalizeArkVideoGenerationAddsVideoAndAudioReferencesWithoutContent(t *testing.T) {
+	for _, content := range []string{"", `,"content":[]`} {
+		body, err := normalizeArkVideoGenerationBody([]byte(`{
+			"model":"doubao-seedance-2-0-fast-260128",
+			"prompt":"replace the actor",
+			"image":"https://example.test/actor.png?signature=image",
+			"video":"https://example.test/source.mp4?signature=video",
+			"reference_videos":["https://example.test/source.mp4?signature=video","https://example.test/depth.webm?signature=depth"],
+			"reference_audios":["https://example.test/audio.mp3?signature=audio"]` + content + `}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		parts := gjson.GetBytes(body, "content").Array()
+		if len(parts) != 5 {
+			t.Fatalf("references lost or duplicated: %s", body)
+		}
+		for i, want := range []struct{ kind, role, url string }{
+			{"image", "reference_image", "https://example.test/actor.png?signature=image"},
+			{"video", "reference_video", "https://example.test/source.mp4?signature=video"},
+			{"video", "reference_video", "https://example.test/depth.webm?signature=depth"},
+			{"audio", "reference_audio", "https://example.test/audio.mp3?signature=audio"},
+		} {
+			part := parts[i+1]
+			if part.Get("type").String() != want.kind+"_url" || part.Get("role").String() != want.role || part.Get(want.kind+"_url.url").String() != want.url {
+				t.Fatalf("reference %d changed: %s", i, part.Raw)
+			}
+		}
+	}
+}
+
+func TestPlaygroundSeedanceImageWithVideoUsesReferenceRole(t *testing.T) {
+	payload, err := playgroundVideoGenerationPayload(PlaygroundRunRequest{
+		Model:           "doubao-seedance-2-0-fast-260128",
+		Images:          []PlaygroundRunImageInput{{DataURL: "https://example.test/actor.png"}},
+		ReferenceVideos: []PlaygroundRunVideoInput{{DataURL: "https://example.test/source.mp4"}, {DataURL: "https://example.test/depth.webm"}},
+	}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts := payload["content"].([]map[string]any)
+	if len(parts) != 4 || parts[1]["role"] != "reference_image" {
+		t.Fatalf("image/video references misclassified: %#v", parts)
+	}
+}
+
+func TestNormalizeArkVideoGenerationPreservesExplicitFirstFrameWithVideo(t *testing.T) {
+	body, err := normalizeArkVideoGenerationBody([]byte(`{"model":"doubao-seedance-2-0-fast-260128","first_frame_image":"https://example.test/first.png","video":"https://example.test/source.mp4"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gjson.GetBytes(body, "content.1.role").String() != "first_frame" || gjson.GetBytes(body, "content.2.role").String() != "reference_video" {
+		t.Fatalf("explicit frame role lost: %s", body)
 	}
 }

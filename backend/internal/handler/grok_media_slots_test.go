@@ -4,6 +4,7 @@ package handler
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -477,4 +478,40 @@ func TestGrokMediaVideoCompletionStillClaimsBillingOnce(t *testing.T) {
 		}
 	}
 	require.Len(t, bindings.billed, 1)
+}
+
+func TestNativeVideoWrappedTaskOwnershipAndBilling(t *testing.T) {
+	wrapped := "vstd_" + base64.RawURLEncoding.EncodeToString([]byte(`{"p":"minimax-h3","q":"/v2/query/video_generation/","id":"42","m":"mapped","b":"original"}`))
+	h, slots, bindings, upstream := newGrokMediaSlotHandler(t, false, false, service.PlatformOpenAI)
+	ctx := context.Background()
+	groupID := int64(24)
+	require.NoError(t, h.gatewayService.BindGrokMediaVideoRequestAccount(ctx, &groupID, wrapped, 10, 20, 1))
+	require.NoError(t, h.gatewayService.StoreGrokVideoPendingBilling(ctx, wrapped, 10, 20, service.GrokVideoPendingBilling{Model: "original", BillingModel: "original", UpstreamModel: "mapped", VideoResolution: "1080p", VideoDurationSeconds: 10}))
+	bindings.writes = 0
+	for _, scenario := range []string{"changed task", "other user"} {
+		c, w := grokMediaSlotContext(ctx, false)
+		c.Params = gin.Params{{Key: "request_id", Value: wrapped}}
+		if scenario == "changed task" {
+			c.Params[0].Value = wrapped + "A"
+		} else {
+			c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 11})
+		}
+		h.OpenAICompatibleVideoStatus(c)
+		require.Equal(t, http.StatusNotFound, w.Code)
+	}
+	require.Zero(t, upstream.calls)
+	require.Zero(t, slots.acquired)
+	c, _ := grokMediaSlotContext(ctx, false)
+	key, ok := middleware2.GetAPIKeyFromContext(c)
+	require.True(t, ok)
+	subject := middleware2.AuthSubject{UserID: 10}
+	result := &service.OpenAIForwardResult{ResponseID: wrapped, VideoCount: 1, VideoDurationSeconds: 12}
+	bill := prepareGrokVideoCompletionBilling(ctx, h, zap.NewNop(), key, subject, wrapped, result)
+	require.NotNil(t, bill)
+	require.Equal(t, "original", bill.BillingModel)
+	require.Equal(t, "mapped", bill.UpstreamModel)
+	require.Equal(t, "1080p", bill.VideoResolution)
+	require.Equal(t, 12, bill.VideoDurationSeconds)
+	require.Nil(t, prepareGrokVideoCompletionBilling(ctx, h, zap.NewNop(), key, subject, wrapped, result))
+	require.Zero(t, bindings.writes)
 }

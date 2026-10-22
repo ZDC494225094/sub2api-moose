@@ -3,6 +3,21 @@ title: Pending Tests
 description: Implemented changes that still need manual verification
 ---
 
+## 视频标准当前验收
+
+以下规则替代本页旧版同步说明中的固定时长及模式限制。完整能力、协议、官方来源和已知边界见[视频模型适配待验收](/docs/progress/video-model-standards)。
+
+- 型号识别与手动标准：分别切换 Seedance 2.0 / Fast / Mini / 2.5、H3 / Max / Hailuo、Veo / Omni、可灵 3.0 / Turbo / O1 / 旧版；未知别名手动指定标准，不改变实际模型 ID，通用配置保留常用参数。切换后确认比例、时长、分辨率、音频、水印、种子及负面提示词显示合理。
+- 参数联动：Seedance 2.5 编辑为随源时长及 adaptive，纯文生不被误改为首帧比例；Hailuo 1080p 为 6 秒；Veo 高分辨率 / 参考 / 延长为 8 秒，延长为 720p；O1 纯首尾帧为 5 / 10 秒。按实际参考数量解析自动模式，不能在规范化时把全能参考重置成首尾帧。
+- 参考完整性：1 图 + 2 视频（含深度 WebM）+ 音频默认显示提示但不按名称删除素材，严格校验才拦截已知数量 / 时长条件；原生协议无法表达组合时明确报错。检查首尾帧与普通参考的角色、R2 记录及同一任务的提交 / 出口日志；WebM 不自动转成 Seedance 官方支持的视频格式。
+- 创建与恢复：自动 / 兼容网关 / 厂家原生分别核对真实出口；H3 嵌套 task、Hailuo file_id 二次查询、可灵旧版 succeed / 新版 outputs、Omni Files ACTIVE 与鉴权下载均需真实渠道验证。刷新、重试及工作台历史保持新参数和原生查询路径，不重复创建或计费；未知、停用和无权限型号显示真实错误。
+- 后端边界：受管请求仍经过原鉴权、调度、预扣、R2 和任务归属；确认更改包装任务编号或跨用户查询被拒绝，完成响应中的原始计费模型、实际时长及预估分辨率正确合并，重复查询不重复结算。Veo 原生使用 Gemini 分组，Omni Interactions 当前使用配置 Google 地址的 OpenAI API Key 分组或兼容渠道，不自动跨分组。
+- 验证范围：后端以假上游验证协议与任务完整链路，不调用付费模型；画布按项目约定未执行语法检查、构建、测试或浏览器验收，未部署、未做真实 R2 上传和厂家生成。本项无新增迁移，需要同时更新后端与内嵌画布静态资源；Agent 工作台工具的旧参数枚举另列待办。
+
+## 先前变更待验收
+
+- 多参考最终转发：修复无非空 `content` 时 Ark 转换只读取图片、丢弃 `reference_videos` / `reference_audios` 的分支；将数组全部转成对应 `video_url` / `audio_url` 和参考角色，旧单视频字段仅在数组未包含相同地址时追加。非空 `content` 继续原样保留。托管图视频混用时单张图片使用 `reference_image`，纯单图首帧及明确指定的首尾帧保留原语义。新增本地链路回归检查 1 图 + 原视频 + 深度 WebM，从转存到普通转发、Ark 转换及 Seedance 原生出口均保留 3 个 URL；测试使用本地 HTTP 和假存储 / 上游，没有付费生成。`playground.video_reference_payload` 日志用同一 `run_id` 标记 `canvas_submit` / `upstream_forward` 的模型、账号、各类参考数量，不记录 URL / 签名 / 提示词。实际部署中上传 3 个但上游 JSON 仅含 1 图的原因仍需核对同一次请求的出口日志及渠道二次转换，不能仅由上传成功推断已经完整转发。仅后端代码变更，无新增迁移或画布构建。
+
 - 托管任务诊断：新增数据库迁移 `247_canvas_run_diagnostics.sql`，画布任务阶段、上游编号及脱敏错误持久化，失败详情与退款在同一事务提交；Redis 丢失或跨实例查询仍保留原因。后台“画布任务”（`/admin/canvas-runs`）按用户 / 任务 / 模型 / 状态搜索，展示素材转存、上游提交、轮询、结果保存等阶段。节点错误附带实际任务编号，任务保存失败、心跳续期失败、服务关闭、租约回收均有具体提示。启用但配置异常的对象存储会阻止提交并报错，配置读取的临时失败不永久缓存；上传日志带任务编号。旧任务丢失的历史错误无法补回。后端回归及宿主管理端检查单独执行；按项目约定未构建或测试画布，未访问部署服务器、R2 或执行付费生成，需部署后用新任务核对。
 
 - R2 多模态参考转存：托管视频生成复用后台异步生图对象存储配置，除图片外，新增视频、深度 WebM、音频及既有单视频字段的 inline 素材上传；同一任务相同素材复用上传，HTTP(S) / asset 地址保留，关闭存储开关保持 inline 行为。正确保存 MIME 与媒体扩展名，校验视频 / 音频 base64 与大小，保留上传取消、超时、脱敏错误和临时故障重试；任一转存失败不提交上游。Gemini / Veo 同样转存并使用 URI 引用。范围是画布托管视频生成的参考输入，不自动备份全部画布结果，也不覆盖第三方直连或模型脚本。服务端真实 R2 配置、上传、上游 GET / Range 下载及 WebM 支持尚未验证，不能把 URL 格式检查当作公网可达证明。
@@ -35,8 +50,8 @@ description: Implemented changes that still need manual verification
 - 图片预览改为独立缓存；检查刷新后图片、多图主图切换、素材保存及浏览器 CSP 下 data URL 图片处理。
 - 直连图片生成、编辑及 Gemini 图片请求超时为 10 分钟；图片下载和远程加载为 10 分钟，解码为 10 秒。超时应显示失败并可重试；Sub2API 托管任务仍按宿主任务状态恢复。
 - 视频持续等待保留：Seedance 每 5 秒、其他任务每 2.5 秒查询，不采用上游 120 次轮询上限。检查长任务、取消、刷新续接以及结束后的计费状态。
-- 保留 Sub2API 视频比例、时长（普通 1–20 秒、Seedance 4–15 秒）、分辨率及 OpenAI multipart 的 `input_reference[]` / `resolution_name` / `preset` 协议，不用上游通用协议覆盖现有渠道。
-- 新版首尾帧 / 通用参考模式用于非托管 Gemini 和自定义脚本模型；不对宿主管理模型或现有 OpenAI multipart 分支展示该选项。检查 Gemini、Seedance、OpenAI 任务的刷新恢复以及脚本视频/音频参考文件。
+- 视频参数已由页首的分型号标准替代固定时长；现有兼容网关默认仍使用 `input_reference[]` / `resolution_name` / `preset`，历史 Sora 兼容配置采用单个 `input_reference`，原生标准使用各厂家协议。
+- 视频模式现已向托管和直连节点统一开放，按型号显示自动 / 首尾帧 / 全能参考 / 编辑 / 延长；检查 Gemini、Seedance、OpenAI 任务的刷新恢复以及脚本视频/音频参考文件。
 - 多文本生成共用一个结果节点，但每条文本分别记录托管 runId。检查部分完成时刷新、逐条恢复、主文本切换、取消和失败提示，避免重复提交或串接结果。
 - 检查局部重绘参考图、视频截帧、节点参考栏、Agent 操作、本地代理开关及 URL 渠道导入；启用代理不会改变 Sub2API 相对路径托管接口。
 - 本次未执行语法检查、构建、测试或部署。以上均待用户验证。
@@ -54,7 +69,7 @@ The current release needs manual verification in these areas:
 - Local proxy: Settings should show a dedicated Local proxy tab between Providers and Preferences, with a switch that is off by default. Turning it on should reveal the `npx @basketikun/canvas-proxy@latest` command (with `--port` appended when a non-default port is configured), a copy action, and an address field defaulting to `http://127.0.0.1:23210` that normalizes a missing scheme and trailing slashes on blur. Test connection should succeed only while the command is running. With the proxy on, fetching model lists, generating images, videos, text (including streamed output), and audio, running custom call scripts, polling video tasks, downloading generated images and videos, and WebDAV connection tests plus sync should all route through the proxy and keep working; turning it off should restore direct requests. The proxy itself should forward request methods, headers, query strings, and bodies unchanged, stream SSE responses without buffering, and keep `data:` and `blob:` URLs untouched.
 - 视频设置和请求协议按上方 Sub2API 适配说明验收；上游默认时长与 OpenAI 视频字段不覆盖宿主渠道。
 - 视频设置和请求协议按上方 Sub2API 适配说明验收；上游默认时长与 OpenAI 视频字段不覆盖宿主渠道。
-- Video generation mode: Video settings should offer First & last frame and General reference. One image is sent as the first frame, two images as first and last frames, and more than two images as general references even if first-and-last-frame mode is selected. Built-in requests and request scripts should use `frames` or `reference`.
+- Video generation mode: use the current profile-based acceptance above. Auto mode resolves references from actual inputs; explicit frames/reference/edit/extend modes retain their semantics. Invalid native combinations return errors instead of silently truncating references.
 - Gemini image generation: Gemini-format channels and the Gemini image call-script template should send `generationConfig.responseModalities: ["TEXT", "IMAGE"]` with `imageConfig.aspectRatio` / `imageConfig.imageSize`, and must not send `responseFormat`.
 - Video request scripts: opening Call Script for a Video model should open a full-screen stepped editor. The left panel should follow Read the rules → Let another AI write it → Available variables, and list `videos` (File[]) and `audios` (File[]). Copy script brief should include the capability, variables, return requirements, and writing rules. Inserted templates should be async functions whose parameter lists unpack `params` (image templates must include `quality`, `size`, `count`, and `background`). The OpenAI video template should use FormData with `mode`, duration, size, resolution, audio, watermark, and reference images/videos/audios; `mode=frames` should send `first_frame` / `last_frame`, and `mode=reference` should send `image[]`, then poll and download `/content`. After pasting a script from another AI and saving, generating from the canvas with connected reference videos or audio should pass those files into the script.
 - URL credential import: opening the app with a new valid `baseUrl` and `apiKey` should append a provider without changing existing providers; importing the same Base URL again, including trailing-slash or `/v1` variants, should update only that provider and remain idempotent; an API key without a Base URL or an invalid Base URL should leave all settings unchanged.

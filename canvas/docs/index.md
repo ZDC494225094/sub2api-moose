@@ -33,6 +33,7 @@
 
 - [Changelog](/docs/progress/changelog)
 - [Pending Tests](/docs/progress/pending-test)
+- [Video Model Standards Pending Acceptance](/docs/progress/video-model-standards)
 - [TODO](/docs/progress/todo)
 
 ## Notes

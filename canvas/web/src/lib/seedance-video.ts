@@ -60,7 +60,7 @@ const seedancePixels = {
 
 export function isSeedanceVideoConfig(config: AiConfig | Pick<AiConfig, "model" | "videoModel" | "apiFormat">) {
     const requestConfig = "channels" in config ? resolveModelRequestConfig(config, config.model || config.videoModel) : config;
-    return requestConfig.apiFormat === "ark";
+    return /seedance/i.test(requestConfig.model || requestConfig.videoModel) || ("baseUrl" in requestConfig && /\/api\/v3\/?$/i.test(String(requestConfig.baseUrl)));
 }
 
 export function normalizeSeedanceResolution(value: string) {

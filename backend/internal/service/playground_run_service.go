@@ -76,6 +76,14 @@ type PlaygroundRunRequest struct {
 	FPS              int                        `json:"fps"`
 	AspectRatio      string                     `json:"aspectRatio"`
 	Resolution       string                     `json:"resolution"`
+	VideoStandard    string                     `json:"videoStandard,omitempty"`
+	VideoProtocol    string                     `json:"videoProtocol,omitempty"`
+	VideoMode        string                     `json:"videoMode,omitempty"`
+	GenerateAudio    *bool                      `json:"generateAudio,omitempty"`
+	Watermark        *bool                      `json:"watermark,omitempty"`
+	NegativePrompt   string                     `json:"negativePrompt,omitempty"`
+	Seed             *int64                     `json:"seed,omitempty"`
+	KlingMode        string                     `json:"klingMode,omitempty"`
 	Voice            string                     `json:"voice"`
 	Speed            float64                    `json:"speed"`
 	Instructions     string                     `json:"instructions"`
@@ -948,6 +956,7 @@ func (s *PlaygroundRunService) executeImage(ctx context.Context, key string, req
 }
 
 func (s *PlaygroundRunService) executeVideo(ctx context.Context, key string, request PlaygroundRunRequest, baseURL string, started time.Time) (json.RawMessage, error) {
+	ctx = WithCanvasCharge(ctx, request.canvasCharge)
 	s.mu.RLock()
 	if run := s.runs[key]; run != nil {
 		ctx = WithStorageUser(ctx, run.UserID)
@@ -1114,6 +1123,29 @@ func normalizePlaygroundVideoRequest(request *PlaygroundRunRequest) error {
 	if request == nil {
 		return errors.New("video request is required")
 	}
+	if !playgroundStringAllowed(request.VideoProtocol, "", "auto", "relay", "ark", "minimax", "minimax-h3", "veo", "omni", "kling", "kling-v3") {
+		return errors.New("unsupported video protocol")
+	}
+	if !playgroundStringAllowed(request.VideoMode, "", "auto", "frames", "reference", "edit", "extend") {
+		return errors.New("unsupported video mode")
+	}
+	if request.Duration < 0 || request.Duration > 60 {
+		return errors.New("video duration must be between 0 and 60 seconds")
+	}
+	if request.KlingMode != "" && !playgroundStringAllowed(request.KlingMode, "std", "pro") {
+		return errors.New("unsupported Kling mode")
+	}
+	if request.VideoStandard != "" {
+		if request.VideoProtocol == "veo" && request.Platform != PlatformGemini {
+			return errors.New("Veo 厂家原生格式请使用 Gemini 分组；OpenAI 分组请使用兼容网关格式")
+		}
+		if request.Platform == PlatformGemini && (request.VideoProtocol == "omni" || (request.VideoProtocol == "auto" && request.VideoStandard == "gemini-omni")) {
+			return errors.New("Gemini Omni 使用 Interactions 接口，当前 Gemini 分组只支持 Veo；请使用配置 Google 地址和密钥的 OpenAI API Key 分组，并选择 Gemini Omni / 厂家原生，或使用兼容网关")
+		}
+		// Versioned canvas profiles own their parameters. Do not re-clamp by
+		// a vendor substring, which also matches third-party model aliases.
+		return nil
+	}
 	imageCount := len(filterPlaygroundImageInputs(request.Images))
 
 	switch {
@@ -1219,6 +1251,9 @@ func playgroundStringAllowed(value string, allowed ...string) bool {
 func isGeminiPlaygroundVideoRequest(request PlaygroundRunRequest) bool {
 	platform := strings.ToLower(strings.TrimSpace(request.Platform))
 	model := strings.ToLower(strings.TrimSpace(request.Model))
+	if request.VideoStandard != "" {
+		return request.VideoProtocol != "relay" && (request.VideoProtocol == "veo" || (request.VideoProtocol == "auto" && platform == PlatformGemini && strings.HasPrefix(request.VideoStandard, "veo-")))
+	}
 	return platform == PlatformGemini || strings.HasPrefix(model, "veo-") || strings.Contains(model, "/veo-") || isPlaygroundVideoModel(model, "gemini-omni-flash")
 }
 
@@ -1229,8 +1264,11 @@ func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo 
 		videos = append(videos, *request.ReferenceVideo)
 	}
 	if geminiVideo {
+		if request.VideoStandard != "" && (len(request.ReferenceAudios) > 0 || len(videos) > 1 || (len(videos) > 0 && (request.VideoMode != "extend" || len(images) > 0)) || (request.VideoMode != "reference" && len(images) > 2)) {
+			return nil, errors.New("Veo 原生参考组合不受支持：视频仅支持单源延长，不能混用图片或音频；素材未截断")
+		}
 		instance := map[string]any{"prompt": request.Prompt}
-		if isPlaygroundVideoModel(request.Model, "gemini-omni-flash") || len(images) > 2 {
+		if request.VideoMode == "reference" || (request.VideoMode == "" && (isPlaygroundVideoModel(request.Model, "gemini-omni-flash") || len(images) > 2)) {
 			referenceImages := make([]map[string]any, 0, len(images))
 			for _, image := range images {
 				encoded, err := playgroundGeminiImageMedia(image)
@@ -1280,6 +1318,12 @@ func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo 
 			}
 		}
 		parameters := map[string]any{}
+		if request.NegativePrompt != "" {
+			parameters["negativePrompt"] = request.NegativePrompt
+		}
+		if request.Seed != nil {
+			parameters["seed"] = *request.Seed
+		}
 		if request.Duration > 0 {
 			parameters["durationSeconds"] = request.Duration
 		}
@@ -1300,6 +1344,29 @@ func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo 
 	// OpenAI-compatible video providers do not share the image API's `n` field;
 	// the Playground always requests one video, so omit it from the wire payload.
 	payload := map[string]any{"model": request.Model, "prompt": request.Prompt}
+	if request.VideoStandard != "" {
+		payload["video_standard"] = request.VideoStandard
+		payload["video_mode"] = request.VideoMode
+		payload["_video_protocol"] = request.VideoProtocol
+		if strings.HasPrefix(request.VideoStandard, "kling-") {
+			payload["mode"] = firstNonEmpty(request.KlingMode, "pro")
+		}
+		if request.VideoStandard == "seedance-2.5" && playgroundStringAllowed(request.VideoMode, "reference", "edit", "extend") {
+			payload["omni_reference_task_type"] = request.VideoMode
+		}
+	}
+	if request.GenerateAudio != nil {
+		payload["generate_audio"] = *request.GenerateAudio
+	}
+	if request.Watermark != nil {
+		payload["watermark"] = *request.Watermark
+	}
+	if request.NegativePrompt != "" {
+		payload["negative_prompt"] = request.NegativePrompt
+	}
+	if request.Seed != nil {
+		payload["seed"] = *request.Seed
+	}
 	firstFrame := ""
 	lastFrame := ""
 	referenceImages := make([]string, 0, len(images))
@@ -1350,6 +1417,14 @@ func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo 
 	if aspectRatio := strings.TrimSpace(request.AspectRatio); aspectRatio != "" {
 		payload["aspect_ratio"] = aspectRatio
 	}
+	if request.VideoStandard == "seedance-2.5" {
+		if request.VideoMode == "edit" {
+			payload["duration"] = -1
+		}
+		if playgroundStringAllowed(request.VideoMode, "edit", "extend") || (request.VideoMode == "frames" && len(images) > 0) {
+			payload["aspect_ratio"] = "adaptive"
+		}
+	}
 	if resolution := strings.TrimSpace(request.Resolution); resolution != "" {
 		payload["resolution"] = resolution
 	}
@@ -1380,9 +1455,9 @@ func playgroundVideoGenerationPayload(request PlaygroundRunRequest, geminiVideo 
 			"type":      "image_url",
 			"image_url": map[string]any{"url": refURL},
 		}
-		if playgroundSeedanceModelVersion(request.Model) != "" {
+		if playgroundSeedanceModelVersion(request.Model) != "" || strings.HasPrefix(request.VideoStandard, "seedance-") || strings.HasPrefix(request.VideoStandard, "minimax-h3") {
 			item["role"] = "reference_image"
-			if len(referenceImages) == 1 && firstFrame == "" && lastFrame == "" {
+			if request.VideoMode != "reference" && len(referenceImages) == 1 && firstFrame == "" && lastFrame == "" && len(videos) == 0 && len(request.ReferenceAudios) == 0 {
 				item["role"] = "first_frame"
 			}
 		}
@@ -1460,6 +1535,7 @@ func (s *PlaygroundRunService) executePlaygroundVideoJSON(ctx context.Context, m
 			return nil, err
 		}
 		body = bytes.NewReader(encoded)
+		logVideoReferencePayload(ctx, "canvas_submit", 0, encoded)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, endpointURL, body)
 	if err != nil {

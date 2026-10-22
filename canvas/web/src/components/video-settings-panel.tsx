@@ -1,12 +1,13 @@
-import { type CSSProperties, type ReactNode } from "react";
+import { useEffect, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import i18n from "@/i18n";
-import { isXiaowenVideoConfig, normalizeXiaowenResolution, xiaowenResolutionOptions } from "@/lib/xiaowen-video";
+import { isXiaowenVideoConfig, normalizeXiaowenResolution } from "@/lib/xiaowen-video";
 import { ImageSettingsTheme } from "@/components/image-settings-panel";
-import { boolConfig, isSeedanceVideoConfig, normalizeSeedanceDuration, normalizeSeedanceRatio, normalizeSeedanceResolution, seedanceResolutionOptions } from "@/lib/seedance-video";
+import { boolConfig, normalizeSeedanceRatio } from "@/lib/seedance-video";
 import { type CanvasTheme } from "@/lib/canvas-theme";
-import { isManagedCanvasModel, resolveModelRequestConfig, resolveModelScript, type AiConfig } from "@/stores/use-config-store";
+import { type AiConfig } from "@/stores/use-config-store";
+import { normalizeVideoConfig, videoDurations, videoProfile, videoProfiles } from "@/lib/video-models";
 
 const resolutionOptions = [
     { value: "720", label: "720p" },
@@ -29,14 +30,14 @@ const seedanceRatioLabelKeys: Record<string, string> = { "16:9": "landscape", "9
 export const videoResolutionOptions = resolutionOptions.map((item) => ({ value: item.value, label: item.label }));
 export const videoSizeOptions = sizeOptions.map((item) => ({ value: item.value, get label() { return i18n.t(`settingsPanels.video.sizes.${item.labelKey}`); } }));
 export const videoSecondsRange = { min: 1, max: 20 };
-export function supportsVideoGenerationMode(config: AiConfig) { return !isManagedCanvasModel(config, config.model || config.videoModel) && !isSeedanceVideoConfig(config) && (resolveModelRequestConfig(config, config.model || config.videoModel).apiFormat === "gemini" || Boolean(resolveModelScript(config, config.model || config.videoModel))); }
-export function videoModeLabel(value: string) { return i18n.t(`settingsPanels.video.modes.${value === "reference" ? "reference" : "frames"}`); }
+export function supportsVideoGenerationMode(config: AiConfig) { return videoProfile(config).modes.length > 1; }
+export function videoModeLabel(value: string) { return ({ auto: "自动", frames: "首尾帧", reference: "全能参考", edit: "视频编辑", extend: "视频延长" } as Record<string, string>)[value] || "自动"; }
 
 export const videoSecondOptions = secondOptions.map((value) => String(value));
 
 type VideoSettingsPanelProps = {
     config: AiConfig;
-    onConfigChange: (key: "vquality" | "size" | "videoSeconds" | "videoAspectRatio" | "videoGenerateAudio" | "videoWatermark" | "videoMode", value: string) => void;
+    onConfigChange: (key: keyof AiConfig, value: string) => void;
     theme: CanvasTheme;
     showTitle?: boolean;
     className?: string;
@@ -44,78 +45,85 @@ type VideoSettingsPanelProps = {
 
 export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = true, className = "w-[320px] space-y-4 rounded-2xl px-1 py-0.5" }: VideoSettingsPanelProps) {
     const { t } = useTranslation();
-    const supportsVideoMode = supportsVideoGenerationMode(config);
-    const supportsGenerateAudio = isSeedanceVideoConfig(config);
-    const rawRatio = supportsGenerateAudio ? normalizeSeedanceRatio(config.size) : normalizeVideoAspectRatio(config.videoAspectRatio);
-    const ratio = canvasRatioOptions.includes(rawRatio as (typeof canvasRatioOptions)[number]) ? rawRatio : "16:9";
-    const xiaowen = isXiaowenVideoConfig(config);
-    const resolution = xiaowen ? normalizeXiaowenResolution(config.vquality) : supportsGenerateAudio ? normalizeSeedanceResolution(config.vquality) : normalizeVideoResolutionValue(config.vquality);
-    const resolutionOptionsForModel = xiaowen ? xiaowenResolutionOptions : supportsGenerateAudio ? seedanceResolutionOptions : resolutionOptions;
-    const durationRange = supportsGenerateAudio ? { min: 4, max: 15 } : { min: 1, max: 20 };
-    const configuredDuration = supportsGenerateAudio ? normalizeSeedanceDuration(config.videoSeconds) : Math.floor(Number(config.videoSeconds) || 6);
-    const duration = Math.max(durationRange.min, Math.min(durationRange.max, configuredDuration));
-    const sliderProgress = ((duration - durationRange.min) / (durationRange.max - durationRange.min)) * 100;
-    const selectRatio = (value: (typeof canvasRatioOptions)[number]) => {
-        onConfigChange("videoAspectRatio", value);
-        if (supportsGenerateAudio) onConfigChange("size", value);
-    };
+    const profile = videoProfile(config);
+    const normalized = normalizeVideoConfig(config);
+    const durations = videoDurations(normalized);
+    const duration = Number(normalized.videoSeconds);
+    const sliderIndex = Math.max(0, durations.indexOf(duration));
+    const sliderProgress = durations.length > 1 ? sliderIndex / (durations.length - 1) * 100 : 0;
+    const controlStyle = { background: theme.toolbar.panel, color: theme.node.text, borderColor: theme.node.stroke };
+    useEffect(() => {
+        for (const key of ["vquality", "videoSeconds", "videoAspectRatio", "videoMode"] as const) {
+            if (normalized[key] !== config[key]) onConfigChange(key, normalized[key]);
+        }
+    }, [config.model, config.videoStandard, config.vquality, config.videoMode, config.videoSeconds, config.videoAspectRatio]);
 
     return (
         <ImageSettingsTheme theme={theme}>
             <div className={className} style={{ color: theme.node.text }} onMouseDown={(event) => event.stopPropagation()}>
                 {showTitle ? <div className="text-lg font-semibold">{t("settingsPanels.video.title")}</div> : null}
-                {supportsVideoMode && <SettingGroup title={t("settingsPanels.video.mode")} color={theme.node.muted}>
-                    <SegmentedOptions options={[{ value: "frames", label: videoModeLabel("frames") }, { value: "reference", label: videoModeLabel("reference") }]} value={config.videoMode || "frames"} theme={theme} onChange={(value) => onConfigChange("videoMode", value)} />
+                <SettingGroup title="接口标准" color={theme.node.muted}>
+                    <select aria-label="接口标准" className="h-9 w-full rounded-md border px-2 text-sm" style={controlStyle} value={config.videoStandard || "auto"} onChange={(e) => onConfigChange("videoStandard", e.target.value)}>
+                        <option value="auto">自动识别 · {videoProfile({ ...config, videoStandard: "auto" }).label}</option>
+                        {videoProfiles.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                    </select>
+                </SettingGroup>
+                <SettingGroup title="请求格式" color={theme.node.muted}>
+                    <SegmentedOptions options={[{ value: "auto", label: "自动" }, { value: "relay", label: "兼容网关" }, { value: "native", label: "厂家原生" }]} value={config.videoTransport || "auto"} theme={theme} onChange={(v) => onConfigChange("videoTransport", v)} />
+                </SettingGroup>
+                {supportsVideoGenerationMode(config) && <SettingGroup title={t("settingsPanels.video.mode")} color={theme.node.muted}>
+                    <SegmentedOptions options={profile.modes.map((value) => ({ value, label: videoModeLabel(value) }))} value={normalized.videoMode} theme={theme} onChange={(value) => onConfigChange("videoMode", value)} />
                 </SettingGroup>}
-                <SettingGroup title={t("settingsPanels.video.ratio")} color={theme.node.muted}>
+                {profile.ratios.length > 0 && <SettingGroup title={t("settingsPanels.video.ratio")} color={theme.node.muted}>
                     <div className="rounded-xl p-1" style={{ background: theme.node.fill }}>
-                        <div className="grid grid-cols-6 gap-1">
-                            {canvasRatioOptions.map((item) => (
-                                <CanvasRatioOption key={item} value={item} selected={ratio === item} theme={theme} onClick={() => selectRatio(item)} />
+                        <div className="grid grid-cols-4 gap-1">
+                            {profile.ratios.map((item) => (
+                                <CanvasRatioOption key={item} value={item} selected={normalized.videoAspectRatio === item} theme={theme} onClick={() => onConfigChange("videoAspectRatio", item)} />
                             ))}
                         </div>
                     </div>
-                </SettingGroup>
-                <SettingGroup title={t("settingsPanels.video.resolution")} color={theme.node.muted}>
+                </SettingGroup>}
+                {profile.resolutions.length > 0 && <SettingGroup title={t("settingsPanels.video.resolution")} color={theme.node.muted}>
                     <SegmentedOptions
-                        options={resolutionOptionsForModel}
-                        value={resolution}
+                        options={profile.resolutions.map((value) => ({ value, label: /k/i.test(value) ? value.toUpperCase() : `${value}p` }))}
+                        value={normalized.vquality}
                         theme={theme}
                         onChange={(value) => onConfigChange("vquality", value)}
                     />
-                </SettingGroup>
-                <SettingGroup title={t("settingsPanels.video.duration")} color={theme.node.muted}>
+                </SettingGroup>}
+                {durations.length > 0 && <SettingGroup title={t("settingsPanels.video.duration")} color={theme.node.muted}>
                     <div className="flex items-center gap-4">
                         <input
                             type="range"
-                            min={durationRange.min}
-                            max={durationRange.max}
+                            min={0}
+                            max={Math.max(0, durations.length - 1)}
                             step={1}
-                            value={duration}
+                            value={sliderIndex}
+                            disabled={durations.length === 1}
                             aria-label={t("settingsPanels.video.duration")}
                             className="canvas-video-duration-range h-5 min-w-0 flex-1 cursor-pointer appearance-none bg-transparent"
                             style={{ "--video-slider-progress": `${sliderProgress}%`, "--video-slider-track": theme.node.stroke, "--video-slider-accent": theme.canvas.background === "#181715" ? "#22d3ee" : "#0891b2" } as CSSProperties}
                             onMouseDown={(event) => event.stopPropagation()}
-                            onChange={(event) => onConfigChange("videoSeconds", event.target.value)}
+                            onChange={(event) => onConfigChange("videoSeconds", String(durations[Number(event.target.value)]))}
                         />
                         <span className="grid h-9 min-w-12 place-items-center rounded-lg px-2 text-sm font-semibold" style={{ background: theme.node.fill, color: theme.node.text }}>
-                            {duration}s
+                            {duration === -1 ? "随源视频" : `${duration}s`}
                         </span>
                     </div>
-                </SettingGroup>
-                {supportsGenerateAudio ? (
-                    <SettingGroup title={t("settingsPanels.video.generateAudio")} color={theme.node.muted}>
-                        <SegmentedOptions
-                            options={[
-                                { value: "true", label: t("settingsPanels.video.enabled") },
-                                { value: "false", label: t("settingsPanels.video.disabled") },
-                            ]}
-                            value={String(boolConfig(config.videoGenerateAudio, true))}
-                            theme={theme}
-                            onChange={(value) => onConfigChange("videoGenerateAudio", value)}
-                        />
+                </SettingGroup>}
+                {profile.protocol === "kling" && <SettingGroup title="生成档位" color={theme.node.muted}><SegmentedOptions options={[{ value: "std", label: "标准" }, { value: "pro", label: "专业" }]} value={config.videoKlingMode || "pro"} theme={theme} onChange={(v) => onConfigChange("videoKlingMode", v)} /></SettingGroup>}
+                {profile.audio ? (
+                    <SettingGroup title={profile.id === "kling-o1" ? "保留源音频" : t("settingsPanels.video.generateAudio")} color={theme.node.muted}>
+                        <input type="checkbox" aria-label={t("settingsPanels.video.generateAudio")} checked={boolConfig(config.videoGenerateAudio, true)} onChange={(e) => onConfigChange("videoGenerateAudio", String(e.target.checked))} />
                     </SettingGroup>
                 ) : null}
+                {profile.watermark && <SettingGroup title="水印" color={theme.node.muted}><input type="checkbox" aria-label="水印" checked={boolConfig(config.videoWatermark, false)} onChange={(e) => onConfigChange("videoWatermark", String(e.target.checked))} /></SettingGroup>}
+                {profile.negative && <SettingGroup title="负面提示词" color={theme.node.muted}><textarea aria-label="负面提示词" className="w-full resize-y rounded-md border p-2 text-sm" style={controlStyle} rows={2} value={config.videoNegativePrompt || ""} onChange={(e) => onConfigChange("videoNegativePrompt", e.target.value)} /></SettingGroup>}
+                {["ark", "veo", "relay"].includes(profile.protocol) && <SettingGroup title="随机种子" color={theme.node.muted}><input type="number" aria-label="随机种子" placeholder="随机" className="h-9 w-full rounded-md border px-2 text-sm" style={controlStyle} value={config.videoSeed || ""} onChange={(e) => onConfigChange("videoSeed", e.target.value)} /></SettingGroup>}
+                <div className="flex items-center justify-between text-xs" style={{ color: theme.node.muted }}>
+                    <span>参考上限 图 {Number.isFinite(profile.images) ? profile.images : "未限定"} / 视频 {Number.isFinite(profile.videos) ? profile.videos : "未限定"} / 音频 {Number.isFinite(profile.audios) ? profile.audios : "未限定"}</span>
+                    <label className="inline-flex items-center gap-1"><input type="checkbox" checked={config.videoValidation === "strict"} onChange={(e) => onConfigChange("videoValidation", e.target.checked ? "strict" : "warn")} />严格校验</label>
+                </div>
             </div>
         </ImageSettingsTheme>
     );
@@ -123,7 +131,7 @@ export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = 
 
 export function videoResolutionLabel(value: string, config?: AiConfig) {
     if (config && isXiaowenVideoConfig(config)) return normalizeXiaowenResolution(value);
-    if (value.trim().toLowerCase() === "2k") return "2K";
+    if (/^[24]k$/i.test(value.trim())) return value.toUpperCase();
     return `${normalizeVideoResolutionValue(value)}p`;
 }
 
@@ -137,7 +145,7 @@ export function videoSizeLabel(value: string) {
 }
 
 export function videoSecondsLabel(value: string) {
-    if (String(value).trim() === "-1") return i18n.t("settingsPanels.video.smart");
+    if (String(value).trim() === "-1") return "随源视频";
     return `${value || "6"}s`;
 }
 
@@ -146,7 +154,7 @@ export function videoAspectRatioLabel(value: string) {
 }
 
 export function normalizeVideoAspectRatio(value: string) {
-    return canvasRatioOptions.includes(value as (typeof canvasRatioOptions)[number]) ? value : "16:9";
+    return value === "adaptive" ? "自适应" : canvasRatioOptions.includes(value as (typeof canvasRatioOptions)[number]) ? value : "16:9";
 }
 
 export function normalizeVideoSizeValue(value: string) {
@@ -161,7 +169,7 @@ export function normalizeVideoResolutionValue(value: string) {
     return value.replace(/p$/i, "") || "720";
 }
 
-function CanvasRatioOption({ value, selected, theme, onClick }: { value: (typeof canvasRatioOptions)[number]; selected: boolean; theme: CanvasTheme; onClick: () => void }) {
+function CanvasRatioOption({ value, selected, theme, onClick }: { value: string; selected: boolean; theme: CanvasTheme; onClick: () => void }) {
     const preview = ratioPreview(value);
     const longSide = Math.max(preview.width, preview.height);
     const previewWidth = Math.max(10, Math.round((preview.width / longSide) * 26));
@@ -179,14 +187,14 @@ function CanvasRatioOption({ value, selected, theme, onClick }: { value: (typeof
             <span className="grid h-6 place-items-center">
                 <span className="border-2" style={{ width: previewWidth, height: previewHeight, borderColor: theme.node.text }} />
             </span>
-            <span>{value}</span>
+            <span>{value === "adaptive" ? "自适应" : value}</span>
         </button>
     );
 }
 
 function SegmentedOptions({ options, value, theme, onChange }: { options: readonly { value: string; label: string }[]; value: string; theme: CanvasTheme; onChange: (value: string) => void }) {
     return (
-        <div className="grid w-full rounded-xl p-1" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`, background: theme.node.fill }}>
+        <div className="grid w-full gap-1 rounded-lg p-1" style={{ gridTemplateColumns: `repeat(${Math.min(options.length, 4)}, minmax(0, 1fr))`, background: theme.node.fill }}>
             {options.map((option) => {
                 const selected = option.value === value;
                 return (

@@ -121,6 +121,12 @@ export function buildGenerationConfig(config: AiConfig, node: CanvasNodeData | u
         videoGenerateAudio: node?.metadata?.generateAudio || config.videoGenerateAudio || defaultConfig.videoGenerateAudio,
         videoWatermark: node?.metadata?.watermark || config.videoWatermark || defaultConfig.videoWatermark,
         videoMode: node?.metadata?.videoMode || config.videoMode || defaultConfig.videoMode,
+        videoStandard: node?.metadata?.videoStandard || config.videoStandard || "auto",
+        videoTransport: node?.metadata?.videoTransport || config.videoTransport || "auto",
+        videoValidation: node?.metadata?.videoValidation || config.videoValidation || "warn",
+        videoNegativePrompt: node?.metadata?.videoNegativePrompt ?? config.videoNegativePrompt ?? "",
+        videoSeed: node?.metadata?.videoSeed ?? config.videoSeed ?? "",
+        videoKlingMode: node?.metadata?.videoKlingMode || config.videoKlingMode || "pro",
         audioVoice: node?.metadata?.audioVoice || config.audioVoice || defaultConfig.audioVoice,
         audioFormat: node?.metadata?.audioFormat || config.audioFormat || defaultConfig.audioFormat,
         audioSpeed: node?.metadata?.audioSpeed || config.audioSpeed || defaultConfig.audioSpeed,
@@ -131,6 +137,10 @@ export function buildGenerationConfig(config: AiConfig, node: CanvasNodeData | u
 
 export function hasResumableVideoTask(node: CanvasNodeData) {
     return node.type === CanvasNodeType.Video && Boolean(node.metadata?.videoTaskId) && !node.metadata?.content;
+}
+
+export function buildVideoGenerationMetadata(config: AiConfig): Partial<CanvasNodeMetadata> {
+    return { model: config.model, size: config.size, seconds: config.videoSeconds, vquality: config.vquality, videoAspectRatio: config.videoAspectRatio, generateAudio: config.videoGenerateAudio, watermark: config.videoWatermark, videoMode: config.videoMode, videoStandard: config.videoStandard, videoTransport: config.videoTransport, videoValidation: config.videoValidation, videoNegativePrompt: config.videoNegativePrompt, videoSeed: config.videoSeed, videoKlingMode: config.videoKlingMode };
 }
 
 export function resetInterruptedGeneration(nodes: CanvasNodeData[], linkedResumableNodeIds: ReadonlySet<string> = new Set()) {

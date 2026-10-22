@@ -878,6 +878,9 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 		upstreamEndpoint = grokVideoRChatCompletionsEndpoint
 		SetActualOpenAIUpstreamEndpoint(c, upstreamEndpoint)
 	}
+	if endpoint == GrokMediaEndpointVideosGenerations {
+		logVideoReferencePayload(ctx, "upstream_forward", account.ID, body)
+	}
 
 	var bodyReader io.Reader
 	if endpoint.RequiresRequestBody() {
@@ -1537,6 +1540,11 @@ func sanitizeGrokMediaForwardBody(endpoint GrokMediaEndpoint, body []byte, conte
 			return nil, "", fmt.Errorf("sanitize grok media size: %w", err)
 		}
 		return out, contentType, nil
+	case GrokMediaEndpointVideosGenerations:
+		for _, field := range []string{"_video_protocol", "video_standard", "video_mode"} {
+			body, _ = sjson.DeleteBytes(body, field)
+		}
+		return body, contentType, nil
 	default:
 		return body, contentType, nil
 	}

@@ -14,6 +14,8 @@ description: 部署任务诊断后定位视频参考上传和上游生成错误
 3. 提交一个新任务。失败时从节点复制实际任务编号，在“画布任务”中检查阶段及错误；在“存储素材”中核对上传记录。
 4. 必要时按 `run_id` 检索 `playground.video_reference_storage_started`、`_saved`、`_failed`、`_disabled`、`_no_inline` 和 `canvas run failed` 日志。
 
+上传成功后还需检查同一任务的 `playground.video_reference_payload`。`stage=canvas_submit` 为画布提交给网关的参数数量，`stage=upstream_forward` 为网关向渠道转发前的参数数量；后者同时含所选 `account_id` 和映射后的 `model`。1 张图 + 原视频 + 深度视频应显示 `content_images=1`、`content_videos=2`、`content_audios=0`、`content_parts=4`（含文本）。这些日志只记录数量，不输出带签名的素材链接或提示词。若两处均为 1 图 + 2 视频，而渠道日志只有图片，继续检查渠道的二次转换和部署版本；上传记录中的数量不代表最终出口数量。
+
 历史任务未保存的错误无法补回。重复查询原来的失败任务不会重新生成详情。回退应用代码可保留新增表、列和索引，无需删除任务与素材记录。
 
 ## 存储记录为空

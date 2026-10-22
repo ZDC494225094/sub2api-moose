@@ -75,6 +75,12 @@ export type CanvasNodeMetadata = {
     generateAudio?: string;
     watermark?: string;
     videoMode?: string;
+    videoStandard?: string;
+    videoTransport?: string;
+    videoValidation?: string;
+    videoNegativePrompt?: string;
+    videoSeed?: string;
+    videoKlingMode?: string;
     depthMode?: "auto" | "cpu";
     depthSamplingFps?: number;
     audioVoice?: string;
@@ -93,7 +99,8 @@ export type CanvasNodeMetadata = {
     bytes?: number;
     durationMs?: number;
     videoTaskId?: string;
-    videoTaskProvider?: "openai" | "gemini" | "seedance";
+    videoTaskProvider?: "openai" | "gemini" | "seedance" | "minimax" | "minimax-h3" | "kling" | "kling-v3" | "omni";
+    videoTaskPath?: string;
     groupId?: string;
     interactive?: boolean; // Plugin node interaction/move state; see CanvasNodeDefinition.interactionToggle.
 };

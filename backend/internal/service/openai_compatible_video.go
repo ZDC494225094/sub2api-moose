@@ -51,6 +51,10 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 	if err != nil {
 		return nil, err
 	}
+	baseURL, err := s.validateUpstreamBaseURL(account.GetOpenAIBaseURL())
+	if err != nil {
+		return nil, err
+	}
 	targetURL, arkNative, err := s.openAICompatibleVideoURL(account, endpoint, requestID)
 	if err != nil {
 		return nil, err
@@ -58,26 +62,72 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 	if arkNative && endpoint == GrokMediaEndpointVideoContent {
 		return nil, errors.New("native Ark video tasks do not expose a content proxy endpoint")
 	}
+	nativeTask, nativeLookup, err := parseNativeVideoTask(requestID)
+	if err != nil {
+		return nil, err
+	}
+	protocol := ""
+	if nativeLookup {
+		protocol = nativeTask.Protocol
+		if endpoint == GrokMediaEndpointVideoContent && protocol != "omni" {
+			return nil, errors.New("native video provider returned no downloadable output; query task status for provider details")
+		}
+		escapedID := url.PathEscape(nativeTask.ID)
+		if strings.Contains(nativeTask.Path, "?") {
+			escapedID = url.QueryEscape(nativeTask.ID)
+		}
+		targetURL, err = nativeVideoURL(baseURL, nativeTask.Path+escapedID)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	requestInfo := ParseGrokMediaRequest(contentType, body)
 	upstreamModel := strings.TrimSpace(account.GetMappedModel(requestInfo.Model))
 	if upstreamModel == "" {
 		upstreamModel = requestInfo.Model
 	}
+	if nativeLookup {
+		upstreamModel = nativeTask.Model
+	}
 	if endpoint == GrokMediaEndpointVideosGenerations {
+		if arkNative && gjson.GetBytes(body, "_video_protocol").String() == "relay" {
+			writeGrokMediaErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "当前账号地址是 /api/v3 原生方舟接口，兼容网关格式需配置网关地址")
+			return nil, errors.New("relay format requires a relay account base URL")
+		}
+		protocol = nativeVideoProtocol(baseURL, body)
 		if upstreamModel != requestInfo.Model && gjson.ValidBytes(body) {
 			body, err = sjson.SetBytes(body, "model", upstreamModel)
 			if err != nil {
 				return nil, fmt.Errorf("rewrite video model: %w", err)
 			}
 		}
-		if arkNative {
+		if arkNative && protocol == "" {
 			body, err = normalizeArkVideoGenerationBody(body)
 			if err != nil {
 				return nil, err
 			}
 			contentType = "application/json"
 		}
+		if protocol != "" {
+			var path string
+			body, path, nativeTask, err = nativeVideoGeneration(protocol, body)
+			if err != nil {
+				writeGrokMediaErrorResponse(c, http.StatusBadRequest, "invalid_request_error", sanitizeUpstreamErrorMessage(err.Error()))
+				return nil, err
+			}
+			nativeTask.BillingModel = requestInfo.Model
+			targetURL, err = nativeVideoURL(baseURL, path)
+			if err != nil {
+				return nil, err
+			}
+			contentType = "application/json"
+		} else if !arkNative && gjson.ValidBytes(body) {
+			for _, field := range []string{"_video_protocol", "video_standard", "video_mode"} {
+				body, _ = sjson.DeleteBytes(body, field)
+			}
+		}
+		logVideoReferencePayload(ctx, "upstream_forward", account.ID, body)
 	}
 
 	var bodyReader io.Reader
@@ -88,11 +138,18 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 	}
 	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
 	defer releaseUpstreamCtx()
+	if protocol != "" {
+		upstreamCtx = WithHTTPUpstreamRedirectsDisabled(upstreamCtx)
+	}
 	upstreamReq, err := http.NewRequestWithContext(upstreamCtx, method, targetURL, bodyReader)
 	if err != nil {
 		return nil, err
 	}
 	upstreamReq.Header.Set("Authorization", "Bearer "+token)
+	if protocol == "omni" {
+		upstreamReq.Header.Del("Authorization")
+		upstreamReq.Header.Set("x-goog-api-key", token)
+	}
 	if method == http.MethodPost {
 		if strings.TrimSpace(contentType) == "" {
 			contentType = "application/json"
@@ -120,12 +177,16 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 		return nil, s.handleOpenAIUpstreamTransportError(ctx, c, account, err, false)
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if protocol != "" && resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		writeGrokMediaErrorResponse(c, http.StatusBadGateway, "upstream_error", "原生视频接口不允许重定向，请检查渠道地址")
+		return nil, errors.New("native video redirect rejected")
+	}
 
 	if resp.StatusCode >= http.StatusBadRequest {
 		return s.handleCompatErrorResponse(resp, c, account, writeGrokMediaErrorResponse, requestInfo.Model)
 	}
 	requestIDHeader := firstNonEmpty(resp.Header.Get("x-request-id"), resp.Header.Get("x-goog-request-id"))
-	if endpoint == GrokMediaEndpointVideoContent {
+	if endpoint == GrokMediaEndpointVideoContent && protocol != "omni" {
 		if err := writeGrokMediaContentResponse(c, resp); err != nil {
 			return nil, err
 		}
@@ -136,8 +197,82 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 	if err != nil {
 		return nil, err
 	}
-	if arkNative && endpoint == GrokMediaEndpointVideoStatus {
+	if arkNative && protocol == "" && endpoint == GrokMediaEndpointVideoStatus {
 		respBody = normalizeArkVideoStatusResponse(respBody)
+	}
+	if protocol != "" {
+		respBody, nativeTask, err = normalizeNativeVideoResponse(respBody, nativeTask, endpoint == GrokMediaEndpointVideosGenerations)
+		if err != nil {
+			writeGrokMediaErrorResponse(c, http.StatusBadGateway, "upstream_error", sanitizeUpstreamErrorMessage(err.Error()))
+			return nil, err
+		}
+		if fileID := gjson.GetBytes(respBody, "file_id").String(); protocol == "minimax" && fileID != "" {
+			fileURL, err := nativeVideoURL(baseURL, "/v1/files/retrieve?file_id="+url.QueryEscape(fileID))
+			if err != nil {
+				return nil, err
+			}
+			fileReq, err := http.NewRequestWithContext(upstreamCtx, http.MethodGet, fileURL, nil)
+			if err != nil {
+				return nil, err
+			}
+			fileReq.Header = upstreamReq.Header.Clone()
+			fileResp, err := s.httpUpstream.Do(fileReq, proxyURL, account.ID, account.Concurrency)
+			if err != nil {
+				return nil, err
+			}
+			defer fileResp.Body.Close()
+			if fileResp.StatusCode >= 400 {
+				return s.handleCompatErrorResponse(fileResp, c, account, writeGrokMediaErrorResponse, requestInfo.Model)
+			}
+			fileBody, err := ReadUpstreamResponseBody(fileResp.Body, s.cfg, c, openAITooLargeError)
+			if err != nil {
+				return nil, err
+			}
+			if download := gjson.GetBytes(fileBody, "file.download_url").String(); download != "" {
+				respBody, _ = sjson.SetBytes(respBody, "video.url", download)
+			} else {
+				return nil, errors.New("MiniMax completed without a file download URL")
+			}
+		}
+		if protocol == "omni" {
+			output := gjson.GetBytes(respBody, "video.url").String()
+			if endpoint != GrokMediaEndpointVideoContent && output != "" && !strings.HasPrefix(output, "data:") {
+				state, err := s.nativeOmniFileState(upstreamCtx, account, baseURL, output, token, proxyURL)
+				if err != nil {
+					return nil, err
+				}
+				if state != "ACTIVE" {
+					respBody, _ = sjson.DeleteBytes(respBody, "video")
+					status := "in_progress"
+					if state == "FAILED" {
+						status = "failed"
+						respBody, _ = sjson.SetBytes(respBody, "error.message", "Gemini Omni 视频文件处理失败")
+					}
+					respBody, _ = sjson.SetBytes(respBody, "status", status)
+					output = ""
+				}
+			}
+			if endpoint == GrokMediaEndpointVideoContent {
+				if strings.HasPrefix(output, "data:video/") {
+					data, mime, err := decodePlaygroundVideoDataURL(output)
+					if err != nil {
+						return nil, err
+					}
+					c.Data(http.StatusOK, mime, data)
+				} else {
+					if err := s.forwardNativeOmniContent(upstreamCtx, c, account, baseURL, output, token, proxyURL); err != nil {
+						return nil, err
+					}
+				}
+				return openAICompatibleVideoContentResult(requestID, requestIDHeader, resp.Header, time.Since(started)), nil
+			}
+			if output != "" && !strings.HasPrefix(output, "data:") {
+				if _, err := nativeOmniContentURL(baseURL, output); err != nil {
+					return nil, err
+				}
+				respBody, _ = sjson.SetBytes(respBody, "video.url", "/v1/videos/"+nativeTask.key()+"/content")
+			}
+		}
 	}
 	writeGrokMediaResponse(c, resp, respBody, s.responseHeaderFilter)
 	usage := openAICompatibleVideoUsageFromResponse(endpoint, requestInfo, respBody)
@@ -160,6 +295,75 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 		VideoResolution:      usage.VideoResolution,
 		VideoDurationSeconds: usage.VideoDurationSeconds,
 	}, nil
+}
+
+func nativeOmniContentURL(baseURL, output string) (string, error) {
+	base, _ := url.Parse(baseURL)
+	target, err := url.Parse(output)
+	if err != nil || base == nil || target.Scheme != "https" || target.User != nil || target.Fragment != "" || (target.Port() != "" && target.Port() != "443") {
+		return "", errors.New("Gemini Omni returned an invalid video download URL")
+	}
+	if target.Hostname() != base.Hostname() && target.Hostname() != "generativelanguage.googleapis.com" && target.Hostname() != "storage.googleapis.com" {
+		return "", errors.New("Gemini Omni returned an untrusted video download host")
+	}
+	return target.String(), nil
+}
+
+func (s *OpenAIGatewayService) nativeOmniFileState(ctx context.Context, account *Account, baseURL, output, token, proxyURL string) (string, error) {
+	validated, err := nativeOmniContentURL(baseURL, output)
+	if err != nil {
+		return "", err
+	}
+	target, _ := url.Parse(validated)
+	if target.Hostname() != "generativelanguage.googleapis.com" || !strings.HasPrefix(target.Path, "/v1beta/files/") {
+		return "ACTIVE", nil
+	}
+	target.Path = strings.TrimSuffix(target.Path, ":download")
+	target.RawPath, target.RawQuery = "", ""
+	req, err := http.NewRequestWithContext(WithHTTPUpstreamRedirectsDisabled(ctx), http.MethodGet, target.String(), nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("x-goog-api-key", token)
+	resp, err := s.httpUpstream.Do(req, proxyURL, account.ID, account.Concurrency)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("Gemini Omni file status returned HTTP %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", err
+	}
+	state := strings.ToUpper(gjson.GetBytes(body, "state").String())
+	if !playgroundStringAllowed(state, "ACTIVE", "PROCESSING", "FAILED") {
+		return "", errors.New("Gemini Omni returned an unknown file state")
+	}
+	return state, nil
+}
+
+func (s *OpenAIGatewayService) forwardNativeOmniContent(ctx context.Context, c *gin.Context, account *Account, baseURL, output, token, proxyURL string) error {
+	target, err := nativeOmniContentURL(baseURL, output)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(WithHTTPUpstreamRedirectsDisabled(ctx), http.MethodGet, target, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("x-goog-api-key", token)
+	req.Header.Set("Accept", "video/*")
+	resp, err := s.httpUpstream.Do(req, proxyURL, account.ID, account.Concurrency)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("Gemini Omni video download returned HTTP %d", resp.StatusCode)
+	}
+	return writeGrokMediaContentResponse(c, resp)
 }
 
 func openAICompatibleVideoContentResult(requestID, requestIDHeader string, headers http.Header, duration time.Duration) *OpenAIForwardResult {
@@ -238,14 +442,20 @@ func normalizeArkVideoGenerationBody(body []byte) ([]byte, error) {
 		"type": "text",
 		"text": gjson.GetBytes(body, "prompt").String(),
 	}}
+	videoURLs := openAICompatibleVideoReferenceURLs(body, "reference_videos", "video")
+	audioURLs := openAICompatibleVideoReferenceURLs(body, "reference_audios", "audio")
 	imageURL := openAICompatibleVideoImageURL(body)
 	if imageURL != "" {
+		role := "first_frame"
+		if (len(videoURLs) > 0 || len(audioURLs) > 0) && strings.TrimSpace(gjson.GetBytes(body, "first_frame_image").String()) == "" {
+			role = "reference_image"
+		}
 		content = append(content, map[string]any{
 			"type": "image_url",
 			"image_url": map[string]any{
 				"url": imageURL,
 			},
-			"role": "first_frame",
+			"role": role,
 		})
 	}
 	lastFrameURL := openAICompatibleVideoImageTailURL(body)
@@ -268,6 +478,18 @@ func normalizeArkVideoGenerationBody(body []byte) ([]byte, error) {
 			"role":      "reference_image",
 		})
 	}
+	for _, media := range []struct {
+		kind string
+		urls []string
+	}{{"video", videoURLs}, {"audio", audioURLs}} {
+		for _, reference := range media.urls {
+			content = append(content, map[string]any{
+				"type":              media.kind + "_url",
+				media.kind + "_url": map[string]any{"url": reference},
+				"role":              "reference_" + media.kind,
+			})
+		}
+	}
 	payload := map[string]any{
 		"model":   gjson.GetBytes(body, "model").String(),
 		"content": content,
@@ -289,7 +511,11 @@ func normalizeArkVideoGenerationBody(body []byte) ([]byte, error) {
 	copyNumber("fps", "framespersecond")
 	copyString("aspect_ratio", "ratio")
 	copyString("resolution", "resolution")
-	copyString("watermark", "watermark")
+	for _, field := range []string{"watermark", "generate_audio", "seed", "camera_fixed", "return_last_frame", "draft", "service_tier", "output_format", "omni_reference_task_type"} {
+		if value := gjson.GetBytes(body, field); value.Exists() {
+			payload[field] = value.Value()
+		}
+	}
 	info := ParseGrokMediaRequest("application/json", body)
 	if _, exists := payload["resolution"]; !exists && strings.TrimSpace(info.Size) != "" {
 		if resolution := videoBillingResolutionFromSize(info.Size); resolution != "" {
@@ -300,6 +526,26 @@ func normalizeArkVideoGenerationBody(body []byte) ([]byte, error) {
 		payload["duration"] = info.DurationSeconds
 	}
 	return json.Marshal(payload)
+}
+
+func openAICompatibleVideoReferenceURLs(body []byte, field, legacyField string) []string {
+	urls := make([]string, 0)
+	for _, item := range gjson.GetBytes(body, field).Array() {
+		if item.Type == gjson.String && strings.TrimSpace(item.String()) != "" {
+			urls = append(urls, strings.TrimSpace(item.String()))
+		}
+	}
+	legacy := gjson.GetBytes(body, legacyField)
+	if legacy.Type == gjson.String && strings.TrimSpace(legacy.String()) != "" {
+		value := strings.TrimSpace(legacy.String())
+		for _, reference := range urls {
+			if reference == value {
+				return urls
+			}
+		}
+		urls = append(urls, value)
+	}
+	return urls
 }
 
 func openAICompatibleVideoImageURL(body []byte) string {

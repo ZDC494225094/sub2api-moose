@@ -96,6 +96,7 @@ func (s *OpenAIGatewayService) ForwardSeedance(ctx context.Context, c *gin.Conte
 			return nil, err
 		}
 		method = http.MethodPost
+		logVideoReferencePayload(ctx, "upstream_forward", account.ID, body)
 	case SeedanceEndpointDelete:
 		method = http.MethodDelete
 	}

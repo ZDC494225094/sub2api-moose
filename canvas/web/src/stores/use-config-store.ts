@@ -50,6 +50,12 @@ export type AiConfig = {
     videoGenerateAudio: string;
     videoWatermark: string;
     videoMode: string;
+    videoStandard: string;
+    videoTransport: string;
+    videoValidation: string;
+    videoNegativePrompt: string;
+    videoSeed: string;
+    videoKlingMode: string;
     systemPrompt: string;
     reasoningEffort: ReasoningEffort;
     models: string[];
@@ -104,7 +110,13 @@ export const defaultConfig: AiConfig = {
     videoAspectRatio: "16:9",
     videoGenerateAudio: "true",
     videoWatermark: "false",
-    videoMode: "frames",
+    videoMode: "auto",
+    videoStandard: "auto",
+    videoTransport: "auto",
+    videoValidation: "warn",
+    videoNegativePrompt: "",
+    videoSeed: "",
+    videoKlingMode: "pro",
     systemPrompt: "",
     reasoningEffort: "auto",
     models: ["default::gpt-image-2", "default::grok-imagine-video", "default::gpt-5.5", "default::gpt-4o-mini-tts"],
@@ -284,7 +296,13 @@ export const useConfigStore = create<ConfigStore>()(
                         videoAspectRatio: config.videoAspectRatio || "16:9",
                         videoGenerateAudio: config.videoGenerateAudio || "true",
                         videoWatermark: config.videoWatermark || "false",
-                        videoMode: config.videoMode === "reference" ? "reference" : "frames",
+                        videoMode: config.videoMode || "auto",
+                        videoStandard: config.videoStandard || "auto",
+                        videoTransport: config.videoTransport || "auto",
+                        videoValidation: config.videoValidation || "warn",
+                        videoNegativePrompt: config.videoNegativePrompt || "",
+                        videoSeed: config.videoSeed || "",
+                        videoKlingMode: config.videoKlingMode || "pro",
                         canvasImageCount: config.canvasImageCount || "3",
                         proxyEnabled: Boolean(config.proxyEnabled),
                         proxyUrl: config.proxyUrl || DEFAULT_LOCAL_PROXY_URL,
