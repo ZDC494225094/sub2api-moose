@@ -304,6 +304,13 @@ func extractUpstreamErrorMessage(body []byte) string {
 		return m
 	}
 
+	// Some video providers return a string or array instead of an error object.
+	if value := gjson.GetBytes(body, "error"); value.Type == gjson.String || value.IsArray() {
+		if message := strings.TrimSpace(value.String()); message != "" {
+			return message
+		}
+	}
+
 	// ChatGPT 内部 API 风格：{"detail":"..."}
 	if d := gjson.GetBytes(body, "detail").String(); strings.TrimSpace(d) != "" {
 		return d
