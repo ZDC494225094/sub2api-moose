@@ -15,6 +15,18 @@ export const marketingRoutes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/wx-lottery',
+    name: 'WxLottery',
+    component: () => import('./WxLotteryView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'WeChat Lottery',
+      titleKey: 'wechatLottery.title',
+      requiresPayment: true
+    }
+  },
+  {
     path: '/admin/orders/coupons',
     name: 'AdminPaymentCoupons',
     component: () => import('./AdminCouponTemplatesView.vue'),

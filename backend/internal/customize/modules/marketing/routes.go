@@ -8,6 +8,7 @@ import "github.com/gin-gonic/gin"
 func (h *Handler[T]) RegisterUserRoutes(group *gin.RouterGroup) {
 	group.GET("/coupons", h.GetMyCoupons)
 	group.GET("/lottery/active", h.GetActiveLottery)
+	group.GET("/lottery/wechat-active", h.GetWechatOAActiveLottery)
 	group.POST("/lottery/draw", h.DrawLottery)
 	group.GET("/lottery/my-records", h.ListMyDrawRecords)
 }

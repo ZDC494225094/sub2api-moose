@@ -14,8 +14,13 @@ export const marketingAPI = {
     return apiClient.get<LotteryOverview | Record<string, never>>('/payment/lottery/active')
   },
 
+  /** Get active WeChat-OA-only lottery activity (for the H5 page) */
+  getWechatActiveLottery() {
+    return apiClient.get<LotteryOverview | Record<string, never>>('/payment/lottery/wechat-active')
+  },
+
   /** Draw lottery */
-  drawLottery(data: { activity_id: number; use_wallet?: boolean }) {
+  drawLottery(data: { activity_id: number; use_wallet?: boolean; wechat_openid?: string }) {
     return apiClient.post<LotteryDrawResult>('/payment/lottery/draw', data)
   },
 
@@ -24,6 +29,29 @@ export const marketingAPI = {
     return apiClient.get<{ items: import('@/types/payment').LotteryDrawRecord[]; total: number; page: number; page_size: number }>('/payment/lottery/my-records', { params })
   },
 
+}
+
+// ==================== WeChat Official Account ====================
+export const wechatAPI = {
+  /** Get the WeChat webpage-authorization URL (public) */
+  getOAuthURL(back = '/wx-lottery') {
+    return apiClient.get<{ url: string }>('/payment/public/wechat/oauth/url', { params: { back } })
+  },
+
+  /** Get the current user's bound openid */
+  getBinding() {
+    return apiClient.get<{ openid: string }>('/wechat/binding')
+  },
+
+  /** Bind an authorized openid to the current user */
+  bindOpenID(openid: string) {
+    return apiClient.post<{ openid: string }>('/wechat/bind', { openid })
+  },
+
+  /** Push the latest draw result to the OA conversation */
+  notifyDrawResult(activity_id: number) {
+    return apiClient.post<{ sent: boolean }>('/wechat/lottery-notify', { activity_id })
+  },
 }
 
 export const adminMarketingAPI = {

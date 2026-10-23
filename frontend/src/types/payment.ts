@@ -330,6 +330,7 @@ export interface LotteryActivity {
   default_draw_times: number
   consume_threshold_amount: number
   wallet_cost_per_draw: number
+  wechat_oa_only: boolean
   starts_at?: string | null
   ends_at?: string | null
   sort_order: number

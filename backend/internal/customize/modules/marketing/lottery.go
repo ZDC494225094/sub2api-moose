@@ -38,6 +38,7 @@ type LotteryActivity struct {
 	DefaultDrawTimes       int            `json:"default_draw_times"`
 	ConsumeThresholdAmount float64        `json:"consume_threshold_amount"`
 	WalletCostPerDraw      float64        `json:"wallet_cost_per_draw"`
+	WechatOAOnly           bool           `json:"wechat_oa_only"`
 	StartsAt               *time.Time     `json:"starts_at,omitempty"`
 	EndsAt                 *time.Time     `json:"ends_at,omitempty"`
 	SortOrder              int            `json:"sort_order"`
@@ -127,6 +128,7 @@ type CreateLotteryActivityInput struct {
 	DefaultDrawTimes       int        `json:"default_draw_times"`
 	ConsumeThresholdAmount float64    `json:"consume_threshold_amount"`
 	WalletCostPerDraw      float64    `json:"wallet_cost_per_draw"`
+	WechatOAOnly           bool       `json:"wechat_oa_only"`
 	StartsAt               *time.Time `json:"starts_at,omitempty"`
 	EndsAt                 *time.Time `json:"ends_at,omitempty"`
 	SortOrder              int        `json:"sort_order"`
@@ -139,6 +141,7 @@ type UpdateLotteryActivityInput struct {
 	DefaultDrawTimes       *int       `json:"default_draw_times,omitempty"`
 	ConsumeThresholdAmount *float64   `json:"consume_threshold_amount,omitempty"`
 	WalletCostPerDraw      *float64   `json:"wallet_cost_per_draw,omitempty"`
+	WechatOAOnly           *bool      `json:"wechat_oa_only,omitempty"`
 	StartsAt               *time.Time `json:"starts_at,omitempty"`
 	EndsAt                 *time.Time `json:"ends_at,omitempty"`
 	SortOrder              *int       `json:"sort_order,omitempty"`
@@ -175,6 +178,9 @@ type LotteryDrawInput struct {
 	ActivityID int64
 	UserID     int64
 	UseWallet  bool
+	// WechatOpenID carries the WeChat Official Account openid obtained via
+	// webpage authorization. Required when the activity is wechat_oa_only.
+	WechatOpenID string
 }
 
 // LotteryDrawResult keeps the host redeem payload typed without importing the host service.

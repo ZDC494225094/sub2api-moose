@@ -46,12 +46,12 @@ func (r *lotteryActivityRepository) Create(ctx context.Context, item *service.Lo
 	return scanSingleRow(ctx, marketingSQL(ctx, r.sql), `
 INSERT INTO lottery_activities (
   name, description, status, default_draw_times, consume_threshold_amount,
-  wallet_cost_per_draw, starts_at, ends_at, sort_order
+  wallet_cost_per_draw, wechat_oa_only, starts_at, ends_at, sort_order
 )
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 RETURNING id, created_at, updated_at`, []any{
 		item.Name, item.Description, item.Status, item.DefaultDrawTimes, item.ConsumeThresholdAmount,
-		item.WalletCostPerDraw, item.StartsAt, item.EndsAt, item.SortOrder,
+		item.WalletCostPerDraw, item.WechatOAOnly, item.StartsAt, item.EndsAt, item.SortOrder,
 	}, &item.ID, &item.CreatedAt, &item.UpdatedAt)
 }
 
@@ -69,14 +69,15 @@ SET name = $2,
     default_draw_times = $5,
     consume_threshold_amount = $6,
     wallet_cost_per_draw = $7,
-    starts_at = $8,
-    ends_at = $9,
-    sort_order = $10,
+    wechat_oa_only = $8,
+    starts_at = $9,
+    ends_at = $10,
+    sort_order = $11,
     updated_at = NOW()
 WHERE id = $1
 RETURNING updated_at`, []any{
 		item.ID, item.Name, item.Description, item.Status, item.DefaultDrawTimes, item.ConsumeThresholdAmount,
-		item.WalletCostPerDraw, item.StartsAt, item.EndsAt, item.SortOrder,
+		item.WalletCostPerDraw, item.WechatOAOnly, item.StartsAt, item.EndsAt, item.SortOrder,
 	}, &item.UpdatedAt)
 }
 
@@ -95,7 +96,7 @@ func (r *lotteryActivityRepository) GetActiveActivity(ctx context.Context) (*ser
 func (r *lotteryActivityRepository) getBy(ctx context.Context, predicate string, arg any, forUpdate bool) (*service.LotteryActivity, error) {
 	query := `
 SELECT id, name, description, status, default_draw_times, consume_threshold_amount,
-       wallet_cost_per_draw, starts_at, ends_at, sort_order, created_at, updated_at
+       wallet_cost_per_draw, wechat_oa_only, starts_at, ends_at, sort_order, created_at, updated_at
 FROM lottery_activities
 WHERE ` + predicate + ` ORDER BY sort_order ASC, id ASC LIMIT 1`
 	if forUpdate {
@@ -109,7 +110,7 @@ WHERE ` + predicate + ` ORDER BY sort_order ASC, id ASC LIMIT 1`
 	if arg != nil {
 		args = []any{arg}
 	}
-	err := scanSingleRow(ctx, exec, query, args, &item.ID, &item.Name, &item.Description, &item.Status, &item.DefaultDrawTimes, &item.ConsumeThresholdAmount, &item.WalletCostPerDraw, &startsAt, &endsAt, &item.SortOrder, &item.CreatedAt, &item.UpdatedAt)
+	err := scanSingleRow(ctx, exec, query, args, &item.ID, &item.Name, &item.Description, &item.Status, &item.DefaultDrawTimes, &item.ConsumeThresholdAmount, &item.WalletCostPerDraw, &item.WechatOAOnly, &startsAt, &endsAt, &item.SortOrder, &item.CreatedAt, &item.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, service.ErrLotteryActivityNotFound
@@ -146,7 +147,7 @@ func (r *lotteryActivityRepository) List(ctx context.Context, params pagination.
 	}
 	rows, err := exec.QueryContext(ctx, `
 SELECT id, name, description, status, default_draw_times, consume_threshold_amount,
-       wallet_cost_per_draw, starts_at, ends_at, sort_order, created_at, updated_at
+       wallet_cost_per_draw, wechat_oa_only, starts_at, ends_at, sort_order, created_at, updated_at
 FROM lottery_activities
 WHERE `+whereClause+fmt.Sprintf(" ORDER BY sort_order ASC, id ASC LIMIT %d OFFSET %d", params.Limit(), params.Offset()), args...)
 	if err != nil {
@@ -158,7 +159,7 @@ WHERE `+whereClause+fmt.Sprintf(" ORDER BY sort_order ASC, id ASC LIMIT %d OFFSE
 		var item service.LotteryActivity
 		var startsAt sql.NullTime
 		var endsAt sql.NullTime
-		if err := rows.Scan(&item.ID, &item.Name, &item.Description, &item.Status, &item.DefaultDrawTimes, &item.ConsumeThresholdAmount, &item.WalletCostPerDraw, &startsAt, &endsAt, &item.SortOrder, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.Name, &item.Description, &item.Status, &item.DefaultDrawTimes, &item.ConsumeThresholdAmount, &item.WalletCostPerDraw, &item.WechatOAOnly, &startsAt, &endsAt, &item.SortOrder, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, nil, err
 		}
 		if startsAt.Valid {

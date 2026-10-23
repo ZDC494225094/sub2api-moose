@@ -168,7 +168,7 @@ func TestMarketingRoutesInheritHostGuardsWithoutCampaignDependency(t *testing.T)
 		method, path string
 		status       int
 	}{
-		{"GET", "/coupons", 200}, {"GET", "/lottery/active", 200}, {"POST", "/lottery/draw", 500}, {"GET", "/lottery/my-records", 200},
+		{"GET", "/coupons", 200}, {"GET", "/lottery/active", 200}, {"GET", "/lottery/wechat-active", 200}, {"POST", "/lottery/draw", 500}, {"GET", "/lottery/my-records", 200},
 		{"GET", "/admin/coupon-templates", 200}, {"POST", "/admin/coupon-templates", 500}, {"PUT", "/admin/coupon-templates/3", 500},
 		{"GET", "/admin/lottery/activities", 200}, {"POST", "/admin/lottery/activities", 500}, {"PUT", "/admin/lottery/activities/3", 500}, {"DELETE", "/admin/lottery/activities/3", 500},
 		{"GET", "/admin/lottery/activities/3/draw-records", 200}, {"POST", "/admin/lottery/prizes", 500}, {"PUT", "/admin/lottery/prizes/3", 500},

@@ -51,6 +51,10 @@
             <template #cell-default_draw_times="{ value }">
               <span class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ value }}</span>
             </template>
+            <template #cell-wechat_oa_only="{ value }">
+              <span v-if="value" class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">{{ t('adminLottery.wechatOAOnlyShort') }}</span>
+              <span v-else class="text-sm text-gray-400">—</span>
+            </template>
             <template #cell-wallet_cost_per_draw="{ value }">
               <span class="text-sm text-gray-800 dark:text-gray-200">¥{{ Number(value).toFixed(2) }}</span>
             </template>
@@ -159,6 +163,13 @@
               <label class="input-label">{{ t('adminLottery.endsAt') }}</label>
               <input v-model="activityForm.ends_at" class="input" type="datetime-local" />
             </div>
+          </div>
+          <div>
+            <label class="flex cursor-pointer items-center gap-3">
+              <input v-model="activityForm.wechat_oa_only" type="checkbox" class="h-4 w-4 accent-emerald-600" />
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('adminLottery.wechatOAOnly') }}</span>
+            </label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('adminLottery.wechatOAOnlyHint') }}</p>
           </div>
         </form>
         <template #footer>
@@ -291,6 +302,7 @@ const activityForm = reactive({
   default_draw_times: 0,
   consume_threshold_amount: 0,
   wallet_cost_per_draw: 0,
+  wechat_oa_only: false,
   status: 'draft' as LotteryActivity['status'],
   starts_at: '',
   ends_at: '',
@@ -309,6 +321,7 @@ const prizeForm = reactive({
 const activityColumns = computed(() => [
   { key: 'name', label: t('adminLottery.name') },
   { key: 'status', label: t('adminLottery.status') },
+  { key: 'wechat_oa_only', label: t('adminLottery.wechatOAOnly') },
   { key: 'default_draw_times', label: t('adminLottery.defaultDrawTimes') },
   { key: 'wallet_cost_per_draw', label: t('adminLottery.walletCostPerDraw') },
   { key: 'effective_period', label: t('adminLottery.effectivePeriod') },
@@ -400,6 +413,7 @@ function openActivityCreate() {
   activityForm.default_draw_times = 0
   activityForm.consume_threshold_amount = 0
   activityForm.wallet_cost_per_draw = 0
+  activityForm.wechat_oa_only = false
   activityForm.status = 'draft'
   activityForm.starts_at = ''
   activityForm.ends_at = ''
@@ -414,6 +428,7 @@ function openActivityEdit(activity: LotteryActivity) {
   activityForm.default_draw_times = activity.default_draw_times
   activityForm.consume_threshold_amount = activity.consume_threshold_amount
   activityForm.wallet_cost_per_draw = activity.wallet_cost_per_draw
+  activityForm.wechat_oa_only = !!activity.wechat_oa_only
   activityForm.status = activity.status
   activityForm.starts_at = activity.starts_at ? toLocalDatetime(activity.starts_at) : ''
   activityForm.ends_at = activity.ends_at ? toLocalDatetime(activity.ends_at) : ''

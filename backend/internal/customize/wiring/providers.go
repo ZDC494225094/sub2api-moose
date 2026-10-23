@@ -4,9 +4,12 @@ package wiring
 
 import (
 	"context"
+	"database/sql"
+
 	"github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/marketing"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/rechargecampaigns"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/wechat"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
 	"github.com/Wei-Shaw/sub2api/internal/handler/admin"
 	"github.com/Wei-Shaw/sub2api/internal/repository"
@@ -45,6 +48,8 @@ var ProviderSet = wire.NewSet(
 	repository.NewLotteryConsumeProgressRepository,
 	ProvideRechargeCampaigns,
 	ProvideMarketingHandler,
+	ProvideWechatHandler,
+	repository.NewWechatBindingRepository,
 )
 
 func ProvideRechargeCampaigns(client *ent.Client, affiliate *service.AffiliateService) *rechargecampaigns.Handler {
@@ -67,4 +72,23 @@ func ProvideMarketingHandler(coupons *service.CouponService, lottery *service.Lo
 		subject, ok := middleware.GetAuthSubjectFromContext(c)
 		return subject.UserID, ok
 	})
+}
+
+// ProvideWechatHandler wires the WeChat Official Account lottery integration.
+// Credentials come from WECHAT_OA_APPID / WECHAT_OA_APPSECRET environment
+// variables; the handler degrades gracefully when they are absent.
+func ProvideWechatHandler(db *sql.DB, bindings wechat.BindingRepository, lottery *service.LotteryService) *wechat.Handler {
+	var records wechat.LotteryRecordReader
+	if lottery != nil {
+		records = lottery
+	}
+	return wechat.NewHandler(
+		wechat.NewService(wechat.LoadConfigFromEnv()),
+		bindings,
+		records,
+		func(c *gin.Context) (int64, bool) {
+			subject, ok := middleware.GetAuthSubjectFromContext(c)
+			return subject.UserID, ok
+		},
+	)
 }

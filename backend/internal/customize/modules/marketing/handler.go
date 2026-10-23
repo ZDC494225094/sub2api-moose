@@ -22,6 +22,7 @@ type LotteryHTTPService[T any] interface {
 	UpdateActivity(ctx context.Context, id int64, input *UpdateLotteryActivityInput) (*LotteryActivity, error)
 	ListActivities(ctx context.Context, params pagination.PaginationParams, filter LotteryActivityListFilter) ([]LotteryActivity, *pagination.PaginationResult, error)
 	GetActiveOverview(ctx context.Context, userID int64) (*LotteryOverview, error)
+	GetWechatOAActiveOverview(ctx context.Context, userID int64) (*LotteryOverview, error)
 	CreatePrize(ctx context.Context, input *CreateLotteryPrizeInput) (*LotteryPrize, error)
 	UpdatePrize(ctx context.Context, id int64, input *UpdateLotteryPrizeInput) (*LotteryPrize, error)
 	Draw(ctx context.Context, input LotteryDrawInput) (*LotteryDrawResult[T], error)
@@ -88,6 +89,25 @@ func (h *Handler[T]) GetActiveLottery(c *gin.Context) {
 	response.Success(c, overview)
 }
 
+// GetWechatOAActiveLottery returns the active lottery activity restricted to
+// WeChat Official Account, for the in-site H5 page opened from the OA menu.
+func (h *Handler[T]) GetWechatOAActiveLottery(c *gin.Context) {
+	userID, ok := h.requireUser(c)
+	if !ok {
+		return
+	}
+	if h.lotteryService == nil {
+		response.Success(c, gin.H{})
+		return
+	}
+	overview, err := h.lotteryService.GetWechatOAActiveOverview(c.Request.Context(), userID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, overview)
+}
+
 func (h *Handler[T]) ListMyDrawRecords(c *gin.Context) {
 	userID, ok := h.requireUser(c)
 	if !ok {
@@ -122,17 +142,19 @@ func (h *Handler[T]) DrawLottery(c *gin.Context) {
 		return
 	}
 	var req struct {
-		ActivityID int64 `json:"activity_id" binding:"required,gt=0"`
-		UseWallet  bool  `json:"use_wallet"`
+		ActivityID   int64  `json:"activity_id" binding:"required,gt=0"`
+		UseWallet    bool   `json:"use_wallet"`
+		WechatOpenID string `json:"wechat_openid"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
 	result, err := h.lotteryService.Draw(c.Request.Context(), LotteryDrawInput{
-		ActivityID: req.ActivityID,
-		UserID:     userID,
-		UseWallet:  req.UseWallet,
+		ActivityID:   req.ActivityID,
+		UserID:       userID,
+		UseWallet:    req.UseWallet,
+		WechatOpenID: strings.TrimSpace(req.WechatOpenID),
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

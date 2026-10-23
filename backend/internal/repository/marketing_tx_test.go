@@ -45,7 +45,7 @@ func TestMarketingDrawKeepsRepositoriesAndRewardsInsideHostTransaction(t *testin
 				now := time.Now().UTC()
 				wantErr := errors.New("draw record insert failed")
 				mock.ExpectBegin()
-				mock.ExpectQuery("SELECT .* FROM lottery_activities .* FOR UPDATE").WithArgs(int64(9)).WillReturnRows(sqlmock.NewRows([]string{"id", "name", "description", "status", "default_draw_times", "consume_threshold_amount", "wallet_cost_per_draw", "starts_at", "ends_at", "sort_order", "created_at", "updated_at"}).AddRow(9, "activity", "", service.LotteryActivityStatusActive, 0, 0, 2, nil, nil, 0, now, now)).RowsWillBeClosed()
+				mock.ExpectQuery("SELECT .* FROM lottery_activities .* FOR UPDATE").WithArgs(int64(9)).WillReturnRows(sqlmock.NewRows([]string{"id", "name", "description", "status", "default_draw_times", "consume_threshold_amount", "wallet_cost_per_draw", "wechat_oa_only", "starts_at", "ends_at", "sort_order", "created_at", "updated_at"}).AddRow(9, "activity", "", service.LotteryActivityStatusActive, 0, 0, 2, false, nil, nil, 0, now, now)).RowsWillBeClosed()
 				mock.ExpectExec("INSERT INTO lottery_user_states").WithArgs(int64(9), int64(42)).WillReturnResult(sqlmock.NewResult(0, 0))
 				mock.ExpectQuery("SELECT .* FROM lottery_user_states .* FOR UPDATE").WithArgs(int64(9), int64(42)).WillReturnRows(sqlmock.NewRows([]string{"activity_id", "user_id", "default_granted", "available_draw_times", "total_granted_times", "total_drawn_times", "total_wallet_paid_amount", "created_at", "updated_at"}).AddRow(9, 42, true, 0, 0, 0, 0, now, now)).RowsWillBeClosed()
 				mock.ExpectQuery("SELECT .*balance.* FROM .users.").WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(20)).RowsWillBeClosed()

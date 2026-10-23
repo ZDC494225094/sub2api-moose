@@ -106,6 +106,7 @@ func (s *LotteryService[T]) CreateActivity(ctx context.Context, input *CreateLot
 		DefaultDrawTimes:       input.DefaultDrawTimes,
 		ConsumeThresholdAmount: input.ConsumeThresholdAmount,
 		WalletCostPerDraw:      input.WalletCostPerDraw,
+		WechatOAOnly:           input.WechatOAOnly,
 		StartsAt:               normalizeLotteryTime(input.StartsAt),
 		EndsAt:                 normalizeLotteryTime(input.EndsAt),
 		SortOrder:              input.SortOrder,
@@ -147,6 +148,9 @@ func (s *LotteryService[T]) UpdateActivity(ctx context.Context, id int64, input 
 	}
 	if input.WalletCostPerDraw != nil {
 		activity.WalletCostPerDraw = *input.WalletCostPerDraw
+	}
+	if input.WechatOAOnly != nil {
+		activity.WechatOAOnly = *input.WechatOAOnly
 	}
 	if input.StartsAt != nil {
 		activity.StartsAt = normalizeLotteryTime(input.StartsAt)
@@ -216,6 +220,49 @@ func (s *LotteryService[T]) GetActiveOverview(ctx context.Context, userID int64)
 		RecentWinners:   recent,
 		DrawEligibility: eligibility,
 	}, nil
+}
+
+// GetWechatOAActiveOverview returns the overview of the first open activity
+// that is restricted to WeChat Official Account. Used by the in-site H5
+// lottery page opened from the OA custom menu.
+func (s *LotteryService[T]) GetWechatOAActiveOverview(ctx context.Context, userID int64) (*LotteryOverview, error) {
+	activities, _, err := s.ListActivities(ctx, pagination.PaginationParams{Page: 1, PageSize: 20}, LotteryActivityListFilter{Status: LotteryActivityStatusActive})
+	if err != nil {
+		return nil, err
+	}
+	now := s.clock.Now()
+	for i := range activities {
+		activity := &activities[i]
+		if !activity.WechatOAOnly {
+			continue
+		}
+		if err := ensureLotteryActivityOpen(activity, now); err != nil {
+			continue
+		}
+		state, err := s.userStateRepo.Get(ctx, activity.ID, userID)
+		if err != nil {
+			return nil, err
+		}
+		// GET is read-only: new users get a zero state, not an INSERT or grant.
+		if state == nil {
+			state = &LotteryUserState{ActivityID: activity.ID, UserID: userID}
+		}
+		eligibility, err := s.buildDrawEligibility(ctx, activity, state, userID)
+		if err != nil {
+			return nil, err
+		}
+		recent, err := s.drawRecordRepo.ListRecentByActivity(ctx, activity.ID, 20)
+		if err != nil {
+			return nil, err
+		}
+		return &LotteryOverview{
+			Activity:        activity,
+			UserState:       state,
+			RecentWinners:   recent,
+			DrawEligibility: eligibility,
+		}, nil
+	}
+	return &LotteryOverview{}, nil
 }
 
 func (s *LotteryService[T]) CreatePrize(ctx context.Context, input *CreateLotteryPrizeInput) (*LotteryPrize, error) {
@@ -327,6 +374,10 @@ func (s *LotteryService[T]) drawInTransaction(txCtx context.Context, input Lotte
 	}
 	if activity == nil {
 		return nil, ErrLotteryActivityNotFound
+	}
+	// 公众号专属活动：必须携带经网页授权拿到的 openid，否则拒绝抽奖。
+	if activity.WechatOAOnly && strings.TrimSpace(input.WechatOpenID) == "" {
+		return nil, infraerrors.BadRequest("LOTTERY_WECHAT_OA_REQUIRED", "this lottery activity is only available via WeChat Official Account")
 	}
 	now := s.clock.Now()
 	state, err := s.userStateRepo.GetOrCreateForUpdate(txCtx, activity.ID, input.UserID)

@@ -28,6 +28,10 @@ func registerCustomUserRoutes(authenticated *gin.RouterGroup, h *handler.Handler
 	canvas.GET("/runs/:id/videos/:index", h.Extensions.Playground.GetRunVideo)
 	canvas.GET("/runs/:id/audio/:index", h.Extensions.Playground.GetRunAudio)
 	canvas.DELETE("/runs/:id", h.Extensions.Playground.CancelRun)
+	if h != nil && h.Extensions != nil && h.Extensions.Wechat != nil {
+		wechat := authenticated.Group("/wechat")
+		h.Extensions.Wechat.RegisterUserRoutes(wechat)
+	}
 }
 
 func registerCustomOperationsRoutes(admin *gin.RouterGroup, h *handler.Handlers, extensions *customize.Manager) {
@@ -69,6 +73,9 @@ func registerCustomPaymentUserRoutes(group *gin.RouterGroup, h *handler.Extensio
 	group.GET("/campaigns", extensions.Require(customize.RechargeCampaigns), h.RechargeCampaigns.ListPublic)
 }
 func registerCustomPaymentPublicRoutes(group *gin.RouterGroup, h *handler.ExtensionHandlers, extensions *customize.Manager, rateLimit gin.HandlerFunc) {
+	if h != nil && h.Wechat != nil {
+		h.Wechat.RegisterPublicRoutes(group)
+	}
 	if h == nil || h.RechargeCampaigns == nil {
 		return
 	}
