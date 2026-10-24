@@ -9,6 +9,9 @@ import (
 // These helpers inherit their caller's authentication, rate-limit and audit
 // middleware. Runtime switches are enforced by customize.Manager before entry.
 func registerCustomUserRoutes(authenticated *gin.RouterGroup, h *handler.Handlers, extensions *customize.Manager) {
+	if h != nil && h.Extensions != nil && h.Extensions.Wechat != nil {
+		h.Extensions.Wechat.RegisterUserRoutes(authenticated)
+	}
 	// Core-only hosts and upstream route tests do not have to construct plugins.
 	if h == nil || h.Extensions == nil || h.Extensions.Playground == nil {
 		return
@@ -28,10 +31,6 @@ func registerCustomUserRoutes(authenticated *gin.RouterGroup, h *handler.Handler
 	canvas.GET("/runs/:id/videos/:index", h.Extensions.Playground.GetRunVideo)
 	canvas.GET("/runs/:id/audio/:index", h.Extensions.Playground.GetRunAudio)
 	canvas.DELETE("/runs/:id", h.Extensions.Playground.CancelRun)
-	if h != nil && h.Extensions != nil && h.Extensions.Wechat != nil {
-		wechat := authenticated.Group("/wechat")
-		h.Extensions.Wechat.RegisterUserRoutes(wechat)
-	}
 }
 
 func registerCustomOperationsRoutes(admin *gin.RouterGroup, h *handler.Handlers, extensions *customize.Manager) {

@@ -186,16 +186,21 @@ func (s *LotteryService[T]) ListActivities(ctx context.Context, params paginatio
 }
 
 func (s *LotteryService[T]) GetActiveOverview(ctx context.Context, userID int64) (*LotteryOverview, error) {
-	activities, _, err := s.ListActivities(ctx, pagination.PaginationParams{Page: 1, PageSize: 20}, LotteryActivityListFilter{Status: LotteryActivityStatusActive})
+	wechatOnly := false
+	activities, _, err := s.ListActivities(ctx, pagination.PaginationParams{Page: 1, PageSize: 20}, LotteryActivityListFilter{Status: LotteryActivityStatusActive, WechatOAOnly: &wechatOnly})
 	if err != nil {
 		return nil, err
 	}
-	if len(activities) == 0 {
-		return &LotteryOverview{}, nil
-	}
-	activity := &activities[0]
+	var activity *LotteryActivity
 	now := s.clock.Now()
-	if err := ensureLotteryActivityOpen(activity, now); err != nil {
+	for i := range activities {
+		if activities[i].WechatOAOnly || ensureLotteryActivityOpen(&activities[i], now) != nil {
+			continue
+		}
+		activity = &activities[i]
+		break
+	}
+	if activity == nil {
 		return &LotteryOverview{}, nil
 	}
 	state, err := s.userStateRepo.Get(ctx, activity.ID, userID)
@@ -226,7 +231,8 @@ func (s *LotteryService[T]) GetActiveOverview(ctx context.Context, userID int64)
 // that is restricted to WeChat Official Account. Used by the in-site H5
 // lottery page opened from the OA custom menu.
 func (s *LotteryService[T]) GetWechatOAActiveOverview(ctx context.Context, userID int64) (*LotteryOverview, error) {
-	activities, _, err := s.ListActivities(ctx, pagination.PaginationParams{Page: 1, PageSize: 20}, LotteryActivityListFilter{Status: LotteryActivityStatusActive})
+	wechatOnly := true
+	activities, _, err := s.ListActivities(ctx, pagination.PaginationParams{Page: 1, PageSize: 20}, LotteryActivityListFilter{Status: LotteryActivityStatusActive, WechatOAOnly: &wechatOnly})
 	if err != nil {
 		return nil, err
 	}

@@ -2,6 +2,7 @@ package routes
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/customize"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/marketing"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/rechargecampaigns"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/wechat"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
 	adminhandler "github.com/Wei-Shaw/sub2api/internal/handler/admin"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -18,6 +20,52 @@ import (
 )
 
 type extensionStoreStub struct{ reads int }
+
+func TestWechatUserRoutesUseSinglePrefixWithoutPlayground(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, withPlayground := range []bool{false, true} {
+		t.Run(fmt.Sprintf("playground=%t", withPlayground), func(t *testing.T) {
+			r := gin.New()
+			h := &handler.Handlers{Extensions: &handler.ExtensionHandlers{
+				Wechat: wechat.NewHandler(nil, nil, nil, func(*gin.Context) (int64, bool) { return 42, true }),
+			}}
+			if withPlayground {
+				h.Extensions.Playground = &handler.PlaygroundHandler{}
+			}
+			group := r.Group("/api/v1", func(c *gin.Context) {
+				if c.GetHeader("X-Test-Auth") != "yes" {
+					c.AbortWithStatus(http.StatusUnauthorized)
+					return
+				}
+				c.Next()
+			})
+			registerCustomUserRoutes(group, h, nil)
+			for _, tc := range []struct {
+				method, path string
+				status       int
+			}{
+				{"GET", "/api/v1/wechat/binding", http.StatusOK},
+				{"POST", "/api/v1/wechat/bind", http.StatusInternalServerError},
+				{"POST", "/api/v1/wechat/lottery-notify", http.StatusInternalServerError},
+			} {
+				for _, authenticated := range []bool{false, true} {
+					req := httptest.NewRequest(tc.method, tc.path, nil)
+					want := http.StatusUnauthorized
+					if authenticated {
+						req.Header.Set("X-Test-Auth", "yes")
+						want = tc.status
+					}
+					w := httptest.NewRecorder()
+					r.ServeHTTP(w, req)
+					require.Equal(t, want, w.Code, tc.method+" "+tc.path)
+				}
+			}
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/wechat/wechat/binding", nil))
+			require.Equal(t, http.StatusNotFound, w.Code)
+		})
+	}
+}
 
 func (s *extensionStoreStub) GetMultiple(_ context.Context, keys []string) (map[string]string, error) {
 	s.reads++

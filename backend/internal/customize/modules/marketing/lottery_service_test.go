@@ -323,6 +323,59 @@ func (r overviewActivities) List(context.Context, pagination.PaginationParams, L
 
 type overviewPrizes struct{ LotteryPrizeRepository }
 
+type channelOverviewActivities struct {
+	LotteryActivityRepository
+	items  []LotteryActivity
+	filter LotteryActivityListFilter
+}
+
+func (r *channelOverviewActivities) List(_ context.Context, _ pagination.PaginationParams, filter LotteryActivityListFilter) ([]LotteryActivity, *pagination.PaginationResult, error) {
+	r.filter = filter
+	return r.items, nil, nil
+}
+
+func TestLotteryOverviewSeparatesWechatOnlyActivities(t *testing.T) {
+	regular := LotteryActivity{ID: 9, Status: LotteryActivityStatusActive}
+	wechat := LotteryActivity{ID: 10, Status: LotteryActivityStatusActive, WechatOAOnly: true}
+	for _, tc := range []struct {
+		name      string
+		items     []LotteryActivity
+		regularID int64
+		wechatID  int64
+	}{
+		{"wechat_first", []LotteryActivity{wechat, regular}, 9, 10},
+		{"regular_first", []LotteryActivity{regular, wechat}, 9, 10},
+		{"wechat_only", []LotteryActivity{wechat}, 0, 10},
+		{"regular_only", []LotteryActivity{regular}, 9, 0},
+		{"empty", nil, 0, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &channelOverviewActivities{items: tc.items}
+			svc := NewLotteryService[int](nil, repo, overviewPrizes{}, overviewStates{}, nil, overviewRecords{}, overviewProgress{}, nil, nil, nil)
+			for _, wechatOnly := range []bool{false, true} {
+				var result *LotteryOverview
+				var err error
+				want := tc.regularID
+				if wechatOnly {
+					result, err = svc.GetWechatOAActiveOverview(context.Background(), 42)
+					want = tc.wechatID
+				} else {
+					result, err = svc.GetActiveOverview(context.Background(), 42)
+				}
+				require.NoError(t, err)
+				require.NotNil(t, repo.filter.WechatOAOnly)
+				require.Equal(t, wechatOnly, *repo.filter.WechatOAOnly)
+				if want == 0 {
+					require.Nil(t, result.Activity)
+				} else {
+					require.NotNil(t, result.Activity)
+					require.Equal(t, want, result.Activity.ID)
+				}
+			}
+		})
+	}
+}
+
 func (overviewPrizes) ListByActivity(context.Context, int64) ([]LotteryPrize, error) { return nil, nil }
 
 type overviewStates struct {

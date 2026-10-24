@@ -136,6 +136,10 @@ func (r *lotteryActivityRepository) List(ctx context.Context, params pagination.
 		args = append(args, filter.Status)
 		where = append(where, fmt.Sprintf("status = $%d", len(args)))
 	}
+	if filter.WechatOAOnly != nil {
+		args = append(args, *filter.WechatOAOnly)
+		where = append(where, fmt.Sprintf("wechat_oa_only = $%d", len(args)))
+	}
 	if filter.Search != "" {
 		args = append(args, "%"+strings.TrimSpace(filter.Search)+"%")
 		where = append(where, fmt.Sprintf("(name ILIKE $%d OR description ILIKE $%d)", len(args), len(args)))

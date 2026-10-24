@@ -148,8 +148,9 @@ type UpdateLotteryActivityInput struct {
 }
 
 type LotteryActivityListFilter struct {
-	Status string
-	Search string
+	Status       string
+	Search       string
+	WechatOAOnly *bool
 }
 
 type CreateLotteryPrizeInput struct {
