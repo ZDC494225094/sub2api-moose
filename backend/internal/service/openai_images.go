@@ -529,7 +529,7 @@ func isGeminiCompatibleImageModel(model string) bool {
 
 func isCustomCompatibleImageModel(model string) bool {
 	lower := strings.ToLower(strings.TrimSpace(model))
-	return isGiteeImageGenerationModel(model) || strings.Contains(lower, "nano-banana") || strings.Contains(lower, "nanobanana")
+	return isGiteeImageGenerationModel(model) || strings.HasPrefix(lower, "seedream-") || strings.Contains(lower, "nano-banana") || strings.Contains(lower, "nanobanana")
 }
 
 func validateCompatibleImagesModel(model string) error {

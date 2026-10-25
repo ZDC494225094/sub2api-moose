@@ -14,6 +14,7 @@ export type CanvasImageResolution = "1k" | "2k" | "4k";
 export type ChannelModel = {
     name: string;
     capability: ModelCapability;
+    capabilityOverride?: ModelCapability;
     script?: string;
     providerPlatform?: string;
 };
@@ -361,7 +362,16 @@ export function applyManagedCanvasConfig(groups: ManagedCanvasGroup[]) {
         }),
     );
     useConfigStore.setState((state) => {
-        const channels = [...managedChannels, ...state.config.channels.filter((channel) => !isManagedCanvasChannel(channel))];
+        const channels = [...managedChannels.map((channel) => {
+            const previous = state.config.channels.find((item) => item.id === channel.id);
+            return {
+                ...channel,
+                models: channel.models.map((model) => {
+                    const capabilityOverride = previous?.models.find((item) => item.name === model.name)?.capabilityOverride;
+                    return capabilityOverride ? { ...model, capability: capabilityOverride, capabilityOverride } : model;
+                }),
+            };
+        }), ...state.config.channels.filter((channel) => !isManagedCanvasChannel(channel))];
         const models = modelOptionsFromChannels(channels);
         const pick = (current: string, capability: ModelCapability) => {
             const normalized = normalizeModelOptionValue(current, channels);
@@ -393,9 +403,10 @@ export function normalizeChannelModels(models: Array<string | ChannelModel> | un
         if (!name || seen.has(name)) continue;
         seen.add(name);
         const capability = typeof item === "string" ? guessCapability(name) : item.capability || guessCapability(name);
+        const capabilityOverride = typeof item === "string" ? undefined : item.capabilityOverride;
         const script = typeof item === "string" ? undefined : item.script?.trim() || undefined;
         const providerPlatform = typeof item === "string" ? undefined : item.providerPlatform?.trim() || undefined;
-        result.push({ name, capability, script, providerPlatform });
+        result.push({ name, capability, capabilityOverride, script, providerPlatform });
     }
     return result;
 }

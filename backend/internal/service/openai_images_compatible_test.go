@@ -21,7 +21,7 @@ import (
 
 func TestCompatibleImagesGeminiModels(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	for _, model := range []string{"gemini-2.5-flash-image", "gemini-2.5-flash-image-preview", "gemini-3-pro-image", "gemini-3.1-flash-image", "nano-banana-pro", "z-image-turbo"} {
+	for _, model := range []string{"gemini-2.5-flash-image", "gemini-2.5-flash-image-preview", "gemini-3-pro-image", "gemini-3.1-flash-image", "nano-banana-pro", "z-image-turbo", "seedream-v5-pro-nsfw", "seedream-4-5", " SEEDREAM-V5-PRO-NSFW "} {
 		t.Run(model, func(t *testing.T) {
 			body := []byte(fmt.Sprintf(`{"model":%q,"prompt":"draw"}`, model))
 			c, _ := gin.CreateTestContext(httptest.NewRecorder())
@@ -48,9 +48,13 @@ func TestCompatibleImagesGeminiModels(t *testing.T) {
 
 func TestCompatibleImagesForwardGemini(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	for _, kind := range []string{"generation", "json_edit", "multipart_edit", "composite_multipart_alias", "channel_mapping", "account_mapping"} {
+	for _, kind := range []string{"generation", "json_edit", "multipart_edit", "composite_multipart_alias", "channel_mapping", "account_mapping", "seedream_generation", "seedream_json_edit", "seedream_multipart_edit", "seedream_channel_mapping", "seedream_account_mapping"} {
 		t.Run(kind, func(t *testing.T) {
 			model := "gemini-3.1-flash-image"
+			if strings.HasPrefix(kind, "seedream_") {
+				model = "seedream-v5-pro-nsfw"
+				kind = strings.TrimPrefix(kind, "seedream_")
+			}
 			endpoint := openAIImagesGenerationsEndpoint
 			contentType := "application/json"
 			channelModel := ""
@@ -129,23 +133,27 @@ func TestCompatibleImagesForwardGemini(t *testing.T) {
 }
 
 func TestCompatibleImagesNativeAccountsRejectGeminiBeforeForwarding(t *testing.T) {
-	for _, typ := range []string{AccountTypeOAuth, AccountTypeSetupToken} {
-		for _, mapping := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s/mapping=%t", typ, mapping), func(t *testing.T) {
-				model := "gemini-3-pro-image"
-				account := &Account{Platform: PlatformOpenAI, Type: typ, Credentials: map[string]any{"access_token": "unused"}}
-				if mapping {
-					account.Credentials["model_mapping"] = map[string]any{"gpt-image-2": model}
-					model = "gpt-image-2"
+	for _, compatibleModel := range []string{"gemini-3-pro-image", "seedream-v5-pro-nsfw"} {
+		t.Run(compatibleModel, func(t *testing.T) {
+			for _, typ := range []string{AccountTypeOAuth, AccountTypeSetupToken} {
+				for _, mapping := range []bool{false, true} {
+					t.Run(fmt.Sprintf("%s/mapping=%t", typ, mapping), func(t *testing.T) {
+						model := compatibleModel
+						account := &Account{Platform: PlatformOpenAI, Type: typ, Credentials: map[string]any{"access_token": "unused"}}
+						if mapping {
+							account.Credentials["model_mapping"] = map[string]any{"gpt-image-2": model}
+							model = "gpt-image-2"
+						}
+						c, _ := gin.CreateTestContext(httptest.NewRecorder())
+						c.Request = httptest.NewRequest(http.MethodPost, openAIImagesGenerationsEndpoint, nil)
+						upstream := &httpUpstreamRecorder{}
+						svc := &OpenAIGatewayService{httpUpstream: upstream}
+						_, err := svc.ForwardImages(context.Background(), c, account, nil, &OpenAIImagesRequest{Model: model}, "")
+						require.ErrorContains(t, err, "images endpoint requires an image model")
+						require.Empty(t, upstream.requests)
+					})
 				}
-				c, _ := gin.CreateTestContext(httptest.NewRecorder())
-				c.Request = httptest.NewRequest(http.MethodPost, openAIImagesGenerationsEndpoint, nil)
-				upstream := &httpUpstreamRecorder{}
-				svc := &OpenAIGatewayService{httpUpstream: upstream}
-				_, err := svc.ForwardImages(context.Background(), c, account, nil, &OpenAIImagesRequest{Model: model}, "")
-				require.ErrorContains(t, err, "images endpoint requires an image model")
-				require.Empty(t, upstream.requests)
-			})
-		}
+			}
+		})
 	}
 }

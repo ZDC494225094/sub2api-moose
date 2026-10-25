@@ -217,7 +217,12 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                                                             <div key={channel.id} className="min-w-0">
                                                                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm">
                                                                     <span className="font-medium">{channel.managedGroup?.name || channel.name || t("config.channels.unnamed")}</span>
-                                                                    <span className="text-xs text-stone-500">倍率 {formatRateMultiplier(channel.managedGroup?.rateMultiplier)}</span>
+                                                                    <div className="flex shrink-0 items-center gap-3">
+                                                                        <span className="text-xs text-stone-500">倍率 {formatRateMultiplier(channel.managedGroup?.rateMultiplier)}</span>
+                                                                        <Button size="small" icon={<Pencil className="size-3.5" />} onClick={() => setEditingChannelId(channel.id)}>
+                                                                            {t("common.edit")}
+                                                                        </Button>
+                                                                    </div>
                                                                 </div>
                                                                 <div className="mt-1 break-words text-xs leading-5 text-stone-500">可用模型：{channel.models.length ? channel.models.map((model) => model.name).join("、") : "暂无"}</div>
                                                             </div>
