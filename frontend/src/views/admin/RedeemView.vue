@@ -294,7 +294,7 @@
             >
               {{ t('admin.redeem.marketingHint') }}
             </div>
-            <ExtensionSlot v-if="generateForm.type === 'marketing'" name="redeem-marketing-options" :bindings="{ options: marketingGeneration.options }" />
+            <ExtensionSlot v-if="generateForm.type === 'marketing'" name="redeem-marketing-options" :bindings="{ options: marketingGeneration.options, 'onUpdate:newUsersOnly': (value: boolean) => marketingGeneration.options.newUsersOnly = value }" />
             <!-- 余额/并发/营销类型：显示数值输入 -->
             <div v-if="generateForm.type !== 'subscription' && generateForm.type !== 'invitation'">
               <label class="input-label">

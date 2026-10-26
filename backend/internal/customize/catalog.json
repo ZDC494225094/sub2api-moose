@@ -108,6 +108,7 @@
     "disable_behavior": "停止新增抽奖、发券、券报价/预留及管理写入；保留历史页面、券核销/释放、已支付履约重试及宿主支持的退款。已准入的事务继续完成或回滚，不删除历史权益。",
     "paths": [
       "/lottery",
+      "/wx-lottery",
       "/admin/orders/coupons",
       "/admin/orders/lottery"
     ],

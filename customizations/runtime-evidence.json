@@ -1,24 +1,48 @@
 {
   "version": 1,
-  "baseline": "01842576b3d5c1e2545b5a99ad555d36e28ed306",
+  "baseline": "ac1b8f1271be0d674fa6f074403c1410f30a3a81",
   "note": "Static marker and frozen-baseline provenance checks complement executed behavioral tests; they are not a call-graph proof or production acceptance. Each catalog gate must have an evidence row.",
   "entries": [
     {
       "module": "redeem-marketing",
       "checkpoint": "marketing-batch-generate",
-      "read": { "file": "backend/internal/customize/modules/redeemmarketing/module.go", "marker": "func RequireEnabled(" },
-      "call": { "file": "backend/internal/service/redeem_marketing_extension.go", "marker": "redeemmarketing.RequireEnabled(txCtx, tx.Client())" },
-      "test": { "file": "backend/internal/service/redeem_marketing_extension_test.go", "marker": "TestMarketingBatchAtomicPolicyAndCodes" },
-      "feature": { "file": "backend/internal/service/redeem_marketing_extension.go", "marker": "func (s *RedeemService) GenerateMarketingBatch(" },
+      "read": {
+        "file": "backend/internal/customize/modules/redeemmarketing/module.go",
+        "marker": "func RequireEnabled("
+      },
+      "call": {
+        "file": "backend/internal/service/redeem_marketing_extension.go",
+        "marker": "redeemmarketing.RequireEnabled(txCtx, tx.Client())"
+      },
+      "test": {
+        "file": "backend/internal/service/redeem_marketing_extension_test.go",
+        "marker": "TestMarketingBatchAtomicPolicyAndCodes"
+      },
+      "feature": {
+        "file": "backend/internal/service/redeem_marketing_extension.go",
+        "marker": "func (s *RedeemService) GenerateMarketingBatch("
+      },
       "scope": "New restricted batches require admission; policy and codes commit atomically. Existing eligibility is always enforced, even when disabled."
     },
     {
       "module": "redeem-marketing",
       "checkpoint": "marketing-batch-report",
-      "read": { "file": "backend/internal/customize/modules/redeemmarketing/module.go", "marker": "func RequireEnabled(" },
-      "call": { "file": "backend/internal/customize/modules/redeemmarketing/module.go", "marker": "if err := RequireEnabled(ctx, db); err != nil" },
-      "test": { "file": "backend/internal/customize/modules/redeemmarketing/module_test.go", "marker": "TestAdmissionAndReportScan" },
-      "feature": { "file": "backend/internal/customize/modules/redeemmarketing/module.go", "marker": "func ListBatches(" },
+      "read": {
+        "file": "backend/internal/customize/modules/redeemmarketing/module.go",
+        "marker": "func RequireEnabled("
+      },
+      "call": {
+        "file": "backend/internal/customize/modules/redeemmarketing/module.go",
+        "marker": "if err := RequireEnabled(ctx, db); err != nil"
+      },
+      "test": {
+        "file": "backend/internal/customize/modules/redeemmarketing/module_test.go",
+        "marker": "TestAdmissionAndReportScan"
+      },
+      "feature": {
+        "file": "backend/internal/customize/modules/redeemmarketing/module.go",
+        "marker": "func ListBatches("
+      },
       "scope": "Admin-only batch reports require admission. Currency-specific actual payments exclude pre-redemption orders and refunds; cohorts are not additive."
     },
     {
@@ -440,6 +464,69 @@
         "marker": "registration_proof_enabled"
       },
       "scope": "只限制二开安全配置修改；原生域名额度设置可修改，历史规则继续执行。"
+    },
+    {
+      "module": "bot-notify",
+      "checkpoint": "/api/v1/admin/bot-notify/*",
+      "read": {
+        "file": "backend/internal/customize/http.go",
+        "marker": "m.Enabled(c.Request.Context(), id)"
+      },
+      "call": {
+        "file": "backend/internal/customize/modules/botnotify/http.go",
+        "marker": "group.Group(\"/bot-notify\", manager.Require(ID))"
+      },
+      "test": {
+        "file": "backend/internal/customize/modules/botnotify/http_test.go",
+        "marker": "TestRoutesGateDisabledModuleAndMaskConfig"
+      },
+      "feature": {
+        "file": "backend/internal/customize/modules/botnotify/http.go",
+        "marker": "func (h *Handler) listBots("
+      },
+      "scope": "Admin entry points require the module flag; the executed gate regression also verifies token masking. Runtime stop/scheduling behavior is covered by separate module tests, not inferred from this row."
+    },
+    {
+      "module": "user-guide",
+      "checkpoint": "/api/v1/admin/guide/*",
+      "read": {
+        "file": "backend/internal/customize/http.go",
+        "marker": "m.Enabled(c.Request.Context(), id)"
+      },
+      "call": {
+        "file": "backend/internal/customize/modules/userguide/http.go",
+        "marker": "group.Group(\"/guide\", manager.Require(ID))"
+      },
+      "test": {
+        "file": "backend/internal/server/routes/custom_extensions_test.go",
+        "marker": "TestUserGuideRoutesRequireEnabledModule"
+      },
+      "feature": {
+        "file": "backend/internal/customize/modules/userguide/http.go",
+        "marker": "func (h *Handler) RegisterAdmin("
+      },
+      "scope": "Actual registrar regression checks disabled/invalid flags before storage reads, enabled saved-content responses, and administrator authentication before the admin gate. Disabling keeps persisted manual content."
+    },
+    {
+      "module": "user-guide",
+      "checkpoint": "GET /api/v1/guide",
+      "read": {
+        "file": "backend/internal/customize/http.go",
+        "marker": "m.Enabled(c.Request.Context(), id)"
+      },
+      "call": {
+        "file": "backend/internal/server/routes/custom_extensions.go",
+        "marker": "extensions.Require(\"user-guide\")"
+      },
+      "test": {
+        "file": "backend/internal/server/routes/custom_extensions_test.go",
+        "marker": "TestUserGuideRoutesRequireEnabledModule"
+      },
+      "feature": {
+        "file": "backend/internal/customize/modules/userguide/http.go",
+        "marker": "func (h *Handler) Public("
+      },
+      "scope": "Actual registrar regression checks disabled/invalid flags before storage reads, enabled saved-content responses, and administrator authentication before the admin gate. Disabling keeps persisted manual content."
     }
   ]
 }

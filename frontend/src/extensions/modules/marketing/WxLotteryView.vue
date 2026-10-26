@@ -1,5 +1,6 @@
 <template>
   <AppLayout>
+    <MarketingReadOnlyNotice v-if="!admission" />
     <div class="mx-auto max-w-lg px-4 py-6">
       <!-- Step indicator -->
       <div class="mb-6 flex items-center justify-center gap-2 text-xs">
@@ -46,7 +47,7 @@
 
               <button
                 class="mt-5 w-full rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 py-4 text-lg font-extrabold text-white shadow-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="drawing || availableChances <= 0"
+                :disabled="!admission || drawing || availableChances <= 0"
                 @click="doDraw"
               >
                 {{ drawing ? t('common.processing') : t('wechatLottery.drawNow') }}
@@ -88,11 +89,14 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import { marketingAPI, wechatAPI } from './api'
 import { useAppStore } from '@/stores/app'
 import { availableLotteryChances } from '@/extensions/modules/marketing/lottery-state'
+import { useMarketingAdmission } from './admission'
+import MarketingReadOnlyNotice from './MarketingReadOnlyNotice.vue'
 import type { LotteryActivity, LotteryOverview, LotteryDrawResult } from '@/types/payment'
 
 const { t } = useI18n()
 const route = useRoute()
 const appStore = useAppStore()
+const admission = useMarketingAdmission()
 
 const booting = ref(true)
 const fatalError = ref('')
@@ -200,7 +204,7 @@ async function loadActivity() {
 }
 
 async function doDraw() {
-  if (!activity.value || drawing.value || availableChances.value <= 0) return
+  if (!admission.value || !activity.value || drawing.value || availableChances.value <= 0) return
   drawing.value = true
   resultTitle.value = ''
   notifySent.value = false

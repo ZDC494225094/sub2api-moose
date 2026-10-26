@@ -8,9 +8,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/Wei-Shaw/sub2api/internal/customize"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/marketing"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/rechargecampaigns"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/userguide"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/wechat"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
 	adminhandler "github.com/Wei-Shaw/sub2api/internal/handler/admin"
@@ -294,6 +296,65 @@ func TestPublicAnnouncementRouteRequiresPremiumHome(t *testing.T) {
 			w = httptest.NewRecorder()
 			r.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/announcements", nil))
 			require.Equal(t, 204, w.Code)
+		})
+	}
+}
+
+type guideFlagStore struct{ value string }
+
+func (s guideFlagStore) GetMultiple(context.Context, []string) (map[string]string, error) {
+	return map[string]string{customize.Key(userguide.ID): s.value}, nil
+}
+func (guideFlagStore) Set(context.Context, string, string) error { return nil }
+
+// Exercise the real public/admin registrars: disabled or corrupt switches must
+// reject before the manual is read, while enabled routes return saved content.
+func TestUserGuideRoutesRequireEnabledModule(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, value := range []string{"false", "true", "invalid"} {
+		t.Run(value, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = db.Close() })
+			guide := &userguide.Handler{Store: &userguide.Store{DB: db}}
+			manager := customize.NewManager(guideFlagStore{value})
+			r := gin.New()
+			v1 := r.Group("/api/v1")
+			registerCustomPublicGuideRoute(v1, &handler.Handlers{
+				Extensions: &handler.ExtensionHandlers{UserGuide: guide},
+			}, manager)
+			guide.RegisterAdmin(v1.Group("/admin", func(c *gin.Context) {
+				if c.GetHeader("X-Test-Admin") != "yes" {
+					c.AbortWithStatus(http.StatusUnauthorized)
+					return
+				}
+				c.Next()
+			}), manager)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/admin/guide/config", nil))
+			require.Equal(t, http.StatusUnauthorized, w.Code)
+			for _, path := range []string{"/api/v1/guide", "/api/v1/admin/guide/config"} {
+				code := http.StatusForbidden
+				if value == "invalid" {
+					code = http.StatusServiceUnavailable
+				} else if value == "true" {
+					code = http.StatusOK
+					mock.ExpectQuery("SELECT title, content_md, updated_at FROM user_guide_config").
+						WillReturnRows(sqlmock.NewRows([]string{"title", "content_md", "updated_at"}).AddRow("Saved guide", "# Saved content", nil))
+				}
+				req := httptest.NewRequest("GET", path, nil)
+				req.Header.Set("X-Test-Admin", "yes")
+				w = httptest.NewRecorder()
+				r.ServeHTTP(w, req)
+				require.Equal(t, code, w.Code, path)
+				if value == "true" {
+					require.Contains(t, w.Body.String(), "# Saved content")
+				} else {
+					require.NotContains(t, w.Body.String(), "Saved content")
+					require.Equal(t, "no-store", w.Header().Get("Cache-Control"))
+				}
+			}
+			require.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
 }

@@ -1510,6 +1510,10 @@ func TestPaymentMarketingCompletedRepairNeverReissuesRights(t *testing.T) {
 				_, err := client.ExecContext(ctx, "CREATE TABLE marketing_order_probe(kind TEXT PRIMARY KEY, order_id INTEGER NOT NULL)")
 				require.NoError(t, err)
 				order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusCompleted, time.Now())
+				if entry == "balance" {
+					order, err = client.PaymentOrder.UpdateOneID(order.ID).SetOrderType(payment.OrderTypeBalance).Save(ctx)
+					require.NoError(t, err)
+				}
 				owner := order.ID
 				if conflict {
 					owner++

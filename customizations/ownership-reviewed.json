@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_at": "2026-10-14",
-  "baseline": "01842576b3d5c1e2545b5a99ad555d36e28ed306",
+  "reviewed_at": "2026-10-26",
+  "baseline": "ac1b8f1271be0d674fa6f074403c1410f30a3a81",
   "note": "Exact-path ownership review, including the original 70 unmatched paths and Stage32 Seedance host seam. Records responsibility and host compatibility boundaries, not complete semantic coverage of regex-classified files. The sensitive dump.rdb runtime snapshot was removed from preservation and ownership ledgers; all other original inventory entries remain unchanged.",
   "reviews": [
     {
@@ -575,6 +575,112 @@
       "kind": "compatibility",
       "evidence": "v0.2.16 merge keeps upstream Gemini model discovery and explicit cache routing; local-only Veo operation polling/content download is separated into a video helper using upstream Vertex authentication. Merge documentation records source target, conflicts and validation limits.",
       "next_step": "Preserve native upstream discovery/cache behavior and historical video ownership; validate the merged release before deployment."
+    },
+    {
+      "paths": [
+        "backend/internal/customize/modules/botnotify/ai.go",
+        "backend/internal/customize/modules/botnotify/ai_guard.go",
+        "backend/internal/customize/modules/botnotify/ai_guard_test.go",
+        "backend/internal/customize/modules/botnotify/http.go",
+        "backend/internal/customize/modules/botnotify/http_test.go",
+        "backend/internal/customize/modules/botnotify/markdown.go",
+        "backend/internal/customize/modules/botnotify/markdown_test.go",
+        "backend/internal/customize/modules/botnotify/push_schedule_test.go",
+        "backend/internal/customize/modules/botnotify/qq.go",
+        "backend/internal/customize/modules/botnotify/qq_test.go",
+        "backend/internal/customize/modules/botnotify/runtime.go",
+        "backend/internal/customize/modules/botnotify/store.go",
+        "backend/internal/customize/modules/botnotify/store_test.go",
+        "backend/internal/customize/modules/botnotify/telegram.go",
+        "backend/internal/customize/modules/botnotify/telegram_test.go",
+        "backend/internal/customize/modules/botnotify/template.go",
+        "backend/internal/customize/modules/botnotify/template_test.go",
+        "backend/internal/customize/modules/botnotify/types.go",
+        "frontend/src/extensions/modules/bot-notify/BotNotifyView.vue",
+        "frontend/src/extensions/modules/bot-notify/PlatformLogo.vue",
+        "frontend/src/extensions/modules/bot-notify/TemplateInput.spec.ts",
+        "frontend/src/extensions/modules/bot-notify/TemplateInput.vue",
+        "frontend/src/extensions/modules/bot-notify/api.ts"
+      ],
+      "owners": [
+        "extension-host",
+        "customer-support"
+      ],
+      "kind": "compatibility",
+      "evidence": "Module-owned Telegram/QQ notification scheduling, templates, AI support and admin configuration; existing host wiring and admission switch retained.",
+      "next_step": "Keep runtime stop/drain behavior, encrypted secrets, administrator guards and internal AI service ports; no HTTP loopback or simulated credentials."
+    },
+    {
+      "paths": [
+        "backend/internal/customize/modules/wechat/binding.go",
+        "backend/internal/customize/modules/wechat/handler.go",
+        "backend/internal/customize/modules/wechat/routes.go",
+        "backend/internal/customize/modules/wechat/wechat.go"
+      ],
+      "owners": [
+        "marketing-tools"
+      ],
+      "kind": "compatibility",
+      "evidence": "WeChat binding and official-account lottery entry points retain host identity and channel-exclusive eligibility.",
+      "next_step": "Keep official-account-only activities out of general lottery listings before pagination and retain historical binding/notification data."
+    },
+    {
+      "paths": [
+        "frontend/public/guide-images/card.jpg",
+        "frontend/public/guide-images/ccscodex.jpg",
+        "frontend/public/guide-images/ccscodexedit.jpg",
+        "frontend/public/guide-images/ccsdesktop.jpg",
+        "frontend/public/guide-images/ccsdesktopedit.jpg",
+        "frontend/public/guide-images/keys.jpg",
+        "frontend/public/guide-images/keyscreate.jpg",
+        "frontend/public/guide-images/pay.jpg",
+        "frontend/public/guide-images/plaza.jpg"
+      ],
+      "owners": [
+        "site-customization"
+      ],
+      "kind": "compatibility",
+      "evidence": "Static illustrations referenced by the module-owned editable user guide; preserved exactly during the upstream merge.",
+      "next_step": "Retain image URLs with saved and default guide content; gate admission without deleting persisted guide data."
+    },
+    {
+      "paths": [
+        "backend/internal/service/canvas_run_diagnostics.go",
+        "backend/internal/service/canvas_run_diagnostics_test.go",
+        "frontend/src/views/admin/CanvasRunsView.vue"
+      ],
+      "owners": [
+        "infinite-canvas"
+      ],
+      "kind": "compatibility",
+      "evidence": "Read-only canvas execution diagnostics, redacted request/response history and admin run inspection; upstream does not supply these paths.",
+      "next_step": "Preserve task ownership and redaction; do not claim provider success from stored diagnostics."
+    },
+    {
+      "paths": [
+        "backend/internal/handler/admin/backup_handler.go",
+        "backend/internal/service/image_task.go",
+        "backend/internal/service/object_storage_assets.go",
+        "frontend/src/views/admin/StorageAssetsView.vue"
+      ],
+      "owners": [
+        "shared-infrastructure",
+        "playground"
+      ],
+      "kind": "compatibility",
+      "evidence": "Object-storage asset browsing and uploader user attribution reuse host admin guards and async task owner context, separate from upstream public-only image download security.",
+      "next_step": "Preserve ownership metadata and historical asset paths; never bypass upstream SSRF or content-type checks."
+    },
+    {
+      "paths": [
+        "docs/upstream-v0.2.18-merge.md"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "compatibility",
+      "evidence": "v0.2.18 source merge scope, six conflict decisions, native image gate/payment boundaries, rollback and actual local validation results.",
+      "next_step": "Keep runtime limitations explicit; this record does not certify production migrations, real model generation or payments."
     }
   ]
 }

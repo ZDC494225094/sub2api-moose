@@ -12,7 +12,7 @@ export const extensionPaths = {
   'customer-support': [],
   // Footer links only; native announcements and custom menus are never gated.
   'site-customization': [],
-  'marketing-tools': ['/lottery', '/admin/orders/coupons', '/admin/orders/lottery'],
+  'marketing-tools': ['/lottery', '/wx-lottery', '/admin/orders/coupons', '/admin/orders/lottery'],
   // Key routing ownership is per key; the switch only gates new configuration.
   'multi-group-billing': [],
   'billing-scheduling': [],
