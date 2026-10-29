@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -87,6 +89,19 @@ func (t *Telegram) ValidateToken(ctx context.Context, token string) (Bot, error)
 }
 
 func (t *Telegram) SendMessage(ctx context.Context, token, chat, text string) error {
+	return t.send(ctx, token, chat, text, 0)
+}
+
+// Reply quotes the inbound message in group chats so busy groups can see
+// whom the answer is for; private chats get a plain message.
+func (t *Telegram) Reply(ctx context.Context, token string, to Message, text string) error {
+	if to.ChatType == "private" {
+		return t.send(ctx, token, to.ChatID, text, 0)
+	}
+	return t.send(ctx, token, to.ChatID, text, to.MessageID)
+}
+
+func (t *Telegram) send(ctx context.Context, token, chat, text string, replyTo int64) error {
 	// Telegram limits messages to 4096 characters. Smaller rune chunks also
 	// remain below the UTF-16 limit for emoji-heavy channel summaries.
 	runes := []rune(text)
@@ -95,13 +110,45 @@ func (t *Telegram) SendMessage(ctx context.Context, token, chat, text string) er
 		if n > 2000 {
 			n = 2000
 		}
+		payload := map[string]any{"chat_id": chat, "text": string(runes[:n])}
+		if replyTo > 0 {
+			// Only the first chunk quotes; a deleted original never blocks it.
+			payload["reply_parameters"] = map[string]any{"message_id": replyTo, "allow_sending_without_reply": true}
+			replyTo = 0
+		}
 		var result json.RawMessage
-		if err := t.call(ctx, token, "sendMessage", map[string]any{"chat_id": chat, "text": string(runes[:n])}, &result); err != nil {
+		if err := t.call(ctx, token, "sendMessage", payload, &result); err != nil {
 			return err
 		}
 		runes = runes[n:]
 	}
 	return nil
+}
+
+// FetchImage resolves a file_id with getFile and downloads it. The download
+// URL embeds the bot token, so its errors are reduced to fixed strings.
+func (t *Telegram) FetchImage(ctx context.Context, token string, ref ImageRef) (Image, error) {
+	if ref.Size > MaxImageBytes {
+		return Image{}, ErrImageTooLarge
+	}
+	var file struct {
+		FilePath string `json:"file_path"`
+		FileSize int64  `json:"file_size"`
+	}
+	if err := t.call(ctx, token, "getFile", map[string]any{"file_id": ref.ID}, &file); err != nil {
+		return Image{}, err
+	}
+	if file.FileSize > MaxImageBytes {
+		return Image{}, ErrImageTooLarge
+	}
+	if file.FilePath == "" || strings.Contains(file.FilePath, "..") {
+		return Image{}, errors.New("telegram getFile returned no usable path")
+	}
+	segments := strings.Split(file.FilePath, "/")
+	for i, s := range segments {
+		segments[i] = url.PathEscape(s)
+	}
+	return downloadImage(ctx, t.Client, t.BaseURL+"/file/bot"+token+"/"+strings.Join(segments, "/"))
 }
 
 type telegramUser struct {
@@ -122,7 +169,53 @@ type telegramMessage struct {
 	Entities        []telegramEntity `json:"entities"`
 	CaptionEntities []telegramEntity `json:"caption_entities"`
 	Reply           *telegramMessage `json:"reply_to_message"`
+	Photo           []struct {
+		FileID   string `json:"file_id"`
+		FileSize int64  `json:"file_size"`
+	} `json:"photo"`
+	Document *struct {
+		FileID   string `json:"file_id"`
+		MimeType string `json:"mime_type"`
+		FileSize int64  `json:"file_size"`
+	} `json:"document"`
+	Voice     json.RawMessage `json:"voice"`
+	Audio     json.RawMessage `json:"audio"`
+	Video     json.RawMessage `json:"video"`
+	VideoNote json.RawMessage `json:"video_note"`
+	Animation json.RawMessage `json:"animation"`
+	Sticker   json.RawMessage `json:"sticker"`
 }
+
+// media maps a message's attachment to an image reference (the largest
+// photo size within the download limit, or an image document) or names the
+// unreadable attachment kind.
+func (raw *telegramMessage) media() ([]ImageRef, string) {
+	if len(raw.Photo) > 0 {
+		best := raw.Photo[0]
+		for _, p := range raw.Photo[1:] {
+			if p.FileSize <= MaxImageBytes && p.FileSize >= best.FileSize {
+				best = p
+			}
+		}
+		return []ImageRef{{ID: best.FileID, MIME: "image/jpeg", Size: best.FileSize}}, ""
+	}
+	switch {
+	case len(raw.Animation) > 0:
+		return nil, "video"
+	case raw.Document != nil && strings.HasPrefix(raw.Document.MimeType, "image/"):
+		return []ImageRef{{ID: raw.Document.FileID, MIME: raw.Document.MimeType, Size: raw.Document.FileSize}}, ""
+	case len(raw.Voice) > 0 || len(raw.Audio) > 0:
+		return nil, "voice"
+	case len(raw.Video) > 0 || len(raw.VideoNote) > 0:
+		return nil, "video"
+	case len(raw.Sticker) > 0:
+		return nil, "sticker"
+	case raw.Document != nil:
+		return nil, "file"
+	}
+	return nil, ""
+}
+
 type telegramEntity struct {
 	Type   string `json:"type"`
 	Offset int    `json:"offset"`
@@ -180,6 +273,8 @@ func (t *Telegram) Poll(ctx context.Context, token string, offset int64) ([]Mess
 			if raw.Reply != nil {
 				m.ReplyToBotID = raw.Reply.From.ID
 			}
+			m.Images, m.Attachment = raw.media()
+			m.ReplyRef = strconv.FormatInt(raw.ID, 10)
 		}
 		result = append(result, m)
 	}

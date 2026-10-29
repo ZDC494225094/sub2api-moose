@@ -32,10 +32,21 @@ type QQ struct {
 	Client   *http.Client
 	APIBase  string
 	TokenURL string
+	// MediaClient downloads attachment images; it only reaches QQ media
+	// hosts and refuses private addresses (see newMediaClient).
+	MediaClient *http.Client
 
 	mu       sync.Mutex
 	tokens   map[string]qqCachedToken
 	sessions map[string]*qqSession
+	// replySeqs hands out msg_seq per inbound msg_id: QQ rejects a second
+	// passive reply that reuses the same msg_id + msg_seq pair.
+	replySeqs map[string]qqReplySeq
+}
+
+type qqReplySeq struct {
+	next int
+	at   time.Time
 }
 
 type qqCreds struct {
@@ -69,11 +80,13 @@ type qqCachedToken struct {
 
 func NewQQ() *QQ {
 	return &QQ{
-		Client:   &http.Client{Timeout: 40 * time.Second},
-		APIBase:  "https://api.sgroup.qq.com",
-		TokenURL: "https://bots.qq.com/app/getAppAccessToken",
-		tokens:   map[string]qqCachedToken{},
-		sessions: map[string]*qqSession{},
+		Client:      &http.Client{Timeout: 40 * time.Second},
+		APIBase:     "https://api.sgroup.qq.com",
+		TokenURL:    "https://bots.qq.com/app/getAppAccessToken",
+		MediaClient: newMediaClient(qqMediaHosts),
+		tokens:      map[string]qqCachedToken{},
+		sessions:    map[string]*qqSession{},
+		replySeqs:   map[string]qqReplySeq{},
 	}
 }
 
@@ -250,6 +263,17 @@ func (q *QQ) ValidateToken(ctx context.Context, token string) (Bot, error) {
 }
 
 func (q *QQ) SendMessage(ctx context.Context, token, target, text string) error {
+	return q.send(ctx, token, target, text, "")
+}
+
+// Reply sends a passive reply bound to the inbound message id. QQ only
+// delivers bot replies to users who just messaged it this way; messages
+// without msg_id count as proactive pushes, which QQ heavily restricts.
+func (q *QQ) Reply(ctx context.Context, token string, to Message, text string) error {
+	return q.send(ctx, token, to.ChatID, text, to.ReplyRef)
+}
+
+func (q *QQ) send(ctx context.Context, token, target, text, msgID string) error {
 	creds, err := parseQQCreds(token)
 	if err != nil {
 		return err
@@ -269,12 +293,57 @@ func (q *QQ) SendMessage(ctx context.Context, token, target, text string) error 
 		if n > 2000 {
 			n = 2000
 		}
-		if err := q.apiCall(ctx, creds, http.MethodPost, path, map[string]any{"content": string(runes[:n]), "msg_type": 0}, nil); err != nil {
+		body := map[string]any{"content": string(runes[:n]), "msg_type": 0}
+		if msgID != "" {
+			body["msg_id"] = msgID
+			body["msg_seq"] = q.nextReplySeq(msgID)
+		}
+		if err := q.apiCall(ctx, creds, http.MethodPost, path, body, nil); err != nil {
 			return err
 		}
 		runes = runes[n:]
 	}
 	return nil
+}
+
+func (q *QQ) nextReplySeq(msgID string) int {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if q.replySeqs == nil {
+		q.replySeqs = map[string]qqReplySeq{}
+	}
+	now := time.Now()
+	// QQ only accepts passive replies within minutes of the message, so
+	// older counters are useless and pruned to keep the map bounded.
+	if len(q.replySeqs) > 512 {
+		for id, s := range q.replySeqs {
+			if now.Sub(s.at) > time.Hour {
+				delete(q.replySeqs, id)
+			}
+		}
+	}
+	s := q.replySeqs[msgID]
+	s.next++
+	s.at = now
+	q.replySeqs[msgID] = s
+	return s.next
+}
+
+// FetchImage downloads an attachment from QQ's media CDN. The URL comes from
+// a gateway event and is accepted only for QQ media hosts.
+func (q *QQ) FetchImage(ctx context.Context, _ string, ref ImageRef) (Image, error) {
+	if ref.Size > MaxImageBytes {
+		return Image{}, ErrImageTooLarge
+	}
+	target, ok := qqMediaURL(ref.ID)
+	if !ok {
+		return Image{}, errors.New("qq attachment host not allowed")
+	}
+	client := q.MediaClient
+	if client == nil {
+		client = newMediaClient(qqMediaHosts)
+	}
+	return downloadImage(ctx, client, target)
 }
 
 // --- Receiving: one WebSocket gateway session per bot credential set. ---
@@ -440,6 +509,39 @@ func (q *QQ) runSession(creds qqCreds, s *qqSession) {
 	}
 }
 
+type qqAttachment struct {
+	ContentType string `json:"content_type"`
+	URL         string `json:"url"`
+	Size        int64  `json:"size"`
+}
+
+// qqMedia keeps image attachments (bounded, URL checked again on download)
+// and names the first unreadable attachment kind otherwise.
+func qqMedia(items []qqAttachment) ([]ImageRef, string) {
+	var images []ImageRef
+	other := ""
+	for _, a := range items {
+		kind := strings.ToLower(a.ContentType)
+		switch {
+		case strings.HasPrefix(kind, "image/"):
+			if len(images) < MaxImagesPerAnswer && a.URL != "" {
+				images = append(images, ImageRef{ID: a.URL, MIME: kind, Size: a.Size})
+			}
+		case other != "":
+		case strings.Contains(kind, "voice") || strings.Contains(kind, "audio"):
+			other = "voice"
+		case strings.Contains(kind, "video"):
+			other = "video"
+		default:
+			other = "file"
+		}
+	}
+	if len(images) > 0 {
+		return images, ""
+	}
+	return nil, other
+}
+
 func convertQQEvent(t string, raw json.RawMessage, s *qqSession) (Message, bool) {
 	switch t {
 	case "READY":
@@ -453,9 +555,10 @@ func convertQQEvent(t string, raw json.RawMessage, s *qqSession) (Message, bool)
 		}
 	case "GROUP_AT_MESSAGE_CREATE":
 		var ev struct {
-			ID          string `json:"id"`
-			GroupOpenID string `json:"group_openid"`
-			Content     string `json:"content"`
+			ID          string         `json:"id"`
+			GroupOpenID string         `json:"group_openid"`
+			Content     string         `json:"content"`
+			Attachments []qqAttachment `json:"attachments"`
 			Author      struct {
 				MemberOpenID string `json:"member_openid"`
 				Username     string `json:"username"`
@@ -465,13 +568,15 @@ func convertQQEvent(t string, raw json.RawMessage, s *qqSession) (Message, bool)
 			return Message{}, false
 		}
 		m := Message{
-			Platform:  "qq",
-			UpdateID:  hashStringID("qq-ev:" + ev.ID),
-			ChatID:    "group:" + ev.GroupOpenID,
-			ChatType:  "group",
-			SenderID:  ev.Author.MemberOpenID,
-			Text:      strings.TrimSpace(ev.Content),
+			Platform: "qq",
+			UpdateID: hashStringID("qq-ev:" + ev.ID),
+			ChatID:   "group:" + ev.GroupOpenID,
+			ChatType: "group",
+			SenderID: ev.Author.MemberOpenID,
+			Text:     strings.TrimSpace(ev.Content),
+			ReplyRef: ev.ID,
 		}
+		m.Images, m.Attachment = qqMedia(ev.Attachments)
 		m.MessageID = m.UpdateID
 		m.SenderName = ev.Author.Username
 		if m.SenderName == "" {
@@ -485,9 +590,10 @@ func convertQQEvent(t string, raw json.RawMessage, s *qqSession) (Message, bool)
 		return m, true
 	case "C2C_MESSAGE_CREATE":
 		var ev struct {
-			ID      string `json:"id"`
-			Content string `json:"content"`
-			Author  struct {
+			ID          string         `json:"id"`
+			Content     string         `json:"content"`
+			Attachments []qqAttachment `json:"attachments"`
+			Author      struct {
 				UserOpenID string `json:"user_openid"`
 				Username   string `json:"username"`
 			} `json:"author"`
@@ -496,13 +602,15 @@ func convertQQEvent(t string, raw json.RawMessage, s *qqSession) (Message, bool)
 			return Message{}, false
 		}
 		m := Message{
-			Platform:  "qq",
-			UpdateID:  hashStringID("qq-ev:" + ev.ID),
-			ChatID:    "user:" + ev.Author.UserOpenID,
-			ChatType:  "private",
-			SenderID:  ev.Author.UserOpenID,
-			Text:      strings.TrimSpace(ev.Content),
+			Platform: "qq",
+			UpdateID: hashStringID("qq-ev:" + ev.ID),
+			ChatID:   "user:" + ev.Author.UserOpenID,
+			ChatType: "private",
+			SenderID: ev.Author.UserOpenID,
+			Text:     strings.TrimSpace(ev.Content),
+			ReplyRef: ev.ID,
 		}
+		m.Images, m.Attachment = qqMedia(ev.Attachments)
 		m.MessageID = m.UpdateID
 		m.SenderName = ev.Author.Username
 		if m.SenderName == "" {

@@ -53,6 +53,7 @@ type Runtime struct {
 	done       chan struct{}
 	unregister func()
 	AI         AIProvider
+	Knowledge  KnowledgeSource
 }
 
 func NewRuntime(store *Store, platforms map[string]Platform, data Data, states StateReader) *Runtime {
@@ -71,6 +72,10 @@ func NewRuntime(store *Store, platforms map[string]Platform, data Data, states S
 // SetAIProvider installs the optional, server-owned completion port. Keeping it
 // nil is a safe no-op and preserves the original keyword-only behavior.
 func (r *Runtime) SetAIProvider(provider AIProvider) { r.AI = provider }
+
+// SetAIKnowledge installs the public site context (contacts, docs manual).
+// Without it the AI only knows the site name and the knowledge base.
+func (r *Runtime) SetAIKnowledge(source KnowledgeSource) { r.Knowledge = source }
 
 // PlatformFor resolves a bot's platform adapter ("telegram", "qq").
 func (r *Runtime) PlatformFor(name string) (Platform, bool) {
@@ -296,10 +301,17 @@ func (r *Runtime) runBot(ctx context.Context, e BotEntry, platform Platform) {
 		}
 		announcing := e.AnnounceSync && len(e.ChatIDs) > 0
 		r.setRunning(e.ID, e.ReceiveEnabled, e.PushEnabled, announcing)
+		// AI answers run beside the poll loop; they are canceled and joined
+		// before the lease is released, like every other bot task.
+		aiCtx, cancelAI := context.WithCancel(ctx)
+		var dispatcher *aiDispatcher
+		if e.ReceiveEnabled && r.AI != nil {
+			dispatcher = r.newBotDispatcher(aiCtx, e, platform)
+		}
 		var wg sync.WaitGroup
 		if e.ReceiveEnabled {
 			wg.Add(1)
-			go func() { defer wg.Done(); r.poll(ctx, e, platform) }()
+			go func() { defer wg.Done(); r.poll(ctx, e, platform, dispatcher) }()
 		}
 		if e.PushEnabled {
 			wg.Add(1)
@@ -310,6 +322,10 @@ func (r *Runtime) runBot(ctx context.Context, e BotEntry, platform Platform) {
 			go func() { defer wg.Done(); r.announceWatch(ctx, e, platform) }()
 		}
 		wg.Wait()
+		cancelAI()
+		if dispatcher != nil {
+			dispatcher.wait()
+		}
 		r.setRunning(e.ID, false, false, false)
 		lease.Close()
 		return
@@ -541,7 +557,7 @@ func announcementHash(a Announcement) string {
 	return hex.EncodeToString(sum[:8])
 }
 
-func (r *Runtime) poll(ctx context.Context, e BotEntry, platform Platform) {
+func (r *Runtime) poll(ctx context.Context, e BotEntry, platform Platform, dispatcher *aiDispatcher) {
 	var offset int64
 	for ctx.Err() == nil {
 		if !r.allowed(ctx) {
@@ -567,7 +583,7 @@ func (r *Runtime) poll(ctx context.Context, e BotEntry, platform Platform) {
 			if !r.allowed(ctx) {
 				return
 			}
-			if err = r.process(ctx, e, platform, m); err != nil {
+			if err = r.process(ctx, e, platform, m, dispatcher); err != nil {
 				r.report(e.ID, ctx, err)
 				break
 			}
@@ -578,10 +594,10 @@ func (r *Runtime) poll(ctx context.Context, e BotEntry, platform Platform) {
 	}
 }
 
-func (r *Runtime) process(ctx context.Context, e BotEntry, platform Platform, m Message) error {
+func (r *Runtime) process(ctx context.Context, e BotEntry, platform Platform, m Message, dispatcher *aiDispatcher) error {
 	var id int64
-	err := r.Store.DB.QueryRowContext(ctx, `INSERT INTO bot_messages(platform,bot_id,bot_row_id,chat_id,chat_type,sender_id,sender_name,text,message_id,update_id)
-VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(platform,bot_id,update_id) DO NOTHING RETURNING id`, m.Platform, e.BotID, e.ID, m.ChatID, m.ChatType, m.SenderID, m.SenderName, m.Text, m.MessageID, m.UpdateID).Scan(&id)
+	err := r.Store.DB.QueryRowContext(ctx, `INSERT INTO bot_messages(platform,bot_id,bot_row_id,chat_id,chat_type,sender_id,sender_name,text,message_id,update_id,image_count)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(platform,bot_id,update_id) DO NOTHING RETURNING id`, m.Platform, e.BotID, e.ID, m.ChatID, m.ChatType, m.SenderID, m.SenderName, m.Text, m.MessageID, m.UpdateID, len(m.Images)).Scan(&id)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -603,7 +619,7 @@ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(platform,bot_id,update_id) DO
 				return saveErr
 			}
 			if renderErr == nil && text != "" && r.allowed(ctx) {
-				renderErr = platform.SendMessage(ctx, e.BotToken, m.ChatID, text)
+				renderErr = r.sendReply(ctx, e, platform, m, text)
 				if renderErr == nil {
 					_, renderErr = r.Store.DB.ExecContext(ctx, "UPDATE bot_messages SET replied=true WHERE id=$1", id)
 				}
@@ -614,146 +630,18 @@ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(platform,bot_id,update_id) DO
 		// Keyword rules are authoritative. AI is only a fallback for messages
 		// that were not matched, so enabling it cannot change existing replies.
 		if !matched && r.AI != nil {
-			r.handleAI(ctx, e, platform, m, id)
+			r.routeAI(ctx, e, platform, m, id, dispatcher)
 		}
 	}
 	_, err = r.Store.DB.ExecContext(ctx, "UPDATE bot_notify_bots SET update_offset=GREATEST(update_offset,$1) WHERE id=$2 AND (config->>'bot_id')::bigint=$3", m.UpdateID+1, e.ID, e.BotID)
 	return err
 }
 
-// aiContext assembles the public-only context an AI provider may see.
-// Only the site name is baked in: the prompt stays byte-stable so upstream
-// prompt caches stay effective, and live site information (group status,
-// groups, announcements) reaches the model through the provider's
-// read-only query tools instead of being stuffed into every prompt.
-func (r *Runtime) aiContext(ctx context.Context) PublicDTO {
-	dto := PublicDTO{}
-	if name, err := r.Data.SiteName(ctx); err == nil {
-		dto.SiteName = name
+// sendReply threads the reply to the inbound message when the transport
+// supports it (QQ needs that to reply at all; Telegram quotes it in groups).
+func (r *Runtime) sendReply(ctx context.Context, e BotEntry, platform Platform, to Message, text string) error {
+	if replier, ok := platform.(Replier); ok {
+		return replier.Reply(ctx, e.BotToken, to, text)
 	}
-	return dto
-}
-
-// aiHistory loads the most recent successful exchanges of this
-// conversation (same bot, platform and chat) so follow-up questions keep
-// their context and the shared prefix can hit upstream prompt caches.
-// Blocked and failed exchanges are excluded, and every side is truncated
-// so history stays a bounded, small part of the request.
-func (r *Runtime) aiHistory(ctx context.Context, e BotEntry, m Message) []AIHistoryTurn {
-	rows, err := r.Store.DB.QueryContext(ctx, `
-		SELECT msg.question_redacted, msg.content_redacted
-		FROM bot_ai_messages msg
-		JOIN bot_ai_conversations conv ON conv.id = msg.conversation_id
-		WHERE conv.bot_id = $1 AND conv.platform = $2 AND conv.chat_id = $3
-		  AND msg.direction = 'assistant' AND msg.blocked = false AND msg.error_code = ''
-		ORDER BY msg.id DESC
-		LIMIT 4`, e.ID, m.Platform, m.ChatID)
-	if err != nil {
-		return nil
-	}
-	defer rows.Close()
-	var turns []AIHistoryTurn
-	for rows.Next() {
-		var turn AIHistoryTurn
-		if err := rows.Scan(&turn.User, &turn.Assistant); err != nil {
-			return nil
-		}
-		turn.User = truncateAudit(turn.User, 600)
-		turn.Assistant = truncateAudit(turn.Assistant, 600)
-		if turn.User != "" && turn.Assistant != "" {
-			turns = append(turns, turn)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil
-	}
-	for i, j := 0, len(turns)-1; i < j; i, j = i+1, j-1 {
-		turns[i], turns[j] = turns[j], turns[i]
-	}
-	return turns
-}
-
-func truncateAudit(s string, maxRunes int) string {
-	r := []rune(s)
-	if len(r) <= maxRunes {
-		return s
-	}
-	return string(r[:maxRunes])
-}
-
-// aiLimited enforces the per-bot daily answer cap and the per-chat cooldown
-// from the AI configuration. Limited messages are skipped silently: they
-// are routine traffic shaping, not errors worth reporting.
-func (r *Runtime) aiLimited(ctx context.Context, e BotEntry, m Message, c AIConfig) bool {
-	if c.CooldownSeconds > 0 {
-		var last *time.Time
-		err := r.Store.DB.QueryRowContext(ctx, `SELECT last_message_at FROM bot_ai_conversations WHERE bot_id=$1 AND platform=$2 AND chat_id=$3`, e.ID, m.Platform, m.ChatID).Scan(&last)
-		if err == nil && last != nil && time.Since(*last) < time.Duration(c.CooldownSeconds)*time.Second {
-			return true
-		}
-	}
-	if c.DailyLimit > 0 {
-		var answered int
-		err := r.Store.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM bot_ai_messages msg JOIN bot_ai_conversations conv ON conv.id=msg.conversation_id WHERE conv.bot_id=$1 AND msg.direction='assistant' AND msg.created_at >= CURRENT_DATE`, e.ID).Scan(&answered)
-		if err == nil && answered >= c.DailyLimit {
-			return true
-		}
-	}
-	return false
-}
-
-func (r *Runtime) handleAI(ctx context.Context, e BotEntry, platform Platform, m Message, messageID int64) {
-	config, err := r.Store.AIConfig(ctx, e.ID)
-	if err != nil || !config.Enabled {
-		return
-	}
-	guard := InspectInput(m.Text)
-	if !guard.Allowed {
-		text := SafeReply()
-		_ = r.persistAI(ctx, e, m, messageID, config, "", text, true, guard.Reason, nil)
-		if sendErr := platform.SendMessage(ctx, e.BotToken, m.ChatID, text); sendErr == nil {
-			_, _ = r.Store.DB.ExecContext(ctx, "UPDATE bot_messages SET replied=true,reply_content=$1 WHERE id=$2", text, messageID)
-		}
-		return
-	}
-	if r.aiLimited(ctx, e, m, config) {
-		return
-	}
-	text, err := r.AI.Complete(ctx, AIRequest{Config: config, Message: m, Context: r.aiContext(ctx), History: r.aiHistory(ctx, e, m)})
-	if err != nil || !InspectOutput(text).Allowed {
-		reason := "provider_error"
-		if err == nil {
-			reason = InspectOutput(text).Reason
-		}
-		text = SafeReply()
-		_ = r.persistAI(ctx, e, m, messageID, config, "", text, true, reason, err)
-	} else {
-		_ = r.persistAI(ctx, e, m, messageID, config, text, text, false, "", nil)
-	}
-	if text != "" {
-		if sendErr := platform.SendMessage(ctx, e.BotToken, m.ChatID, text); sendErr == nil {
-			_, _ = r.Store.DB.ExecContext(ctx, "UPDATE bot_messages SET replied=true,reply_content=$1 WHERE id=$2", text, messageID)
-		}
-	}
-}
-
-func (r *Runtime) persistAI(ctx context.Context, e BotEntry, m Message, messageID int64, c AIConfig, answer, _ string, blocked bool, reason string, callErr error) error {
-	var conversationID int64
-	if err := r.Store.DB.QueryRowContext(ctx, `INSERT INTO bot_ai_conversations(bot_id,platform,chat_id,external_user_id,last_message_at) VALUES($1,$2,$3,$4,CURRENT_TIMESTAMP) ON CONFLICT(bot_id,platform,chat_id) DO UPDATE SET last_message_at=CURRENT_TIMESTAMP RETURNING id`, e.ID, m.Platform, m.ChatID, m.SenderID).Scan(&conversationID); err != nil {
-		return err
-	}
-	errCode := ""
-	if callErr != nil {
-		errCode = "provider_error"
-	}
-	_, err := r.Store.DB.ExecContext(ctx, `INSERT INTO bot_ai_messages(conversation_id,direction,external_message_id,question_redacted,sender_name,content_redacted,blocked,blocked_reason,model,api_key_id,error_code) VALUES($1,'assistant',$2,$3,$4,$5,$6,$7,$8,$9,$10)`, conversationID, fmt.Sprint(m.MessageID), auditText(m.Text), auditText(m.SenderName), auditText(answer), blocked, reason, c.Model, c.APIKeyID, errCode)
-	return err
-}
-
-func auditText(s string) string {
-	s = strings.TrimSpace(s)
-	if len([]rune(s)) > 2000 {
-		s = string([]rune(s)[:2000])
-	}
-	return s
+	return platform.SendMessage(ctx, e.BotToken, to.ChatID, text)
 }

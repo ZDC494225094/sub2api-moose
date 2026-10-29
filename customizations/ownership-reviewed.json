@@ -579,10 +579,19 @@
     {
       "paths": [
         "backend/internal/customize/modules/botnotify/ai.go",
+        "backend/internal/customize/modules/botnotify/ai_dispatch.go",
+        "backend/internal/customize/modules/botnotify/ai_dispatch_test.go",
         "backend/internal/customize/modules/botnotify/ai_guard.go",
         "backend/internal/customize/modules/botnotify/ai_guard_test.go",
+        "backend/internal/customize/modules/botnotify/ai_knowledge.go",
+        "backend/internal/customize/modules/botnotify/ai_prompt.go",
+        "backend/internal/customize/modules/botnotify/ai_prompt_test.go",
+        "backend/internal/customize/modules/botnotify/ai_replies.go",
+        "backend/internal/customize/modules/botnotify/ai_runtime.go",
         "backend/internal/customize/modules/botnotify/http.go",
         "backend/internal/customize/modules/botnotify/http_test.go",
+        "backend/internal/customize/modules/botnotify/image.go",
+        "backend/internal/customize/modules/botnotify/image_test.go",
         "backend/internal/customize/modules/botnotify/markdown.go",
         "backend/internal/customize/modules/botnotify/markdown_test.go",
         "backend/internal/customize/modules/botnotify/push_schedule_test.go",
@@ -607,7 +616,7 @@
         "customer-support"
       ],
       "kind": "compatibility",
-      "evidence": "Module-owned Telegram/QQ notification scheduling, templates, AI support and admin configuration; existing host wiring and admission switch retained.",
+      "evidence": "Module-owned Telegram/QQ notification scheduling, templates, AI support (knowledge base, docs manual context, public read-only tools, image understanding, per-conversation dispatcher, input/output guards) and admin configuration; existing host wiring and admission switch retained.",
       "next_step": "Keep runtime stop/drain behavior, encrypted secrets, administrator guards and internal AI service ports; no HTTP loopback or simulated credentials."
     },
     {

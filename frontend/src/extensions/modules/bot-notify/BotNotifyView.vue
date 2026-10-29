@@ -10,6 +10,7 @@ import {
   type AiConfig,
   type AiKeyOption,
   type AiRecord,
+  type AiTestResult,
   type BotEntry,
   type Rule,
   type Status,
@@ -45,12 +46,50 @@ const aiConfig = ref<AiConfig>({
   api_key_id: null,
   model: '',
   max_input_chars: 4000,
-  max_output_tokens: 800,
+  max_output_tokens: 1200,
   cooldown_seconds: 10,
   daily_limit: 100,
   allow_recharge: true,
   allow_technical: true,
+  reasoning_effort: 'low',
+  allow_images: true,
+  allow_usage_stats: true,
+  use_user_guide: true,
+  knowledge_base: '',
 })
+const aiTestText = ref('')
+const aiTestImage = ref('')
+const aiTestImageName = ref('')
+const aiTestResult = ref<AiTestResult | null>(null)
+const knowledgeLength = computed(() => [...(aiConfig.value.knowledge_base || '')].length)
+const aiReasonLabels: Record<string, string> = {
+  prompt_injection: '疑似指令注入',
+  sensitive_information_request: '索取受限信息',
+  unsafe_request: '违规请求',
+  off_scope_task: '超出客服范围',
+  empty_message: '空消息',
+  input_too_long: '内容过长',
+  secret_in_output: '回答含密钥，已拦截',
+  internal_data_in_output: '回答含内部信息，已拦截',
+  untrusted_link_in_output: '回答含未知链接，已拦截',
+  provider_error: '模型调用失败',
+  daily_limit: '已达每日上限',
+  unsupported_attachment: '不支持的附件',
+  images_disabled: '图片识别未开启',
+  image_unreadable: '图片无法读取',
+}
+const aiToolLabels: Record<string, string> = {
+  query_group_status: '分组状态',
+  query_groups: '分组列表',
+  query_model_prices: '模型价格',
+  query_subscription_plans: '套餐',
+  query_recharge_info: '充值信息',
+  query_group_cache_stats: '缓存命中率',
+  query_announcements: '公告',
+}
+function reasonLabel(reason?: string) {
+  return reason ? aiReasonLabels[reason] || reason : ''
+}
 const aiKeys = ref<AiKeyOption[]>([])
 const aiKeysError = ref('')
 const aiModelSuggestions = [
@@ -194,6 +233,9 @@ function closeBot() {
   total.value = 0
   aiRecords.value = []
   aiTotal.value = 0
+  aiTestText.value = ''
+  aiTestResult.value = null
+  clearTestImage()
 }
 
 async function loadAi() {
@@ -228,8 +270,37 @@ async function loadAiRecords(next = 1) {
 }
 async function saveAi() {
   if (!selected.value) return
-  aiConfig.value = await botAPI.saveAiConfig(selected.value.id, aiConfig.value)
+  aiConfig.value = { ...aiConfig.value, ...(await botAPI.saveAiConfig(selected.value.id, aiConfig.value)) }
   await loadAiRecords()
+}
+function resetKnowledge() {
+  aiConfig.value.knowledge_base = aiConfig.value.default_knowledge_base || ''
+}
+async function pickTestImage(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (file.size > 5 * 1024 * 1024) {
+    error.value = '测试图片不能超过 5MB'
+    return
+  }
+  aiTestImage.value = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+  aiTestImageName.value = file.name
+}
+function clearTestImage() {
+  aiTestImage.value = ''
+  aiTestImageName.value = ''
+}
+async function runAiTest() {
+  if (!selected.value) return
+  aiTestResult.value = null
+  aiTestResult.value = await botAPI.aiTest(selected.value.id, aiTestText.value, aiTestImage.value)
 }
 
 async function loadMessages(next = 1) {
@@ -760,6 +831,7 @@ onUnmounted(() => {
                       </td>
                       <td>
                         <p class="whitespace-pre-wrap leading-6 [overflow-wrap:anywhere]">{{ m.text }}</p>
+                        <span v-if="m.image_count" class="badge badge-neutral mt-1">图片 ×{{ m.image_count }}</span>
                       </td>
                       <td>
                         <span class="text-xs leading-6 text-gray-500 [overflow-wrap:anywhere]">{{
@@ -794,6 +866,7 @@ onUnmounted(() => {
                   >
                     {{ m.text }}
                   </p>
+                  <span v-if="m.image_count" class="badge badge-neutral -mt-2 mb-3">图片 ×{{ m.image_count }}</span>
                   <div
                     class="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-dark-700"
                   >
@@ -926,7 +999,7 @@ onUnmounted(() => {
               <div class="config-status flex items-start gap-3">
                 <Icon name="shield" size="sm" class="mt-0.5 shrink-0 text-emerald-600" />
                 <p class="helper">
-                  AI 仅使用经过服务端脱敏的公开资料回答，不会读取管理员数据、密钥或任意数据库。敏感请求会在调用模型前拦截。
+                  AI 只依据下方站点资料、使用手册和只读查询工具（分组状态、价格、套餐、充值优惠、公告）回答，查不到任何用户的账号、余额、订单或密钥。敏感请求在调用模型前拦截，回答里的密钥、内部信息和未知链接在发送前拦截。
                 </p>
               </div>
               <div class="config-section">
@@ -976,9 +1049,65 @@ onUnmounted(() => {
                       <option v-for="model in aiModelSuggestions" :key="model" :value="model" />
                     </datalist>
                     <span class="helper mt-1 block">
-                      填所选 Key 分组支持的模型名，可从候选中选或直接输入。
+                      填所选 Key 分组支持的模型名，可从候选中选或直接输入。要识别截图，请选支持图片输入的模型。
                     </span>
                   </label>
+                  <label class="field-label">
+                    推理强度
+                    <select v-model="aiConfig.reasoning_effort" class="input mt-2">
+                      <option value="low">低（推荐，回答最快）</option>
+                      <option value="medium">中</option>
+                      <option value="high">高（更慢，消耗更多 token）</option>
+                      <option value="">模型默认</option>
+                    </select>
+                    <span class="helper mt-1 block">
+                      只对推理模型生效。模型不支持时会自动去掉该参数重试。
+                    </span>
+                  </label>
+                </div>
+              </div>
+              <div class="config-section">
+                <div class="config-section-title">
+                  <h3>知识与资料</h3>
+                  <p>AI 回答本站规则、流程和链接的唯一依据，不在资料里的事实会引导联系人工。</p>
+                </div>
+                <div class="min-w-0 space-y-4">
+                  <label class="setting-toggle">
+                    <span
+                      ><span class="field-label">参考使用手册</span
+                      ><span class="helper mt-1 block"
+                        >把文档中心的使用手册全文提供给 AI（文档中心关闭时不提供）。手册更新后无需改这里。</span
+                      ></span
+                    >
+                    <input v-model="aiConfig.use_user_guide" type="checkbox" class="bot-check" />
+                  </label>
+                  <label class="field-label">
+                    <span class="flex flex-wrap items-center justify-between gap-2"
+                      >站点资料<span class="text-xs font-normal text-gray-400"
+                        >{{ knowledgeLength }} / 20000 字{{
+                          aiConfig.knowledge_base === aiConfig.default_knowledge_base ? ' · 内置默认' : ''
+                        }}</span
+                      ></span
+                    >
+                    <textarea
+                      v-model="aiConfig.knowledge_base"
+                      rows="14"
+                      maxlength="20000"
+                      class="input mt-2 text-sm leading-6"
+                      placeholder="充值方式、到账规则、售后政策、页面链接、人工客服联系方式……"
+                    />
+                    <span class="helper mt-1 block">
+                      写清本站规则、操作流程和页面链接，回答中只会引用这里出现过的链接。价格、套餐、优惠和分组状态由工具实时查询，不用写在这里。
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    class="btn btn-secondary"
+                    :disabled="!aiConfig.default_knowledge_base || aiConfig.knowledge_base === aiConfig.default_knowledge_base"
+                    @click="resetKnowledge"
+                  >
+                    <Icon name="undo" size="sm" />恢复内置默认资料
+                  </button>
                 </div>
               </div>
               <div class="config-section">
@@ -993,8 +1122,8 @@ onUnmounted(() => {
                       <input
                         v-model.number="aiConfig.max_input_chars"
                         type="number"
-                        min="500"
-                        max="20000"
+                        min="100"
+                        max="8000"
                         class="input mt-2"
                       />
                     </label>
@@ -1009,7 +1138,7 @@ onUnmounted(() => {
                       />
                     </label>
                     <label class="field-label">
-                      单聊冷却（秒）
+                      同一用户冷却（秒）
                       <input
                         v-model.number="aiConfig.cooldown_seconds"
                         type="number"
@@ -1019,6 +1148,9 @@ onUnmounted(() => {
                       />
                     </label>
                   </div>
+                  <p class="helper">
+                    群聊按发送人分别计算上下文和冷却。冷却期内或几秒内连续发来的消息（例如先发截图再发问题）会合并成一次回答，不会丢弃。
+                  </p>
                   <label class="field-label">
                     每日上限
                     <input
@@ -1046,11 +1178,84 @@ onUnmounted(() => {
                     <span class="field-label">允许技术咨询</span>
                     <input v-model="aiConfig.allow_technical" type="checkbox" class="bot-check" />
                   </label>
+                  <label class="setting-toggle">
+                    <span
+                      ><span class="field-label">识别图片</span
+                      ><span class="helper mt-1 block"
+                        >用户发截图时交给模型识别。图片只用于本次回答，不保存；单张不超过 5MB，每次最多 3 张。</span
+                      ></span
+                    >
+                    <input v-model="aiConfig.allow_images" type="checkbox" class="bot-check" />
+                  </label>
+                  <label class="setting-toggle">
+                    <span
+                      ><span class="field-label">回答分组缓存命中率</span
+                      ><span class="helper mt-1 block"
+                        >公开分组近 24 小时的全站整体统计，不含任何个人数据；请求量过少的分组不公布。</span
+                      ></span
+                    >
+                    <input v-model="aiConfig.allow_usage_stats" type="checkbox" class="bot-check" />
+                  </label>
                 </div>
               </div>
               <div class="config-footer">
-                <p class="helper">建议先用测试群验证敏感问题拦截和回答范围。</p>
+                <p class="helper">保存后可在下方「测试 AI 客服」里试答，确认资料和回答范围。</p>
                 <button type="submit" class="btn btn-primary">保存 AI 配置</button>
+              </div>
+            </form>
+
+            <form class="bot-panel overflow-hidden" @submit.prevent="action(runAiTest)">
+              <div class="config-status">
+                <h3 class="font-semibold">测试 AI 客服</h3>
+                <p class="helper mt-1">
+                  使用已保存的配置走完整流程（拦截、资料、工具、回答检查），结果只显示在这里，不发送到任何聊天；模型调用按所选 Key 正常计费。
+                </p>
+              </div>
+              <div class="space-y-4 p-5 sm:p-7">
+                <label class="field-label">
+                  问题
+                  <textarea
+                    v-model="aiTestText"
+                    rows="3"
+                    maxlength="8000"
+                    class="input mt-2"
+                    placeholder="例如：GPT Pro 分组缓存命中率多少？ / 导入 CC Switch 后怎么在 Claude Desktop 用？"
+                  />
+                </label>
+                <div class="flex flex-wrap items-center gap-3">
+                  <label class="btn btn-secondary cursor-pointer">
+                    <Icon name="upload" size="sm" />{{ aiTestImageName ? '更换截图' : '附加截图' }}
+                    <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden" @change="pickTestImage" />
+                  </label>
+                  <span v-if="aiTestImageName" class="inline-flex min-w-0 items-center gap-2 text-xs text-gray-500">
+                    <span class="truncate">{{ aiTestImageName }}</span>
+                    <button type="button" class="table-action" @click="clearTestImage">移除</button>
+                  </span>
+                  <button
+                    type="submit"
+                    class="btn btn-primary ml-auto"
+                    :disabled="!aiTestText.trim() && !aiTestImage"
+                  >
+                    <Icon name="sparkles" size="sm" />{{ busy ? '回答中…' : '发送测试' }}
+                  </button>
+                </div>
+                <div v-if="aiTestResult" class="rounded-xl border border-gray-100 bg-gray-50/60 p-4 dark:border-dark-700 dark:bg-dark-800/40">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="badge" :class="aiTestResult.blocked ? 'badge-neutral' : 'badge-success'">
+                      {{ aiTestResult.blocked ? '已拦截 / 未回答' : '已回答' }}
+                    </span>
+                    <span v-if="aiTestResult.reason" class="text-xs text-gray-500">{{ reasonLabel(aiTestResult.reason) }}</span>
+                    <span v-if="aiTestResult.error_code" class="font-mono text-xs text-red-500">{{ aiTestResult.error_code }}</span>
+                    <span v-if="aiTestResult.images_dropped" class="text-xs text-amber-600">模型不支持图片，已按纯文字回答</span>
+                    <span class="ml-auto text-xs text-gray-400">
+                      {{ aiTestResult.latency_ms }} ms · 输入 {{ aiTestResult.input_tokens }} / 输出 {{ aiTestResult.output_tokens }} token
+                    </span>
+                  </div>
+                  <p class="mt-3 whitespace-pre-wrap text-sm leading-7 [overflow-wrap:anywhere]">{{ aiTestResult.answer }}</p>
+                  <p v-if="aiTestResult.tools.length" class="mt-3 text-xs text-gray-500">
+                    调用工具：{{ aiTestResult.tools.map((name) => aiToolLabels[name] || name).join('、') }}
+                  </p>
+                </div>
               </div>
             </form>
 
@@ -1103,17 +1308,29 @@ onUnmounted(() => {
                       <td class="max-w-xs whitespace-pre-wrap break-words">{{ record.question }}</td>
                       <td class="max-w-md whitespace-pre-wrap break-words">{{ record.answer || '—' }}</td>
                       <td>
-                        <span class="badge" :class="record.blocked || record.error_code ? 'badge-neutral' : 'badge-success'">
-                          {{ record.blocked ? '已拦截' : record.error_code ? '失败' : '已回答' }}
+                        <span
+                          class="badge"
+                          :class="record.blocked || record.error_code ? 'badge-neutral' : 'badge-success'"
+                        >
+                          {{ record.error_code ? '失败' : record.blocked ? '已拦截' : '已回答' }}
                         </span>
                         <span v-if="record.blocked_reason" class="mt-1 block max-w-32 text-xs text-gray-500">
-                          {{ record.blocked_reason }}
+                          {{ reasonLabel(record.blocked_reason) }}
+                        </span>
+                        <span v-if="record.error_code" class="mt-1 block max-w-32 font-mono text-xs text-red-500">
+                          {{ record.error_code }}
                         </span>
                       </td>
                       <td>
                         <span class="block text-xs">{{ record.model || '—' }}</span>
                         <span v-if="record.latency_ms" class="mt-1 block text-xs text-gray-400">
                           {{ record.latency_ms }} ms
+                        </span>
+                        <span v-if="record.input_tokens || record.output_tokens" class="mt-1 block text-xs text-gray-400">
+                          {{ record.input_tokens || 0 }} / {{ record.output_tokens || 0 }} token
+                        </span>
+                        <span v-if="record.image_count" class="mt-1 block text-xs text-gray-400">
+                          含 {{ record.image_count }} 张图片
                         </span>
                       </td>
                     </tr>

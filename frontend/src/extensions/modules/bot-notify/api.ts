@@ -27,7 +27,7 @@ export interface Rule {
 export interface BotMessage {
   id: number; bot_row_id: number; platform: string; chat_id: string; chat_type: string
   sender_name: string; sender_id: string; text: string; rule_id: number | null
-  replied: boolean; reply_content: string; created_at: string
+  replied: boolean; reply_content: string; image_count?: number; created_at: string
 }
 export interface Status {
   bot: { id: number; username: string }
@@ -44,6 +44,30 @@ export interface AiConfig {
   daily_limit: number
   allow_recharge: boolean
   allow_technical: boolean
+  /** 推理强度：'' 交给模型默认，low 回答最快。 */
+  reasoning_effort: '' | 'low' | 'medium' | 'high'
+  allow_images: boolean
+  /** 允许回答公开分组近 24 小时整体缓存命中率（全站聚合，不含个人数据）。 */
+  allow_usage_stats: boolean
+  /** 把文档中心的使用手册提供给 AI 参考。 */
+  use_user_guide: boolean
+  /** 站点资料；保存内置默认内容时后端存为空，继续跟随默认更新。 */
+  knowledge_base: string
+  /** 仅读取：当前是否在用内置默认资料。 */
+  knowledge_base_is_default?: boolean
+  /** 仅读取：内置默认资料，用于「恢复默认」。 */
+  default_knowledge_base?: string
+}
+export interface AiTestResult {
+  answer: string
+  blocked: boolean
+  reason?: string
+  error_code?: string
+  latency_ms: number
+  input_tokens: number
+  output_tokens: number
+  tools: string[]
+  images_dropped?: boolean
 }
 export interface AiKeyOption {
   id: string | number
@@ -64,6 +88,9 @@ export interface AiRecord {
   model?: string
   latency_ms?: number
   error_code?: string
+  input_tokens?: number
+  output_tokens?: number
+  image_count?: number
 }
 const base = '/admin/bot-notify'
 export const botAPI = {
@@ -84,5 +111,9 @@ export const botAPI = {
   async aiKeys(botId: number) { return (await apiClient.get<{ items: AiKeyOption[] }>(`${base}/bots/${botId}/ai/keys`)).data.items },
   async aiRecords(botId: number, page: number, keyword = '', blocked = '') {
     return (await apiClient.get<{ items: AiRecord[]; total: number }>(`${base}/bots/${botId}/ai/records`, { params: { page, page_size: 20, keyword, blocked } })).data
+  },
+  /** 用已保存的配置试答一次：不发送到任何聊天、不记录，模型调用按所选 Key 计费。 */
+  async aiTest(botId: number, text: string, image = '') {
+    return (await apiClient.post<AiTestResult>(`${base}/bots/${botId}/ai/test`, { text, image }, { timeout: 240000 })).data
   },
 }

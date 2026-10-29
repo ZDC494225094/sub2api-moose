@@ -62,6 +62,32 @@ func PlainText(md string) string {
 	return strings.TrimSpace(s)
 }
 
+// ChatText flattens the Markdown a model may still emit into chat-ready plain
+// text. Unlike PlainText it keeps <placeholders>, lone asterisks and double
+// underscores, which are common inside commands and configuration.
+func ChatText(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = fenceToText(s)
+	s = tablesToText(s)
+	s = mdImage.ReplaceAllString(s, "$1")
+	s = mdLink.ReplaceAllStringFunc(s, func(m string) string {
+		parts := mdLink.FindStringSubmatch(m)
+		if parts[1] == parts[2] {
+			return parts[2]
+		}
+		return parts[1] + " " + parts[2]
+	})
+	s = mdBoldStar.ReplaceAllString(s, "$1")
+	s = mdStrike.ReplaceAllString(s, "$1")
+	s = mdCodeSpan.ReplaceAllString(s, "$1")
+	s = mdHeading.ReplaceAllString(s, "")
+	s = mdRule.ReplaceAllString(s, "")
+	s = mdBullet.ReplaceAllString(s, "$1• ")
+	s = mdTrailWS.ReplaceAllString(s, "")
+	s = mdBlankRun.ReplaceAllString(s, "\n\n")
+	return strings.TrimSpace(s)
+}
+
 var htmlEntities = strings.NewReplacer(
 	"&nbsp;", " ",
 	"&lt;", "<",

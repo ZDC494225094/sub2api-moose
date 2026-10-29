@@ -33,6 +33,24 @@ func (h *Handler) Register(group *gin.RouterGroup, manager *customize.Manager) {
 	g.PUT("/bots/:id/ai/config", h.saveAIConfig)
 	g.GET("/bots/:id/ai/keys", h.aiKeys)
 	g.GET("/bots/:id/ai/records", h.aiRecords)
+	g.POST("/bots/:id/ai/test", h.aiTest)
+}
+
+// aiConfigView shows the effective knowledge base (the default while none is
+// saved) plus the default itself, so the editor can offer a reset.
+type aiConfigView struct {
+	AIConfig
+	KnowledgeBaseIsDefault bool   `json:"knowledge_base_is_default"`
+	DefaultKnowledgeBase   string `json:"default_knowledge_base"`
+}
+
+func newAIConfigView(c AIConfig) aiConfigView {
+	view := aiConfigView{AIConfig: c, DefaultKnowledgeBase: DefaultKnowledgeBase}
+	if c.KnowledgeBase == "" {
+		view.KnowledgeBase = DefaultKnowledgeBase
+		view.KnowledgeBaseIsDefault = true
+	}
+	return view
 }
 
 func (h *Handler) aiConfig(c *gin.Context) {
@@ -45,8 +63,48 @@ func (h *Handler) aiConfig(c *gin.Context) {
 	}
 	value, err := h.Runtime.Store.AIConfig(c.Request.Context(), id)
 	if !response.ErrorFrom(c, err) {
-		response.Success(c, value)
+		c.Header("Cache-Control", "no-store")
+		response.Success(c, newAIConfigView(value))
 	}
+}
+
+// aiTestImageLimit bounds the uploaded data URI (base64 of MaxImageBytes).
+const aiTestImageLimit = MaxImageBytes/3*4 + 256
+
+func (h *Handler) aiTest(c *gin.Context) {
+	entry, ok := h.loadBot(c, false)
+	if !ok {
+		return
+	}
+	var req struct {
+		Text  string `json:"text"`
+		Image string `json:"image"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请求格式错误")
+		return
+	}
+	if len([]rune(req.Text)) > AIInputLimit || len(req.Image) > aiTestImageLimit {
+		response.BadRequest(c, "问题或图片过大（图片不超过 5MB）")
+		return
+	}
+	var images []Image
+	if req.Image != "" {
+		img, err := ParseImageDataURI(req.Image)
+		if err != nil {
+			response.BadRequest(c, "图片无法识别，请上传 5MB 以内的 PNG、JPEG、WebP 或 GIF")
+			return
+		}
+		images = append(images, img)
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), aiAnswerTimeout+15*time.Second)
+	defer cancel()
+	result, err := h.Runtime.TestAI(ctx, entry, req.Text, images)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, result)
 }
 
 func (h *Handler) saveAIConfig(c *gin.Context) {
@@ -68,7 +126,10 @@ func (h *Handler) saveAIConfig(c *gin.Context) {
 		return
 	}
 	h.Runtime.signal()
-	response.Success(c, value)
+	saved, err := h.Runtime.Store.AIConfig(c.Request.Context(), id)
+	if !response.ErrorFrom(c, err) {
+		response.Success(c, newAIConfigView(saved))
+	}
 }
 
 func (h *Handler) aiKeys(c *gin.Context) {

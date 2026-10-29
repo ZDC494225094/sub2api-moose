@@ -349,6 +349,7 @@ type StoredMessage struct {
 	RuleID       *int64    `json:"rule_id"`
 	Replied      bool      `json:"replied"`
 	ReplyContent string    `json:"reply_content"`
+	ImageCount   int       `json:"image_count"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
@@ -358,7 +359,7 @@ func (s *Store) Messages(ctx context.Context, botRowID int64, chat, keyword stri
 	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*)"+where, botRowID, chat, keyword).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	rows, err := s.DB.QueryContext(ctx, "SELECT id,bot_row_id,platform,chat_id,chat_type,sender_id,sender_name,text,message_id,update_id,rule_id,replied,reply_content,created_at"+where+" ORDER BY id DESC LIMIT $4 OFFSET $5", botRowID, chat, keyword, size, (page-1)*size)
+	rows, err := s.DB.QueryContext(ctx, "SELECT id,bot_row_id,platform,chat_id,chat_type,sender_id,sender_name,text,message_id,update_id,rule_id,replied,reply_content,image_count,created_at"+where+" ORDER BY id DESC LIMIT $4 OFFSET $5", botRowID, chat, keyword, size, (page-1)*size)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -366,7 +367,7 @@ func (s *Store) Messages(ctx context.Context, botRowID int64, chat, keyword stri
 	items := []StoredMessage{}
 	for rows.Next() {
 		var m StoredMessage
-		if err = rows.Scan(&m.ID, &m.BotRowID, &m.Platform, &m.ChatID, &m.ChatType, &m.SenderID, &m.SenderName, &m.Text, &m.MessageID, &m.UpdateID, &m.RuleID, &m.Replied, &m.ReplyContent, &m.CreatedAt); err != nil {
+		if err = rows.Scan(&m.ID, &m.BotRowID, &m.Platform, &m.ChatID, &m.ChatType, &m.SenderID, &m.SenderName, &m.Text, &m.MessageID, &m.UpdateID, &m.RuleID, &m.Replied, &m.ReplyContent, &m.ImageCount, &m.CreatedAt); err != nil {
 			return nil, 0, err
 		}
 		items = append(items, m)

@@ -94,6 +94,55 @@ publication time (starts_at, falling back to created_at), at most five. This
 is a global bot feed, including targeted active announcements; use trusted
 destination chats. Site name is read through the settings repository.
 
+## AI customer service
+
+Keyword rules stay authoritative; AI only answers addressed messages no rule
+matched. Code: `ai*.go`, `image.go` here; the provider and tools are in
+`customize/wiring/bot_ai_provider.go` and `bot_ai_tools.go`. Migration
+`202610290001_bot_notify_ai_assistant.sql` adds the switches below plus
+`sender_id`/`image_count` audit columns.
+
+- Calls go to this server's own `/v1/chat/completions` on loopback with the
+  admin-selected key, so billing and model access match a direct API call.
+  Reasoning effort (default low), image parts and tools are optional: on a
+  400/413/415/422 the provider drops them one at a time and retries; rejected
+  effort/tools are remembered per model for 30 minutes.
+- Knowledge: the system prompt (`ai_prompt.go`) holds fixed policy, support
+  contacts from site settings, the admin-editable knowledge base
+  (`ai_knowledge.go`; empty = built-in default) and, when `use_user_guide` is
+  on and the user-guide module is enabled, the docs-center manual. It contains
+  no live data, so unchanged settings give byte-identical prompts for upstream
+  prompt caches.
+- Tools (read-only, public data, exclusive groups never listed): group status,
+  groups, model prices (plaza display prices × group rate; only while the plaza
+  is public), subscription plans and recharge info (only with
+  `allow_recharge`; campaigns follow the recharge-campaigns switch), group
+  cache hit rate (only with `allow_usage_stats`; site-wide last 24 h,
+  withheld below 50 requests / 200k prompt tokens, cached 10 minutes) and
+  announcements.
+- Images: Telegram photos/image documents (getFile) and QQ image attachments
+  (QQ media hosts only, redirects re-checked, private addresses refused) are
+  downloaded only when AI answers; at most 3 per answer, 5 MB each, type
+  verified by magic bytes; never stored, only counted.
+- Answers run on a per-bot dispatcher, off the poll loop: one batch at a time
+  per conversation (private chat, or chat + sender in groups), messages within
+  a few seconds are merged (screenshot, then question), the cooldown delays
+  rather than drops, at most 3 model calls run concurrently. Group members get
+  separate history (last 4 turns within 6 hours).
+- Replies thread to the newest message: Telegram quotes it in groups, QQ sends
+  a passive reply with `msg_id`/`msg_seq`. QQ only accepts passive replies for
+  a few minutes, so a long cooldown can make QQ answers fail.
+- Guards (`ai_guard.go`): input patterns block only attack shapes (injection,
+  other people's data, fraud, imperative destructive commands), never
+  everyday wording such as "怎么获取密钥". Output is flattened to plain text,
+  then rejected for secrets (placeholders such as `sk-你的密钥` pass),
+  infrastructure addresses, prompt canaries and links to hosts not found in
+  the knowledge base, manual, contacts, tool results or a built-in vendor list.
+  Every non-model reply (blocked, busy, unavailable, daily limit, unreadable
+  attachment) is fixed text and audited as blocked.
+- `POST /bots/:id/ai/test` runs the same pipeline for the admin console with
+  the saved config; nothing is sent or stored.
+
 ## Admin API
 
 All routes inherit existing admin auth, audit, compliance and rate limiting,
@@ -109,6 +158,10 @@ plus `customize.Require("bot-notify")`:
 | GET | /bots/:id/messages (page, page_size <=100, chat_id, keyword) |
 | GET, POST | /bots/:id/rules |
 | PUT, DELETE | /bots/:id/rules/:ruleId |
+| GET, PUT | /bots/:id/ai/config |
+| GET | /bots/:id/ai/keys (the admin's own keys, metadata only) |
+| GET | /bots/:id/ai/records (page, keyword, blocked) |
+| POST | /bots/:id/ai/test (text, optional image data URI ≤ 5 MB) |
 
 Frontend config receives the masked token in a label; the password input
 stays empty, so editing other fields never submits the mask as a new secret.
