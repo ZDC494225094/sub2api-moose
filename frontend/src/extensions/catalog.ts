@@ -2,6 +2,8 @@
 // presented as disabled merely because their navigation is hidden.
 export const extensionPaths = {
   'bot-notify': ['/admin/bot-notify'],
+  // Capture is a gateway gate; the page is the only UI entry.
+  'gateway-log-archive': ['/admin/gateway-log-archive'],
   'user-guide': ['/docs', '/admin/guide'],
   'redeem-marketing': [],
   'premium-home': ['/'],

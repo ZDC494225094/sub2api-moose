@@ -1,5 +1,14 @@
 [
   {
+    "id": "gateway-log-archive",
+    "patterns": [
+      "^backend/internal/customize/modules/gatewaylogarchive/",
+      "^backend/internal/customize/migrations/sql/gateway-log-archive/",
+      "^backend/internal/customize/wiring/gateway_log_archive",
+      "^frontend/src/extensions/modules/gateway-log-archive/"
+    ]
+  },
+  {
     "id": "redeem-marketing",
     "patterns": [
       "^backend/internal/customize/modules/redeemmarketing/",

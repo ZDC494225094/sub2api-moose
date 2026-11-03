@@ -527,6 +527,48 @@
         "marker": "func (h *Handler) Public("
       },
       "scope": "Actual registrar regression checks disabled/invalid flags before storage reads, enabled saved-content responses, and administrator authentication before the admin gate. Disabling keeps persisted manual content."
+    },
+    {
+      "module": "gateway-log-archive",
+      "checkpoint": "/api/v1/admin/gateway-log-archive/*",
+      "read": {
+        "file": "backend/internal/customize/http.go",
+        "marker": "m.Enabled(c.Request.Context(), id)"
+      },
+      "call": {
+        "file": "backend/internal/customize/modules/gatewaylogarchive/http.go",
+        "marker": "group.Group(\"/gateway-log-archive\", manager.Require(ID))"
+      },
+      "test": {
+        "file": "backend/internal/customize/modules/gatewaylogarchive/http_test.go",
+        "marker": "TestAdminRoutesRequireEnabledModuleAndMaskSecrets"
+      },
+      "feature": {
+        "file": "backend/internal/customize/modules/gatewaylogarchive/http.go",
+        "marker": "func (h *Handler) entryContent("
+      },
+      "scope": "管理接口需开启扩展；回归测试同时校验存储凭证脱敏。"
+    },
+    {
+      "module": "gateway-log-archive",
+      "checkpoint": "gateway-traffic-capture",
+      "read": {
+        "file": "backend/internal/customize/modules/gatewaylogarchive/runtime.go",
+        "marker": "r.States.Enabled(ctx, ID)"
+      },
+      "call": {
+        "file": "backend/internal/server/routes/gateway.go",
+        "marker": "gatewayCapture := customGatewayCapture(h)"
+      },
+      "test": {
+        "file": "backend/internal/customize/modules/gatewaylogarchive/http_test.go",
+        "marker": "TestRuntimeCaptureFollowsModuleSwitch"
+      },
+      "feature": {
+        "file": "backend/internal/customize/modules/gatewaylogarchive/capture.go",
+        "marker": "func (r *Runtime) CaptureMiddleware() gin.HandlerFunc"
+      },
+      "scope": "关闭扩展或未配置存储时采集中间件直接放行，不读请求体；仅采集对话类接口（Messages / Chat Completions / Responses / Gemini generateContent 与 Responses WebSocket），不改变网关转发。"
     }
   ]
 }

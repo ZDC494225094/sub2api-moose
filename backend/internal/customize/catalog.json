@@ -9,6 +9,15 @@
     "gates": ["/api/v1/admin/bot-notify/*"]
   },
   {
+    "id": "gateway-log-archive",
+    "name": "网关日志存储",
+    "description": "按会话保存网关完整请求体与返回体（原始数据），同模型按天打包为 ZIP（默认 10GB 滚动），上传到 S3 兼容存储桶，后台可检索与预览。",
+    "managed": true,
+    "disable_behavior": "关闭后立即停止采集；进行中的会话写入压缩包并封包，上传暂停。本地与存储桶中的数据保留，重新开启后继续上传。",
+    "paths": ["/admin/gateway-log-archive"],
+    "gates": ["/api/v1/admin/gateway-log-archive/*", "gateway-traffic-capture"]
+  },
+  {
     "id": "redeem-marketing",
     "name": "营销兑换码转化",
     "description": "营销码新注册用户限制与按批次的付费回购转化统计。",

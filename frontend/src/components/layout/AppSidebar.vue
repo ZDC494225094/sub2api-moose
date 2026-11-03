@@ -530,6 +530,10 @@ const BotNotifyIcon = {
   render: () => h(Icon, { name: 'chat' })
 }
 
+const GatewayLogArchiveIcon = {
+  render: () => h(Icon, { name: 'database' })
+}
+
 const UserGuideIcon = {
   render: () => h(Icon, { name: 'book' })
 }
@@ -870,6 +874,7 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/accounts', label: t('nav.accounts'), icon: GlobeIcon },
     { path: '/admin/custom-extensions', label: '二开插件管理', icon: PluginIcon },
     { path: '/admin/bot-notify', label: '消息机器人', icon: BotNotifyIcon },
+    { path: '/admin/gateway-log-archive', label: '网关日志存储', icon: GatewayLogArchiveIcon },
     { path: '/admin/guide', label: '用户手册', icon: UserGuideIcon },
     { path: '/admin/plugins', label: t('nav.plugins'), icon: PluginIcon, featureFlag: flagPluginManagement },
     { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon },

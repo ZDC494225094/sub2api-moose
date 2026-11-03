@@ -141,6 +141,9 @@ func provideCleanup(
 		if extensions != nil && extensions.BotNotify != nil {
 			extensions.BotNotify.Runtime.Stop()
 		}
+		if extensions != nil && extensions.GatewayLogArchive != nil {
+			extensions.GatewayLogArchive.Runtime.Stop()
+		}
 		// Stop producers before shutting down billing workers and storage.
 		if playgroundRuns != nil {
 			playgroundRuns.Stop()

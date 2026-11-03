@@ -40,6 +40,9 @@ func registerCustomOperationsRoutes(admin *gin.RouterGroup, h *handler.Handlers,
 	if h != nil && h.Extensions != nil && h.Extensions.UserGuide != nil {
 		h.Extensions.UserGuide.RegisterAdmin(admin, extensions)
 	}
+	if h != nil && h.Extensions != nil && h.Extensions.GatewayLogArchive != nil {
+		h.Extensions.GatewayLogArchive.Register(admin, extensions)
+	}
 	if h == nil || h.Extensions == nil || h.Extensions.Operations == nil {
 		return
 	}
@@ -111,4 +114,14 @@ func registerCustomPublicGuideRoute(v1 *gin.RouterGroup, h *handler.Handlers, ex
 		return
 	}
 	v1.GET("/guide", extensions.Require("user-guide"), h.Extensions.UserGuide.Public)
+}
+
+// customGatewayCapture archives gateway request/response bodies for the
+// gateway-log-archive extension. It is mounted after API key auth and before
+// composite rewriting; without the extension it is a pass-through.
+func customGatewayCapture(h *handler.Handlers) gin.HandlerFunc {
+	if h == nil || h.Extensions == nil || h.Extensions.GatewayLogArchive == nil {
+		return func(c *gin.Context) { c.Next() }
+	}
+	return h.Extensions.GatewayLogArchive.GatewayCapture()
 }

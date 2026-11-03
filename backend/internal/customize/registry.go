@@ -195,6 +195,8 @@ func RequestExtension(method, path string) string {
 		return "infinite-canvas"
 	case pathUnder(path, "/admin/bot-notify"):
 		return "bot-notify"
+	case pathUnder(path, "/admin/gateway-log-archive"):
+		return "gateway-log-archive"
 	case method == "POST" && path == "/api/v1/playground/runs":
 		return "playground"
 	case path == "/api/v1/canvas/config" || (method == "POST" && path == "/api/v1/canvas/runs"):

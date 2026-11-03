@@ -10,6 +10,12 @@ export const customExtensionRoutes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresAdmin: true, title: '消息机器人' },
   },
   {
+    path: '/admin/gateway-log-archive',
+    name: 'AdminGatewayLogArchive',
+    component: () => import('./modules/gateway-log-archive/GatewayLogArchiveView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: '网关日志存储' },
+  },
+  {
     path: '/admin/guide',
     name: 'AdminUserGuide',
     component: () => import('./modules/user-guide/AdminGuideView.vue'),
