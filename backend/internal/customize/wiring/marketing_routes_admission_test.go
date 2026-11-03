@@ -28,7 +28,7 @@ func TestMarketingManagementRoutesEnforceServiceAdmission(t *testing.T) {
 			gate := &marketingAdmission{states: reader, lookup: marketingManifest(true)}
 			coupons := ProvideCouponService(nil, nil, nil, gate)
 			lottery := ProvideLotteryService(nil, nil, nil, nil, nil, nil, nil, nil, nil, coupons, gate)
-			handler := ProvideMarketingHandler(coupons, lottery)
+			handler := ProvideMarketingHandler(coupons, lottery, nil)
 			router := gin.New()
 			// Actual registration/provider/services, with no repositories: any accidental
 			// business access fails the test. Host auth is tested separately, not replaced.
@@ -103,7 +103,7 @@ func TestMarketingHistoricalReadRoutesRemainAvailableWithoutAdmission(t *testing
 			templates, coupons, activities, records := &readTemplates{}, &readCoupons{}, &readActivities{}, &readDraws{}
 			couponService := ProvideCouponService(templates, coupons, nil, gate)
 			lottery := ProvideLotteryService(nil, activities, nil, nil, nil, records, nil, nil, nil, couponService, gate)
-			handler := ProvideMarketingHandler(couponService, lottery)
+			handler := ProvideMarketingHandler(couponService, lottery, nil)
 			router := gin.New()
 			userGroup := router.Group("/api/v1/payment", func(c *gin.Context) {
 				c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 42})

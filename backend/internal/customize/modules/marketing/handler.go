@@ -32,14 +32,28 @@ type LotteryHTTPService[T any] interface {
 // SubjectResolver returns only the authenticated user ID, never a body/query ID.
 // The host supplies its native authentication adapter; routes inherit host guards.
 type SubjectResolver func(*gin.Context) (int64, bool)
+
+// WechatOpenIDResolver returns the openid the user bound through verified
+// WeChat authorization, or "" when there is none.
+type WechatOpenIDResolver func(ctx context.Context, userID int64) (string, error)
+
 type Handler[T any] struct {
 	couponService  CouponHTTPService
 	lotteryService LotteryHTTPService[T]
 	subject        SubjectResolver
+	wechatOpenID   WechatOpenIDResolver
 }
 
 func NewHandler[T any](coupons CouponHTTPService, lottery LotteryHTTPService[T], subject SubjectResolver) *Handler[T] {
 	return &Handler[T]{couponService: coupons, lotteryService: lottery, subject: subject}
+}
+
+// SetWechatOpenIDResolver enables WeChat-OA-only draws. Without a resolver
+// those activities stay closed; a client-supplied openid is never accepted.
+func (h *Handler[T]) SetWechatOpenIDResolver(resolver WechatOpenIDResolver) {
+	if h != nil {
+		h.wechatOpenID = resolver
+	}
 }
 func (h *Handler[T]) requireUser(c *gin.Context) (int64, bool) {
 	if h.subject != nil {
@@ -142,19 +156,27 @@ func (h *Handler[T]) DrawLottery(c *gin.Context) {
 		return
 	}
 	var req struct {
-		ActivityID   int64  `json:"activity_id" binding:"required,gt=0"`
-		UseWallet    bool   `json:"use_wallet"`
-		WechatOpenID string `json:"wechat_openid"`
+		ActivityID int64 `json:"activity_id" binding:"required,gt=0"`
+		UseWallet  bool  `json:"use_wallet"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
+	// The openid comes from the server-side binding, never from the request body.
+	wechatOpenID := ""
+	if h.wechatOpenID != nil {
+		var err error
+		if wechatOpenID, err = h.wechatOpenID(c.Request.Context(), userID); err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+	}
 	result, err := h.lotteryService.Draw(c.Request.Context(), LotteryDrawInput{
 		ActivityID:   req.ActivityID,
 		UserID:       userID,
 		UseWallet:    req.UseWallet,
-		WechatOpenID: strings.TrimSpace(req.WechatOpenID),
+		WechatOpenID: strings.TrimSpace(wechatOpenID),
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

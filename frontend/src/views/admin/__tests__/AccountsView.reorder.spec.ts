@@ -14,8 +14,10 @@ const {
   updateSortOrder,
   getBatchTodayStats,
   showError,
-  showSuccess
+  showSuccess,
+  loadingHistory
 } = vi.hoisted(() => ({
+  loadingHistory: [] as boolean[],
   listAccounts: vi.fn(),
   listWithEtag: vi.fn(),
   listUpstreamGroups: vi.fn(),
@@ -63,8 +65,13 @@ vi.mock('vue-i18n', async () => {
 })
 
 const DataTableStub = {
-  props: ['data', 'rowGroup', 'rowGroupExpanded', 'rowDraggable'],
+  props: ['data', 'loading', 'rowGroup', 'rowGroupExpanded', 'rowDraggable'],
   emits: ['rowDragStart', 'rowDrop', 'rowDragEnd'],
+  watch: {
+    loading(value: boolean) {
+      loadingHistory.push(value)
+    }
+  },
   methods: {
     groupKey(row: any) {
       return this.rowGroup ? this.rowGroup(row) : ''
@@ -198,7 +205,7 @@ function mountView() {
         BulkSetUpstreamGroupModal: {
           props: ['show', 'accountIds', 'upstreamGroups'],
           emits: ['close', 'updated'],
-          template: '<div v-if="show" data-test="bulk-set-upstream-group-modal">{{ accountIds.join(\',\') }}:{{ upstreamGroups.map(group => group.name).join(\',\') }}</div>'
+          template: '<div v-if="show" data-test="bulk-set-upstream-group-modal">{{ accountIds.join(\',\') }}:{{ upstreamGroups.map(group => group.name).join(\',\') }}<button data-test="bulk-set-upstream-group-done" @click="$emit(\'updated\')"></button></div>'
         },
         BaseDialog: {
           props: ['show'],
@@ -221,6 +228,7 @@ describe('admin AccountsView upstream grouping and reorder', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()
+    loadingHistory.length = 0
     listAccounts.mockResolvedValue({ items: accounts, total: 3, page: 1, page_size: 20, pages: 1 })
     listWithEtag.mockResolvedValue({ notModified: true, etag: null, data: null })
     listUpstreamGroups.mockResolvedValue([
@@ -365,6 +373,47 @@ describe('admin AccountsView upstream grouping and reorder', () => {
       { id: 2, sort_order: 100 },
       { id: 1, sort_order: 200 }
     ])
+  })
+
+  it('applies upstream group renames and moves in place without reloading the table', async () => {
+    renameUpstreamGroup.mockResolvedValue({ id: 2, key: 'hi-code backup', name: 'hi-code backup', sort_order: 10, account_count: 2 })
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('button[aria-pressed="false"]').trigger('click')
+    await flushPromises()
+    const listCalls = listAccounts.mock.calls.length
+
+    await wrapper.get('[data-testid="rename-upstream-group-2"]').trigger('click')
+    await wrapper.get('#rename-upstream-group-name').setValue('hi-code backup')
+    await wrapper.get('#rename-upstream-group-form').trigger('submit')
+    await flushPromises()
+    await wrapper.get('[data-testid="move-upstream-group-down-2"]').trigger('click')
+    await flushPromises()
+
+    const headers = wrapper.findAll('button[aria-expanded="false"]')
+      .filter(header => header.text().includes('hi-code') || header.text().includes('Anthropic official'))
+    expect(headers.map(header => header.text())).toEqual([
+      expect.stringContaining('Anthropic official'),
+      expect.stringContaining('hi-code backup')
+    ])
+    expect(listAccounts.mock.calls.length).toBe(listCalls)
+  })
+
+  it('refreshes rows without the loading skeleton after a bulk upstream-group change', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-test="row-1"] input[type="checkbox"]').setValue(true)
+    await wrapper.get('[data-test="bulk-set-upstream-group"]').trigger('click')
+    await flushPromises()
+    const listCalls = listAccounts.mock.calls.length
+    loadingHistory.length = 0
+
+    await wrapper.get('[data-test="bulk-set-upstream-group-done"]').trigger('click')
+    await flushPromises()
+
+    expect(listAccounts.mock.calls.length).toBe(listCalls + 1)
+    expect(loadingHistory).not.toContain(true)
+    expect(wrapper.find('[data-test="row-1"]').exists()).toBe(true)
   })
 
   it('opens the batch upstream-group dialog for selected accounts', async () => {

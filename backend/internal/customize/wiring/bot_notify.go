@@ -55,7 +55,9 @@ func (d botData) Announcements(ctx context.Context) ([]botnotify.Announcement, e
 			return nil, err
 		}
 		for _, a := range items {
-			if a.IsActiveAt(time.Now()) {
+			// Bot output reaches whole chats; targeted announcements stay with
+			// their audience, matching the public announcements endpoint.
+			if a.IsActiveAt(time.Now()) && len(a.Targeting.AnyOf) == 0 {
 				active = append(active, a)
 			}
 		}

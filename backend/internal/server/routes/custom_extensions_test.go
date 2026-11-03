@@ -267,6 +267,30 @@ func TestMarketingRoutesInheritHostGuardsWithoutCampaignDependency(t *testing.T)
 	}
 }
 
+func TestCustomWechatPublicRoutesAreRateLimited(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	limited := func(c *gin.Context) {
+		if c.GetHeader("X-Test-Limited") == "yes" {
+			c.AbortWithStatus(429)
+			return
+		}
+		c.Next()
+	}
+	h := &handler.ExtensionHandlers{Wechat: wechat.NewHandler(nil, nil, nil, nil)}
+	registerCustomPaymentPublicRoutes(r.Group("/api/v1/payment/public"), h, nil, limited)
+	for _, path := range []string{"/api/v1/payment/public/wechat/oauth/url", "/api/v1/payment/public/wechat/oauth/callback"} {
+		req := httptest.NewRequest("GET", path, nil)
+		req.Header.Set("X-Test-Limited", "yes")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		require.Equal(t, 429, w.Code, path)
+		w = httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
+		require.Equal(t, 500, w.Code, path+" reaches the unconfigured handler")
+	}
+}
+
 type publicAnnouncementStore struct{ value string }
 
 func (s publicAnnouncementStore) GetMultiple(context.Context, []string) (map[string]string, error) {

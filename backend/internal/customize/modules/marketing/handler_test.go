@@ -72,6 +72,36 @@ func TestMarketingHTTPDrawUsesAuthenticatedIdentityAndNativePayload(t *testing.T
 	}
 }
 
+func TestMarketingHTTPDrawTakesWechatOpenIDFromServerBinding(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, tc := range []struct {
+		name     string
+		resolver WechatOpenIDResolver
+		want     string
+	}{
+		{name: "bound", resolver: func(_ context.Context, userID int64) (string, error) {
+			require.Equal(t, int64(42), userID)
+			return "o-bound-openid-1", nil
+		}, want: "o-bound-openid-1"},
+		{name: "unbound", resolver: func(context.Context, int64) (string, error) { return "", nil }},
+		{name: "no_resolver"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stub := &lotteryHTTPStub{}
+			h := NewHandler[httpReward](nil, stub, func(*gin.Context) (int64, bool) { return 42, true })
+			h.SetWechatOpenIDResolver(tc.resolver)
+			r := gin.New()
+			h.RegisterUserRoutes(r.Group("/payment"))
+			req := httptest.NewRequest(http.MethodPost, "/payment/lottery/draw", strings.NewReader(`{"activity_id":9,"wechat_openid":"o-forged-openid-1"}`))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			require.Equal(t, 200, w.Code)
+			require.Equal(t, tc.want, stub.input.WechatOpenID)
+		})
+	}
+}
+
 type couponHTTPStub struct {
 	CouponHTTPService
 	userID int64

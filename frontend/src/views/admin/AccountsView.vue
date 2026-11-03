@@ -227,7 +227,6 @@
         />
         <div ref="accountTableRef" class="flex min-h-0 flex-1 flex-col overflow-hidden">
         <DataTable
-          :key="accountTableSortRenderKey"
           ref="dataTableRef"
           :columns="cols"
           :data="displayAccounts"
@@ -607,7 +606,7 @@
       :upstream-groups="upstreamGroups"
       :upstream-groups-loading="upstreamGroupsLoading"
       @close="showCreate = false"
-      @created="reload"
+      @created="refreshAccountsInPlace"
     />
     <EditAccountModal
       :show="showEdit"
@@ -624,7 +623,7 @@
     <AccountStatsModal :show="showStats" :account="statsAcc" @close="closeStatsModal" />
     <ScheduledTestsPanel :show="showSchedulePanel" :account-id="scheduleAcc?.id ?? null" :model-options="scheduleModelOptions" @close="closeSchedulePanel" />
     <AccountActionMenu :show="menu.show" :account="menu.acc" :anchor-rect="menu.anchorRect" @close="menu.show = false" @test="handleTest" @stats="handleViewStats" @schedule="handleSchedule" @duplicate="handleDuplicateAccount" @reauth="handleReAuth" @refresh-token="handleRefresh" @recover-state="handleRecoverState" @reset-quota="handleResetQuota" @set-privacy="handleSetPrivacy" @create-spark-shadow="handleCreateSparkShadow" />
-    <SyncFromCrsModal :show="showSync" @close="showSync = false" @synced="reload" />
+    <SyncFromCrsModal :show="showSync" @close="showSync = false" @synced="refreshAccountsInPlace" />
     <ImportDataModal :show="showImportData" @close="showImportData = false" @imported="handleDataImported" />
     <BulkEditAccountModal
       :show="showBulkEdit"
@@ -970,9 +969,6 @@ const draggedAccountID = ref<number | null>(null)
 const dragOverAccountID = ref<number | null>(null)
 const accountTableDefaultSortKey = computed(() =>
   customOrderEnabled.value || accountViewMode.value === 'upstream' ? '' : sortState.sort_by
-)
-const accountTableSortRenderKey = computed(() =>
-  `${accountViewMode.value}:${customOrderEnabled.value}:${sortState.sort_by}:${sortState.sort_order}`
 )
 
 const UPSTREAM_GROUP_PAGE_SIZE = 1000
@@ -1416,7 +1412,6 @@ const {
   params,
   pagination,
   load: baseLoad,
-  reload: baseReload,
   debouncedReload: baseDebouncedReload,
   handlePageChange: baseHandlePageChange,
   handlePageSizeChange: baseHandlePageSizeChange
@@ -1499,6 +1494,16 @@ const orderedUpstreamGroups = computed(() =>
   )
 )
 
+// Mirrors the server's upstream ordering: directory groups by their sort order,
+// then rows outside the directory; each group keeps its current row order.
+const sortAccountsByUpstreamGroups = (rows: AccountListItem[]) => {
+  const rank = new Map(orderedUpstreamGroups.value.map((group, index) => [`group:${group.id}`, index]))
+  return rows
+    .map((row, index) => ({ row, index, rank: rank.get(getAccountUpstreamKey(row)) ?? Number.MAX_SAFE_INTEGER }))
+    .sort((left, right) => left.rank - right.rank || left.index - right.index)
+    .map(item => item.row)
+}
+
 const canMoveUpstreamGroup = (groupKey: string, rows: Account[], direction: number) => {
   if (savingUpstreamGroupOrder.value) return false
   const group = getManagedUpstreamGroup(groupKey, rows)
@@ -1534,12 +1539,21 @@ const renameUpstreamGroup = async () => {
 
   renamingUpstreamGroup.value = true
   try {
-    await adminAPI.accounts.renameUpstreamGroup(target.id, name)
+    const renamed = await adminAPI.accounts.renameUpstreamGroup(target.id, name)
+    const nextName = renamed?.name || name
+    // The server relabels every member account; mirror that locally instead of reloading.
+    const memberKey = `group:${target.id}`
+    accounts.value = accounts.value.map(account =>
+      getAccountUpstreamKey(account) === memberKey ? { ...account, upstream_group: nextName } : account
+    )
+    upstreamGroups.value = upstreamGroups.value.map(group =>
+      group.id === target.id ? { ...group, ...renamed, name: nextName } : group
+    )
     showRenameUpstreamGroup.value = false
     renameUpstreamGroupTarget.value = null
     renameUpstreamGroupName.value = ''
     appStore.showSuccess(t('admin.accounts.renameUpstreamGroupSuccess'))
-    await Promise.all([reload(), loadUpstreamGroups()])
+    enterAutoRefreshSilentWindow()
   } catch (error) {
     console.error('Failed to rename upstream group:', error)
     appStore.showError(t('admin.accounts.renameUpstreamGroupFailed'))
@@ -1573,18 +1587,22 @@ const moveUpstreamGroup = async (groupKey: string, rows: Account[], direction: n
   }))
   const sortOrderByID = new Map(updates.map(item => [item.id, item.sort_order]))
   const previousGroups = upstreamGroups.value.map(item => ({ ...item }))
+  const previousAccounts = accounts.value
   upstreamGroups.value = upstreamGroups.value.map(item => ({
     ...item,
     sort_order: sortOrderByID.get(item.id) ?? item.sort_order
   }))
+  // Move the rows right away; the saved order matches what the server returns next time.
+  accounts.value = sortAccountsByUpstreamGroups(accounts.value)
 
   savingUpstreamGroupOrder.value = true
+  enterAutoRefreshSilentWindow()
   try {
     await adminAPI.accounts.updateUpstreamGroupSortOrders(updates)
     appStore.showSuccess(t('admin.accounts.reorderUpstreamGroupsSuccess'))
-    await reload()
   } catch (error) {
     upstreamGroups.value = previousGroups
+    accounts.value = previousAccounts
     console.error('Failed to reorder upstream groups:', error)
     appStore.showError(t('admin.accounts.reorderUpstreamGroupsFailed'))
   } finally {
@@ -1664,15 +1682,6 @@ const load = async (options: AccountLoadOptions = {}) => {
   requestParams.lite = '1'
   await baseLoad()
   if (options.refreshTodayStats !== false) await refreshTodayStatsBatch()
-}
-
-const reload = async () => {
-  syncAccountListDerivedParams()
-  hasPendingListSync.value = false
-  resetAutoRefreshCache()
-  pendingTodayStatsRefresh.value = false
-  await baseReload()
-  await refreshTodayStatsBatch()
 }
 
 const buildUpstreamBillingRateFilters = () => {
@@ -2031,6 +2040,9 @@ const inAutoRefreshSilentWindow = () => {
 const shouldReplaceAutoRefreshRow = (current: Account, next: Account) => {
   return (
     current.updated_at !== next.updated_at ||
+    current.upstream_group !== next.upstream_group ||
+    current.sort_order !== next.sort_order ||
+    current.priority !== next.priority ||
     current.current_concurrency !== next.current_concurrency ||
     current.current_window_cost !== next.current_window_cost ||
     current.active_sessions !== next.active_sessions ||
@@ -2089,7 +2101,8 @@ const refreshAccountsIncrementally = async () => {
   try {
     if (accountViewMode.value === 'upstream') {
       const result = await fetchAccountsForTable(1, pagination.page_size, toRaw(params))
-      accounts.value = result.items || []
+      // Unchanged rows keep their identity so a tick does not re-render every group.
+      mergeAccountsIncrementally(result.items || [])
       pagination.page = 1
       pagination.total = result.total || 0
       pagination.pages = result.pages || 0
@@ -2132,6 +2145,32 @@ const refreshAccountsIncrementally = async () => {
     console.error('Auto refresh failed:', error)
   } finally {
     autoRefreshFetching.value = false
+  }
+}
+
+// After a mutation, refetch the current view without the loading skeleton:
+// scroll position, expanded upstream groups and unchanged rows survive.
+const refreshAccountsInPlace = async () => {
+  syncAccountListDerivedParams()
+  try {
+    const result = await fetchAccountsForTable(pagination.page, pagination.page_size, toRaw(params))
+    const pages = result.pages || 0
+    if (!(result.items || []).length && pagination.page > 1 && pages > 0 && pagination.page > pages) {
+      // The current page emptied (e.g. after deletes); show the new last page instead.
+      pagination.page = pages
+      return refreshAccountsInPlace()
+    }
+    const knownIDs = new Set(accounts.value.map(account => account.id))
+    pagination.total = result.total || 0
+    pagination.pages = pages
+    mergeAccountsIncrementally(result.items || [])
+    hasPendingListSync.value = false
+    upstreamBillingNow.value = Date.now()
+    if (accounts.value.some(account => !knownIDs.has(account.id))) {
+      await refreshTodayStatsBatch()
+    }
+  } catch (error) {
+    console.error('Failed to refresh accounts:', error)
   }
 }
 
@@ -2530,7 +2569,7 @@ const handleBulkDelete = async () => {
       appStore.showSuccess(t('admin.accounts.bulkActions.deleteSuccess', { count: result.success }))
       clearSelection()
     }
-    await reload()
+    await refreshAccountsInPlace()
   } catch (error) {
     console.error('Failed to bulk delete accounts:', error)
     appStore.showError(String(error))
@@ -2546,7 +2585,7 @@ const handleBulkResetStatus = async () => {
       appStore.showSuccess(t('admin.accounts.bulkActions.resetStatusSuccess', { count: result.success }))
       clearSelection()
     }
-    reload()
+    refreshAccountsInPlace()
   } catch (error) {
     console.error('Failed to bulk reset status:', error)
     appStore.showError(String(error))
@@ -2565,7 +2604,7 @@ const handleBulkRefreshToken = async () => {
       appStore.showSuccess(t('admin.accounts.bulkActions.refreshTokenSuccess', { count: result.success }))
       clearSelection()
     }
-    reload()
+    refreshAccountsInPlace()
   } catch (error) {
     console.error('Failed to bulk refresh token:', error)
     appStore.showError(String(error))
@@ -2782,7 +2821,7 @@ const handleBulkUpdated = () => {
   showBulkEdit.value = false
   bulkEditTarget.value = null
   clearSelection()
-  reload()
+  refreshAccountsInPlace()
 }
 
 const openBulkSetUpstreamGroup = async () => {
@@ -2795,9 +2834,9 @@ const openBulkSetUpstreamGroup = async () => {
 const handleBulkUpstreamGroupUpdated = async () => {
   showBulkSetUpstreamGroup.value = false
   clearSelection()
-  await Promise.all([reload(), loadUpstreamGroups()])
+  await Promise.all([refreshAccountsInPlace(), loadUpstreamGroups()])
 }
-const handleDataImported = () => { showImportData.value = false; reload() }
+const handleDataImported = () => { showImportData.value = false; refreshAccountsInPlace() }
 const ACCOUNT_UNGROUPED_GROUP_QUERY_VALUE = 'ungrouped'
 const ACCOUNT_PRIVACY_MODE_UNSET_QUERY_VALUE = '__unset__'
 const buildAccountQueryFilters = () => ({
@@ -2890,8 +2929,15 @@ const patchAccountInList = (updatedAccount: Account) => {
   }
   const nextAccounts = [...accounts.value]
   nextAccounts[index] = mergedAccount
-  accounts.value = nextAccounts
+  const movedUpstreamGroup = accountViewMode.value === 'upstream' &&
+    getAccountUpstreamKey(accounts.value[index]) !== getAccountUpstreamKey(mergedAccount)
+  // A changed upstream group moves the row into its new group block at once;
+  // the quiet refresh then applies the server's exact order inside that group.
+  accounts.value = movedUpstreamGroup ? sortAccountsByUpstreamGroups(nextAccounts) : nextAccounts
   syncAccountRefs(mergedAccount)
+  if (movedUpstreamGroup) {
+    void Promise.all([loadUpstreamGroups(), refreshAccountsInPlace()])
+  }
 }
 const patchUpstreamBillingSnapshot = (accountID: number, snapshot: UpstreamBillingProbeSnapshot) => {
   const account = accounts.value.find(item => item.id === accountID)
@@ -3018,7 +3064,7 @@ const handleDuplicateAccount = async (a: Account) => {
   try {
     const duplicate = await adminAPI.accounts.duplicate(a.id)
     appStore.showSuccess(t('admin.accounts.duplicateSuccess', { name: duplicate.name }))
-    reload()
+    refreshAccountsInPlace()
   } catch (error: any) {
     console.error('Failed to duplicate account:', error)
     appStore.showError(error?.message || t('admin.accounts.duplicateFailed'))
@@ -3099,7 +3145,7 @@ const onRevertFallback = async (a: Account) => {
   try {
     await adminAPI.accounts.revertProxyFallback(a.id)
     appStore.showSuccess(t('admin.accounts.revertProxySuccess'))
-    reload()
+    refreshAccountsInPlace()
   } catch (error: any) {
     console.error('Failed to revert proxy fallback:', error)
     appStore.showError(error?.response?.data?.message || t('admin.accounts.revertProxyFailed'))
@@ -3117,14 +3163,14 @@ const confirmCreateSparkShadow = async () => {
     showCreateShadowDialog.value = false
     creatingShadowAcc.value = null
     appStore.showSuccess(t('admin.accounts.createSparkShadowSuccess'))
-    reload()
+    refreshAccountsInPlace()
   } catch (error: any) {
     console.error('Failed to create spark shadow:', error)
     appStore.showError(error?.response?.data?.message || t('admin.accounts.createSparkShadowFailed'))
   }
 }
 const handleDelete = (a: Account) => { deletingAcc.value = a; showDeleteDialog.value = true }
-const confirmDelete = async () => { if(!deletingAcc.value) return; try { await adminAPI.accounts.delete(deletingAcc.value.id); showDeleteDialog.value = false; deletingAcc.value = null; reload() } catch (error) { console.error('Failed to delete account:', error) } }
+const confirmDelete = async () => { if(!deletingAcc.value) return; try { await adminAPI.accounts.delete(deletingAcc.value.id); showDeleteDialog.value = false; deletingAcc.value = null; refreshAccountsInPlace() } catch (error) { console.error('Failed to delete account:', error) } }
 const handleToggleSchedulable = async (a: Account) => {
   const nextSchedulable = !a.schedulable
   togglingSchedulable.value = a.id

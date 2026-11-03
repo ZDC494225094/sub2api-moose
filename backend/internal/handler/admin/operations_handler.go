@@ -17,8 +17,8 @@ import (
 // OperationsHandler owns extension endpoints even where historical URLs remain
 // under /admin/dashboard. It never changes the upstream DashboardHandler.
 type OperationsHandler struct {
-	operationsService     *service.OperationsService
-	marketingEmailService *service.OperationsMarketingEmailService
+	operationsService      *service.OperationsService
+	marketingEmailService  *service.OperationsMarketingEmailService
 	balanceSnapshotService *service.UserBalanceSnapshotService
 }
 

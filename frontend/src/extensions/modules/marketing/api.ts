@@ -19,8 +19,8 @@ export const marketingAPI = {
     return apiClient.get<LotteryOverview | Record<string, never>>('/payment/lottery/wechat-active')
   },
 
-  /** Draw lottery */
-  drawLottery(data: { activity_id: number; use_wallet?: boolean; wechat_openid?: string }) {
+  /** Draw lottery; WeChat-OA-only activities use the server-side binding */
+  drawLottery(data: { activity_id: number; use_wallet?: boolean }) {
     return apiClient.post<LotteryDrawResult>('/payment/lottery/draw', data)
   },
 
@@ -43,9 +43,9 @@ export const wechatAPI = {
     return apiClient.get<{ openid: string }>('/wechat/binding')
   },
 
-  /** Bind an authorized openid to the current user */
-  bindOpenID(openid: string) {
-    return apiClient.post<{ openid: string }>('/wechat/bind', { openid })
+  /** Bind the openid proven by the OAuth callback's signed ticket to the current user */
+  bindOpenID(ticket: string) {
+    return apiClient.post<{ openid: string }>('/wechat/bind', { ticket })
   },
 
   /** Push the latest draw result to the OA conversation */

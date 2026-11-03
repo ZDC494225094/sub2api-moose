@@ -59,7 +59,7 @@ func ProvideRechargeCampaigns(client *ent.Client, affiliate *service.AffiliateSe
 	return rechargecampaigns.NewHandler(catalog)
 }
 
-func ProvideMarketingHandler(coupons *service.CouponService, lottery *service.LotteryService) *marketing.Handler[service.RedeemCode] {
+func ProvideMarketingHandler(coupons *service.CouponService, lottery *service.LotteryService, bindings wechat.BindingRepository) *marketing.Handler[service.RedeemCode] {
 	var couponPort marketing.CouponHTTPService
 	if coupons != nil {
 		couponPort = coupons
@@ -68,10 +68,21 @@ func ProvideMarketingHandler(coupons *service.CouponService, lottery *service.Lo
 	if lottery != nil {
 		lotteryPort = lottery
 	}
-	return marketing.NewHandler[service.RedeemCode](couponPort, lotteryPort, func(c *gin.Context) (int64, bool) {
+	h := marketing.NewHandler[service.RedeemCode](couponPort, lotteryPort, func(c *gin.Context) (int64, bool) {
 		subject, ok := middleware.GetAuthSubjectFromContext(c)
 		return subject.UserID, ok
 	})
+	if bindings != nil {
+		// WeChat-OA-only draws trust only bindings created from a signed OAuth ticket.
+		h.SetWechatOpenIDResolver(func(ctx context.Context, userID int64) (string, error) {
+			b, err := bindings.GetByUserID(ctx, userID)
+			if err != nil || b == nil {
+				return "", err
+			}
+			return b.OpenID, nil
+		})
+	}
+	return h
 }
 
 // ProvideWechatHandler wires the WeChat Official Account lottery integration.

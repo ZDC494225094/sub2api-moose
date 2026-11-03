@@ -102,6 +102,7 @@ const booting = ref(true)
 const fatalError = ref('')
 const step = ref(1)
 const openid = ref('')
+const ticket = ref('')
 const boundOpenid = ref('')
 const binding = ref(false)
 const overview = ref<LotteryOverview | null>(null)
@@ -125,16 +126,34 @@ function errorMessage(e: any): string {
   return e?.response?.data?.detail || e?.response?.data?.message || e?.message || t('wechatLottery.failed')
 }
 
+async function startOAuth() {
+  step.value = 1
+  try {
+    const r = await wechatAPI.getOAuthURL('/wx-lottery')
+    const authUrl = r.data?.url
+    if (!authUrl) throw new Error(t('wechatLottery.oauthNotConfigured'))
+    window.location.href = authUrl
+  } catch (e: any) {
+    // Not in WeChat or not configured: fail clearly.
+    fatalError.value = errorMessage(e)
+  }
+}
+
 onMounted(async () => {
   try {
-    // 1. openid: from OAuth callback (?openid=) or existing binding
+    // 1. openid + signed bind ticket from the OAuth callback, or an existing binding
     const q = route.query.openid as string | undefined
-    if (q) {
-      openid.value = q
-      // clean the url
+    const qTicket = route.query.wechat_ticket as string | undefined
+    if (q || qTicket) {
+      // clean the url so the ticket is not shared or kept in history
       const url = new URL(window.location.href)
       url.searchParams.delete('openid')
+      url.searchParams.delete('wechat_ticket')
       window.history.replaceState({}, '', url.toString())
+    }
+    if (q && qTicket) {
+      openid.value = q
+      ticket.value = qTicket
     }
     if (!openid.value) {
       // try existing binding first (returning user)
@@ -148,18 +167,8 @@ onMounted(async () => {
     }
     if (!openid.value) {
       // 2. redirect to WeChat webpage authorization
-      step.value = 1
-      try {
-        const r = await wechatAPI.getOAuthURL('/wx-lottery')
-        const authUrl = r.data?.url
-        if (!authUrl) throw new Error(t('wechatLottery.oauthNotConfigured'))
-        window.location.href = authUrl
-        return
-      } catch (e: any) {
-        // Not in WeChat or not configured: allow binding-less preview? No — fail clearly.
-        fatalError.value = errorMessage(e)
-        return
-      }
+      await startOAuth()
+      return
     }
     // 3. ensure binding
     if (!boundOpenid.value) {
@@ -185,13 +194,23 @@ onMounted(async () => {
 })
 
 async function doBind() {
+  if (!ticket.value) {
+    await startOAuth()
+    return
+  }
   binding.value = true
   try {
-    const r = await wechatAPI.bindOpenID(openid.value)
+    const r = await wechatAPI.bindOpenID(ticket.value)
     boundOpenid.value = r.data.openid
     await loadActivity()
     step.value = 3
   } catch (e: any) {
+    if (e?.reason === 'WECHAT_BIND_TICKET_INVALID') {
+      // expired (e.g. after a login detour): authorize again for a fresh ticket
+      ticket.value = ''
+      await startOAuth()
+      return
+    }
     appStore.showError(errorMessage(e))
   } finally {
     binding.value = false
@@ -212,7 +231,6 @@ async function doDraw() {
     const r = await marketingAPI.drawLottery({
       activity_id: activity.value.id,
       use_wallet: false,
-      wechat_openid: openid.value,
     })
     const result = r.data as LotteryDrawResult
     const rec: any = (result as any).record

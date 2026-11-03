@@ -599,11 +599,23 @@ func (s *UpstreamBillingProbeService) probeAccountWithMode(ctx context.Context, 
 		if !valid {
 			return nil, fmt.Errorf("invalid upstream billing rate after scheduled probe")
 		}
+		groupRate, inRange := upstreamBillingGroupSyncRate(rateMultiplier)
+		if !inRange {
+			// Same range as the account write-back: a declared 0 would make every
+			// synced group free, an absurd value would drain user balances.
+			slog.Warn("upstream_billing_group_rate_sync_rejected",
+				"source", "upstream_billing_probe",
+				"account_id", accountID,
+				"declared_effective_rate_multiplier", rateMultiplier,
+				"max_rate_multiplier", upstreamBillingRateSyncMaxMultiplier,
+			)
+			return snapshot, nil
+		}
 		writer, supported := s.accountRepo.(upstreamBillingProbeGroupRateWriter)
 		if !supported {
 			return nil, ErrUpstreamBillingProbeUnavailable
 		}
-		if err := writer.SyncGroupRateMultipliersFromUpstreamBillingProbe(ctx, accountID, rateMultiplier); err != nil {
+		if err := writer.SyncGroupRateMultipliersFromUpstreamBillingProbe(ctx, accountID, groupRate); err != nil {
 			return nil, fmt.Errorf("sync group billing rate multipliers: %w", err)
 		}
 	}
@@ -1018,6 +1030,13 @@ func upstreamBillingProbeSyncRate(data map[string]any) (float64, bool) {
 		return 0, false
 	}
 	return rounded, true
+}
+
+// upstreamBillingGroupSyncRate rounds an effective upstream rate to the
+// groups.rate_multiplier precision and applies the account write-back range.
+func upstreamBillingGroupSyncRate(rate float64) (float64, bool) {
+	rounded := math.Round(rate*upstreamBillingProbeAccountRateScale) / upstreamBillingProbeAccountRateScale
+	return rounded, rounded > 0 && rounded <= upstreamBillingRateSyncMaxMultiplier
 }
 
 func upstreamBillingPeakMultiplierAt(data map[string]any, now time.Time) (float64, bool) {

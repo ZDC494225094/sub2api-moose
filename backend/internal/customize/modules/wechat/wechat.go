@@ -4,8 +4,9 @@
 // result back to the OA conversation via the customer-service message API.
 //
 // Configuration comes from environment variables (never hardcode secrets):
-//   WECHAT_OA_APPID     - 公众号 AppID
-//   WECHAT_OA_APPSECRET - 公众号 AppSecret
+//
+//	WECHAT_OA_APPID     - 公众号 AppID
+//	WECHAT_OA_APPSECRET - 公众号 AppSecret
 //
 // The server's outbound IP must be added to the OA backend IP whitelist,
 // otherwise access_token calls fail.
@@ -25,13 +26,13 @@ import (
 )
 
 const (
-	wechatAuthorizeURL   = "https://open.weixin.qq.com/connect/oauth2/authorize"
-	wechatSnsTokenURL    = "https://api.weixin.qq.com/sns/oauth2/access_token"
-	wechatCGITokenURL    = "https://api.weixin.qq.com/cgi-bin/token"
-	wechatCustomSendURL  = "https://api.weixin.qq.com/cgi-bin/message/custom/send"
-	httpTimeout          = 15 * time.Second
-	accessTokenSkew      = 5 * time.Minute
-	maxMessageRunes      = 1800
+	wechatAuthorizeURL  = "https://open.weixin.qq.com/connect/oauth2/authorize"
+	wechatSnsTokenURL   = "https://api.weixin.qq.com/sns/oauth2/access_token"
+	wechatCGITokenURL   = "https://api.weixin.qq.com/cgi-bin/token"
+	wechatCustomSendURL = "https://api.weixin.qq.com/cgi-bin/message/custom/send"
+	httpTimeout         = 15 * time.Second
+	accessTokenSkew     = 5 * time.Minute
+	maxMessageRunes     = 1800
 )
 
 // Config carries the Official Account credentials.

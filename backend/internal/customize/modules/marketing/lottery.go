@@ -179,8 +179,8 @@ type LotteryDrawInput struct {
 	ActivityID int64
 	UserID     int64
 	UseWallet  bool
-	// WechatOpenID carries the WeChat Official Account openid obtained via
-	// webpage authorization. Required when the activity is wechat_oa_only.
+	// WechatOpenID is the user's server-side WeChat Official Account binding,
+	// resolved by the handler. Required when the activity is wechat_oa_only.
 	WechatOpenID string
 }
 

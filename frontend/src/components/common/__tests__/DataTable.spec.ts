@@ -83,6 +83,32 @@ describe('DataTable', () => {
     expect(nameHeader.findAll('svg')[1].classes()).toContain('text-primary-600')
   })
 
+  it('follows default sort prop changes without remounting', async () => {
+    const wrapper = mount(DataTable, {
+      props: {
+        columns: [
+          { key: 'name', label: 'Name', sortable: true },
+          { key: 'created_at', label: 'Created', sortable: true }
+        ],
+        data: [{ id: 1, name: 'Alpha', created_at: '2026-01-01T00:00:00Z' }],
+        serverSideSort: true,
+        defaultSortKey: 'name',
+        defaultSortOrder: 'asc'
+      }
+    })
+    await wrapper.vm.$nextTick()
+    const headers = () => wrapper.findAll('th')
+    expect(headers()[0].attributes('aria-sort')).toBe('ascending')
+
+    // A parent switching to a custom row order clears the indicator in place.
+    await wrapper.setProps({ defaultSortKey: '' })
+    expect(headers()[0].attributes('aria-sort')).toBe('none')
+
+    await wrapper.setProps({ defaultSortKey: 'created_at', defaultSortOrder: 'desc' })
+    expect(headers()[1].attributes('aria-sort')).toBe('descending')
+    expect(headers()[0].attributes('aria-sort')).toBe('none')
+  })
+
   it('renders all grouped rows and one header per adjacent group', async () => {
     const wrapper = mount(DataTable, {
       props: {

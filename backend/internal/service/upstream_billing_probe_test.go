@@ -171,6 +171,7 @@ type upstreamBillingProbeHTTPStub struct {
 	active         atomic.Int64
 	maxActive      atomic.Int64
 	beforeResponse func()
+	body           string
 }
 
 func (u *upstreamBillingProbeHTTPStub) Do(req *http.Request, proxyURL string, accountID int64, accountConcurrency int) (*http.Response, error) {
@@ -186,10 +187,9 @@ func (u *upstreamBillingProbeHTTPStub) Do(req *http.Request, proxyURL string, ac
 	if u.beforeResponse != nil {
 		u.beforeResponse()
 	}
-	return &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{"Content-Type": []string{"application/json"}},
-		Body: io.NopCloser(strings.NewReader(`{
+	body := u.body
+	if body == "" {
+		body = `{
 			"object":"sub2api.key_billing",
 			"schema_version":1,
 			"billing_scope":"token",
@@ -198,7 +198,12 @@ func (u *upstreamBillingProbeHTTPStub) Do(req *http.Request, proxyURL string, ac
 			"peak_rate_enabled":false,
 			"effective_rate_multiplier":0.8,
 			"observed_at":"2026-07-13T01:00:00Z"
-		}`)),
+		}`
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(body)),
 	}, nil
 }
 
@@ -397,6 +402,53 @@ func TestScheduledProbeSyncsReferenceGroupsButManualProbeDoesNot(t *testing.T) {
 	_, err = svc.ProbeAccount(context.Background(), account.ID)
 	require.NoError(t, err)
 	require.Equal(t, []float64{0.8}, repo.groupRateSyncs[account.ID])
+}
+
+func TestScheduledProbeSkipsOutOfRangeGroupRate(t *testing.T) {
+	for _, rate := range []string{"0", "100.5"} {
+		t.Run(rate, func(t *testing.T) {
+			account := &Account{
+				ID: 23, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Concurrency: 1,
+				Extra:       map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
+				Credentials: map[string]any{"api_key": "sk-sensitive", "base_url": "https://upstream.example"},
+			}
+			repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
+			upstream := &upstreamBillingProbeHTTPStub{body: fmt.Sprintf(`{
+				"object":"sub2api.key_billing","schema_version":1,"billing_scope":"token",
+				"group_rate_multiplier":%[1]s,"resolved_rate_multiplier":%[1]s,
+				"peak_rate_enabled":false,"effective_rate_multiplier":%[1]s,"observed_at":"2026-07-13T01:00:00Z"
+			}`, rate)}
+			svc := newUpstreamBillingProbeTestService(repo, upstream, &upstreamBillingProbeSettingRepo{values: map[string]string{"custom_extensions.billing-scheduling.enabled": "true"}})
+			svc.now = func() time.Time { return time.Date(2026, 7, 13, 1, 0, 0, 0, time.UTC) }
+
+			snapshot, err := svc.probeScheduledAccount(context.Background(), account.ID, 30)
+			require.NoError(t, err)
+			require.Equal(t, UpstreamBillingProbeStatusOK, snapshot.Status)
+			require.Empty(t, repo.groupRateSyncs[account.ID])
+		})
+	}
+}
+
+func TestUpstreamBillingGroupSyncRateBounds(t *testing.T) {
+	tests := []struct {
+		rate float64
+		want float64
+		ok   bool
+	}{
+		{rate: 0, ok: false},
+		{rate: 0.00004, ok: false},
+		{rate: 0.8, want: 0.8, ok: true},
+		{rate: 1.23456, want: 1.2346, ok: true},
+		{rate: upstreamBillingRateSyncMaxMultiplier, want: upstreamBillingRateSyncMaxMultiplier, ok: true},
+		{rate: upstreamBillingRateSyncMaxMultiplier + 0.001, ok: false},
+	}
+	for _, tt := range tests {
+		got, ok := upstreamBillingGroupSyncRate(tt.rate)
+		require.Equal(t, tt.ok, ok, "rate=%v", tt.rate)
+		if tt.ok {
+			require.InDelta(t, tt.want, got, 1e-9, "rate=%v", tt.rate)
+		}
+	}
 }
 
 func TestUpstreamBillingProbeSuccessPersistsSanitizedSnapshot(t *testing.T) {

@@ -1103,6 +1103,17 @@ watch(
   { flush: 'post' }
 )
 
+// Parents that switch between column sorting and a custom row order (e.g. drag
+// ordering) move the indicator through these props instead of remounting the table.
+watch(
+  () => [props.defaultSortKey, props.defaultSortOrder] as const,
+  ([nextKey, nextOrder]) => {
+    if (!didInitSort.value) return
+    sortKey.value = normalizeSortKey(nextKey || '')
+    sortOrder.value = normalizeSortOrder(nextOrder)
+  }
+)
+
 watch(
   [sortKey, sortOrder],
   ([nextKey, nextOrder]) => {

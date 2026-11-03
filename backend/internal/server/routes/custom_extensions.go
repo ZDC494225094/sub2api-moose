@@ -73,7 +73,12 @@ func registerCustomPaymentUserRoutes(group *gin.RouterGroup, h *handler.Extensio
 }
 func registerCustomPaymentPublicRoutes(group *gin.RouterGroup, h *handler.ExtensionHandlers, extensions *customize.Manager, rateLimit gin.HandlerFunc) {
 	if h != nil && h.Wechat != nil {
-		h.Wechat.RegisterPublicRoutes(group)
+		wechatGroup := group
+		if rateLimit != nil {
+			// Anonymous callbacks each trigger an outbound WeChat code exchange.
+			wechatGroup = group.Group("", rateLimit)
+		}
+		h.Wechat.RegisterPublicRoutes(wechatGroup)
 	}
 	if h == nil || h.RechargeCampaigns == nil {
 		return

@@ -24,7 +24,7 @@ func TestMarketingHostAdapterRequiresNativeAuthSubject(t *testing.T) {
 			})
 			// Partial/isolated hosts must preserve the old nil-service response rather
 			// than wrapping typed nil pointers in nonnil HTTP interfaces.
-			h := ProvideMarketingHandler(nil, nil)
+			h := ProvideMarketingHandler(nil, nil, nil)
 			h.RegisterUserRoutes(r.Group("/payment"))
 			req := httptest.NewRequest("GET", "/payment/coupons?user_id=42", nil)
 			req.Header.Set("X-User-ID", "42")

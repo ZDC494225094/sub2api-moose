@@ -22,7 +22,7 @@ func (d *testData) Channels(context.Context) ([]Channel, error) {
 func (d *testData) Announcements(context.Context) ([]Announcement, error) {
 	return []Announcement{{ID: 1, Content: "公告 {now}"}}, d.err
 }
-func (d *testData) SiteName(context.Context) (string, error)      { return "测试站", d.err }
+func (d *testData) SiteName(context.Context) (string, error) { return "测试站", d.err }
 
 func TestTemplateRendering(t *testing.T) {
 	now := time.Date(2026, 10, 17, 9, 5, 0, 0, time.FixedZone("CST", 8*3600))

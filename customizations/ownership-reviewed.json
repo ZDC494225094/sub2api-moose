@@ -588,6 +588,7 @@
         "backend/internal/customize/modules/botnotify/ai_prompt_test.go",
         "backend/internal/customize/modules/botnotify/ai_replies.go",
         "backend/internal/customize/modules/botnotify/ai_runtime.go",
+        "backend/internal/customize/modules/botnotify/ai_runtime_test.go",
         "backend/internal/customize/modules/botnotify/http.go",
         "backend/internal/customize/modules/botnotify/http_test.go",
         "backend/internal/customize/modules/botnotify/image.go",
@@ -624,13 +625,15 @@
         "backend/internal/customize/modules/wechat/binding.go",
         "backend/internal/customize/modules/wechat/handler.go",
         "backend/internal/customize/modules/wechat/routes.go",
+        "backend/internal/customize/modules/wechat/ticket.go",
+        "backend/internal/customize/modules/wechat/ticket_test.go",
         "backend/internal/customize/modules/wechat/wechat.go"
       ],
       "owners": [
         "marketing-tools"
       ],
       "kind": "compatibility",
-      "evidence": "WeChat binding and official-account lottery entry points retain host identity and channel-exclusive eligibility.",
+      "evidence": "WeChat binding and official-account lottery entry points retain host identity and channel-exclusive eligibility; an openid is bound only through a signed, expiring OAuth ticket.",
       "next_step": "Keep official-account-only activities out of general lottery listings before pagination and retain historical binding/notification data."
     },
     {

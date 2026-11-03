@@ -131,10 +131,11 @@ func (s *userRepoStubForGroupUpdate) RemoveGroupFromUserAllowedGroups(context.Co
 
 // apiKeyRepoStubForGroupUpdate implements APIKeyRepository for AdminUpdateAPIKeyGroupID tests.
 type apiKeyRepoStubForGroupUpdate struct {
-	key       *APIKey
-	getErr    error
-	updateErr error
-	updated   *APIKey // captures what was passed to Update
+	key           *APIKey
+	getErr        error
+	updateErr     error
+	updated       *APIKey // captures what was passed to Update
+	updatedFields APIKeyUpdateFields
 }
 
 func (s *apiKeyRepoStubForGroupUpdate) GetByID(_ context.Context, _ int64) (*APIKey, error) {
@@ -144,14 +145,18 @@ func (s *apiKeyRepoStubForGroupUpdate) GetByID(_ context.Context, _ int64) (*API
 	clone := *s.key
 	return &clone, nil
 }
-func (s *apiKeyRepoStubForGroupUpdate) Update(_ context.Context, key *APIKey, _ APIKeyUpdateFields) error {
+func (s *apiKeyRepoStubForGroupUpdate) Update(_ context.Context, key *APIKey, fields APIKeyUpdateFields) error {
 	if s.updateErr != nil {
 		return s.updateErr
 	}
 	clone := *key
 	s.updated = &clone
+	s.updatedFields = fields
 	return nil
 }
+
+// The real repository writes only the declared columns.
+var adminGroupUpdateFields = APIKeyUpdateFields{GroupID: true, GroupIDs: true, Platform: true, BillingPriority: true}
 
 // Unused methods – panic on unexpected call.
 func (s *apiKeyRepoStubForGroupUpdate) Create(context.Context, *APIKey) error { panic("unexpected") }
@@ -335,6 +340,7 @@ func TestAdminService_AdminUpdateAPIKeyGroupID_Unbind(t *testing.T) {
 	require.NotNil(t, repo.updated, "Update should have been called")
 	require.Nil(t, repo.updated.GroupID)
 	require.Empty(t, repo.updated.GroupIDs)
+	require.Equal(t, adminGroupUpdateFields, repo.updatedFields, "group_ids must be cleared in the database too")
 	require.Equal(t, []string{"sk-test"}, cache.keys, "cache should be invalidated")
 }
 
@@ -354,6 +360,7 @@ func TestAdminService_AdminUpdateAPIKeyGroupID_BindActiveGroup(t *testing.T) {
 	require.Equal(t, []int64{10}, got.APIKey.GroupIDs)
 	require.Equal(t, PlatformOpenAI, apiKeyRepo.updated.Platform)
 	require.Equal(t, []int64{10}, apiKeyRepo.updated.GroupIDs)
+	require.Equal(t, adminGroupUpdateFields, apiKeyRepo.updatedFields)
 	require.Equal(t, []string{"sk-test"}, cache.keys)
 	// M3: verify correct group ID was passed to repo
 	require.Equal(t, int64(10), groupRepo.lastGetByIDArg)
@@ -469,6 +476,7 @@ func TestAdminService_AdminUpdateAPIKeyGroupID_ExclusiveGroup_AddsAllowedGroup(t
 	require.True(t, userRepo.addGroupCalled)
 	require.Equal(t, int64(42), userRepo.addedUserID)
 	require.Equal(t, int64(10), userRepo.addedGroupID)
+	require.Equal(t, adminGroupUpdateFields, apiKeyRepo.updatedFields)
 	// 验证 result 标记了自动授权
 	require.True(t, got.AutoGrantedGroupAccess)
 	require.NotNil(t, got.GrantedGroupID)
