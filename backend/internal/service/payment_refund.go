@@ -199,6 +199,9 @@ func (s *PaymentService) validateRefundRequest(ctx context.Context, oid, uid int
 	if err != nil || inst == nil {
 		return nil, infraerrors.Forbidden("USER_REFUND_DISABLED", "refund is not available for this order")
 	}
+	if inst.ProviderKey == payment.TypeBepusdt {
+		return nil, infraerrors.Forbidden("USER_REFUND_DISABLED", "BEpusdt payments cannot be refunded through this system")
+	}
 	if !inst.AllowUserRefund {
 		return nil, infraerrors.Forbidden("USER_REFUND_DISABLED", "user refund is not enabled for this provider")
 	}
@@ -224,6 +227,9 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, amt float
 	if inst == nil {
 		// Legacy order without provider_instance_id — block refund
 		return nil, nil, infraerrors.Forbidden("REFUND_DISABLED", "refund is not available for this order")
+	}
+	if inst.ProviderKey == payment.TypeBepusdt {
+		return nil, nil, infraerrors.Forbidden("REFUND_DISABLED", "BEpusdt payments cannot be refunded through this system")
 	}
 	if !inst.RefundEnabled {
 		return nil, nil, infraerrors.Forbidden("REFUND_DISABLED", "refund is not enabled for this provider")

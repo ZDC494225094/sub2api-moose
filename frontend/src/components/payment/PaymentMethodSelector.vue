@@ -80,10 +80,14 @@ const METHOD_ICONS: Record<string, string> = {
 
 const sortedMethods = computed(() => {
   const order: readonly string[] = METHOD_ORDER
+  const orderIndex = (type: string) => {
+    const exact = order.indexOf(type)
+    if (exact !== -1) return exact
+    if (/^bepusdt_[1-9]\d*$/.test(type)) return order.indexOf('bepusdt') + 0.5
+    return 999
+  }
   return [...props.methods].sort((a, b) => {
-    const ai = order.indexOf(a.type)
-    const bi = order.indexOf(b.type)
-    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
+    return orderIndex(a.type) - orderIndex(b.type)
   })
 })
 

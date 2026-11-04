@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   PAYMENT_CURRENCY_OPTIONS,
+  BEPUSDT_TRADE_TYPES,
+  BEPUSDT_FIAT_OPTIONS,
+  PROVIDER_CALLBACK_PATHS,
   PROVIDER_CONFIG_FIELDS,
   isBuiltInAlipayMethod,
   isBuiltInWxpayMethod,
@@ -55,6 +58,23 @@ describe('PROVIDER_CONFIG_FIELDS.stripe', () => {
     expect(currency?.defaultValue).toBe('CNY')
     expect(currency?.hintKey).toBe('admin.settings.payment.field_paymentCurrencyHint')
     expect(currency?.options).toBe(PAYMENT_CURRENCY_OPTIONS)
+  })
+})
+
+describe('PROVIDER_CONFIG_FIELDS.bepusdt', () => {
+  it('keeps the API token secret and offers supported chain types and fiat currencies', () => {
+    expect(findField('bepusdt', 'apiToken')?.sensitive).toBe(true)
+    expect(findField('bepusdt', 'apiBase')?.sensitive).toBe(false)
+    expect(findField('bepusdt', 'tradeType')?.options).toBe(BEPUSDT_TRADE_TYPES)
+    expect(findField('bepusdt', 'tradeType')?.defaultValue).toBe('usdt.trc20')
+    expect(findField('bepusdt', 'fiat')?.options).toBe(BEPUSDT_FIAT_OPTIONS)
+    expect(findField('bepusdt', 'fiat')?.defaultValue).toBe('CNY')
+    expect(BEPUSDT_TRADE_TYPES.map(type => type.value)).toContain('usdt.bep20')
+    expect(BEPUSDT_TRADE_TYPES.map(type => type.value)).toContain('ton.gram')
+  })
+
+  it('shows the provider callback path for BEpusdt', () => {
+    expect(PROVIDER_CALLBACK_PATHS.bepusdt?.notifyUrl).toBe('/api/v1/payment/webhook/bepusdt')
   })
 })
 

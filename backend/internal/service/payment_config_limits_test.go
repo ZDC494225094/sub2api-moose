@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
@@ -198,6 +199,24 @@ func TestPcGroupByPaymentType(t *testing.T) {
 			t.Fatalf("stripe with empty types should still be in stripe group, got %v", groups)
 		}
 	})
+
+	t.Run("each BEpusdt instance gets its own visible method group", func(t *testing.T) {
+		t.Parallel()
+		bepusdt1 := makeInstance(11, payment.TypeBepusdt, payment.TypeBepusdt, "")
+		bepusdt2 := makeInstance(27, payment.TypeBepusdt, payment.TypeBepusdt, "")
+
+		groups := pcGroupByPaymentType([]*dbent.PaymentProviderInstance{bepusdt1, bepusdt2})
+
+		group1, ok := groups["bepusdt_11"]
+		require.True(t, ok, "instance 11 should have an independent visible method")
+		require.Len(t, group1, 1)
+		require.Equal(t, int64(11), group1[0].ID)
+		group2, ok := groups["bepusdt_27"]
+		require.True(t, ok, "instance 27 should have an independent visible method")
+		require.Len(t, group2, 1)
+		require.Equal(t, int64(27), group2[0].ID)
+		require.NotContains(t, groups, payment.TypeBepusdt, "BEpusdt instances must not collapse into one user-facing method")
+	})
 }
 
 func TestPcAggregateMethodCurrency(t *testing.T) {
@@ -275,6 +294,40 @@ func TestGetAvailableMethodLimitsIncludesEasyPayCustomMethodDisplayName(t *testi
 	limits, ok := resp.Methods["ldc"]
 	require.True(t, ok, "expected custom EasyPay method limits to be visible")
 	require.Equal(t, "LDC Pay", limits.DisplayName)
+}
+
+func TestGetAvailableMethodLimitsIncludesEachBepusdtInstanceWithDisplayName(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+
+	first, err := client.PaymentProviderInstance.Create().
+		SetProviderKey(payment.TypeBepusdt).
+		SetName("波场 USDT").
+		SetConfig(`{"tradeType":"usdt.trc20","fiat":"CNY"}`).
+		SetSupportedTypes(payment.TypeBepusdt).
+		SetEnabled(true).
+		Save(ctx)
+	require.NoError(t, err)
+	second, err := client.PaymentProviderInstance.Create().
+		SetProviderKey(payment.TypeBepusdt).
+		SetName("").
+		SetConfig(`{"tradeType":"usdt.erc20","fiat":"CNY"}`).
+		SetSupportedTypes(payment.TypeBepusdt).
+		SetEnabled(true).
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc := &PaymentConfigService{entClient: client}
+	resp, err := svc.GetAvailableMethodLimits(ctx)
+	require.NoError(t, err)
+
+	firstMethod, ok := resp.Methods[fmt.Sprintf("bepusdt_%d", first.ID)]
+	require.True(t, ok, "named BEpusdt instance should be visible independently")
+	require.Equal(t, "波场 USDT", firstMethod.DisplayName)
+	secondMethod, ok := resp.Methods[fmt.Sprintf("bepusdt_%d", second.ID)]
+	require.True(t, ok, "unnamed BEpusdt instance should still be visible independently")
+	require.Equal(t, "usdt.erc20", secondMethod.DisplayName)
+	require.NotContains(t, resp.Methods, payment.TypeBepusdt)
 }
 
 func TestPcComputeGlobalRange(t *testing.T) {

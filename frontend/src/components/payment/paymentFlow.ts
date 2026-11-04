@@ -16,9 +16,10 @@ const VISIBLE_METHOD_ALIASES = {
   wxpay_direct: 'wxpay',
   stripe: 'stripe',
   airwallex: 'airwallex',
+  bepusdt: 'bepusdt',
 } as const
 
-export type VisiblePaymentMethod = 'alipay' | 'wxpay' | 'stripe' | 'airwallex'
+export type VisiblePaymentMethod = 'alipay' | 'wxpay' | 'stripe' | 'airwallex' | 'bepusdt' | `bepusdt_${number}`
 export type StripeVisibleMethod = 'alipay' | 'wechat_pay'
 export type PaymentLaunchKind =
   | 'qr_waiting'
@@ -97,7 +98,9 @@ type CreateOrderFlowResult = CreateOrderResult & {
 type StorageWriter = Pick<Storage, 'removeItem' | 'setItem'>
 
 export function normalizeVisibleMethod(method: string): VisiblePaymentMethod | '' {
-  const normalized = VISIBLE_METHOD_ALIASES[method.trim() as keyof typeof VISIBLE_METHOD_ALIASES]
+  const trimmed = method.trim()
+  if (/^bepusdt_[1-9]\d*$/.test(trimmed)) return trimmed as VisiblePaymentMethod
+  const normalized = VISIBLE_METHOD_ALIASES[trimmed as keyof typeof VISIBLE_METHOD_ALIASES]
   return normalized ?? ''
 }
 

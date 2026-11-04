@@ -136,8 +136,19 @@ func (lb *DefaultLoadBalancer) queryEnabledInstances(
 	}
 
 	var matched []*dbent.PaymentProviderInstance
+	requestedBepusdtID, requestedBepusdt := BepusdtInstanceIDForVisibleMethod(paymentType)
 	expectedWxpayJSAPIAppID := wxpayJSAPIAppIDFromContext(ctx)
 	for _, inst := range instances {
+		if requestedBepusdt {
+			if inst.ProviderKey != TypeBepusdt || inst.ID != requestedBepusdtID {
+				continue
+			}
+			if !InstanceSupportsType(inst.SupportedTypes, TypeBepusdt) {
+				continue
+			}
+			matched = append(matched, inst)
+			continue
+		}
 		// Stripe: match by provider_key because supported_types lists sub-types (card,link,alipay,wxpay),
 		// not "stripe" itself. The checkout page aggregates all sub-types under "stripe".
 		if paymentType == TypeStripe {
@@ -258,6 +269,9 @@ func getInstanceChannelLimits(inst *dbent.PaymentProviderInstance, paymentType P
 	lookupKey := paymentType
 	if inst.ProviderKey == "stripe" {
 		lookupKey = "stripe"
+	}
+	if IsBepusdtVisibleMethod(lookupKey) {
+		lookupKey = TypeBepusdt
 	}
 	if cl, ok := limits[lookupKey]; ok {
 		return cl

@@ -85,9 +85,17 @@ func (s *PaymentConfigService) GetMethodLimits(ctx context.Context, types []stri
 	result := make([]MethodLimits, 0, len(types))
 	for _, pt := range types {
 		var matching []*dbent.PaymentProviderInstance
-		for _, inst := range instances {
-			if payment.InstanceSupportsType(inst.SupportedTypes, pt) {
-				matching = append(matching, inst)
+		if instanceID, ok := payment.BepusdtInstanceIDForVisibleMethod(pt); ok {
+			for _, inst := range instances {
+				if inst.ProviderKey == payment.TypeBepusdt && inst.ID == instanceID {
+					matching = append(matching, inst)
+				}
+			}
+		} else {
+			for _, inst := range instances {
+				if payment.InstanceSupportsType(inst.SupportedTypes, pt) {
+					matching = append(matching, inst)
+				}
 			}
 		}
 		currency, ok := s.pcAggregateMethodCurrency(matching)
@@ -177,6 +185,21 @@ func (s *PaymentConfigService) pcAggregateMethodDisplayName(pt string, instances
 		return ""
 	}
 	for _, inst := range instances {
+		if inst != nil && inst.ProviderKey == payment.TypeBepusdt {
+			if name := strings.TrimSpace(inst.Name); name != "" {
+				return name
+			}
+			cfg := map[string]string{}
+			if s != nil {
+				decrypted, err := s.decryptConfig(inst.Config)
+				if err == nil && decrypted != nil {
+					cfg = decrypted
+				}
+			}
+			if tradeType := strings.TrimSpace(cfg["tradeType"]); tradeType != "" {
+				return tradeType
+			}
+		}
 		displayName := s.pcInstanceEasyPayCustomMethodDisplayName(inst, pt)
 		if displayName != "" {
 			return displayName
@@ -235,6 +258,10 @@ func pcGroupByPaymentType(instances []*dbent.PaymentProviderInstance) map[string
 			add(payment.TypeStripe, inst)
 			continue
 		}
+		if inst.ProviderKey == payment.TypeBepusdt {
+			add(payment.BepusdtVisibleMethod(inst.ID), inst)
+			continue
+		}
 		for _, t := range splitTypes(inst.SupportedTypes) {
 			add(t, inst)
 		}
@@ -254,6 +281,9 @@ func pcInstanceTypeLimits(inst *dbent.PaymentProviderInstance, pt string) (payme
 		return payment.ChannelLimits{}, false
 	}
 	cl, ok := limits[pt]
+	if !ok && payment.IsBepusdtVisibleMethod(pt) {
+		cl, ok = limits[payment.TypeBepusdt]
+	}
 	return cl, ok
 }
 

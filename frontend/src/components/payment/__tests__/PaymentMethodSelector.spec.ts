@@ -48,6 +48,25 @@ describe('PaymentMethodSelector', () => {
     expect(wrapper.text()).not.toContain('payment.methods.ldc')
   })
 
+  it('shows both BEpusdt instance names as separate selectable methods', () => {
+    const wrapper = mount(PaymentMethodSelector, {
+      props: {
+        selected: 'bepusdt_11',
+        methods: [
+          { type: 'bepusdt_11', display_name: '波场 USDT', fee_rate: 0, available: true },
+          { type: 'bepusdt_27', display_name: '以太坊 USDT', fee_rate: 0, available: true },
+        ],
+      },
+    })
+
+    const buttons = wrapper.findAll('button')
+    expect(buttons).toHaveLength(2)
+    expect(wrapper.text()).toContain('波场 USDT')
+    expect(wrapper.text()).toContain('以太坊 USDT')
+    expect(buttons[0].attributes('title')).toBe('波场 USDT')
+    expect(buttons[1].attributes('title')).toBe('以太坊 USDT')
+  })
+
   it('uses the generic selected style for custom methods that contain built-in names', () => {
     const wrapper = mount(PaymentMethodSelector, {
       props: {

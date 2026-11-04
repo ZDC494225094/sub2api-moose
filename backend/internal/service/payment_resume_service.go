@@ -116,7 +116,11 @@ func (s *PaymentResumeService) ensureSigningKey() error {
 }
 
 func NormalizeVisibleMethod(method string) string {
-	return payment.GetBasePaymentType(strings.TrimSpace(method))
+	method = strings.TrimSpace(method)
+	if payment.IsBepusdtVisibleMethod(method) {
+		return method
+	}
+	return payment.GetBasePaymentType(method)
 }
 
 func NormalizeVisibleMethods(methods []string) []string {

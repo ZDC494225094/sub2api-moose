@@ -263,6 +263,11 @@ func paymentOrderQueryReference(order *dbent.PaymentOrder, prov payment.Provider
 	switch payment.GetBasePaymentType(providerKey) {
 	case payment.TypeAlipay, payment.TypeEasyPay, payment.TypeWxpay:
 		return strings.TrimSpace(order.OutTradeNo)
+	case payment.TypeBepusdt:
+		if tradeNo := strings.TrimSpace(order.PaymentTradeNo); tradeNo != "" {
+			return tradeNo
+		}
+		return strings.TrimSpace(order.OutTradeNo)
 	default:
 		if tradeNo := strings.TrimSpace(order.PaymentTradeNo); tradeNo != "" {
 			return tradeNo
@@ -432,6 +437,11 @@ func (s *PaymentService) getOrderProvider(ctx context.Context, o *dbent.PaymentO
 		return nil, fmt.Errorf("order %d provider fallback is ambiguous for %s", o.ID, providerKey)
 	}
 	s.EnsureProviders(ctx)
+	// Dynamic BEpusdt visible methods are persisted as bepusdt_<instanceID>;
+	// legacy registry fallback only knows the provider category key.
+	if provider := strings.TrimSpace(o.PaymentType); payment.IsBepusdtVisibleMethod(provider) {
+		return s.registry.GetProvider(payment.TypeBepusdt)
+	}
 	return s.registry.GetProvider(o.PaymentType)
 }
 

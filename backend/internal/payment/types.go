@@ -4,6 +4,8 @@ package payment
 
 import (
 	"context"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -21,7 +23,34 @@ const (
 	TypeLink         PaymentType = "link"
 	TypeEasyPay      PaymentType = "easypay"
 	TypeAirwallex    PaymentType = "airwallex"
+	TypeBepusdt      PaymentType = "bepusdt"
 )
+
+// BepusdtVisibleMethodPrefix identifies a user-visible channel backed by one
+// BEpusdt provider instance. The provider category remains "bepusdt" while
+// the suffix makes otherwise identical instances independently selectable.
+const BepusdtVisibleMethodPrefix = "bepusdt_"
+
+func BepusdtVisibleMethod(instanceID int64) PaymentType {
+	if instanceID <= 0 {
+		return TypeBepusdt
+	}
+	return BepusdtVisibleMethodPrefix + strconv.FormatInt(instanceID, 10)
+}
+
+func BepusdtInstanceIDForVisibleMethod(raw string) (int64, bool) {
+	raw = strings.TrimSpace(raw)
+	if !strings.HasPrefix(raw, BepusdtVisibleMethodPrefix) {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(strings.TrimPrefix(raw, BepusdtVisibleMethodPrefix), 10, 64)
+	return id, err == nil && id > 0
+}
+
+func IsBepusdtVisibleMethod(raw string) bool {
+	_, ok := BepusdtInstanceIDForVisibleMethod(raw)
+	return ok
+}
 
 // Order status constants shared across payment and service layers.
 const (
@@ -84,11 +113,14 @@ const ConfigKeyPublishableKey = "publishableKey"
 // GetBasePaymentType extracts the base payment method from a composite key.
 // For example, "alipay_direct" -> "alipay".
 func GetBasePaymentType(t string) string {
+	t = strings.TrimSpace(t)
 	switch {
 	case t == TypeEasyPay:
 		return TypeEasyPay
 	case t == TypeAirwallex:
 		return TypeAirwallex
+	case t == TypeBepusdt || IsBepusdtVisibleMethod(t):
+		return TypeBepusdt
 	case t == TypeStripe || t == TypeCard || t == TypeLink:
 		return TypeStripe
 	case len(t) >= len(TypeAlipay) && t[:len(TypeAlipay)] == TypeAlipay:
@@ -102,15 +134,16 @@ func GetBasePaymentType(t string) string {
 
 // CreatePaymentRequest holds the parameters for creating a new payment.
 type CreatePaymentRequest struct {
-	OrderID     string // Internal order ID
-	Amount      string // 支付金额，按服务商实例配置的币种解释
-	PaymentType string // e.g. "alipay", "wxpay", "stripe"
-	Subject     string // Product description
-	NotifyURL   string // Webhook callback URL
-	ReturnURL   string // Browser redirect URL after payment
-	OpenID      string // WeChat JSAPI payer OpenID when available
-	ClientIP    string // Payer's IP address
-	IsMobile    bool   // Whether the request comes from a mobile device
+	OrderID        string // Internal order ID
+	Amount         string // 支付金额，按服务商实例配置的币种解释
+	PaymentType    string // e.g. "alipay", "wxpay", "stripe"
+	Subject        string // Product description
+	NotifyURL      string // Webhook callback URL
+	ReturnURL      string // Browser redirect URL after payment
+	OpenID         string // WeChat JSAPI payer OpenID when available
+	ClientIP       string // Payer's IP address
+	IsMobile       bool   // Whether the request comes from a mobile device
+	TimeoutSeconds int64  // Provider order timeout, when supported
 	// AlipayMobilePrecreate routes a mobile Alipay request through
 	// alipay.trade.precreate instead of alipay.trade.wap.pay.
 	AlipayMobilePrecreate bool

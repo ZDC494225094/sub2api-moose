@@ -4,6 +4,7 @@ import {
   buildCreateOrderPayload,
   decidePaymentLaunch,
   getVisibleMethods,
+  normalizeVisibleMethod,
   readPaymentRecoverySnapshot,
   type PaymentRecoverySnapshot,
 } from '@/components/payment/paymentFlow'
@@ -71,9 +72,48 @@ describe('getVisibleMethods', () => {
       usdt_trc20: methodLimit({ fee_rate: 1 }),
     })
   })
+
+  it('keeps BEpusdt as a dedicated visible method', () => {
+    expect(normalizeVisibleMethod('bepusdt')).toBe('bepusdt')
+    expect(getVisibleMethods({ bepusdt: methodLimit({ single_min: 10 }) })).toEqual({
+      bepusdt: methodLimit({ single_min: 10 }),
+    })
+  })
+
+  it('keeps per-instance BEpusdt methods separate and preserves their order payload', () => {
+    const visible = getVisibleMethods({
+      bepusdt_11: methodLimit({ single_min: 10 }),
+      bepusdt_27: methodLimit({ single_max: 1000 }),
+    })
+
+    expect(Object.keys(visible)).toEqual(['bepusdt_11', 'bepusdt_27'])
+    expect(buildCreateOrderPayload({
+      amount: 88,
+      paymentType: 'bepusdt_27',
+      orderType: 'balance',
+      isMobile: false,
+      isWechatBrowser: false,
+    }).payment_type).toBe('bepusdt_27')
+  })
 })
 
 describe('decidePaymentLaunch', () => {
+  it('routes BEpusdt hosted checkouts through the redirect flow on desktop', () => {
+    const decision = decidePaymentLaunch(createOrderResult({
+      pay_url: 'https://crypto.example.com/checkout/123',
+      payment_mode: 'redirect',
+      payment_type: 'bepusdt',
+    }), {
+      visibleMethod: 'bepusdt',
+      orderType: 'balance',
+      isMobile: false,
+    })
+
+    expect(decision.kind).toBe('redirect_waiting')
+    expect(decision.paymentState.paymentType).toBe('bepusdt')
+    expect(decision.paymentState.payUrl).toBe('https://crypto.example.com/checkout/123')
+  })
+
   it('uses Stripe popup waiting flow for desktop Alipay client secret', () => {
     const decision = decidePaymentLaunch(createOrderResult({
       client_secret: 'cs_test',

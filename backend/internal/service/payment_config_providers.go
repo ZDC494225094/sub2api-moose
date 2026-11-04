@@ -116,6 +116,7 @@ var providerSensitiveConfigFields = map[string]map[string]struct{}{
 	payment.TypeWxpay:     {"privatekey": {}, "apiv3key": {}, "publickey": {}},
 	payment.TypeStripe:    {"secretkey": {}, "webhooksecret": {}},
 	payment.TypeAirwallex: {"apikey": {}, "webhooksecret": {}},
+	payment.TypeBepusdt:   {"apitoken": {}},
 }
 
 // providerPendingOrderProtectedConfigFields lists config keys that cannot be
@@ -128,6 +129,7 @@ var providerPendingOrderProtectedConfigFields = map[string]map[string]struct{}{
 	payment.TypeWxpay:     {"privatekey": {}, "apiv3key": {}, "publickey": {}, "appid": {}, "mpappid": {}, "mchid": {}, "publickeyid": {}, "certserial": {}},
 	payment.TypeStripe:    {"secretkey": {}, "webhooksecret": {}, "currency": {}},
 	payment.TypeAirwallex: {"clientid": {}, "apikey": {}, "webhooksecret": {}, "apibase": {}, "accountid": {}, "currency": {}},
+	payment.TypeBepusdt:   {"apitoken": {}, "apibase": {}, "tradetype": {}, "fiat": {}, "notifyurl": {}},
 }
 
 func isSensitiveProviderConfigField(providerKey, fieldName string) bool {
@@ -178,7 +180,7 @@ func (s *PaymentConfigService) countPendingOrdersByPlan(ctx context.Context, pla
 }
 
 var validProviderKeys = map[string]bool{
-	payment.TypeEasyPay: true, payment.TypeAlipay: true, payment.TypeWxpay: true, payment.TypeStripe: true, payment.TypeAirwallex: true,
+	payment.TypeEasyPay: true, payment.TypeAlipay: true, payment.TypeWxpay: true, payment.TypeStripe: true, payment.TypeAirwallex: true, payment.TypeBepusdt: true,
 }
 
 func (s *PaymentConfigService) CreateProviderInstance(ctx context.Context, req CreateProviderInstanceRequest) (*dbent.PaymentProviderInstance, error) {
@@ -203,11 +205,12 @@ func (s *PaymentConfigService) CreateProviderInstance(ctx context.Context, req C
 	if err != nil {
 		return nil, err
 	}
-	allowUserRefund := req.AllowUserRefund && req.RefundEnabled
+	allowUserRefund := req.AllowUserRefund && req.RefundEnabled && req.ProviderKey != payment.TypeBepusdt
+	refundEnabled := req.RefundEnabled && req.ProviderKey != payment.TypeBepusdt
 	return s.entClient.PaymentProviderInstance.Create().
 		SetProviderKey(req.ProviderKey).SetName(req.Name).SetConfig(enc).
 		SetSupportedTypes(typesStr).SetEnabled(req.Enabled).SetPaymentMode(req.PaymentMode).
-		SetSortOrder(req.SortOrder).SetLimits(req.Limits).SetRefundEnabled(req.RefundEnabled).
+		SetSortOrder(req.SortOrder).SetLimits(req.Limits).SetRefundEnabled(refundEnabled).
 		SetAllowUserRefund(allowUserRefund).
 		Save(ctx)
 }
@@ -422,15 +425,16 @@ func (s *PaymentConfigService) UpdateProviderInstance(ctx context.Context, id in
 		u.SetLimits(*req.Limits)
 	}
 	if req.RefundEnabled != nil {
-		u.SetRefundEnabled(*req.RefundEnabled)
+		refundEnabled := *req.RefundEnabled && current.ProviderKey != payment.TypeBepusdt
+		u.SetRefundEnabled(refundEnabled)
 		// Cascade: turning off refund_enabled also disables allow_user_refund
-		if !*req.RefundEnabled {
+		if !refundEnabled {
 			u.SetAllowUserRefund(false)
 		}
 	}
 	if req.AllowUserRefund != nil {
 		// Only allow enabling when refund_enabled is (or will be) true
-		if *req.AllowUserRefund {
+		if *req.AllowUserRefund && current.ProviderKey != payment.TypeBepusdt {
 			refundEnabled := false
 			if req.RefundEnabled != nil {
 				refundEnabled = *req.RefundEnabled

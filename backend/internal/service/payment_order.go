@@ -114,6 +114,13 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if err := s.validateSelectedCreateOrderInstance(ctx, req, sel); err != nil {
 		return nil, err
 	}
+	if strings.TrimSpace(sel.ProviderKey) == payment.TypeBepusdt && cfg.OrderTimeoutMin < 2 {
+		// BEpusdt rejects transactions shorter than 120 seconds. Keep Sub2API's
+		// persisted expiry and its cancellation window aligned with that minimum.
+		cfgCopy := *cfg
+		cfgCopy.OrderTimeoutMin = 2
+		cfg = &cfgCopy
+	}
 	selectedCurrency := payment.DefaultPaymentCurrency
 	if sel != nil {
 		selectedCurrency = paymentProviderConfigCurrency(sel.ProviderKey, sel.Config)
@@ -359,6 +366,12 @@ func buildPaymentOrderProviderSnapshot(sel *payment.InstanceSelection, req Creat
 		}
 		snapshot["currency"] = paymentProviderConfigCurrency(providerKey, sel.Config)
 	}
+	if providerKey == payment.TypeBepusdt {
+		snapshot["currency"] = paymentProviderConfigCurrency(providerKey, sel.Config)
+		if tradeType := strings.TrimSpace(sel.Config["tradeType"]); tradeType != "" {
+			snapshot["trade_type"] = tradeType
+		}
+	}
 
 	if len(snapshot) == 1 {
 		return nil
@@ -500,6 +513,7 @@ func (s *PaymentService) invokeProvider(ctx context.Context, order *dbent.Paymen
 		IsMobile:    req.IsMobile,
 		ReturnURL:   providerReturnURL,
 	}, sel, outTradeNo, payAmountStr, subject)
+	providerReq.TimeoutSeconds = int64(math.Ceil(time.Until(order.ExpiresAt).Seconds()))
 	providerReq.AlipayMobilePrecreate = shouldUseAlipayMobilePrecreate(req, cfg, sel)
 	finishProviderCall := servertiming.ObserveDependency(ctx, "payment")
 	pr, err := prov.CreatePayment(ctx, providerReq)
@@ -909,7 +923,14 @@ func (s *PaymentService) GetUserOrders(ctx context.Context, userID int64, p Orde
 		q = q.Where(paymentorder.OrderTypeEQ(p.OrderType))
 	}
 	if p.PaymentType != "" {
-		q = q.Where(paymentorder.PaymentTypeEQ(p.PaymentType))
+		if p.PaymentType == payment.TypeBepusdt {
+			q = q.Where(paymentorder.Or(
+				paymentorder.PaymentTypeEQ(payment.TypeBepusdt),
+				paymentorder.PaymentTypeHasPrefix(payment.BepusdtVisibleMethodPrefix),
+			))
+		} else {
+			q = q.Where(paymentorder.PaymentTypeEQ(p.PaymentType))
+		}
 	}
 	total, err := q.Clone().Count(ctx)
 	if err != nil {
@@ -940,7 +961,14 @@ func (s *PaymentService) AdminListOrders(ctx context.Context, userID int64, p Or
 		q = q.Where(paymentorder.OrderTypeEQ(p.OrderType))
 	}
 	if p.PaymentType != "" {
-		q = q.Where(paymentorder.PaymentTypeEQ(p.PaymentType))
+		if p.PaymentType == payment.TypeBepusdt {
+			q = q.Where(paymentorder.Or(
+				paymentorder.PaymentTypeEQ(payment.TypeBepusdt),
+				paymentorder.PaymentTypeHasPrefix(payment.BepusdtVisibleMethodPrefix),
+			))
+		} else {
+			q = q.Where(paymentorder.PaymentTypeEQ(p.PaymentType))
+		}
 	}
 	if p.DateField == "paid_at" {
 		if p.StartTime != nil {

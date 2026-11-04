@@ -65,12 +65,14 @@ function mountDialog(options: { editing?: ProviderInstance | null } = {}) {
         { value: 'wxpay', label: 'WeChat Pay' },
         { value: 'stripe', label: 'Stripe' },
         { value: 'airwallex', label: 'Airwallex' },
+        { value: 'bepusdt', label: 'BEpusdt' },
       ],
       enabledKeyOptions: [
         { value: 'easypay', label: 'EasyPay' },
         { value: 'alipay', label: 'Alipay' },
         { value: 'wxpay', label: 'WeChat Pay' },
         { value: 'airwallex', label: 'Airwallex' },
+        { value: 'bepusdt', label: 'BEpusdt' },
       ],
       allPaymentTypes: [
         { value: 'alipay', label: 'Alipay' },
@@ -118,6 +120,38 @@ describe('PaymentProviderDialog callback URLs', () => {
     expect(payload.config.notifyUrl).toBe(expectedNotify + '/api/v1/payment/webhook/easypay')
     expect(payload.config.returnUrl).toBe(expectedReturn + '/payment/result')
     wrapper.unmount()
+  })
+
+  it('saves BEpusdt callback config and defaults to redirect with fixed chain settings', async () => {
+    const wrapper = mountDialog()
+    ;(wrapper.vm as unknown as { reset: (key: string) => void }).reset('bepusdt')
+    await nextTick()
+
+    const config = wrapper.vm.$.setupState.config as Record<string, string>
+    expect(config.tradeType).toBe('usdt.trc20')
+    expect(config.fiat).toBe('CNY')
+
+    await wrapper.find('input[type="text"]').setValue('BEpusdt production')
+    const inputs = wrapper.findAll('input')
+    // Provider form renders apiBase as the first plain config field after the name.
+    const plainConfigInputs = inputs.filter(input => input.classes().includes('input') && (input.element as HTMLInputElement).type === 'text')
+    await plainConfigInputs[1].setValue('https://pay.example.com')
+    const tokenInput = wrapper.find('input[type="password"]')
+    await tokenInput.setValue('test-token')
+    await wrapper.find('form').trigger('submit.prevent')
+
+    const payload = wrapper.emitted('save')?.[0]?.[0] as {
+      config: Record<string, string>
+      payment_mode: string
+      refund_enabled: boolean
+      allow_user_refund: boolean
+    }
+    expect(payload.config.apiBase).toBe('https://pay.example.com')
+    expect(payload.config.apiToken).toBe('test-token')
+    expect(payload.config.notifyUrl).toBe(window.location.origin + '/api/v1/payment/webhook/bepusdt')
+    expect(payload.payment_mode).toBe('redirect')
+    expect(payload.refund_enabled).toBe(false)
+    expect(payload.allow_user_refund).toBe(false)
   })
 })
 
