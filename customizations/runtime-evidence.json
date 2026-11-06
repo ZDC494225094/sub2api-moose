@@ -569,6 +569,27 @@
         "marker": "func (r *Runtime) CaptureMiddleware() gin.HandlerFunc"
       },
       "scope": "关闭扩展或未配置存储时采集中间件直接放行，不读请求体；仅采集对话类接口（Messages / Chat Completions / Responses / Gemini generateContent 与 Responses WebSocket），不改变网关转发。"
+    },
+    {
+      "module": "console-theme",
+      "checkpoint": "module-entry",
+      "read": {
+        "file": "frontend/src/extensions/modules/console-theme/index.ts",
+        "marker": "store.enabled(CONSOLE_THEME_ID)"
+      },
+      "call": {
+        "file": "frontend/src/extensions/runtime.ts",
+        "marker": "syncConsoleTheme(store)"
+      },
+      "test": {
+        "file": "frontend/src/extensions/modules/console-theme/__tests__/consoleTheme.spec.ts",
+        "marker": "applies the brand theme only while the module is enabled"
+      },
+      "feature": {
+        "file": "frontend/src/extensions/modules/console-theme/index.ts",
+        "marker": "export const CONSOLE_THEME_ATTRIBUTE = 'data-console-theme'"
+      },
+      "scope": "纯前端外观模块：开启时在根节点写入 data-console-theme 切换调色板变量与作用域样式，并挂载顶栏主题切换插槽；关闭即移除属性恢复上游样式。状态未知时保持上次确认的外观，不参与任何业务准入。"
     }
   ]
 }

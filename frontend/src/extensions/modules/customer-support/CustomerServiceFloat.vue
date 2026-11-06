@@ -10,11 +10,11 @@
       <section
         v-if="panelOpen"
         id="customer-service-panel"
-        class="mb-3 w-[min(calc(100vw-2rem),20rem)] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl shadow-gray-900/10 dark:border-dark-700 dark:bg-dark-800 dark:shadow-black/30"
+        class="support-panel mb-3 flex max-h-[min(78vh,640px)] w-[min(calc(100vw-2rem),22rem)] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl shadow-gray-900/10 dark:border-dark-700 dark:bg-dark-800 dark:shadow-black/30"
         role="region"
         :aria-label="t('common.customerService.title')"
       >
-        <header class="flex items-start justify-between gap-4 border-b border-gray-100 px-4 py-3.5 dark:border-dark-700">
+        <header class="flex shrink-0 items-start justify-between gap-4 border-b border-gray-100 px-4 py-3.5 dark:border-dark-700">
           <div class="min-w-0">
             <h2 class="text-sm font-semibold text-gray-900 dark:text-white">
               {{ t('common.customerService.title') }}
@@ -36,25 +36,23 @@
 
         <p v-if="!hasDetails" class="px-4 py-5 text-sm text-gray-500 dark:text-dark-300">{{ t('common.customerService.unavailable') }}</p>
 
-        <div
-          v-if="contactInfo || afterSalesGroup"
-          class="divide-y divide-gray-100 px-4 dark:divide-dark-700"
-        >
-          <div v-if="contactInfo" class="flex items-center gap-3 py-3.5">
-            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-300">
+        <!-- Scrolls on its own so many groups never push the links off screen. -->
+        <div v-if="contactInfo || groups.length" class="support-body min-h-0 flex-1 divide-y divide-gray-100 overflow-y-auto px-4 dark:divide-dark-700">
+          <div v-if="contactInfo" class="support-row flex items-center gap-3 py-3.5">
+            <span class="support-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-300">
               <Icon name="chat" size="md" />
             </span>
             <div class="min-w-0 flex-1">
-              <p class="text-xs text-gray-500 dark:text-dark-300">
+              <p class="support-label text-xs text-gray-500 dark:text-dark-300">
                 {{ t('common.customerService.contact') }}
               </p>
-              <p class="mt-0.5 whitespace-pre-wrap break-words text-sm font-medium text-gray-900 dark:text-white">
+              <p class="support-value mt-0.5 whitespace-pre-wrap break-words text-sm font-medium text-gray-900 dark:text-white">
                 {{ contactInfo }}
               </p>
             </div>
             <button
               type="button"
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:hover:bg-dark-700 dark:hover:text-primary-300"
+              class="support-copy flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:hover:bg-dark-700 dark:hover:text-primary-300"
               :aria-label="`${t('common.copy')} ${t('common.customerService.contact')}`"
               :title="t('common.copy')"
               @click="copyToClipboard(contactInfo)"
@@ -63,24 +61,29 @@
             </button>
           </div>
 
-          <div v-if="afterSalesGroup" class="flex items-center gap-3 py-3.5">
-            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
+          <div
+            v-for="(group, index) in groups"
+            :key="`group-${index}`"
+            class="support-row flex items-center gap-3 py-3.5"
+            data-test="support-group"
+          >
+            <span class="support-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
               <Icon name="users" size="md" />
             </span>
             <div class="min-w-0 flex-1">
-              <p class="text-xs text-gray-500 dark:text-dark-300">
-                {{ t('common.customerService.afterSalesGroup') }}
+              <p class="support-label text-xs text-gray-500 dark:text-dark-300">
+                {{ groupLabel(group.label, index) }}
               </p>
-              <p class="mt-0.5 whitespace-pre-wrap break-words text-sm font-medium text-gray-900 dark:text-white">
-                {{ afterSalesGroup }}
+              <p class="support-value mt-0.5 whitespace-pre-wrap break-words text-sm font-medium text-gray-900 dark:text-white">
+                {{ group.value }}
               </p>
             </div>
             <button
               type="button"
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:hover:bg-dark-700 dark:hover:text-emerald-300"
-              :aria-label="`${t('common.copy')} ${t('common.customerService.afterSalesGroup')}`"
+              class="support-copy flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-emerald-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:hover:bg-dark-700 dark:hover:text-emerald-300"
+              :aria-label="`${t('common.copy')} ${groupLabel(group.label, index)}`"
               :title="t('common.copy')"
-              @click="copyToClipboard(afterSalesGroup)"
+              @click="copyToClipboard(group.value)"
             >
               <Icon name="copy" size="sm" />
             </button>
@@ -88,26 +91,34 @@
         </div>
 
         <div
-          v-if="customerServiceLink"
-          class="px-4 py-3"
-          :class="contactInfo || afterSalesGroup ? 'border-t border-gray-100 dark:border-dark-700' : ''"
+          v-if="links.length"
+          class="support-links grid shrink-0 gap-2 px-4 py-3"
+          :class="contactInfo || groups.length ? 'border-t border-gray-100 dark:border-dark-700' : ''"
         >
+          <p v-if="links.length > 1" class="support-label text-xs text-gray-500 dark:text-dark-300">{{ t('customerSupport.onlineService') }}</p>
           <a
-            :href="customerServiceLink"
+            v-for="(link, index) in links"
+            :key="`link-${index}`"
+            :href="link.url"
             target="_blank"
             rel="noopener noreferrer"
-            class="support-direct-link flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 dark:ring-offset-dark-800"
+            :class="index === 0
+              ? 'support-direct-link bg-primary-600 text-white hover:bg-primary-700'
+              : 'support-secondary-link border border-gray-200 bg-white text-gray-800 hover:border-primary-300 hover:text-primary-700 dark:border-dark-600 dark:bg-dark-700/40 dark:text-gray-100 dark:hover:border-primary-500/50 dark:hover:text-primary-300'"
+            class="flex min-h-11 w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 dark:ring-offset-dark-800"
+            data-test="support-link"
           >
-            <span>{{ t('common.customerService.contactNow') }}</span>
-            <Icon name="externalLink" size="sm" :stroke-width="2" />
+            <span class="min-w-0 truncate">{{ linkLabel(link.label, index) }}</span>
+            <Icon name="externalLink" size="sm" :stroke-width="2" class="shrink-0" />
           </a>
         </div>
       </section>
     </Transition>
 
+    <!-- One link opens directly; several open the panel so users can choose. -->
     <a
-      v-if="directLink && customerServiceLink"
-      :href="customerServiceLink"
+      v-if="directLink && links.length === 1"
+      :href="links[0].url"
       target="_blank"
       rel="noopener noreferrer"
       class="support-direct-link flex min-h-12 items-center justify-center gap-2 rounded-full bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary-600/25 transition hover:-translate-y-0.5 hover:bg-primary-700"
@@ -134,8 +145,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useClipboard } from '@/composables/useClipboard'
 import { useAppStore } from '@/stores/app'
-import { sanitizeUrl } from '@/utils/url'
 import Icon from '@/components/icons/Icon.vue'
+import { parseContactEntries, parseContactLinks } from './contacts'
 
 const { t } = useI18n()
 withDefaults(defineProps<{ alwaysVisible?: boolean; directLink?: boolean }>(), { alwaysVisible: false, directLink: false })
@@ -148,15 +159,20 @@ const panelOpen = ref(false)
 const contactInfo = computed(() =>
   (appStore.cachedPublicSettings?.contact_info || appStore.contactInfo || '').trim()
 )
-const afterSalesGroup = computed(() =>
-  (appStore.cachedPublicSettings?.after_sales_group || '').trim()
-)
-const customerServiceLink = computed(() =>
-  sanitizeUrl(appStore.cachedPublicSettings?.customer_service_link || '')
-)
-const hasDetails = computed(() =>
-  Boolean(contactInfo.value || afterSalesGroup.value || customerServiceLink.value)
-)
+const groups = computed(() => parseContactEntries(appStore.cachedPublicSettings?.after_sales_group))
+const links = computed(() => parseContactLinks(appStore.cachedPublicSettings?.customer_service_link))
+const hasDetails = computed(() => Boolean(contactInfo.value || groups.value.length || links.value.length))
+
+function groupLabel(label: string, index: number) {
+  if (label) return label
+  const base = t('common.customerService.afterSalesGroup')
+  return groups.value.length > 1 ? `${base} ${index + 1}` : base
+}
+
+function linkLabel(label: string, index: number) {
+  if (label) return label
+  return links.value.length > 1 ? `${t('customerSupport.onlineService')} ${index + 1}` : t('common.customerService.contactNow')
+}
 
 function closePanel() {
   panelOpen.value = false
@@ -186,7 +202,7 @@ onBeforeUnmount(() => {
   font-family: inherit;
 }
 .support-home section {
-  width: min(calc(100vw - 2rem), 350px);
+  width: min(calc(100vw - 2rem), 360px);
   border: 1px solid var(--line, #dfe5ef);
   border-radius: 20px;
   background: linear-gradient(145deg, #fff, #f5f8ff);
@@ -196,9 +212,9 @@ onBeforeUnmount(() => {
 .support-home section header { padding: 21px 20px 17px; border-color: var(--line, #dfe5ef); }
 .support-home section header h2 { color: var(--support-ink); font-size: 16px; font-weight: 650; letter-spacing: -.025em; }
 .support-home section header p { color: var(--support-muted); font-size: 12px; line-height: 1.75; margin-top: 5px; }
-.support-home section > .divide-y { padding: 0 20px; }
-.support-home section > .divide-y > div { padding: 17px 0; border-color: var(--line, #dfe5ef); gap: 12px; }
-.support-home section > .divide-y > div > span {
+.support-home .support-body { padding: 0 20px; }
+.support-home .support-row { padding: 15px 0; border-color: var(--line, #dfe5ef); gap: 12px; }
+.support-home .support-icon {
   width: 40px;
   height: 40px;
   border: 1px solid #315cf414;
@@ -206,8 +222,8 @@ onBeforeUnmount(() => {
   color: #416cef;
   background: #315cf409;
 }
-.support-home section .min-w-0.flex-1 > p:first-child { color: var(--support-muted); font-size: 11px; }
-.support-home section .min-w-0.flex-1 > p:last-child {
+.support-home .support-label { color: var(--support-muted); font-size: 11px; }
+.support-home .support-value {
   color: var(--support-ink);
   font-family: inherit;
   font-size: 14px;
@@ -215,7 +231,7 @@ onBeforeUnmount(() => {
   line-height: 1.7;
   font-variant-numeric: tabular-nums;
 }
-.support-home section > div:last-child:not(.divide-y) { padding: 14px 20px 20px; border-color: var(--line, #dfe5ef); }
+.support-home .support-links { padding: 14px 20px 20px; border-color: var(--line, #dfe5ef); }
 .support-home section button { border-radius: 9px; color: var(--support-muted); }
 .support-home section button:hover { color: #416cef; background: #315cf40c; }
 .support-home .support-direct-link,
@@ -228,9 +244,17 @@ onBeforeUnmount(() => {
   box-shadow: 0 5px 16px #315cf427, inset 0 1px 0 #ffffff26;
   transition: transform .2s ease, box-shadow .2s ease;
 }
+.support-home .support-secondary-link {
+  border-color: var(--line, #dfe5ef);
+  background: #ffffffb8;
+  color: var(--support-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.support-home .support-secondary-link:hover { border-color: #315cf455; color: #315cf4; }
 .support-home .support-home-trigger { height: 46px; border-radius: 14px; padding: 0 18px; }
 .support-home .support-home-trigger > svg { width: 19px; height: 19px; }
-.support-home section .support-direct-link { min-height: 44px; border-radius: 11px; }
+.support-home section :is(.support-direct-link, .support-secondary-link) { min-height: 44px; border-radius: 11px; }
 .support-home .support-direct-link:hover,
 .support-home .support-home-trigger:hover { transform: translateY(-2px); box-shadow: 0 8px 24px #315cf438; }
 .support-home :is(button, a):focus-visible { outline: 2px solid #81a3ff; outline-offset: 3px; }
@@ -241,7 +265,9 @@ onBeforeUnmount(() => {
   color-scheme: dark;
 }
 .dark .support-home section { background: linear-gradient(145deg, #18253b, #111c2f); box-shadow: 0 18px 60px #0005; }
-.dark .support-home section > .divide-y > div > span { background: #729bff12; border-color: #729bff20; color: #91b2ff; }
+.dark .support-home .support-icon { background: #729bff12; border-color: #729bff20; color: #91b2ff; }
+.dark .support-home .support-secondary-link { background: #0b122080; }
+.dark .support-home .support-secondary-link:hover { border-color: #81a3ff66; color: #91b2ff; }
 .dark .support-home section button:hover { color: #91b2ff; background: #729bff12; }
 .support-direct-link { color: white; }
 .support-home-trigger { width: auto; padding: 0 20px; gap: 8px; font-size: 14px; }

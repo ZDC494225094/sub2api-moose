@@ -48,7 +48,7 @@ type bundle struct {
 // and the upload queue. It is created when the module is enabled.
 type pipeline struct {
 	store   archiveStore
-	objects func(Config) (objectStore, error)
+	objects func(BucketConfig) (objectStore, error)
 	node    string
 	dir     string
 	day     func(time.Time) string
@@ -56,6 +56,7 @@ type pipeline struct {
 	stats   *stats
 
 	cfg       atomic.Pointer[Config]
+	buckets   atomic.Pointer[[]BucketConfig] // enabled, in upload order
 	maxZip    atomic.Int64
 	idle      atomic.Int64
 	keepLocal atomic.Int64
@@ -100,7 +101,7 @@ type uploadProgress struct {
 func (p *pipeline) spoolDir() string  { return filepath.Join(p.dir, "spool") }
 func (p *pipeline) bundleDir() string { return filepath.Join(p.dir, "bundles") }
 
-func startPipeline(store archiveStore, objects func(Config) (objectStore, error), node, dir string, day func(time.Time) string, cfg Config, report func(error), st *stats) (*pipeline, error) {
+func startPipeline(store archiveStore, objects func(BucketConfig) (objectStore, error), node, dir string, day func(time.Time) string, cfg Config, report func(error), st *stats) (*pipeline, error) {
 	p := &pipeline{
 		store: store, objects: objects, node: node, dir: dir, day: day, report: report, stats: st,
 		open: true, in: make(chan *Exchange, intakeCapacity),
@@ -127,6 +128,19 @@ func startPipeline(store archiveStore, objects func(Config) (objectStore, error)
 	p.workers.Add(1)
 	go p.uploadLoop()
 	return p, nil
+}
+
+// setBuckets replaces the upload destinations (enabled buckets, upload order).
+func (p *pipeline) setBuckets(buckets []BucketConfig) {
+	list := append([]BucketConfig(nil), buckets...)
+	p.buckets.Store(&list)
+}
+
+func (p *pipeline) enabledBuckets() []BucketConfig {
+	if list := p.buckets.Load(); list != nil {
+		return *list
+	}
+	return nil
 }
 
 func (p *pipeline) setConfig(cfg Config) {

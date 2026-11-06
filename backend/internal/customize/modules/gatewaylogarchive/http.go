@@ -21,7 +21,12 @@ func (h *Handler) Register(group *gin.RouterGroup, manager *customize.Manager) {
 	g := group.Group("/gateway-log-archive", manager.Require(ID))
 	g.GET("/config", h.getConfig)
 	g.PUT("/config", h.saveConfig)
-	g.POST("/config/test", h.testConfig)
+	g.GET("/buckets", h.listBuckets)
+	g.POST("/buckets", h.createBucket)
+	g.POST("/buckets/test", h.testBucket)
+	g.PUT("/buckets/:id", h.updateBucket)
+	g.DELETE("/buckets/:id", h.deleteBucket)
+	g.GET("/stats/models", h.modelStats)
 	g.GET("/status", h.status)
 	g.POST("/flush", h.flush)
 	g.GET("/bundles", h.listBundles)
@@ -43,10 +48,7 @@ func (h *Handler) GatewayCapture() gin.HandlerFunc {
 
 type configView struct {
 	Config
-	AccessKeyID        string     `json:"access_key_id"`
-	SecretAccessKeySet bool       `json:"secret_access_key_set"`
-	SessionTokenSet    bool       `json:"session_token_set"`
-	UpdatedAt          *time.Time `json:"updated_at"`
+	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 func maskKey(v string) string {
@@ -59,14 +61,76 @@ func maskKey(v string) string {
 	return v[:4] + "****" + v[len(v)-4:]
 }
 
-func newConfigView(cfg Config, updated *time.Time) configView {
-	return configView{Config: cfg, AccessKeyID: maskKey(cfg.AccessKeyID), SecretAccessKeySet: cfg.SecretAccessKey != "",
-		SessionTokenSet: cfg.SessionToken != "", UpdatedAt: updated}
+func (h *Handler) getConfig(c *gin.Context) {
+	cfg, updated, err := h.Runtime.Store.Config(c.Request.Context())
+	if !response.ErrorFrom(c, err) {
+		response.Success(c, configView{Config: cfg, UpdatedAt: updated})
+	}
 }
 
-// saveRequest: omitted or empty credential fields keep the stored value.
-type saveRequest struct {
-	Config
+func (h *Handler) saveConfig(c *gin.Context) {
+	var req Config
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "配置格式错误")
+		return
+	}
+	ctx := c.Request.Context()
+	stored, _, err := h.Runtime.Store.Config(ctx)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	req.keepStorageState(stored)
+	if err := req.Normalize(); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	if req.CaptureEnabled {
+		buckets, err := h.Runtime.Store.Buckets(ctx)
+		if response.ErrorFrom(c, err) {
+			return
+		}
+		if len(enabledBuckets(buckets)) == 0 {
+			response.BadRequest(c, "开启采集前请先添加并启用至少一个存储桶")
+			return
+		}
+	}
+	if err := h.Runtime.Store.SaveConfig(ctx, req); response.ErrorFrom(c, err) {
+		return
+	}
+	h.Runtime.signal()
+	saved, updated, err := h.Runtime.Store.Config(ctx)
+	if !response.ErrorFrom(c, err) {
+		response.Success(c, configView{Config: saved, UpdatedAt: updated})
+	}
+}
+
+// bucketView never carries secrets: the access key is masked and the secret
+// and session token are reported only as set / not set.
+type bucketView struct {
+	BucketConfig
+	AccessKeyID        string      `json:"access_key_id"`
+	SecretAccessKeySet bool        `json:"secret_access_key_set"`
+	SessionTokenSet    bool        `json:"session_token_set"`
+	Usage              BucketUsage `json:"usage"`
+}
+
+func newBucketView(b BucketConfig, usage BucketUsage) bucketView {
+	return bucketView{BucketConfig: b, AccessKeyID: maskKey(b.AccessKeyID), SecretAccessKeySet: b.SecretAccessKey != "",
+		SessionTokenSet: b.SessionToken != "", Usage: usage}
+}
+
+// bucketRequest: omitted, empty or masked credential fields keep the stored value.
+type bucketRequest struct {
+	ID                int64   `json:"id"`
+	Name              string  `json:"name"`
+	Provider          string  `json:"provider"`
+	Bucket            string  `json:"bucket"`
+	Region            string  `json:"region"`
+	Endpoint          string  `json:"endpoint"`
+	Prefix            string  `json:"prefix"`
+	ForcePathStyle    bool    `json:"force_path_style"`
+	Enabled           *bool   `json:"enabled"`
+	Priority          *int    `json:"priority"`
 	AccessKeyID       *string `json:"access_key_id"`
 	SecretAccessKey   *string `json:"secret_access_key"`
 	SessionToken      *string `json:"session_token"`
@@ -74,80 +138,161 @@ type saveRequest struct {
 	ClearSessionToken bool    `json:"clear_session_token"`
 }
 
-func (req saveRequest) merge(stored Config) (Config, error) {
-	cfg := req.Config
-	cfg.AccessKeyID, cfg.SecretAccessKey, cfg.SessionToken = stored.AccessKeyID, stored.SecretAccessKey, stored.SessionToken
+func (req bucketRequest) merge(stored BucketConfig) (BucketConfig, error) {
+	b := stored
+	b.Name, b.Provider, b.Bucket, b.Region = req.Name, req.Provider, req.Bucket, req.Region
+	b.Endpoint, b.Prefix, b.ForcePathStyle = req.Endpoint, req.Prefix, req.ForcePathStyle
+	if req.Enabled != nil {
+		b.Enabled = *req.Enabled
+	}
+	if req.Priority != nil {
+		b.Priority = *req.Priority
+	}
 	if req.ClearCredentials {
-		cfg.AccessKeyID, cfg.SecretAccessKey, cfg.SessionToken = "", "", ""
+		b.AccessKeyID, b.SecretAccessKey, b.SessionToken = "", "", ""
 	}
 	if req.ClearSessionToken {
-		cfg.SessionToken = ""
+		b.SessionToken = ""
 	}
 	set := func(dst *string, v *string) {
 		if v != nil && strings.TrimSpace(*v) != "" && !strings.Contains(*v, "****") {
 			*dst = strings.TrimSpace(*v)
 		}
 	}
-	set(&cfg.AccessKeyID, req.AccessKeyID)
-	set(&cfg.SecretAccessKey, req.SecretAccessKey)
-	set(&cfg.SessionToken, req.SessionToken)
-	return cfg, cfg.Normalize()
+	set(&b.AccessKeyID, req.AccessKeyID)
+	set(&b.SecretAccessKey, req.SecretAccessKey)
+	set(&b.SessionToken, req.SessionToken)
+	return b, b.Normalize()
 }
 
-func (h *Handler) getConfig(c *gin.Context) {
-	cfg, updated, err := h.Runtime.Store.Config(c.Request.Context())
-	if !response.ErrorFrom(c, err) {
-		response.Success(c, newConfigView(cfg, updated))
-	}
-}
-
-func (h *Handler) bindConfig(c *gin.Context) (Config, bool) {
-	var req saveRequest
+// bindBucket merges the request with the stored bucket (id from the path or,
+// for connection tests of an edited bucket, from the body).
+func (h *Handler) bindBucket(c *gin.Context, id int64) (BucketConfig, bool) {
+	var req bucketRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "配置格式错误")
-		return Config{}, false
+		response.BadRequest(c, "存储桶配置格式错误")
+		return BucketConfig{}, false
 	}
-	stored, _, err := h.Runtime.Store.Config(c.Request.Context())
-	if response.ErrorFrom(c, err) {
-		return Config{}, false
+	if id == 0 {
+		id = req.ID
 	}
-	cfg, err := req.merge(stored)
+	stored := BucketConfig{Enabled: true, Priority: 100}
+	if id > 0 {
+		var err error
+		stored, err = h.Runtime.Store.Bucket(c.Request.Context(), id)
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(c, "存储桶不存在")
+			return BucketConfig{}, false
+		}
+		if response.ErrorFrom(c, err) {
+			return BucketConfig{}, false
+		}
+	}
+	b, err := req.merge(stored)
 	if err != nil {
 		response.BadRequest(c, err.Error())
-		return Config{}, false
+		return BucketConfig{}, false
 	}
-	return cfg, true
+	return b, true
 }
 
-func (h *Handler) saveConfig(c *gin.Context) {
-	cfg, ok := h.bindConfig(c)
+func (h *Handler) listBuckets(c *gin.Context) {
+	ctx := c.Request.Context()
+	buckets, err := h.Runtime.Store.Buckets(ctx)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	usage, err := h.Runtime.Store.BucketUsage(ctx)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	items := make([]bucketView, 0, len(buckets))
+	for _, b := range buckets {
+		items = append(items, newBucketView(b, usage[b.ID]))
+	}
+	// Totals of deleted buckets (or uploads not yet attributed) stay visible.
+	var orphan BucketUsage
+	for id, u := range usage {
+		if !bucketExists(buckets, id) {
+			orphan.BundleCount += u.BundleCount
+			orphan.SizeBytes += u.SizeBytes
+		}
+	}
+	response.Success(c, gin.H{"items": items, "unattributed": orphan})
+}
+
+func bucketExists(buckets []BucketConfig, id int64) bool {
+	for _, b := range buckets {
+		if b.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *Handler) createBucket(c *gin.Context) {
+	b, ok := h.bindBucket(c, 0)
 	if !ok {
 		return
 	}
-	if cfg.CaptureEnabled && !cfg.StorageReady() {
-		response.BadRequest(c, "开启采集前请先填写存储桶")
+	b.ID = 0
+	created, err := h.Runtime.Store.CreateBucket(c.Request.Context(), b)
+	if errors.Is(err, errTooManyBuckets) {
+		response.BadRequest(c, err.Error())
 		return
 	}
-	if err := h.Runtime.Store.SaveConfig(c.Request.Context(), cfg); response.ErrorFrom(c, err) {
+	if response.ErrorFrom(c, err) {
 		return
 	}
 	h.Runtime.signal()
-	saved, updated, err := h.Runtime.Store.Config(c.Request.Context())
-	if !response.ErrorFrom(c, err) {
-		response.Success(c, newConfigView(saved, updated))
-	}
+	response.Success(c, newBucketView(created, BucketUsage{}))
 }
 
-func (h *Handler) testConfig(c *gin.Context) {
-	cfg, ok := h.bindConfig(c)
+func (h *Handler) updateBucket(c *gin.Context) {
+	id, ok := parseID(c)
 	if !ok {
 		return
 	}
-	if !cfg.StorageReady() {
-		response.BadRequest(c, "请先填写存储桶")
+	b, ok := h.bindBucket(c, id)
+	if !ok {
 		return
 	}
-	objects, err := h.Runtime.objects(cfg)
+	updated, err := h.Runtime.Store.UpdateBucket(c.Request.Context(), b)
+	if errors.Is(err, sql.ErrNoRows) {
+		response.NotFound(c, "存储桶不存在")
+		return
+	}
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	h.Runtime.signal()
+	usage, _ := h.Runtime.Store.BucketUsage(c.Request.Context())
+	response.Success(c, newBucketView(updated, usage[updated.ID]))
+}
+
+func (h *Handler) deleteBucket(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	deleted, err := h.Runtime.Store.DeleteBucket(c.Request.Context(), id)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	if !deleted {
+		response.NotFound(c, "存储桶不存在")
+		return
+	}
+	h.Runtime.signal()
+	response.Success(c, gin.H{"deleted": true})
+}
+
+func (h *Handler) testBucket(c *gin.Context) {
+	b, ok := h.bindBucket(c, 0)
+	if !ok {
+		return
+	}
+	objects, err := h.Runtime.objects(b)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -162,6 +307,22 @@ func (h *Handler) testConfig(c *gin.Context) {
 		}
 	}
 	response.Success(c, gin.H{"ok": okAll, "steps": steps})
+}
+
+// modelStats drills the cumulative uploaded total down by model (archive name).
+func (h *Handler) modelStats(c *gin.Context) {
+	bucketID, _ := strconv.ParseInt(c.Query("bucket_id"), 10, 64)
+	items, err := h.Runtime.Store.ModelStats(c.Request.Context(), bucketID)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	var bundles, entries, bytes int64
+	for _, m := range items {
+		bundles += m.BundleCount
+		entries += m.EntryCount
+		bytes += m.SizeBytes
+	}
+	response.Success(c, gin.H{"items": items, "total_bundles": bundles, "total_entries": entries, "total_bytes": bytes})
 }
 
 func (h *Handler) status(c *gin.Context) {
@@ -265,7 +426,7 @@ func (h *Handler) downloadBundle(c *gin.Context) {
 		response.BadRequest(c, "压缩包上传完成后才能下载")
 		return
 	}
-	objects, err := h.Runtime.objectStore(c.Request.Context())
+	objects, err := h.Runtime.objectStoreFor(c.Request.Context(), b)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return

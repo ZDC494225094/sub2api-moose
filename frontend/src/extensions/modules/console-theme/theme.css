@@ -1,0 +1,1223 @@
+/* ==========================================================================
+   Console theme "glass" — a calm frosted-glass system (neutral grey ink, soft
+   monochrome backdrop with grain, translucent white surfaces, pill controls,
+   one restrained blue accent) for the console, auth and public pages.
+
+   Every rule is scoped to [data-console-theme='glass'] on <html>; without the
+   attribute this file has no effect. Palette variables feed tailwind.config.js
+   (rgb(var(--sa-<palette>-<shade>, upstream) / alpha)), so all `primary-*`,
+   `gray-*` and `dark-*` utilities re-tint at once. Component overrides use
+   specificity (0,2,0)/(0,3,0) so they beat Tailwind component classes but still
+   lose to later state utilities such as hover:bg-* of equal specificity.
+
+   Behind everything sits a honeycomb grid that lights up around the mouse
+   (section 3a, driven by pointerField.ts). Panes are frosted glass over it: the
+   blur sits on a ::before layer at z-index -1 rather than on the pane, so panes
+   never become containing blocks for fixed popups or trap dropdowns (section 5).
+   ========================================================================== */
+
+/* ---------- 1. Tokens ---------- */
+[data-console-theme='glass'] {
+  /* Accent blue, used sparingly: links, focus, switches, selection. */
+  --sa-primary-50: 230 241 254;
+  --sa-primary-100: 204 227 253;
+  --sa-primary-200: 153 199 251;
+  --sa-primary-300: 102 170 249;
+  --sa-primary-400: 51 142 247;
+  --sa-primary-500: 0 111 238;
+  --sa-primary-600: 0 91 196;
+  --sa-primary-700: 0 68 147;
+  --sa-primary-800: 0 46 98;
+  --sa-primary-900: 0 23 49;
+  --sa-primary-950: 0 12 25;
+
+  /* Achromatic greys: equal RGB channels avoid tinting broad surfaces. */
+  --sa-gray-50: 250 250 250;
+  --sa-gray-100: 245 245 245;
+  --sa-gray-200: 229 229 229;
+  --sa-gray-300: 212 212 212;
+  --sa-gray-400: 163 163 163;
+  --sa-gray-500: 115 115 115;
+  --sa-gray-600: 82 82 82;
+  --sa-gray-700: 64 64 64;
+  --sa-gray-800: 38 38 38;
+  --sa-gray-900: 24 24 24;
+  --sa-gray-950: 9 9 9;
+
+  /* Dark mode uses the same achromatic grey scale. */
+  --sa-dark-50: 250 250 250;
+  --sa-dark-100: 245 245 245;
+  --sa-dark-200: 229 229 229;
+  --sa-dark-300: 212 212 212;
+  --sa-dark-400: 163 163 163;
+  --sa-dark-500: 115 115 115;
+  --sa-dark-600: 64 64 64;
+  --sa-dark-700: 38 38 38;
+  --sa-dark-800: 24 24 24;
+  --sa-dark-900: 17 17 17;
+  --sa-dark-950: 9 9 9;
+
+  /* Semantic tokens (also read by module components with fallbacks). */
+  --ct-canvas:
+    linear-gradient(180deg, #fafafa 0%, #f3f3f3 100%);
+  --ct-canvas-strong:
+    radial-gradient(40% 40% at 50% 40%, rgba(255, 255, 255, 0.7) 0%, transparent 70%),
+    linear-gradient(160deg, #eeeeee 0%, #f5f5f5 55%, #fafafa 100%);
+  --ct-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* Honeycomb backdrop: the flat-top hexagon tile (side 24px) of the brand
+     homepage's network grid, a lit copy for the pointer spotlight, and the
+     frost every glass pane puts over it. */
+  --ct-hex: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='34.641016' viewBox='0 0 60 34.641016'%3E%3Cpath d='M0 17.320508H20L30 0H50L60 17.320508L50 34.641016H30L20 17.320508' fill='none' stroke='%23181818' stroke-opacity='.065' stroke-width='.8'/%3E%3C/svg%3E");
+  --ct-hex-lit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='34.641016' viewBox='0 0 60 34.641016'%3E%3Cpath d='M0 17.320508H20L30 0H50L60 17.320508L50 34.641016H30L20 17.320508' fill='none' stroke='%23006fee' stroke-opacity='.55' stroke-width='.9'/%3E%3C/svg%3E");
+  --ct-glow: rgba(0, 111, 238, 0.1);
+  --ct-cell: rgba(0, 111, 238, 0.09);
+  --ct-grain-faint: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --ct-frost: rgba(255, 255, 255, 0.7);
+  --ct-frost-dense: rgba(255, 255, 255, 0.84);
+  --ct-frost-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .045 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --ct-frost-filter: blur(14px) saturate(160%);
+  --ct-surface-dense: rgba(255, 255, 255, 0.9);
+  --ct-surface: rgba(255, 255, 255, 0.74);
+  --ct-surface-solid: #ffffff;
+  --ct-surface-soft: rgba(244, 244, 244, 0.72);
+  --ct-surface-raised: rgba(244, 244, 244, 0.9);
+  --ct-surface-glass: rgba(250, 250, 250, 0.66);
+  --ct-surface-menu: rgba(255, 255, 255, 0.9);
+  --ct-ink: #181818;
+  --ct-muted: #737373;
+  --ct-line: rgba(24, 24, 24, 0.07);
+  --ct-line-input: rgba(24, 24, 24, 0.1);
+  --ct-line-strong: rgba(24, 24, 24, 0.16);
+  --ct-edge: rgba(255, 255, 255, 0.75);
+  --ct-blue: #006fee;
+  --ct-blue-soft: rgba(0, 111, 238, 0.08);
+  --ct-blue-gradient: linear-gradient(180deg, #262626, #181818);
+  --ct-primary: #181818;
+  --ct-primary-hover: #404040;
+  --ct-on-primary: #ffffff;
+  --ct-fill: rgba(229, 229, 229, 0.7);
+  --ct-fill-hover: rgba(212, 212, 212, 0.8);
+  --ct-row-hover: rgba(24, 24, 24, 0.025);
+  --ct-shadow-card: 0 0 0 1px rgba(24, 24, 24, 0.035), 0 1px 2px rgba(24, 24, 24, 0.04), 0 12px 32px -12px rgba(24, 24, 24, 0.1);
+  --ct-shadow-card-hover: 0 0 0 1px rgba(24, 24, 24, 0.05), 0 2px 4px rgba(24, 24, 24, 0.04), 0 20px 44px -14px rgba(24, 24, 24, 0.16);
+  --ct-shadow-pop: 0 0 0 1px rgba(24, 24, 24, 0.05), 0 18px 48px -12px rgba(24, 24, 24, 0.22);
+  --ct-radius-card: 20px;
+  --ct-radius-inner: 14px;
+  --ct-radius-control: 12px;
+  --ct-font: Inter, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+  --ct-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--ct-font);
+}
+
+[data-console-theme='glass'].dark {
+  --ct-canvas:
+    linear-gradient(180deg, #101010 0%, #090909 100%);
+  --ct-canvas-strong:
+    radial-gradient(55% 60% at 88% 8%, rgba(255, 255, 255, 0.06) 0%, transparent 70%),
+    linear-gradient(160deg, #161616 0%, #0a0a0a 60%, #111111 100%);
+  --ct-hex: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='34.641016' viewBox='0 0 60 34.641016'%3E%3Cpath d='M0 17.320508H20L30 0H50L60 17.320508L50 34.641016H30L20 17.320508' fill='none' stroke='%23ffffff' stroke-opacity='.055' stroke-width='.8'/%3E%3C/svg%3E");
+  --ct-hex-lit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='34.641016' viewBox='0 0 60 34.641016'%3E%3Cpath d='M0 17.320508H20L30 0H50L60 17.320508L50 34.641016H30L20 17.320508' fill='none' stroke='%2366aaf9' stroke-opacity='.6' stroke-width='.9'/%3E%3C/svg%3E");
+  --ct-glow: rgba(51, 142, 247, 0.14);
+  --ct-cell: rgba(51, 142, 247, 0.12);
+  --ct-grain-faint: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --ct-frost: rgba(24, 24, 24, 0.5);
+  --ct-frost-dense: rgba(24, 24, 24, 0.8);
+  --ct-frost-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --ct-surface-dense: rgba(24, 24, 24, 0.88);
+  --ct-surface: rgba(24, 24, 24, 0.62);
+  --ct-surface-solid: #181818;
+  --ct-surface-soft: rgba(38, 38, 38, 0.5);
+  --ct-surface-raised: rgba(38, 38, 38, 0.75);
+  --ct-surface-glass: rgba(15, 15, 15, 0.66);
+  --ct-surface-menu: rgba(30, 30, 30, 0.92);
+  --ct-ink: #fafafa;
+  --ct-muted: #a3a3a3;
+  --ct-line: rgba(255, 255, 255, 0.07);
+  --ct-line-input: rgba(255, 255, 255, 0.1);
+  --ct-line-strong: rgba(255, 255, 255, 0.18);
+  --ct-edge: rgba(255, 255, 255, 0.06);
+  --ct-blue: #338ef7;
+  --ct-blue-soft: rgba(51, 142, 247, 0.14);
+  --ct-blue-gradient: linear-gradient(180deg, #ffffff, #e5e5e5);
+  --ct-primary: #fafafa;
+  --ct-primary-hover: #e5e5e5;
+  --ct-on-primary: #181818;
+  --ct-fill: rgba(64, 64, 64, 0.55);
+  --ct-fill-hover: rgba(82, 82, 82, 0.6);
+  --ct-row-hover: rgba(255, 255, 255, 0.025);
+  --ct-shadow-card: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px -14px rgba(0, 0, 0, 0.6);
+  --ct-shadow-card-hover: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 22px 48px -16px rgba(0, 0, 0, 0.75);
+  --ct-shadow-pop: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 24px 56px -12px rgba(0, 0, 0, 0.7);
+}
+
+/* ---------- 2. Base ---------- */
+/* Longhands on purpose: --ct-canvas holds several layers, and a colour inside a
+   non-final layer would invalidate a `background` shorthand. */
+[data-console-theme='glass'] body {
+  background-color: #f4f4f4;
+  background-image: var(--ct-canvas);
+  background-attachment: fixed;
+  color: var(--ct-ink);
+  font-family: var(--ct-font);
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+[data-console-theme='glass'].dark body {
+  background-color: #090909;
+}
+
+[data-console-theme='glass'] ::selection {
+  background: rgba(0, 111, 238, 0.16);
+  color: inherit;
+}
+
+[data-console-theme='glass'] *:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(24, 24, 24, 0.18);
+}
+
+[data-console-theme='glass'].dark *:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.16);
+}
+
+/* ---------- 3. Shell: layout, sidebar, header ---------- */
+/* The canvas lives on <body> alone. The layout stays transparent: an in-flow
+   background here would cover the honeycomb (z-index -2) and the panes' frost
+   layers (z-index -1), which paint in the root stacking context's back layer. */
+[data-console-theme='glass'] .app-layout,
+[data-console-theme='glass'].dark .app-layout {
+  background-color: transparent;
+  background-image: none;
+}
+
+/* ---------- 3a. Honeycomb backdrop ---------- */
+/* The console's fixed mesh layer and the auth decoration layer draw the same
+   hexagon grid: a faint static grid with fine grain, a lit copy inside a soft
+   disc that follows the pointer, and the cell under the pointer. pointerField.ts
+   feeds --ct-px/--ct-py/--ct-cx/--ct-cy/--ct-pointer; the glass panes above blur
+   all of it, which is what gives them their frosted look. */
+[data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor) {
+  overflow: hidden;
+  background-image: var(--ct-hex), var(--ct-grain-faint);
+  background-position: 0 0, 0 0;
+  background-repeat: repeat, repeat;
+  background-size: 72px 41.569219px, 180px 180px;
+  opacity: 1;
+  mix-blend-mode: normal;
+}
+
+/* Behind the panes' frost layers (z-index -1) in the root stacking context. */
+[data-console-theme='glass'] .bg-mesh-gradient {
+  z-index: -2;
+}
+
+[data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor)::before,
+[data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor)::after {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: var(--ct-pointer, 0);
+  pointer-events: none;
+  content: '';
+}
+
+/* Spotlight: a 560px disc centred on the pointer. Its grid copy is shifted back
+   by the same amount, so the lit lines sit exactly on the static ones. */
+[data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor)::before {
+  width: 560px;
+  height: 560px;
+  background-image: var(--ct-hex-lit), radial-gradient(closest-side, var(--ct-glow), transparent);
+  background-position: calc(280px - var(--ct-px, 0px)) calc(280px - var(--ct-py, 0px)), 0 0;
+  background-repeat: repeat, no-repeat;
+  background-size: 72px 41.569219px, 100% 100%;
+  transform: translate3d(calc(var(--ct-px, 0px) - 280px), calc(var(--ct-py, 0px) - 280px), 0);
+  mask-image: radial-gradient(closest-side, #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 100%);
+  -webkit-mask-image: radial-gradient(closest-side, #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 100%);
+  transition: opacity 0.4s ease;
+  will-change: transform;
+}
+
+/* The hexagon under the pointer, gliding from cell to cell. */
+[data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor)::after {
+  width: 48px;
+  height: 41.569219px;
+  background-color: var(--ct-cell);
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  transform: translate3d(calc(var(--ct-cx, 0px) - 24px), calc(var(--ct-cy, 0px) - 20.78461px), 0);
+  transition: transform 0.14s ease-out, opacity 0.4s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor)::before,
+  [data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor)::after {
+    transition: none;
+  }
+}
+
+/* ---------- 3b. Shell chrome ---------- */
+
+[data-console-theme='glass'] .sidebar {
+  border-right: 1px solid var(--ct-line);
+  background: var(--ct-surface-glass);
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+}
+
+[data-console-theme='glass'] .sidebar-header {
+  border-bottom-color: transparent;
+}
+
+[data-console-theme='glass'] .sidebar-header .sidebar-logo {
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(24, 24, 24, 0.06), 0 4px 12px -4px rgba(24, 24, 24, 0.18);
+}
+
+[data-console-theme='glass'] .sidebar-header .sidebar-brand-title {
+  color: var(--ct-ink);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+[data-console-theme='glass'] .sidebar-header .sidebar-brand-title:hover {
+  color: var(--ct-muted);
+}
+
+[data-console-theme='glass'] .sidebar-section-title {
+  color: var(--ct-muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* 500 keeps CJK system fonts (two weights only) at regular; active items go bold. */
+[data-console-theme='glass'] .sidebar-link {
+  border-radius: 12px;
+  color: #525252;
+  font-weight: 500;
+}
+
+[data-console-theme='glass'].dark .sidebar-link {
+  color: #a3a3a3;
+}
+
+[data-console-theme='glass'] .sidebar-link:hover {
+  background-color: rgba(24, 24, 24, 0.045);
+  color: var(--ct-ink);
+}
+
+[data-console-theme='glass'].dark .sidebar-link:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Selected item: a raised white pill, the way the reference marks a choice. */
+[data-console-theme='glass'] .sidebar-link-active,
+[data-console-theme='glass'] .sidebar-link-active:hover {
+  background-color: rgba(255, 255, 255, 0.92);
+  color: var(--ct-ink);
+  font-weight: 600;
+  box-shadow: 0 0 0 1px rgba(24, 24, 24, 0.04), 0 1px 3px rgba(24, 24, 24, 0.08);
+}
+
+[data-console-theme='glass'].dark .sidebar-link-active,
+[data-console-theme='glass'].dark .sidebar-link-active:hover {
+  background-color: rgba(64, 64, 64, 0.6);
+  color: var(--ct-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+[data-console-theme='glass'] .sidebar .border-l {
+  border-color: var(--ct-line);
+}
+
+[data-console-theme='glass'] .sidebar .mt-auto.border-t {
+  border-top-color: var(--ct-line);
+}
+
+/* The header switcher (light/dark/system) replaces the two-state sidebar toggle. */
+[data-console-theme='glass'] .sidebar-theme-toggle {
+  display: none;
+}
+
+[data-console-theme='glass'] .app-header {
+  border-bottom: 1px solid var(--ct-line);
+  background: var(--ct-surface-glass);
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+}
+
+[data-console-theme='glass'] .app-header h1 {
+  color: var(--ct-ink);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+[data-console-theme='glass'] .app-header h1 + p {
+  color: var(--ct-muted);
+}
+
+[data-console-theme='glass'] .app-header-balance {
+  border-radius: 999px;
+  background: var(--ct-fill);
+}
+
+[data-console-theme='glass'] .app-header-balance > svg,
+[data-console-theme='glass'] .app-header-balance > span:first-of-type {
+  color: var(--ct-ink);
+}
+
+[data-console-theme='glass'] .app-header-user {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 3px 10px 3px 3px;
+  box-shadow: 0 0 0 1px rgba(24, 24, 24, 0.05), 0 1px 2px rgba(24, 24, 24, 0.05);
+  transition: background-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+[data-console-theme='glass'].dark .app-header-user {
+  background: rgba(38, 38, 38, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-console-theme='glass'] .app-header-user:hover {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+[data-console-theme='glass'].dark .app-header-user:hover {
+  background: rgba(64, 64, 64, 0.7);
+}
+
+[data-console-theme='glass'] .app-header-avatar {
+  border-radius: 999px;
+  background-image: none;
+  background-color: #262626;
+  color: #fafafa;
+  box-shadow: none;
+}
+
+[data-console-theme='glass'].dark .app-header-avatar {
+  background-color: #e5e5e5;
+  color: #181818;
+}
+
+/* ---------- 4. Typography helpers ---------- */
+[data-console-theme='glass'] .page-title {
+  color: var(--ct-ink);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+[data-console-theme='glass'] .page-description,
+[data-console-theme='glass'] .input-hint,
+[data-console-theme='glass'] .stat-label {
+  color: var(--ct-muted);
+}
+
+[data-console-theme='glass'] .text-gradient {
+  background-image: linear-gradient(180deg, #262626, #525252);
+}
+
+[data-console-theme='glass'].dark .text-gradient {
+  background-image: linear-gradient(180deg, #fafafa, #a3a3a3);
+}
+
+[data-console-theme='glass'] .code {
+  border-radius: 6px;
+  background-color: var(--ct-fill);
+  color: var(--ct-ink);
+}
+
+/* ---------- 5. Surfaces: frosted glass panes ---------- */
+/* The frost lives on a ::before layer at z-index -1, not on the pane itself. A
+   backdrop-filter on the pane would make it the containing block of fixed popups
+   and a stacking context that traps z-indexed dropdowns under the next card. A
+   negative z-index layer instead joins the back layer of the nearest stacking
+   context: above the honeycomb (z-index -2), below every pane's content. Panes
+   keep upstream positioning and stacking; :where() keeps this position below
+   Tailwind's absolute/fixed/sticky utilities, which load later. */
+:where([data-console-theme='glass']) :is(.card, .stat-card, .glass-card, .ct-plan-card, .app-pagination) {
+  position: relative;
+}
+
+[data-console-theme='glass'] .card,
+[data-console-theme='glass'] .glass-card,
+[data-console-theme='glass'] .stat-card {
+  border: 1px solid var(--ct-edge);
+  border-radius: var(--ct-radius-card);
+  background-color: transparent;
+  box-shadow: var(--ct-shadow-card);
+}
+
+[data-console-theme='glass'].dark .card,
+[data-console-theme='glass'].dark .glass-card,
+[data-console-theme='glass'].dark .stat-card {
+  border-color: var(--ct-edge);
+  background-color: transparent;
+}
+
+[data-console-theme='glass'] :is(.card, .stat-card, .glass-card, .ct-plan-card, .app-pagination)::before {
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  background-color: var(--ct-frost);
+  background-image: var(--ct-frost-grain);
+  background-size: 160px 160px;
+  backdrop-filter: var(--ct-frost-filter);
+  -webkit-backdrop-filter: var(--ct-frost-filter);
+  pointer-events: none;
+  content: '';
+}
+
+/* Upstream's .card-glass already blurs on its own; it only takes the shape. */
+[data-console-theme='glass'] .card-glass {
+  border: 1px solid var(--ct-edge);
+  border-radius: var(--ct-radius-card);
+  background-color: var(--ct-surface);
+  box-shadow: var(--ct-shadow-card);
+}
+
+[data-console-theme='glass'].dark .card-glass {
+  border-color: var(--ct-edge);
+  background-color: var(--ct-surface);
+}
+
+/* Panes inside panes, dialogs or menus are flat panels, not another sheet of
+   glass: no second blur, no stacked shadow. */
+[data-console-theme='glass'] :is(.card, .stat-card, .glass-card, .ct-plan-card, .modal-content, .dialog-container, .dropdown) :is(.card, .stat-card, .glass-card) {
+  border-color: transparent;
+  border-radius: var(--ct-radius-inner);
+  background-color: var(--ct-surface-soft);
+  box-shadow: none;
+}
+
+[data-console-theme='glass'] :is(.card, .stat-card, .glass-card, .ct-plan-card, .modal-content, .dialog-container, .dropdown) :is(.card, .stat-card, .glass-card, .ct-plan-card, .app-pagination)::before {
+  content: none;
+}
+
+[data-console-theme='glass'] .card-hover:hover {
+  box-shadow: var(--ct-shadow-card-hover);
+}
+
+[data-console-theme='glass'] .card-header,
+[data-console-theme='glass'] .card-footer {
+  border-color: var(--ct-line);
+}
+
+[data-console-theme='glass'] .divider {
+  background-color: var(--ct-line);
+}
+
+/* Decorative stat tiles (dashboards, usage): pastel squares become a quiet
+   neutral tile with an ink glyph. Semantic text colours stay. */
+[data-console-theme='glass'] .card.p-4 > .flex.items-center.gap-3 > .rounded-lg.p-2:first-child,
+[data-console-theme='glass'] .stat-icon {
+  border-radius: 12px;
+  background-color: var(--ct-fill);
+}
+
+[data-console-theme='glass'] .card.p-4 > .flex.items-center.gap-3 > .rounded-lg.p-2:first-child > svg,
+[data-console-theme='glass'] .stat-icon > svg {
+  color: var(--ct-ink);
+}
+
+/* ---------- 6. Buttons ---------- */
+[data-console-theme='glass'] .btn {
+  border-radius: 999px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+[data-console-theme='glass'] .btn-icon {
+  border-radius: 999px;
+}
+
+/* Main action: solid ink (inverted in dark mode), no gradient or glow. */
+[data-console-theme='glass'] .btn-primary {
+  background-image: none;
+  background-color: var(--ct-primary);
+  color: var(--ct-on-primary);
+  box-shadow: 0 1px 2px rgba(24, 24, 24, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+[data-console-theme='glass'] .btn-primary:hover:not(:disabled) {
+  background-color: var(--ct-primary-hover);
+  box-shadow: 0 2px 6px rgba(24, 24, 24, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+[data-console-theme='glass'] .btn-secondary {
+  border: 1px solid transparent;
+  background-color: var(--ct-fill);
+  color: var(--ct-ink);
+  box-shadow: none;
+}
+
+[data-console-theme='glass'] .btn-secondary:hover:not(:disabled) {
+  border-color: transparent;
+  background-color: var(--ct-fill-hover);
+  color: var(--ct-ink);
+}
+
+[data-console-theme='glass'].dark .btn-secondary {
+  background-color: var(--ct-fill);
+}
+
+[data-console-theme='glass'] .btn-ghost:hover:not(:disabled) {
+  background-color: rgba(24, 24, 24, 0.05);
+  color: var(--ct-ink);
+}
+
+[data-console-theme='glass'].dark .btn-ghost:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-console-theme='glass'] :is(.btn-danger, .btn-success, .btn-warning) {
+  background-image: none;
+  box-shadow: 0 1px 2px rgba(24, 24, 24, 0.12);
+}
+
+[data-console-theme='glass'] .btn-danger {
+  background-color: #f31260;
+}
+
+[data-console-theme='glass'] .btn-success {
+  background-color: #17c964;
+  color: #ffffff;
+}
+
+[data-console-theme='glass'] .btn-warning {
+  background-color: #f5a524;
+  color: #181818;
+}
+
+[data-console-theme='glass'] .btn:focus-visible {
+  --tw-ring-color: rgba(0, 111, 238, 0.45);
+}
+
+/* ---------- 7. Form controls: filled, borderless until focus ---------- */
+[data-console-theme='glass'] .input {
+  border-color: transparent;
+  border-radius: var(--ct-radius-control);
+  background-color: var(--ct-fill);
+  color: var(--ct-ink);
+}
+
+[data-console-theme='glass'] .input:hover:not(:disabled):not(:focus) {
+  border-color: transparent;
+  background-color: var(--ct-fill-hover);
+}
+
+/* Filled controls standing straight on the honeycomb (page toolbars) frost what
+   is behind them like the panes do; inside a pane they already sit on glass.
+   Inputs, secondary buttons and tab tracks hold no popups, so a backdrop-filter
+   on the control itself is safe here. */
+[data-console-theme='glass'] :is(.input, .btn-secondary, .tabs):not(:is(.card, .stat-card, .ct-plan-card, .modal-content, .dialog-container, .dropdown, .app-header, .sidebar) *) {
+  backdrop-filter: blur(10px) saturate(150%);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+}
+
+[data-console-theme='glass'] .input:focus {
+  border-color: rgba(0, 111, 238, 0.55);
+  background-color: var(--ct-surface-solid);
+  box-shadow: 0 0 0 3px rgba(0, 111, 238, 0.12);
+}
+
+[data-console-theme='glass'].dark .input:focus {
+  box-shadow: 0 0 0 3px rgba(51, 142, 247, 0.2);
+}
+
+[data-console-theme='glass'] .input::placeholder {
+  color: #a3a3a3;
+}
+
+[data-console-theme='glass'] .input-error,
+[data-console-theme='glass'] .input.input-error:hover:not(:disabled):not(:focus) {
+  border-color: rgba(243, 18, 96, 0.55);
+  background-color: rgba(243, 18, 96, 0.06);
+}
+
+[data-console-theme='glass'] .input-label {
+  color: var(--ct-ink);
+  font-weight: 500;
+}
+
+[data-console-theme='glass'].dark .input-label {
+  color: #e5e5e5;
+}
+
+[data-console-theme='glass'] .switch-active {
+  background-image: none;
+  background-color: var(--ct-blue);
+}
+
+[data-console-theme='glass'] input[type='checkbox'],
+[data-console-theme='glass'] input[type='radio'] {
+  accent-color: #181818;
+}
+
+[data-console-theme='glass'].dark input[type='checkbox'],
+[data-console-theme='glass'].dark input[type='radio'] {
+  accent-color: #fafafa;
+}
+
+/* ---------- 8. Tables ---------- */
+[data-console-theme='glass'] .table-container {
+  border-color: var(--ct-line);
+  border-radius: var(--ct-radius-inner);
+}
+
+[data-console-theme='glass'] .table th,
+[data-console-theme='glass'] .table-scroll-container th {
+  border-bottom-color: var(--ct-line);
+  background-color: transparent;
+  color: var(--ct-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+[data-console-theme='glass'] .table td,
+[data-console-theme='glass'] .table-scroll-container td {
+  border-bottom-color: var(--ct-line);
+}
+
+[data-console-theme='glass'] .table tbody tr:hover {
+  background-color: var(--ct-row-hover);
+}
+
+/* TablePageLayout's pane (also a .card): its scoped styles carry the same
+   specificity as the generic card rules and load later, hence .card.table-scroll-container. */
+[data-console-theme='glass'] .card.table-scroll-container {
+  border: 1px solid var(--ct-edge);
+  border-radius: var(--ct-radius-card);
+  background-color: transparent;
+  box-shadow: var(--ct-shadow-card);
+}
+
+[data-console-theme='glass'].dark .card.table-scroll-container {
+  border-color: var(--ct-edge);
+  background-color: transparent;
+}
+
+/* Data-dense panes get thicker frost, which the opaque sticky cells below match. */
+[data-console-theme='glass'] .card.table-scroll-container::before {
+  background-color: var(--ct-frost-dense);
+}
+
+[data-console-theme='glass'] .table-page-layout.mobile-mode .card.table-scroll-container {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-console-theme='glass'] .table-page-layout.mobile-mode .card.table-scroll-container::before {
+  content: none;
+}
+
+/* Sticky header row, header cells and columns need an opaque fill so scrolled
+   rows never show through. Specificity beats DataTable's scoped fills. */
+[data-console-theme='glass'] .table-wrapper thead.table-header,
+[data-console-theme='glass'] .table-wrapper .sticky-header-cell {
+  background-color: #f8f8f8;
+}
+
+[data-console-theme='glass'].dark .table-wrapper thead.table-header,
+[data-console-theme='glass'].dark .table-wrapper .sticky-header-cell {
+  background-color: #1c1c1c;
+}
+
+[data-console-theme='glass'] .table-wrapper tbody .sticky-col {
+  background-color: #ffffff;
+}
+
+[data-console-theme='glass'].dark .table-wrapper tbody .sticky-col {
+  background-color: #171717;
+}
+
+[data-console-theme='glass'] .table-wrapper tbody tr:hover .sticky-col {
+  background-color: #f7f7f7;
+}
+
+[data-console-theme='glass'].dark .table-wrapper tbody tr:hover .sticky-col {
+  background-color: #1c1c1c;
+}
+
+/* Tables placed straight on the page (orders, payment plans) get the same pane
+   frame as TablePageLayout tables. The wrapper scrolls sideways, so a frost layer
+   inside it would scroll away; it gets a dense surface instead. */
+[data-console-theme='glass'] .table-wrapper:not(.table-scroll-container .table-wrapper):not(.card .table-wrapper) {
+  border: 1px solid var(--ct-edge);
+  border-radius: var(--ct-radius-card);
+  background-color: var(--ct-surface-dense);
+  box-shadow: var(--ct-shadow-card);
+}
+
+[data-console-theme='glass'] .table-wrapper > table,
+[data-console-theme='glass'] .table-wrapper > table > :is(thead, tbody) {
+  border-color: var(--ct-line);
+}
+
+[data-console-theme='glass'] .table-wrapper tbody > tr:hover {
+  background-color: var(--ct-row-hover);
+}
+
+/* Pagination below a table reads as its own slim bar; inside a card it stays a footer. */
+[data-console-theme='glass'] .app-pagination {
+  border: 1px solid var(--ct-edge);
+  border-radius: 999px;
+  background-color: transparent;
+  box-shadow: var(--ct-shadow-card);
+}
+
+[data-console-theme='glass'].dark .app-pagination {
+  border-color: var(--ct-edge);
+  background-color: transparent;
+}
+
+[data-console-theme='glass'] :is(.card, .table-scroll-container) .app-pagination {
+  border-width: 1px 0 0;
+  border-color: var(--ct-line);
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+/* ---------- 9. Badges, tabs, progress ---------- */
+[data-console-theme='glass'] .badge {
+  font-weight: 500;
+}
+
+[data-console-theme='glass'] .badge-primary {
+  background-color: var(--ct-blue-soft);
+  color: var(--ct-blue);
+}
+
+[data-console-theme='glass'] .badge-gray {
+  background-color: var(--ct-fill);
+  color: #404040;
+}
+
+[data-console-theme='glass'].dark .badge-gray {
+  color: #d4d4d4;
+}
+
+/* Segmented control: grey track, raised white thumb. */
+[data-console-theme='glass'] .tabs {
+  border: 0;
+  border-radius: 999px;
+  background-color: var(--ct-fill);
+  padding: 4px;
+}
+
+[data-console-theme='glass'] .tab {
+  border-radius: 999px;
+  color: var(--ct-muted);
+  font-weight: 500;
+}
+
+[data-console-theme='glass'] .tab:hover {
+  color: var(--ct-ink);
+}
+
+[data-console-theme='glass'] .tab-active {
+  background-color: var(--ct-surface-solid);
+  color: var(--ct-ink);
+  box-shadow: 0 1px 3px rgba(24, 24, 24, 0.1), 0 0 0 1px rgba(24, 24, 24, 0.03);
+}
+
+[data-console-theme='glass'].dark .tab-active {
+  background-color: #404040;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+[data-console-theme='glass'] .progress {
+  background-color: var(--ct-fill);
+}
+
+[data-console-theme='glass'] .progress-bar {
+  background-image: none;
+  background-color: var(--ct-ink);
+}
+
+[data-console-theme='glass'] .skeleton {
+  background-color: rgba(24, 24, 24, 0.06);
+}
+
+[data-console-theme='glass'].dark .skeleton {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+/* ---------- 10. Overlays: dropdowns, dialogs, toasts ---------- */
+[data-console-theme='glass'] .dropdown {
+  border: 1px solid var(--ct-edge);
+  border-radius: 16px;
+  background-color: var(--ct-surface-menu);
+  box-shadow: var(--ct-shadow-pop);
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+}
+
+[data-console-theme='glass'] .dropdown-item {
+  margin: 0 6px;
+  border-radius: 10px;
+}
+
+[data-console-theme='glass'] .dropdown-item.w-full {
+  width: calc(100% - 12px);
+}
+
+[data-console-theme='glass'] .dropdown-item:hover {
+  background-color: rgba(24, 24, 24, 0.05);
+  color: var(--ct-ink);
+}
+
+[data-console-theme='glass'].dark .dropdown-item:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-console-theme='glass'] .modal-overlay,
+[data-console-theme='glass'] .dialog-overlay {
+  background-color: rgba(9, 9, 9, 0.22);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+[data-console-theme='glass'].dark .modal-overlay,
+[data-console-theme='glass'].dark .dialog-overlay {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+[data-console-theme='glass'] .modal-content,
+[data-console-theme='glass'] .dialog-container {
+  border: 1px solid var(--ct-edge);
+  border-radius: 24px;
+  background-color: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--ct-shadow-pop);
+}
+
+[data-console-theme='glass'].dark .modal-content,
+[data-console-theme='glass'].dark .dialog-container {
+  border-color: var(--ct-edge);
+  background-color: rgba(28, 28, 28, 0.94);
+}
+
+[data-console-theme='glass'] :is(.modal-header, .modal-footer, .dialog-header, .dialog-footer) {
+  border-color: var(--ct-line);
+}
+
+[data-console-theme='glass'] .dialog-footer {
+  background-color: transparent;
+}
+
+[data-console-theme='glass'] :is(.modal-title, .dialog-header h3) {
+  color: var(--ct-ink);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+[data-console-theme='glass'] .toast {
+  border-radius: 16px;
+  background-color: var(--ct-surface-menu);
+  box-shadow: var(--ct-shadow-pop);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Onboarding tour (driver.js) popover. */
+[data-console-theme='glass'] .driver-popover {
+  border: 1px solid var(--ct-edge);
+  border-radius: 20px;
+  box-shadow: var(--ct-shadow-pop);
+}
+
+[data-console-theme='glass'] .driver-popover .driver-popover-next-btn {
+  border-color: transparent;
+  border-radius: 999px;
+  background-image: none;
+  background-color: #181818;
+  color: #ffffff;
+  text-shadow: none;
+  box-shadow: 0 1px 2px rgba(24, 24, 24, 0.2);
+}
+
+[data-console-theme='glass'] .driver-popover .driver-popover-next-btn:hover {
+  background-color: #404040;
+}
+
+/* ---------- 11. Empty states ---------- */
+[data-console-theme='glass'] .empty-state-icon {
+  color: #d4d4d4;
+}
+
+[data-console-theme='glass'] .empty-state-title {
+  color: var(--ct-ink);
+  font-weight: 600;
+}
+
+[data-console-theme='glass'] .empty-state-description {
+  color: var(--ct-muted);
+}
+
+/* ---------- 12. Auth layout (login, register, password reset, OAuth) ---------- */
+[data-console-theme='glass'] .auth-layout-bg {
+  background-color: #f3f3f3;
+  background-image: var(--ct-canvas-strong);
+}
+
+[data-console-theme='glass'].dark .auth-layout-bg {
+  background-color: #0a0a0a;
+}
+
+/* Upstream orbs and teal grid give way to the shared honeycomb (section 3a). */
+[data-console-theme='glass'] .auth-layout-decor > * {
+  display: none;
+}
+
+[data-console-theme='glass'] .auth-layout-logo {
+  border-radius: 16px;
+  box-shadow: 0 0 0 1px rgba(24, 24, 24, 0.06), 0 10px 24px -10px rgba(24, 24, 24, 0.3);
+}
+
+/* Outranks both AuthLayout's scoped .text-gradient[data-v] and the theme's own
+   dark .text-gradient rule; longhand keeps background-clip intact. */
+[data-console-theme='glass'] h1.auth-layout-title.text-gradient {
+  background-image: none;
+  color: var(--ct-ink);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  -webkit-text-fill-color: currentColor;
+}
+
+[data-console-theme='glass'] .auth-layout-subtitle {
+  color: var(--ct-muted);
+}
+
+[data-console-theme='glass'] .auth-layout-card {
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 28px;
+  background-color: rgba(255, 255, 255, 0.62);
+  box-shadow: 0 0 0 1px rgba(24, 24, 24, 0.04), 0 30px 70px -24px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+}
+
+[data-console-theme='glass'].dark .auth-layout-card {
+  border-color: rgba(255, 255, 255, 0.08);
+  background-color: rgba(24, 24, 24, 0.55);
+  box-shadow: 0 30px 70px -24px rgba(0, 0, 0, 0.8);
+}
+
+/* ---------- 13. Page layouts ---------- */
+/* Redeem: balance + form beside the instructions and recent activity on wide screens. */
+@media (min-width: 1280px) {
+  [data-console-theme='glass'] .ct-redeem {
+    display: grid;
+    max-width: 1180px;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    align-items: start;
+    gap: 24px;
+  }
+
+  [data-console-theme='glass'] .ct-redeem > * {
+    margin-top: 0 !important;
+  }
+}
+
+/* Balance hero: a dark glass slab with a neutral highlight. */
+[data-console-theme='glass'] .ct-redeem-balance {
+  position: relative;
+  overflow: hidden;
+  background-image:
+    radial-gradient(60% 80% at 100% 0%, rgba(255, 255, 255, 0.12) 0%, transparent 70%),
+    linear-gradient(160deg, #262626 0%, #181818 100%);
+}
+
+[data-console-theme='glass'] .ct-redeem-balance::after {
+  position: absolute;
+  inset: 0;
+  background-image: var(--ct-grain);
+  background-size: 180px 180px;
+  opacity: 0.3;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  content: '';
+}
+
+[data-console-theme='glass'] .ct-redeem-balance > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Subscription plan cards (purchase page): frosted card, tags on top, ink price,
+   chip-style quotas, one solid ink call to action; the platform stays visible as
+   its own badge and a thin line. */
+[data-console-theme='glass'] .ct-plan-card {
+  border: 1px solid var(--ct-edge);
+  border-radius: var(--ct-radius-card);
+  background: transparent;
+  box-shadow: var(--ct-shadow-card);
+}
+
+[data-console-theme='glass'].dark .ct-plan-card {
+  border-color: var(--ct-edge);
+  background: transparent;
+}
+
+[data-console-theme='glass'] .ct-plan-card.group:hover {
+  border-color: var(--ct-edge);
+  box-shadow: var(--ct-shadow-card-hover);
+}
+
+[data-console-theme='glass'] .ct-plan-accent {
+  height: 2px;
+  opacity: 0.8;
+  mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+}
+
+[data-console-theme='glass'] .ct-plan-card > .flex-1.flex-col {
+  padding: 18px 18px 16px;
+}
+
+/* Header: tags, name, description, price with validity, original price. A wrapping
+   flex row keeps the validity right after the price whatever the badge width. */
+[data-console-theme='glass'] .ct-plan-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0 8px;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+/* The wrappers disappear from layout but still pass on inherited text-align. */
+[data-console-theme='glass'] :is(.ct-plan-info, .ct-plan-price, .ct-plan-meta-row, .ct-plan-compare) {
+  display: contents;
+  text-align: left;
+}
+
+[data-console-theme='glass'] .ct-plan-platform {
+  order: 1;
+  font-weight: 500;
+}
+
+[data-console-theme='glass'] .ct-plan-discount {
+  order: 2;
+  margin-left: auto;
+  border-radius: 999px;
+  background-color: var(--ct-fill);
+  color: var(--ct-ink);
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+[data-console-theme='glass'].dark .ct-plan-discount {
+  background-color: var(--ct-fill);
+  color: var(--ct-ink);
+}
+
+[data-console-theme='glass'] .ct-plan-head h3 {
+  order: 3;
+  flex: 0 0 100%;
+  height: auto;
+  min-height: 0;
+  margin-top: 12px;
+  color: var(--ct-ink);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+[data-console-theme='glass'] .ct-plan-head h3 + p {
+  order: 4;
+  flex: 0 0 100%;
+  margin-top: 2px;
+  color: var(--ct-muted);
+  font-size: 12.5px;
+}
+
+[data-console-theme='glass'] .ct-plan-amount-row {
+  order: 5;
+  margin-top: 14px;
+}
+
+[data-console-theme='glass'] .ct-plan-amount,
+[data-console-theme='glass'].dark .ct-plan-amount {
+  color: var(--ct-ink);
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+[data-console-theme='glass'] .ct-plan-validity {
+  order: 6;
+  align-self: flex-end;
+  margin-bottom: 2px;
+  color: var(--ct-muted);
+  font-size: 12px;
+}
+
+[data-console-theme='glass'] .ct-plan-original {
+  order: 7;
+  flex: 0 0 100%;
+  margin-top: 6px;
+}
+
+[data-console-theme='glass'] .ct-plan-quota {
+  gap: 6px;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+}
+
+[data-console-theme='glass'].dark .ct-plan-quota {
+  background: transparent;
+}
+
+[data-console-theme='glass'] .ct-plan-quota > div {
+  border-radius: 12px;
+  background-color: var(--ct-fill);
+  padding: 7px 10px;
+}
+
+[data-console-theme='glass'] .ct-plan-quota > div > span:last-child,
+[data-console-theme='glass'] .ct-plan-quota > div > div {
+  color: var(--ct-ink);
+  font-weight: 600;
+}
+
+[data-console-theme='glass'] .ct-plan-features {
+  display: grid;
+  gap: 6px;
+}
+
+[data-console-theme='glass'] .ct-plan-features svg {
+  color: #17c964;
+}
+
+[data-console-theme='glass'] .ct-plan-features span {
+  font-size: 12.5px;
+}
+
+[data-console-theme='glass'] .ct-plan-card .ct-plan-cta {
+  border-radius: 999px;
+  background-image: none;
+  background-color: var(--ct-primary);
+  color: var(--ct-on-primary);
+  box-shadow: 0 1px 2px rgba(24, 24, 24, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+[data-console-theme='glass'] .ct-plan-card .ct-plan-cta:hover {
+  background-color: var(--ct-primary-hover);
+}
+
+/* ---------- 14. Motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  [data-console-theme='glass'] .btn-primary:hover:not(:disabled) {
+    transform: none;
+  }
+}

@@ -6,37 +6,44 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestConfigNormalizeParsesS3URIAndValidates(t *testing.T) {
-	cfg := DefaultConfig()
-	cfg.Prefix = "s3://incoming-04-20260624/logs/"
-	require.NoError(t, cfg.Normalize())
-	require.Equal(t, "incoming-04-20260624", cfg.Bucket)
-	require.Equal(t, "logs", cfg.Prefix)
-	require.Equal(t, "logs/2026-06-25/Opus5-2026-06-25.zip", cfg.ObjectKey("2026-06-25", BundleFileName("Opus5", "2026-06-25", 1)))
+func TestBucketNormalizeParsesS3URIAndValidates(t *testing.T) {
+	b := BucketConfig{Prefix: "s3://incoming-04-20260624/logs/"}
+	require.NoError(t, b.Normalize())
+	require.Equal(t, "incoming-04-20260624", b.Bucket)
+	require.Equal(t, "logs", b.Prefix)
+	require.Equal(t, ProviderAWS, b.Provider)
+	require.Equal(t, "us-east-1", b.Region)
+	require.Equal(t, "logs/2026-06-25/Opus5-2026-06-25.zip", b.ObjectKey("2026-06-25", BundleFileName("Opus5", "2026-06-25", 1)))
 
-	cfg = DefaultConfig()
-	cfg.Bucket = "incoming-04-20260624"
-	require.NoError(t, cfg.Normalize())
-	require.Equal(t, "2026-06-25/Opus5-2026-06-25.zip", cfg.ObjectKey("2026-06-25", "Opus5-2026-06-25.zip"))
+	b = BucketConfig{Bucket: "incoming-04-20260624"}
+	require.NoError(t, b.Normalize())
+	require.Equal(t, "2026-06-25/Opus5-2026-06-25.zip", b.ObjectKey("2026-06-25", "Opus5-2026-06-25.zip"))
+	require.Equal(t, "incoming-04-20260624", b.Label())
 
-	for _, bad := range []func(*Config){
-		func(c *Config) { c.Bucket = "a"; c.Prefix = "s3://b/x" },
-		func(c *Config) { c.Prefix = "a/../b" },
-		func(c *Config) { c.Endpoint = "ftp://x" },
-		func(c *Config) { c.AccessKeyID = "AK" },
-		func(c *Config) { c.Provider = ProviderCompat; c.Bucket = "bucket" },
-		func(c *Config) { c.Mode = ModeSelected; c.CaptureEnabled = true },
+	for _, bad := range []func(*BucketConfig){
+		func(c *BucketConfig) { c.Bucket = "" },
+		func(c *BucketConfig) { c.Bucket = "a"; c.Prefix = "s3://b/x" },
+		func(c *BucketConfig) { c.Prefix = "a/../b" },
+		func(c *BucketConfig) { c.Endpoint = "ftp://x" },
+		func(c *BucketConfig) { c.AccessKeyID = "AK" },
+		func(c *BucketConfig) { c.Provider = ProviderCompat },
 	} {
-		c := DefaultConfig()
+		c := BucketConfig{Bucket: "bucket"}
 		bad(&c)
 		require.Error(t, c.Normalize())
 	}
+}
 
-	cfg = Config{MaxZipSizeMB: 1, MaxBodyMB: 9999}
+func TestConfigNormalizeClampsCaptureSettings(t *testing.T) {
+	cfg := Config{MaxZipSizeMB: 1, MaxBodyMB: 9999}
 	require.NoError(t, cfg.Normalize())
 	require.Equal(t, int64(64), cfg.MaxZipSizeMB)
 	require.Equal(t, 256, cfg.MaxBodyMB)
 	require.Equal(t, 1800, cfg.SessionIdleSeconds)
+
+	c := DefaultConfig()
+	c.Mode, c.CaptureEnabled = ModeSelected, true
+	require.Error(t, c.Normalize(), "selected mode needs a rule")
 }
 
 func TestModelKeySelectionAndAliases(t *testing.T) {

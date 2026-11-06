@@ -6730,14 +6730,13 @@
                 >
                   {{ t("admin.settings.site.afterSalesGroup") }}
                 </label>
-                <input
+                <ContactEntriesEditor
                   v-model="form.after_sales_group"
-                  type="text"
-                  class="input"
-                  :placeholder="t('admin.settings.site.afterSalesGroupPlaceholder')"
+                  kind="group"
+                  :value-placeholder="t('admin.settings.site.afterSalesGroupPlaceholder')"
                 />
                 <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t("admin.settings.site.afterSalesGroupHint") }}
+                  {{ t("customerSupport.groupsHint") }}
                 </p>
               </div>
 
@@ -6748,14 +6747,13 @@
                 >
                   {{ t("admin.settings.site.customerServiceLink") }}
                 </label>
-                <input
+                <ContactEntriesEditor
                   v-model="form.customer_service_link"
-                  type="url"
-                  class="input"
-                  :placeholder="t('admin.settings.site.customerServiceLinkPlaceholder')"
+                  kind="link"
+                  :value-placeholder="t('admin.settings.site.customerServiceLinkPlaceholder')"
                 />
                 <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t("admin.settings.site.customerServiceLinkHint") }}
+                  {{ t("customerSupport.linksHint") }}
                 </p>
               </div>
 
@@ -9400,6 +9398,7 @@
 </template>
 
 <script setup lang="ts">
+import ContactEntriesEditor from '@/extensions/modules/customer-support/ContactEntriesEditor.vue'
 import { admitAccessPolicySettings, useAccessPolicyConfigurationAdmission } from '@/extensions/modules/access-policy/configuration';
 const accessPolicyConfigurationEnabled = useAccessPolicyConfigurationAdmission();
 import { ref, reactive, computed, onMounted, watch } from "vue";

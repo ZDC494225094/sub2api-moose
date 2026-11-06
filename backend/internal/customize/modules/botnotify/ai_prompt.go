@@ -150,11 +150,11 @@ func contactLines(dto PublicDTO) string {
 	if v := strings.TrimSpace(dto.ContactInfo); v != "" {
 		lines = append(lines, "- 联系方式："+v)
 	}
-	if v := strings.TrimSpace(dto.AfterSalesGroup); v != "" {
-		lines = append(lines, "- 售后群："+v)
+	if groups := contactEntries(dto.AfterSalesGroup); len(groups) > 0 {
+		lines = append(lines, "- 售后群："+strings.Join(groups, "；"))
 	}
-	if v := strings.TrimSpace(dto.CustomerServiceLink); v != "" {
-		lines = append(lines, "- 在线客服："+v)
+	if links := contactEntries(dto.CustomerServiceLink); len(links) > 0 {
+		lines = append(lines, "- 在线客服："+strings.Join(links, "；"))
 	}
 	if len(lines) == 0 {
 		return "- 以站点资料中写明的人工客服方式为准；资料也没有写时，请用户通过网站页面上的「联系客服」入口联系。\n"

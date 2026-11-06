@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { announcementsAPI } from '@/api'
 import type { UserAnnouncement } from '@/types'
+import { sortAnnouncementsByPublishedAt } from '@/utils/announcementOrder'
 
 const THROTTLE_MS = 20 * 60 * 1000 // 20 minutes
 
@@ -11,6 +12,8 @@ export const useAnnouncementStore = defineStore('announcements', () => {
   const loading = ref(false)
   const lastFetchTime = ref(0)
   const currentPopup = ref<UserAnnouncement | null>(null)
+  // Popup-mode notices that opened (or joined) the current popup, newest first.
+  const popupHighlightIds = ref<number[]>([])
 
   // Session-scoped dedup set — not reactive, used as plain lookup only
   let shownPopupIds = new Set<number>()
@@ -36,7 +39,8 @@ export const useAnnouncementStore = defineStore('announcements', () => {
       loading.value = true
       const all = await announcementsAPI.list(false)
       if (generation !== fetchGeneration) return
-      announcements.value = all.slice(0, 20)
+      // The API puts unread first; lists are shown strictly by publish time.
+      announcements.value = sortAnnouncementsByPublishedAt(all).slice(0, 20)
       showAnnouncementPanel()
     } catch (err: any) {
       if (generation !== fetchGeneration) return
@@ -55,8 +59,14 @@ export const useAnnouncementStore = defineStore('announcements', () => {
     if (newPopups.length === 0) return
 
     newPopups.forEach((announcement) => shownPopupIds.add(announcement.id))
+    const ids = newPopups.map((announcement) => announcement.id)
 
-    if (currentPopup.value) return
+    if (currentPopup.value) {
+      popupHighlightIds.value = [...new Set([...popupHighlightIds.value, ...ids])]
+      return
+    }
+
+    popupHighlightIds.value = ids
 
     // The panel renders the full announcement list. This value only signals
     // that a newly eligible popup announcement should open that panel.
@@ -66,6 +76,7 @@ export const useAnnouncementStore = defineStore('announcements', () => {
   function dismissPopup() {
     if (!currentPopup.value) return
     currentPopup.value = null
+    popupHighlightIds.value = []
   }
 
   async function markAsRead(id: number) {
@@ -108,6 +119,7 @@ export const useAnnouncementStore = defineStore('announcements', () => {
     lastFetchTime.value = 0
     shownPopupIds = new Set()
     currentPopup.value = null
+    popupHighlightIds.value = []
     loading.value = false
   }
 
@@ -116,6 +128,7 @@ export const useAnnouncementStore = defineStore('announcements', () => {
     announcements,
     loading,
     currentPopup,
+    popupHighlightIds,
     // Getters
     unreadCount,
     // Actions

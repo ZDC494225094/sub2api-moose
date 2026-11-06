@@ -124,10 +124,11 @@ func (m *memStore) ClaimUpload(_ context.Context, node string, _ time.Time) (*Bu
 func (m *memStore) ObjectKeyTaken(_ context.Context, bucket, key string, except int64) (bool, error) {
 	return len(m.list(func(b *Bundle) bool { return b.Bucket == bucket && b.ObjectKey == key && b.ID != except })) > 0, nil
 }
-func (m *memStore) MarkUploaded(_ context.Context, id int64, bucket, key string) error {
+func (m *memStore) MarkUploaded(_ context.Context, id, bucketID int64, bucket, key string) error {
 	return m.update(id, func(b *Bundle) {
 		now := time.Now()
-		b.Status, b.Bucket, b.ObjectKey, b.UploadedAt = StatusUploaded, bucket, key, &now
+		bid := bucketID
+		b.Status, b.Bucket, b.BucketID, b.ObjectKey, b.UploadedAt = StatusUploaded, bucket, &bid, key, &now
 	})
 }
 func (m *memStore) MarkUploadFailed(_ context.Context, id int64, reason string, _ time.Time) error {
@@ -148,11 +149,18 @@ type memObjects struct {
 	mu      sync.Mutex
 	objects map[string][]byte
 	fail    error
+	name    string
+	uploads int
 }
 
 func newMemObjects() *memObjects { return &memObjects{objects: map[string][]byte{}} }
 
-func (o *memObjects) Bucket() string { return "test-bucket" }
+func (o *memObjects) Bucket() string {
+	if o.name != "" {
+		return o.name
+	}
+	return "test-bucket"
+}
 func (o *memObjects) Exists(_ context.Context, key string) (bool, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -160,6 +168,9 @@ func (o *memObjects) Exists(_ context.Context, key string) (bool, error) {
 	return ok, nil
 }
 func (o *memObjects) Upload(_ context.Context, key, path string, progress func(int64)) error {
+	o.mu.Lock()
+	o.uploads++
+	o.mu.Unlock()
 	if o.fail != nil {
 		return o.fail
 	}

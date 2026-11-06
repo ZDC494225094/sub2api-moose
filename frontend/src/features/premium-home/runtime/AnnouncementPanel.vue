@@ -10,17 +10,20 @@
           </div>
           <button class="notice-close" type="button" aria-label="关闭公告弹窗" @click="requestClose">×</button>
         </div>
-        <div class="notice-list">
+        <div ref="listRef" class="notice-list">
           <button
-            v-for="notice in announcements"
+            v-for="notice in orderedAnnouncements"
             :key="notice.id"
             class="notice-item"
+            :class="{ 'is-highlighted': isHighlighted(notice.id) }"
+            :aria-current="isHighlighted(notice.id) ? 'true' : undefined"
             type="button"
             @click="openAnnouncement(notice)"
           >
             <div class="notice-date">
-              {{ formatDate(notice.created_at || notice.starts_at) }}
-              <span v-if="isNewNotice(notice.created_at)" class="new-tag">NEW</span>
+              {{ announcementPublishedDate(notice) }}
+              <span v-if="isRecentAnnouncement(notice)" class="new-tag">NEW</span>
+              <span v-if="isHighlighted(notice.id)" class="notice-unread-tag">待阅读</span>
             </div>
             <h3>{{ notice.title }}</h3>
             <p>{{ announcementExcerpt(notice.content) }}</p>
@@ -43,7 +46,7 @@
       <section class="notice-reader" :class="{ 'is-open': !!selectedAnnouncement }" aria-label="公告全文">
         <div class="notice-reader-head">
           <div>
-            <span>{{ formatDate(selectedAnnouncement?.created_at || selectedAnnouncement?.starts_at) }}</span>
+            <span>{{ announcementPublishedDate(selectedAnnouncement) }}</span>
             <h2>{{ selectedAnnouncement?.title }}</h2>
           </div>
           <button
@@ -60,11 +63,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import Icon from '@/components/icons/Icon.vue'
 import type { UserAnnouncement } from '@/types'
+import {
+  announcementPublishedDate,
+  isRecentAnnouncement,
+  sortAnnouncementsByPublishedAt,
+} from '@/utils/announcementOrder'
 import './premium-home.css'
 import '@/styles/announcement-markdown.css'
 
@@ -74,10 +82,13 @@ const props = withDefaults(defineProps<{
   showDismissToday?: boolean
   initialSelectedAnnouncement?: UserAnnouncement | null
   closeOnReaderClose?: boolean
+  /** Announcements that triggered an automatic popup; marked in the list only. */
+  highlightIds?: readonly number[]
 }>(), {
   showDismissToday: true,
   initialSelectedAnnouncement: null,
   closeOnReaderClose: false,
+  highlightIds: () => [],
 })
 
 const emit = defineEmits<{
@@ -87,6 +98,13 @@ const emit = defineEmits<{
 }>()
 
 const selectedAnnouncement = ref<UserAnnouncement | null>(null)
+const listRef = ref<HTMLElement | null>(null)
+const orderedAnnouncements = computed(() => sortAnnouncementsByPublishedAt(props.announcements))
+const highlighted = computed(() => new Set(props.highlightIds))
+
+function isHighlighted(id: number) {
+  return highlighted.value.has(id)
+}
 
 marked.setOptions({
   breaks: true,
@@ -113,19 +131,6 @@ function stripMarkdown(content: string) {
 function announcementExcerpt(content: string) {
   const plain = stripMarkdown(content)
   return plain.length > 64 ? `${plain.slice(0, 64)}...` : plain
-}
-
-function formatDate(value?: string) {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toISOString().slice(0, 10)
-}
-
-function isNewNotice(value?: string) {
-  if (!value) return false
-  const created = new Date(value).getTime()
-  return Number.isFinite(created) && Date.now() - created < 7 * 86400000
 }
 
 function requestClose() {
@@ -161,6 +166,17 @@ watch(
   (isOpen) => {
     if (!isOpen) resetSelectedAnnouncement()
   }
+)
+
+// Bring the first highlighted notice into view when the popup opens on a long list.
+watch(
+  () => [props.open, props.highlightIds] as const,
+  async ([isOpen]) => {
+    if (!isOpen || !props.highlightIds.length) return
+    await nextTick()
+    listRef.value?.querySelector<HTMLElement>('.notice-item.is-highlighted')?.scrollIntoView?.({ block: 'nearest' })
+  },
+  { immediate: true }
 )
 
 watch(

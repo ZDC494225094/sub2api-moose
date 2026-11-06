@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -37,6 +38,7 @@ type Bundle struct {
 	SizeBytes    int64      `json:"size_bytes"`
 	EntryCount   int        `json:"entry_count"`
 	Bucket       string     `json:"bucket"`
+	BucketID     *int64     `json:"bucket_id"`
 	ObjectKey    string     `json:"object_key"`
 	Attempts     int        `json:"attempts"`
 	LastError    string     `json:"last_error"`
@@ -81,7 +83,7 @@ type archiveStore interface {
 	ResetUploading(ctx context.Context, node string) error
 	ClaimUpload(ctx context.Context, node string, now time.Time) (*Bundle, error)
 	ObjectKeyTaken(ctx context.Context, bucket, key string, exceptID int64) (bool, error)
-	MarkUploaded(ctx context.Context, id int64, bucket, key string) error
+	MarkUploaded(ctx context.Context, id, bucketID int64, bucket, key string) error
 	MarkUploadFailed(ctx context.Context, id int64, reason string, next time.Time) error
 	MarkLocalDeleted(ctx context.Context, id int64) error
 	LocalExpired(ctx context.Context, node string, before time.Time) ([]Bundle, error)
@@ -91,6 +93,8 @@ type archiveStore interface {
 type Store struct {
 	DB     *sql.DB
 	Cipher Encryptor
+
+	bucketsAdopted atomic.Bool
 }
 
 var errStoreUnavailable = errors.New("gateway-log-archive: store unavailable")
@@ -102,16 +106,15 @@ func (s *Store) ready() error {
 	return nil
 }
 
-// Config loads the configuration with decrypted credentials.
+// Config loads the capture configuration (storage lives in Buckets).
 func (s *Store) Config(ctx context.Context) (Config, *time.Time, error) {
 	cfg := DefaultConfig()
 	if err := s.ready(); err != nil {
 		return cfg, nil, err
 	}
-	var raw, ak, sk, token string
+	var raw string
 	var updated sql.NullTime
-	err := s.DB.QueryRowContext(ctx, `SELECT config, access_key_id, secret_access_key, session_token, updated_at FROM gateway_log_archive_config WHERE id = 1`).
-		Scan(&raw, &ak, &sk, &token, &updated)
+	err := s.DB.QueryRowContext(ctx, `SELECT config, updated_at FROM gateway_log_archive_config WHERE id = 1`).Scan(&raw, &updated)
 	if errors.Is(err, sql.ErrNoRows) {
 		return cfg, nil, nil
 	}
@@ -122,19 +125,6 @@ func (s *Store) Config(ctx context.Context) (Config, *time.Time, error) {
 		if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
 			return DefaultConfig(), nil, fmt.Errorf("gateway-log-archive: decode config: %w", err)
 		}
-	}
-	for _, item := range []struct {
-		enc string
-		dst *string
-	}{{ak, &cfg.AccessKeyID}, {sk, &cfg.SecretAccessKey}, {token, &cfg.SessionToken}} {
-		if item.enc == "" {
-			continue
-		}
-		plain, err := s.decrypt(item.enc)
-		if err != nil {
-			return cfg, nil, fmt.Errorf("gateway-log-archive: decrypt credentials: %w", err)
-		}
-		*item.dst = plain
 	}
 	_ = cfg.Normalize()
 	var at *time.Time
@@ -161,8 +151,8 @@ func (s *Store) encrypt(v string) (string, error) {
 	return s.Cipher.Encrypt(v)
 }
 
-// SaveConfig persists cfg; its credential fields must already be resolved
-// (kept or replaced) by the caller.
+// SaveConfig persists the capture configuration; bucket credentials are kept
+// in gateway_log_archive_buckets and never pass through here.
 func (s *Store) SaveConfig(ctx context.Context, cfg Config) error {
 	if err := s.ready(); err != nil {
 		return err
@@ -171,24 +161,9 @@ func (s *Store) SaveConfig(ctx context.Context, cfg Config) error {
 	if err != nil {
 		return err
 	}
-	ak, err := s.encrypt(cfg.AccessKeyID)
-	if err != nil {
-		return err
-	}
-	sk, err := s.encrypt(cfg.SecretAccessKey)
-	if err != nil {
-		return err
-	}
-	token, err := s.encrypt(cfg.SessionToken)
-	if err != nil {
-		return err
-	}
 	_, err = s.DB.ExecContext(ctx, `
-		INSERT INTO gateway_log_archive_config (id, config, access_key_id, secret_access_key, session_token, updated_at)
-		VALUES (1, $1, $2, $3, $4, CURRENT_TIMESTAMP)
-		ON CONFLICT (id) DO UPDATE SET config = EXCLUDED.config, access_key_id = EXCLUDED.access_key_id,
-			secret_access_key = EXCLUDED.secret_access_key, session_token = EXCLUDED.session_token, updated_at = CURRENT_TIMESTAMP`,
-		string(raw), ak, sk, token)
+		INSERT INTO gateway_log_archive_config (id, config, updated_at) VALUES (1, $1, CURRENT_TIMESTAMP)
+		ON CONFLICT (id) DO UPDATE SET config = EXCLUDED.config, updated_at = CURRENT_TIMESTAMP`, string(raw))
 	if err != nil {
 		return fmt.Errorf("gateway-log-archive: save config: %w", err)
 	}
@@ -196,15 +171,20 @@ func (s *Store) SaveConfig(ctx context.Context, cfg Config) error {
 }
 
 const bundleColumns = `id, node_id, day, model_key, part, file_name, local_path, status, size_bytes, entry_count,
-	bucket, object_key, attempts, last_error, local_deleted, created_at, sealed_at, uploaded_at`
+	bucket, bucket_id, object_key, attempts, last_error, local_deleted, created_at, sealed_at, uploaded_at`
 
 type scanner interface{ Scan(...any) error }
 
 func scanBundle(row scanner) (Bundle, error) {
 	var b Bundle
 	var sealed, uploaded sql.NullTime
+	var bucketID sql.NullInt64
 	err := row.Scan(&b.ID, &b.NodeID, &b.Day, &b.ModelKey, &b.Part, &b.FileName, &b.LocalPath, &b.Status, &b.SizeBytes,
-		&b.EntryCount, &b.Bucket, &b.ObjectKey, &b.Attempts, &b.LastError, &b.LocalDeleted, &b.CreatedAt, &sealed, &uploaded)
+		&b.EntryCount, &b.Bucket, &bucketID, &b.ObjectKey, &b.Attempts, &b.LastError, &b.LocalDeleted, &b.CreatedAt, &sealed, &uploaded)
+	if bucketID.Valid {
+		id := bucketID.Int64
+		b.BucketID = &id
+	}
 	if sealed.Valid {
 		b.SealedAt = &sealed.Time
 	}
@@ -352,9 +332,35 @@ func (s *Store) ObjectKeyTaken(ctx context.Context, bucket, key string, exceptID
 	return n > 0, err
 }
 
-func (s *Store) MarkUploaded(ctx context.Context, id int64, bucket, key string) error {
-	return s.exec(ctx, `UPDATE gateway_log_archive_bundles SET status = 'uploaded', bucket = $1, object_key = $2, last_error = '',
-		next_attempt_at = NULL, uploaded_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, bucket, key, id)
+// MarkUploaded records the destination and adds the bundle to the cumulative
+// per-bucket/model totals in one transaction; a repeated call counts nothing.
+func (s *Store) MarkUploaded(ctx context.Context, id, bucketID int64, bucket, key string) error {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var modelKey string
+	var size, entries int64
+	err = tx.QueryRowContext(ctx, `UPDATE gateway_log_archive_bundles SET status = 'uploaded', bucket = $1, bucket_id = $2, object_key = $3,
+		last_error = '', next_attempt_at = NULL, uploaded_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $4 AND status <> 'uploaded' RETURNING model_key, size_bytes, entry_count`, bucket, bucketID, key, id).Scan(&modelKey, &size, &entries)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO gateway_log_archive_upload_stats (bucket_id, model_key, bundle_count, entry_count, size_bytes, last_uploaded_at)
+		VALUES ($1, $2, 1, $3, $4, CURRENT_TIMESTAMP)
+		ON CONFLICT (bucket_id, model_key) DO UPDATE SET bundle_count = gateway_log_archive_upload_stats.bundle_count + 1,
+			entry_count = gateway_log_archive_upload_stats.entry_count + EXCLUDED.entry_count,
+			size_bytes = gateway_log_archive_upload_stats.size_bytes + EXCLUDED.size_bytes,
+			last_uploaded_at = EXCLUDED.last_uploaded_at`, bucketID, modelKey, entries, size); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) MarkUploadFailed(ctx context.Context, id int64, reason string, next time.Time) error {

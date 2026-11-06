@@ -1,9 +1,10 @@
 <template>
   <AppLayout>
-    <div class="mx-auto max-w-2xl space-y-6">
+    <div class="ct-redeem mx-auto max-w-2xl space-y-6">
+      <div class="ct-redeem-main space-y-6">
       <!-- Current Balance Card -->
       <div class="card overflow-hidden">
-        <div class="bg-gradient-to-br from-primary-500 to-primary-600 px-6 py-8 text-center">
+        <div class="ct-redeem-balance bg-gradient-to-br from-primary-500 to-primary-600 px-6 py-8 text-center">
           <div
             class="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm"
           >
@@ -161,7 +162,9 @@
           </div>
         </div>
       </transition>
+      </div>
 
+      <div class="ct-redeem-side space-y-6">
       <!-- Information Card -->
       <div
         class="card border-primary-200 bg-primary-50 dark:border-primary-800/50 dark:bg-primary-900/20"
@@ -360,6 +363,7 @@
             >{{ t('pagination.next') }}</button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   </AppLayout>

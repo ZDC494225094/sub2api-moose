@@ -16,24 +16,80 @@ export interface ArchiveConfig {
   keep_local_hours: number
   entry_retention_days: number
   min_free_disk_gb: number
-  provider: 'aws' | 's3-compatible'
+  updated_at?: string | null
+}
+
+export type BucketProvider = 'aws' | 's3-compatible'
+
+export interface BucketUsage {
+  bundle_count: number
+  size_bytes: number
+}
+
+/** A storage destination; secrets are never returned, only whether they are set. */
+export interface ArchiveBucket {
+  id: number
+  name: string
+  provider: BucketProvider
   bucket: string
   region: string
   endpoint: string
   prefix: string
   force_path_style: boolean
+  enabled: boolean
+  priority: number
   /** Masked when read back; send a new value to replace it. */
   access_key_id: string
-  secret_access_key_set?: boolean
-  session_token_set?: boolean
-  updated_at?: string | null
+  secret_access_key_set: boolean
+  session_token_set: boolean
+  usage: BucketUsage
+  created_at: string
+  updated_at: string
 }
 
-export interface ArchiveConfigInput extends ArchiveConfig {
+export interface ArchiveBucketInput {
+  id?: number
+  name: string
+  provider: BucketProvider
+  bucket: string
+  region: string
+  endpoint: string
+  prefix: string
+  force_path_style: boolean
+  enabled: boolean
+  priority: number
+  /** Empty or masked values keep the stored credential. */
+  access_key_id?: string
   secret_access_key?: string
   session_token?: string
   clear_credentials?: boolean
   clear_session_token?: boolean
+}
+
+export interface BucketList {
+  items: ArchiveBucket[]
+  /** Totals of deleted buckets, kept so the overall total stays complete. */
+  unattributed: BucketUsage
+}
+
+export interface ModelStat {
+  model_key: string
+  bundle_count: number
+  entry_count: number
+  size_bytes: number
+  last_uploaded_at: string | null
+}
+
+export interface ModelStats {
+  items: ModelStat[]
+  total_bundles: number
+  total_entries: number
+  total_bytes: number
+}
+
+export interface TestResult {
+  ok: boolean
+  steps: { name: string; ok: boolean; error?: string }[]
 }
 
 export interface OpenBundle {
@@ -54,6 +110,11 @@ export interface ArchiveStatus {
   data_dir: string
   today: string
   disk_free_bytes: number
+  /** Enabled buckets at the last reconcile. */
+  storage_buckets: number
+  /** Cumulative uploads (not affected by index retention). */
+  uploaded_bundles: number
+  uploaded_bytes: number
   active_sessions: number
   queued_exchanges: number
   pending_flushes: number
@@ -83,6 +144,7 @@ export interface Bundle {
   size_bytes: number
   entry_count: number
   bucket: string
+  bucket_id: number | null
   object_key: string
   attempts: number
   last_error: string
@@ -134,12 +196,32 @@ export const archiveAPI = {
     const { data } = await apiClient.get(`${base}/config`)
     return data
   },
-  async saveConfig(input: ArchiveConfigInput): Promise<ArchiveConfig> {
+  async saveConfig(input: ArchiveConfig): Promise<ArchiveConfig> {
     const { data } = await apiClient.put(`${base}/config`, input)
     return data
   },
-  async testConfig(input: ArchiveConfigInput): Promise<{ ok: boolean; steps: { name: string; ok: boolean; error?: string }[] }> {
-    const { data } = await apiClient.post(`${base}/config/test`, input, { timeout: 60000 })
+  async buckets(): Promise<BucketList> {
+    const { data } = await apiClient.get(`${base}/buckets`)
+    return data
+  },
+  async createBucket(input: ArchiveBucketInput): Promise<ArchiveBucket> {
+    const { data } = await apiClient.post(`${base}/buckets`, input)
+    return data
+  },
+  async updateBucket(id: number, input: ArchiveBucketInput): Promise<ArchiveBucket> {
+    const { data } = await apiClient.put(`${base}/buckets/${id}`, input)
+    return data
+  },
+  async deleteBucket(id: number): Promise<void> {
+    await apiClient.delete(`${base}/buckets/${id}`)
+  },
+  /** Tests unsaved form values; with an id, stored secrets fill empty fields. */
+  async testBucket(input: ArchiveBucketInput): Promise<TestResult> {
+    const { data } = await apiClient.post(`${base}/buckets/test`, input, { timeout: 60000 })
+    return data
+  },
+  async modelStats(bucketId?: number): Promise<ModelStats> {
+    const { data } = await apiClient.get(`${base}/stats/models`, { params: { bucket_id: bucketId || undefined } })
     return data
   },
   async status(): Promise<ArchiveStatus> {

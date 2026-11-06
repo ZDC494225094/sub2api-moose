@@ -39,11 +39,11 @@ type TestStep struct {
 
 type s3Objects struct {
 	client *s3.Client
-	cfg    Config
+	cfg    BucketConfig
 }
 
-func newS3Objects(cfg Config) (objectStore, error) {
-	if !cfg.StorageReady() {
+func newS3Objects(cfg BucketConfig) (objectStore, error) {
+	if cfg.Bucket == "" {
 		return nil, errNoStorage
 	}
 	region := cfg.Region
@@ -297,11 +297,11 @@ func (p *pipeline) uploadLoop() {
 }
 
 func (p *pipeline) uploadPending() {
-	cfg := p.cfg.Load()
-	if cfg == nil || !cfg.StorageReady() {
+	buckets := p.enabledBuckets()
+	if len(buckets) == 0 {
 		return
 	}
-	var objects objectStore
+	pass := &uploadPass{clients: map[int64]objectStore{}, down: map[int64]bool{}}
 	for p.ctx.Err() == nil {
 		row, err := p.store.ClaimUpload(p.ctx, p.node, time.Now())
 		if err != nil {
@@ -311,18 +311,63 @@ func (p *pipeline) uploadPending() {
 		if row == nil {
 			return
 		}
-		if objects == nil {
-			if objects, err = p.objects(*cfg); err != nil {
-				p.failUpload(row, err)
-				return
-			}
-		}
-		if err := p.uploadOne(*cfg, objects, row); err != nil {
+		if err := p.uploadToBuckets(buckets, pass, row); err != nil {
 			p.failUpload(row, err)
 			continue
 		}
 		p.stats.uploaded.Add(1)
 	}
+}
+
+// uploadPass caches clients for one queue pass and remembers buckets that just
+// failed, so later bundles of the same pass go straight to the next bucket.
+type uploadPass struct {
+	clients map[int64]objectStore
+	down    map[int64]bool
+}
+
+// uploadToBuckets tries the enabled buckets in priority order and stops at the
+// first success; the bundle records which bucket received it.
+func (p *pipeline) uploadToBuckets(buckets []BucketConfig, pass *uploadPass, row *Bundle) error {
+	order := make([]BucketConfig, 0, len(buckets))
+	for _, b := range buckets {
+		if !pass.down[b.ID] {
+			order = append(order, b)
+		}
+	}
+	if len(order) == 0 {
+		order = buckets // everything failed earlier in this pass: try again in order
+	}
+	var failures []string
+	for _, bucket := range order {
+		if p.ctx.Err() != nil {
+			return p.ctx.Err()
+		}
+		objects, ok := pass.clients[bucket.ID]
+		if !ok {
+			var err error
+			if objects, err = p.objects(bucket); err != nil {
+				pass.down[bucket.ID] = true
+				failures = append(failures, bucket.Label()+"："+err.Error())
+				continue
+			}
+			pass.clients[bucket.ID] = objects
+		}
+		err := p.uploadOne(bucket, objects, row)
+		if err == nil {
+			delete(pass.down, bucket.ID)
+			return nil
+		}
+		if errors.Is(err, errLocalBundleMissing) {
+			return err // no other bucket can help
+		}
+		pass.down[bucket.ID] = true
+		failures = append(failures, bucket.Label()+"："+err.Error())
+	}
+	if len(failures) == 1 {
+		return errors.New(failures[0])
+	}
+	return fmt.Errorf("全部 %d 个存储桶上传失败：%s", len(failures), strings.Join(failures, "；"))
 }
 
 func backoff(attempts int) time.Duration {
@@ -349,7 +394,7 @@ func (p *pipeline) failUpload(row *Bundle, err error) {
 
 // chooseKey keeps "<model>-<day>.zip" unless the object already exists (for
 // example written by another deployment); then the next free part name.
-func (p *pipeline) chooseKey(cfg Config, objects objectStore, row *Bundle) (string, error) {
+func (p *pipeline) chooseKey(cfg BucketConfig, objects objectStore, row *Bundle) (string, error) {
 	for part := row.Part; part < row.Part+100; part++ {
 		key := cfg.ObjectKey(row.Day, BundleFileName(row.ModelKey, row.Day, part))
 		taken, err := p.store.ObjectKeyTaken(p.ctx, objects.Bucket(), key, row.ID)
@@ -371,9 +416,11 @@ func (p *pipeline) chooseKey(cfg Config, objects objectStore, row *Bundle) (stri
 	return "", errors.New("找不到可用的对象名称")
 }
 
-func (p *pipeline) uploadOne(cfg Config, objects objectStore, row *Bundle) error {
+var errLocalBundleMissing = errors.New("本地压缩包不存在")
+
+func (p *pipeline) uploadOne(cfg BucketConfig, objects objectStore, row *Bundle) error {
 	if _, err := os.Stat(row.LocalPath); err != nil {
-		return fmt.Errorf("本地压缩包不存在：%w", err)
+		return fmt.Errorf("%w：%v", errLocalBundleMissing, err)
 	}
 	key, err := p.chooseKey(cfg, objects, row)
 	if err != nil {
@@ -387,7 +434,7 @@ func (p *pipeline) uploadOne(cfg Config, objects objectStore, row *Bundle) error
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := p.store.MarkUploaded(ctx, row.ID, objects.Bucket(), key); err != nil {
+	if err := p.store.MarkUploaded(ctx, row.ID, cfg.ID, objects.Bucket(), key); err != nil {
 		return err
 	}
 	if p.keepLocal.Load() == 0 {

@@ -587,6 +587,8 @@
         "backend/internal/customize/modules/botnotify/ai_prompt.go",
         "backend/internal/customize/modules/botnotify/ai_prompt_test.go",
         "backend/internal/customize/modules/botnotify/ai_replies.go",
+        "backend/internal/customize/modules/botnotify/contacts.go",
+        "backend/internal/customize/modules/botnotify/contacts_test.go",
         "backend/internal/customize/modules/botnotify/ai_runtime.go",
         "backend/internal/customize/modules/botnotify/ai_runtime_test.go",
         "backend/internal/customize/modules/botnotify/http.go",

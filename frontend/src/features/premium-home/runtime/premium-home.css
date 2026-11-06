@@ -783,6 +783,44 @@
   -webkit-line-clamp: 2;
 }
 
+/* Notices that triggered the automatic popup: highlighted in the list instead of
+   opening their full text on top of it. */
+.premium-home .notice-item.is-highlighted {
+  margin: 4px 0;
+  padding-right: 12px;
+  border-bottom-color: transparent;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(37, 99, 255, 0.09), rgba(37, 99, 255, 0.025));
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 255, 0.22);
+}
+
+.premium-home .notice-item.is-highlighted::before {
+  border-color: rgba(37, 99, 255, 0.28);
+  box-shadow: 0 0 0 4px rgba(37, 99, 255, 0.12);
+}
+
+.premium-home .notice-item.is-highlighted h3 {
+  color: var(--blue);
+}
+
+.premium-home .notice-unread-tag {
+  border-radius: 999px;
+  background: var(--blue);
+  color: #fff;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.dark .premium-home .notice-item.is-highlighted {
+  background: linear-gradient(90deg, rgba(106, 162, 255, 0.16), rgba(106, 162, 255, 0.04));
+  box-shadow: inset 0 0 0 1px rgba(106, 162, 255, 0.32);
+}
+
+.dark .premium-home .notice-unread-tag {
+  color: #07111f;
+}
+
 .premium-home .notice-footer {
   display: grid;
   grid-template-columns: 1fr 1fr;

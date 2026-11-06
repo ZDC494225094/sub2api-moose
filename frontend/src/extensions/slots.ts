@@ -2,7 +2,7 @@ import { defineAsyncComponent, markRaw, type Component } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import type { ExtensionId, pendingExtensionPaths } from './catalog'
 
-export type ExtensionSlotName = 'redeem-marketing-options' | 'redeem-marketing-report' | 'application-overlay' | 'layout-overlay' | 'header-bottom' | 'checkout-summary' | 'checkout-amount' | 'checkout-overlay' | 'checkout-discount-selection' | 'checkout-discount-summary'
+export type ExtensionSlotName = 'redeem-marketing-options' | 'redeem-marketing-report' | 'application-overlay' | 'layout-overlay' | 'header-actions' | 'header-bottom' | 'checkout-summary' | 'checkout-amount' | 'checkout-overlay' | 'checkout-discount-selection' | 'checkout-discount-summary'
 interface ExtensionSlotBase {
   key: string
   slot: ExtensionSlotName
@@ -32,4 +32,5 @@ export const extensionSlots: readonly ExtensionSlotEntry[] = [
   { key: 'recharge-checkout-amount', extension: 'recharge-campaigns', slot: 'checkout-amount', component: markRaw(defineAsyncComponent(() => import('./modules/recharge-campaigns/CheckoutAmount.vue'))) },
   { key: 'recharge-checkout-overlay', extension: 'recharge-campaigns', slot: 'checkout-overlay', component: markRaw(defineAsyncComponent(() => import('./modules/recharge-campaigns/CheckoutOverlay.vue'))) },
   { key: 'recharge-ticker', extension: 'recharge-campaigns', slot: 'header-bottom', component: rechargeTicker },
+  { key: 'console-theme-switcher', extension: 'console-theme', slot: 'header-actions', component: markRaw(defineAsyncComponent(() => import('./modules/console-theme/ThemeSwitcher.vue'))) },
 ]

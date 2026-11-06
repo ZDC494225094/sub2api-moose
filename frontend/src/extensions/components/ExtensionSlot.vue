@@ -3,13 +3,19 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { extensionSlots, type ExtensionSlotName } from '../slots'
 import { useExtensionStore } from '../store'
+import { CONSOLE_THEME_ID, consoleThemePresentationEnabled } from '../modules/console-theme'
 import ExtensionMount from './ExtensionMount.vue'
 
 const props = defineProps<{ name: ExtensionSlotName; bindings?: Readonly<Record<string, unknown>> }>()
 const route = useRoute()
 const extensions = useExtensionStore()
 const entries = computed(() => extensionSlots.filter(entry =>
-  entry.slot === props.name && (entry.readiness === 'pending' || extensions.enabled(entry.extension)) && (!entry.visible || entry.visible(route))))
+  entry.slot === props.name
+  && (entry.readiness === 'pending'
+    || (entry.extension === CONSOLE_THEME_ID
+      ? consoleThemePresentationEnabled(extensions)
+      : extensions.enabled(entry.extension)))
+  && (!entry.visible || entry.visible(route))))
 </script>
 
 <template>

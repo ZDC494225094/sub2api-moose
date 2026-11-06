@@ -73,6 +73,39 @@ describe('CustomerServiceFloat', () => {
     expect(contactLink.attributes('rel')).toBe('noopener noreferrer')
   })
 
+  it('lists every after-sales group and contact link with its own action', async () => {
+    appStore.cachedPublicSettings = {
+      after_sales_group: 'QQ 一群 | 111\nQQ 二群 | 222\n333',
+      customer_service_link: '企业微信 | https://work.example/kf\nhttps://t.me/moose\nbad | javascript:alert(1)',
+    }
+    const wrapper = mount(CustomerServiceFloat)
+    await wrapper.find('button[aria-controls="customer-service-panel"]').trigger('click')
+
+    const groups = wrapper.findAll('[data-test="support-group"]')
+    expect(groups.map(g => g.text())).toEqual([
+      expect.stringContaining('QQ 一群'),
+      expect.stringContaining('QQ 二群'),
+      expect.stringContaining('售后群号 3'),
+    ])
+    await wrapper.find('button[aria-label="复制 QQ 二群"]').trigger('click')
+    expect(copyToClipboard).toHaveBeenCalledWith('222')
+
+    const links = wrapper.findAll('[data-test="support-link"]')
+    expect(links).toHaveLength(2)
+    expect(links[0].text()).toContain('企业微信')
+    expect(links[0].attributes('href')).toBe('https://work.example/kf')
+    expect(links[1].text()).toContain('customerSupport.onlineService 2')
+    expect(links[1].attributes('href')).toBe('https://t.me/moose')
+  })
+
+  it('opens the panel instead of a direct link when several links exist', async () => {
+    appStore.cachedPublicSettings = { customer_service_link: 'https://a.example\nhttps://b.example' }
+    const wrapper = mount(CustomerServiceFloat, { props: { alwaysVisible: true, directLink: true } })
+    expect(wrapper.find('a').exists()).toBe(false)
+    await wrapper.get('button[aria-controls="customer-service-panel"]').trigger('click')
+    expect(wrapper.findAll('[data-test="support-link"]')).toHaveLength(2)
+  })
+
   it('does not render an unsafe one-click link', () => {
     appStore.cachedPublicSettings = {
       customer_service_link: 'javascript:alert(1)',

@@ -42,7 +42,8 @@ type Runtime struct {
 	DataDir string
 
 	repo    archiveStore
-	objects func(Config) (objectStore, error)
+	objects func(BucketConfig) (objectStore, error)
+	buckets func(context.Context) ([]BucketConfig, error)
 	dayOf   func(time.Time) string
 
 	policy atomic.Pointer[capturePolicy]
@@ -57,6 +58,7 @@ type Runtime struct {
 	lastErrAt *time.Time
 	nodeID    string
 	lastPrune time.Time
+	storage   int // enabled buckets at the last reconcile
 
 	wake       chan struct{}
 	cancel     context.CancelFunc
@@ -65,12 +67,14 @@ type Runtime struct {
 }
 
 func NewRuntime(store *Store, states StateReader, hooks Hooks, dataDir string) *Runtime {
-	return &Runtime{
+	r := &Runtime{
 		Store: store, States: states, Hooks: hooks, DataDir: dataDir,
 		repo: store, objects: newS3Objects,
 		dayOf: func(t time.Time) string { return t.In(timezone.Location()).Format("2006-01-02") },
 		wake:  make(chan struct{}, 1), done: make(chan struct{}), reason: "未启动",
 	}
+	r.buckets = func(ctx context.Context) ([]BucketConfig, error) { return r.Store.Buckets(ctx) }
+	return r
 }
 
 func (r *Runtime) dir() string { return filepath.Join(r.DataDir, "gateway-log-archive") }
@@ -163,6 +167,13 @@ func (r *Runtime) reconcile(ctx context.Context) {
 		r.report(err)
 		return
 	}
+	all, err := r.buckets(ctx)
+	if err != nil {
+		// Keep the current destinations; a read failure must not stop uploads.
+		r.report(err)
+		return
+	}
+	buckets := enabledBuckets(all)
 	pipe, err := r.ensurePipeline(cfg)
 	if err != nil {
 		r.policy.Store(nil)
@@ -173,13 +184,14 @@ func (r *Runtime) reconcile(ctx context.Context) {
 		return
 	}
 	pipe.setConfig(cfg)
+	pipe.setBuckets(buckets)
 	free := diskFree(r.dir())
 	reason := ""
 	switch {
 	case !cfg.CaptureEnabled:
 		reason = "采集未开启"
-	case !cfg.StorageReady():
-		reason = "尚未配置存储桶"
+	case len(buckets) == 0:
+		reason = "尚未配置可用的存储桶"
 	case cfg.MinFreeDiskGB > 0 && free >= 0 && free < int64(cfg.MinFreeDiskGB)<<30:
 		reason = fmt.Sprintf("数据目录剩余空间低于 %d GB，已暂停采集", cfg.MinFreeDiskGB)
 	}
@@ -190,7 +202,7 @@ func (r *Runtime) reconcile(ctx context.Context) {
 	}
 	pipe.sealBefore(r.dayOf(time.Now()))
 	r.mu.Lock()
-	r.enabled, r.reason, r.diskFree = true, reason, free
+	r.enabled, r.reason, r.diskFree, r.storage = true, reason, free, len(buckets)
 	prune := time.Since(r.lastPrune) > time.Hour
 	if prune {
 		r.lastPrune = time.Now()
@@ -260,6 +272,9 @@ type RuntimeStatus struct {
 	DataDir          string           `json:"data_dir"`
 	Today            string           `json:"today"`
 	DiskFreeBytes    int64            `json:"disk_free_bytes"`
+	StorageBuckets   int              `json:"storage_buckets"`
+	UploadedBundles  int64            `json:"uploaded_bundles"`
+	UploadedBytes    int64            `json:"uploaded_bytes"`
 	ActiveSessions   int64            `json:"active_sessions"`
 	QueuedExchanges  int              `json:"queued_exchanges"`
 	PendingFlushes   int              `json:"pending_flushes"`
@@ -289,7 +304,7 @@ func (r *Runtime) Status(ctx context.Context) RuntimeStatus {
 	r.mu.Lock()
 	st := RuntimeStatus{
 		ModuleEnabled: r.enabled, Running: r.pipe != nil, Reason: r.reason, NodeID: r.nodeID, DataDir: r.dir(),
-		DiskFreeBytes: r.diskFree, LastError: r.lastErr, LastErrorAt: r.lastErrAt,
+		DiskFreeBytes: r.diskFree, StorageBuckets: r.storage, LastError: r.lastErr, LastErrorAt: r.lastErrAt,
 	}
 	pipe := r.pipe
 	r.mu.Unlock()
@@ -316,6 +331,13 @@ func (r *Runtime) Status(ctx context.Context) RuntimeStatus {
 	st.UploadErrors = r.stats.uploadErrors.Load()
 	if r.Store != nil && r.Store.DB != nil {
 		st.Bundles, _ = r.Store.Summary(ctx)
+		// Cumulative totals survive index pruning, unlike the bundle summary.
+		if usage, err := r.Store.BucketUsage(ctx); err == nil {
+			for _, u := range usage {
+				st.UploadedBundles += u.BundleCount
+				st.UploadedBytes += u.SizeBytes
+			}
+		}
 	}
 	return st
 }
@@ -333,12 +355,17 @@ func (r *Runtime) FlushNow(ctx context.Context) error {
 	return nil
 }
 
-func (r *Runtime) objectStore(ctx context.Context) (objectStore, error) {
-	cfg, _, err := r.Store.Config(ctx)
+// objectStoreFor opens the bucket that holds an uploaded bundle.
+func (r *Runtime) objectStoreFor(ctx context.Context, b Bundle) (objectStore, error) {
+	all, err := r.buckets(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return r.objects(cfg)
+	bucket, ok := resolveBucket(all, b)
+	if !ok {
+		return nil, errors.New("该压缩包所在的存储桶配置已删除，无法从存储桶读取")
+	}
+	return r.objects(bucket)
 }
 
 type readCloser struct {
@@ -372,7 +399,7 @@ func (r *Runtime) OpenEntry(ctx context.Context, e Entry, b Bundle) (io.ReadClos
 	if b.Status != StatusUploaded || b.ObjectKey == "" {
 		return nil, errors.New("该数据所在压缩包不在本节点且尚未上传")
 	}
-	objects, err := r.objectStore(ctx)
+	objects, err := r.objectStoreFor(ctx, b)
 	if err != nil {
 		return nil, err
 	}

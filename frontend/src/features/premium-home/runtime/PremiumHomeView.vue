@@ -171,9 +171,9 @@
               type="button"
               @click="openAnnouncement(notice)"
             >
-              <span v-if="isNewNotice(notice.created_at)" class="new-tag">NEW</span>
+              <span v-if="isRecentAnnouncement(notice)" class="new-tag">NEW</span>
               <span class="gateway-notice-text">{{ notice.title }}</span>
-              <time>{{ formatDate(notice.created_at || notice.starts_at) }}</time>
+              <time>{{ announcementPublishedDate(notice) }}</time>
             </button>
           </div>
           <button class="gateway-notice-all" type="button" @click="openNoticePanel">全部公告 <Icon name="arrowRight" size="sm" /></button>
@@ -459,13 +459,15 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAppStore, useAuthStore } from '@/stores'
 import CustomerServiceFloat from '@/extensions/modules/customer-support/SupportWidget.vue'
+import { parseContactLinks } from '@/extensions/modules/customer-support/contacts'
 import { useExtensionStore } from '@/extensions/store'
-import { sanitizeUrl } from '@/utils/url'
+import { useThemeMode, type ThemeMode } from '@/extensions/modules/console-theme/themeMode'
 import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import Icon from '@/components/icons/Icon.vue'
 import AnnouncementPanel from './AnnouncementPanel.vue'
 import type { SubscriptionPlan } from '@/types/payment'
 import type { UserAnnouncement } from '@/types'
+import { announcementPublishedDate, isRecentAnnouncement, sortAnnouncementsByPublishedAt } from '@/utils/announcementOrder'
 import { getPublicAnnouncements, getPublicPlans } from './api'
 import ProviderNetwork from './ProviderNetwork.vue'
 import ModelIcon from '@/components/common/ModelIcon.vue'
@@ -480,7 +482,6 @@ const homeRoot = ref<HTMLElement | null>(null)
 useHomeMotion(homeRoot)
 
 type IconName = InstanceType<typeof Icon>['$props']['name']
-type ThemeMode = 'light' | 'dark' | 'system'
 
 const fallbackAnnouncements: UserAnnouncement[] = [
   {
@@ -509,8 +510,7 @@ const noticePanelOpen = ref(false)
 const themeMenuOpen = ref(false)
 const userMenuOpen = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
-const themeMode = ref<ThemeMode>(readInitialThemeMode())
-const systemDark = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
+const { mode: themeMode, isDark, setMode } = useThemeMode()
 const announcementPanel = ref<{
   openAnnouncement: (notice?: UserAnnouncement) => void
 } | null>(null)
@@ -524,7 +524,6 @@ const activePlanTab = ref('openai')
 const virtualPurchaseCounts = ref<Record<number, number>>({})
 type HomeSection = 'top' | 'pricing' | 'plans' | 'model-plaza'
 const activeHomeSection = ref<HomeSection>('top')
-let systemThemeQuery: MediaQueryList | null = null
 
 const NOTICE_DISMISS_KEY = 'premium-home-notice-dismiss-date'
 
@@ -552,7 +551,14 @@ const infiniteCanvasHomeEnabled = computed(() =>
   appStore.cachedPublicSettings?.infinite_canvas_home_enabled === true
 )
 const contactInfo = computed(() => appStore.cachedPublicSettings?.contact_info || appStore.contactInfo || '')
-const customerServiceLink = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.customer_service_link || ''))
+const customerServiceLinks = computed(() => parseContactLinks(appStore.cachedPublicSettings?.customer_service_link))
+// One link opens directly; several open the support panel to choose (the first
+// link when the panel module is off).
+const customerServiceLink = computed(() => {
+  const links = customerServiceLinks.value
+  if (links.length === 1 || (links.length > 1 && !extensions.enabled('customer-support'))) return links[0].url
+  return ''
+})
 const extensions = useExtensionStore()
 const customerServiceFloat = ref<InstanceType<typeof CustomerServiceFloat> | null>(null)
 const footerContent = computed(() => appStore.cachedPublicSettings?.footer_content?.trim() || siteSubtitle.value)
@@ -579,9 +585,8 @@ const userInitials = computed(() => {
   return source.slice(0, 2).toUpperCase()
 })
 const displayPlans = computed(() => plans.value)
-const visibleAnnouncements = computed(() => (announcements.value.length > 0 ? announcements.value : fallbackAnnouncements))
+const visibleAnnouncements = computed(() => sortAnnouncementsByPublishedAt(announcements.value.length > 0 ? announcements.value : fallbackAnnouncements))
 const sideAnnouncements = computed(() => visibleAnnouncements.value.slice(0, 2))
-const isDark = computed(() => themeMode.value === 'dark' || (themeMode.value === 'system' && systemDark.value))
 const themeIcon = computed<IconName>(() => {
   if (themeMode.value === 'system') return 'cpu'
   return isDark.value ? 'moon' : 'sun'
@@ -648,22 +653,8 @@ const themeOptions: Array<{ value: ThemeMode; label: string; icon: IconName }> =
   { value: 'system', label: '系统', icon: 'cpu' },
 ]
 
-function readInitialThemeMode(): ThemeMode {
-  const savedTheme = localStorage.getItem('theme')
-  if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') {
-    return savedTheme
-  }
-  return 'system'
-}
-
-function applyThemeClass() {
-  document.documentElement.classList.toggle('dark', isDark.value)
-}
-
 function setThemeMode(mode: ThemeMode) {
-  themeMode.value = mode
-  localStorage.setItem('theme', mode)
-  applyThemeClass()
+  setMode(mode)
   themeMenuOpen.value = false
 }
 
@@ -840,19 +831,6 @@ function openAnnouncement(notice?: UserAnnouncement) {
   announcementPanel.value?.openAnnouncement(notice)
 }
 
-function formatDate(value?: string) {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toISOString().slice(0, 10)
-}
-
-function isNewNotice(value?: string) {
-  if (!value) return false
-  const created = new Date(value).getTime()
-  return Number.isFinite(created) && Date.now() - created < 7 * 86400000
-}
-
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     menuOpen.value = false
@@ -885,13 +863,6 @@ async function handleLogout() {
 function onDocumentClick(event: MouseEvent) {
   if (userMenuRef.value && !userMenuRef.value.contains(event.target as Node)) {
     closeUserMenu()
-  }
-}
-
-function onSystemThemeChange(event: MediaQueryListEvent) {
-  systemDark.value = event.matches
-  if (themeMode.value === 'system') {
-    applyThemeClass()
   }
 }
 
@@ -979,10 +950,6 @@ onMounted(async () => {
   window.addEventListener('hashchange', syncActiveSectionFromHash)
   document.addEventListener('click', onDocumentClick)
   syncActiveSectionFromHash()
-  systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
-  systemDark.value = systemThemeQuery.matches
-  systemThemeQuery.addEventListener('change', onSystemThemeChange)
-  applyThemeClass()
 
   if (!appStore.publicSettingsLoaded) {
     await appStore.fetchPublicSettings().catch(() => null)
@@ -1017,7 +984,5 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('hashchange', syncActiveSectionFromHash)
   document.removeEventListener('click', onDocumentClick)
-  systemThemeQuery?.removeEventListener('change', onSystemThemeChange)
-  systemThemeQuery = null
 })
 </script>

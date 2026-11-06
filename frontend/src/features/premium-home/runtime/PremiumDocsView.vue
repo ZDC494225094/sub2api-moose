@@ -325,6 +325,7 @@ curl $SUB2API_BASE/v1/images/generations \
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAppStore, useAuthStore } from '@/stores'
+import { useThemeMode, type ThemeMode } from '@/extensions/modules/console-theme/themeMode'
 import Icon from '@/components/icons/Icon.vue'
 import ccSwitchStep1 from './assets/docs/ccswitch-1.png'
 import ccSwitchStep2 from './assets/docs/ccswitch-2.png'
@@ -332,7 +333,6 @@ import ccSwitchStep3 from './assets/docs/ccswitch-3.png'
 import './premium-home.css'
 
 type IconName = InstanceType<typeof Icon>['$props']['name']
-type ThemeMode = 'light' | 'dark' | 'system'
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
@@ -343,9 +343,7 @@ const userMenuOpen = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
 const docsTocOpen = ref(false)
 const docsTocRef = ref<HTMLElement | null>(null)
-const themeMode = ref<ThemeMode>(readInitialThemeMode())
-const systemDark = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
-let systemThemeQuery: MediaQueryList | null = null
+const { mode: themeMode, isDark, setMode } = useThemeMode()
 
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'AI Hub')
 const siteLogo = computed(() => appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '')
@@ -362,7 +360,6 @@ const userInitials = computed(() => {
   const source = displayName.value || user.value?.email || ''
   return source.slice(0, 2).toUpperCase()
 })
-const isDark = computed(() => themeMode.value === 'dark' || (themeMode.value === 'system' && systemDark.value))
 const themeIcon = computed<IconName>(() => {
   if (themeMode.value === 'system') return 'cpu'
   return isDark.value ? 'moon' : 'sun'
@@ -400,22 +397,8 @@ const themeOptions: Array<{ value: ThemeMode; label: string; icon: IconName }> =
   { value: 'system', label: '系统', icon: 'cpu' },
 ]
 
-function readInitialThemeMode(): ThemeMode {
-  const savedTheme = localStorage.getItem('theme')
-  if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') {
-    return savedTheme
-  }
-  return 'system'
-}
-
-function applyThemeClass() {
-  document.documentElement.classList.toggle('dark', isDark.value)
-}
-
 function setThemeMode(mode: ThemeMode) {
-  themeMode.value = mode
-  localStorage.setItem('theme', mode)
-  applyThemeClass()
+  setMode(mode)
   themeMenuOpen.value = false
 }
 
@@ -462,13 +445,6 @@ function onDocumentClick(event: MouseEvent) {
   }
 }
 
-function onSystemThemeChange(event: MediaQueryListEvent) {
-  systemDark.value = event.matches
-  if (themeMode.value === 'system') {
-    applyThemeClass()
-  }
-}
-
 async function ensureDocsEnabled() {
   if (!appStore.publicSettingsLoaded) {
     await appStore.fetchPublicSettings()
@@ -487,10 +463,6 @@ watch(homeDocsEnabled, (enabled) => {
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   document.addEventListener('click', onDocumentClick)
-  systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
-  systemDark.value = systemThemeQuery.matches
-  systemThemeQuery.addEventListener('change', onSystemThemeChange)
-  applyThemeClass()
   ensureDocsEnabled().catch(() => {})
   authStore.checkAuth()
 })
@@ -498,7 +470,5 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
   document.removeEventListener('click', onDocumentClick)
-  systemThemeQuery?.removeEventListener('change', onSystemThemeChange)
-  systemThemeQuery = null
 })
 </script>

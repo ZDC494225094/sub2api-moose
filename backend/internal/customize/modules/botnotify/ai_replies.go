@@ -11,12 +11,10 @@ func supportHint(dto PublicDTO) string {
 	if v := strings.TrimSpace(dto.ContactInfo); v != "" {
 		parts = append(parts, v)
 	}
-	if v := strings.TrimSpace(dto.AfterSalesGroup); v != "" {
-		parts = append(parts, "售后群 "+v)
+	for _, group := range contactEntries(dto.AfterSalesGroup) {
+		parts = append(parts, "售后群 "+group)
 	}
-	if v := strings.TrimSpace(dto.CustomerServiceLink); v != "" {
-		parts = append(parts, v)
-	}
+	parts = append(parts, contactEntries(dto.CustomerServiceLink)...)
 	if len(parts) == 0 {
 		return "可以通过网站页面上的「联系客服」入口联系人工客服。"
 	}

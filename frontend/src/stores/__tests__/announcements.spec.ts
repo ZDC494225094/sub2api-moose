@@ -81,4 +81,24 @@ describe('useAnnouncementStore', () => {
     expect(store.currentPopup).toBe(initialPopup)
     expect(store.announcements.map((announcement) => announcement.id)).toEqual([1, 2, 3])
   })
+
+  it('keeps announcements newest first by publish time and records popup highlights', async () => {
+    mockList.mockResolvedValue([
+      // API order: unread first, then by id.
+      createAnnouncement(5, { created_at: '2026-07-01T00:00:00.000Z' }),
+      createAnnouncement(4, { created_at: '2026-07-03T00:00:00.000Z', notify_mode: 'silent' }),
+      createAnnouncement(6, { created_at: '2026-07-20T00:00:00.000Z', read_at: '2026-07-21T00:00:00.000Z' }),
+      createAnnouncement(3, { created_at: '2026-07-10T00:00:00.000Z' }),
+    ])
+    const store = useAnnouncementStore()
+
+    await store.fetchAnnouncements()
+
+    expect(store.announcements.map((announcement) => announcement.id)).toEqual([6, 3, 4, 5])
+    expect(store.currentPopup?.id).toBe(3)
+    expect(store.popupHighlightIds).toEqual([3, 5])
+
+    store.dismissPopup()
+    expect(store.popupHighlightIds).toEqual([])
+  })
 })

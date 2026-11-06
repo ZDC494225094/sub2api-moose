@@ -1,12 +1,11 @@
 // Package gatewaylogarchive stores complete gateway request/response bodies,
 // one JSON document per client session, packs documents of the same model into
-// one ZIP per day (rolling at a configurable size) and uploads the ZIPs to an
-// S3-compatible bucket under <prefix>/<YYYY-MM-DD>/.
+// one ZIP per day (rolling at a configurable size) and uploads the ZIPs to
+// S3-compatible buckets under <prefix>/<YYYY-MM-DD>/.
 package gatewaylogarchive
 
 import (
 	"errors"
-	"net/url"
 	"regexp"
 	"strings"
 )
@@ -29,8 +28,8 @@ type ModelRule struct {
 	Alias   string `json:"alias"`
 }
 
-// Config is the persisted configuration. Secrets live in separate encrypted
-// columns and are never serialized back to the browser.
+// Config is the persisted capture configuration. Storage destinations live in
+// gateway_log_archive_buckets (see BucketConfig).
 type Config struct {
 	CaptureEnabled     bool        `json:"capture_enabled"`
 	Mode               string      `json:"mode"`
@@ -43,16 +42,29 @@ type Config struct {
 	EntryRetentionDays int         `json:"entry_retention_days"`
 	MinFreeDiskGB      int         `json:"min_free_disk_gb"`
 
-	Provider       string `json:"provider"`
-	Bucket         string `json:"bucket"`
-	Region         string `json:"region"`
-	Endpoint       string `json:"endpoint"`
-	Prefix         string `json:"prefix"`
-	ForcePathStyle bool   `json:"force_path_style"`
+	// BucketsMigrated marks that the single bucket of earlier versions (the
+	// legacy fields below) has been moved into the buckets table.
+	BucketsMigrated bool `json:"buckets_migrated,omitempty"`
 
-	AccessKeyID     string `json:"-"`
-	SecretAccessKey string `json:"-"`
-	SessionToken    string `json:"-"`
+	// Legacy single-bucket fields: read once for adoption, then cleared.
+	Provider       string `json:"provider,omitempty"`
+	Bucket         string `json:"bucket,omitempty"`
+	Region         string `json:"region,omitempty"`
+	Endpoint       string `json:"endpoint,omitempty"`
+	Prefix         string `json:"prefix,omitempty"`
+	ForcePathStyle bool   `json:"force_path_style,omitempty"`
+}
+
+func (c *Config) clearLegacyStorage() {
+	c.Provider, c.Bucket, c.Region, c.Endpoint, c.Prefix, c.ForcePathStyle = "", "", "", "", "", false
+}
+
+// keepStorageState carries the adoption marker and any not yet adopted legacy
+// fields from the stored row; requests never change them.
+func (c *Config) keepStorageState(stored Config) {
+	c.BucketsMigrated = stored.BucketsMigrated
+	c.Provider, c.Bucket, c.Region = stored.Provider, stored.Bucket, stored.Region
+	c.Endpoint, c.Prefix, c.ForcePathStyle = stored.Endpoint, stored.Prefix, stored.ForcePathStyle
 }
 
 func DefaultConfig() Config {
@@ -66,8 +78,6 @@ func DefaultConfig() Config {
 		KeepLocalHours:     0,
 		EntryRetentionDays: 90,
 		MinFreeDiskGB:      5,
-		Provider:           ProviderAWS,
-		Region:             "us-east-1",
 	}
 }
 
@@ -86,53 +96,12 @@ func clamp(v, lo, hi, def int64) int64 {
 	return v
 }
 
-// Normalize trims and validates the configuration. An "s3://bucket/prefix"
-// value in the path field fills Bucket and Prefix.
+// Normalize trims and validates the capture configuration.
 func (c *Config) Normalize() error {
 	def := DefaultConfig()
 	c.Mode = strings.TrimSpace(c.Mode)
 	if c.Mode != ModeSelected {
 		c.Mode = ModeAll
-	}
-	c.Provider = strings.TrimSpace(c.Provider)
-	if c.Provider != ProviderCompat {
-		c.Provider = ProviderAWS
-	}
-	c.Bucket = strings.TrimSpace(c.Bucket)
-	c.Region = strings.TrimSpace(c.Region)
-	c.Endpoint = strings.TrimRight(strings.TrimSpace(c.Endpoint), "/")
-	c.Prefix = strings.TrimSpace(c.Prefix)
-	if rest, ok := strings.CutPrefix(c.Prefix, "s3://"); ok {
-		bucket, prefix, _ := strings.Cut(rest, "/")
-		if c.Bucket != "" && bucket != c.Bucket {
-			return errors.New("S3 路径中的存储桶与 Bucket 字段不一致")
-		}
-		c.Bucket, c.Prefix = bucket, prefix
-	}
-	c.Prefix = strings.Trim(c.Prefix, "/")
-	if strings.Contains(c.Prefix, "..") || strings.Contains(c.Prefix, "//") {
-		return errors.New("S3 路径格式错误")
-	}
-	if c.Bucket != "" && !bucketPattern.MatchString(c.Bucket) {
-		return errors.New("Bucket 名称格式错误")
-	}
-	if c.Endpoint != "" {
-		u, err := url.Parse(c.Endpoint)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-			return errors.New("Endpoint 必须是 http(s):// 开头的地址")
-		}
-	}
-	if c.Provider == ProviderAWS && c.Region == "" {
-		c.Region = def.Region
-	}
-	if c.Provider == ProviderCompat && c.Endpoint == "" && c.Bucket != "" {
-		return errors.New("S3 兼容服务需要填写 Endpoint")
-	}
-	c.AccessKeyID = strings.TrimSpace(c.AccessKeyID)
-	c.SecretAccessKey = strings.TrimSpace(c.SecretAccessKey)
-	c.SessionToken = strings.TrimSpace(c.SessionToken)
-	if (c.AccessKeyID == "") != (c.SecretAccessKey == "") {
-		return errors.New("Access Key ID 与 Secret Access Key 需同时填写")
 	}
 	if len(c.Rules) > 200 {
 		return errors.New("模型规则最多 200 条")
@@ -174,9 +143,6 @@ func (c *Config) Normalize() error {
 	}
 	return nil
 }
-
-// StorageReady reports whether uploads can run.
-func (c Config) StorageReady() bool { return c.Bucket != "" }
 
 // ModelKey returns the archive name for a model and whether it is captured.
 func (c Config) ModelKey(model string) (string, bool) {
@@ -271,14 +237,6 @@ func itoa(n int) string {
 		n /= 10
 	}
 	return string(buf[i:])
-}
-
-// ObjectKey is "<prefix>/<day>/<file>".
-func (c Config) ObjectKey(day, file string) string {
-	if c.Prefix == "" {
-		return day + "/" + file
-	}
-	return c.Prefix + "/" + day + "/" + file
 }
 
 // EntryName is "数据_000001.json".

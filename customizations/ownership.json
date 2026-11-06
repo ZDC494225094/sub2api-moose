@@ -79,6 +79,16 @@
     ]
   },
   {
+    "id": "console-theme",
+    "patterns": [
+      "^frontend/src/extensions/modules/console-theme/",
+      "^frontend/tailwind\\.config\\.js$",
+      "^frontend/src/components/layout/(AppLayout|AppHeader|AppSidebar|AuthLayout)\\.vue$",
+      "^frontend/src/components/common/Pagination\\.vue$",
+      "^frontend/src/views/user/RedeemView\\.vue$"
+    ]
+  },
+  {
     "id": "marketing-tools",
     "patterns": [
       "^frontend/src/extensions/modules/marketing/",

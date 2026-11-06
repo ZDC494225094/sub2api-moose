@@ -4,6 +4,8 @@ import { useAuthStore } from '@/stores/auth'
 import { extensionFallback, extensionForPath } from './catalog'
 import { extensionHistoricalPath } from './route-access'
 import { EXTENSION_REFRESH_MS, EXTENSION_STORAGE_EVENT, useExtensionStore } from './store'
+import { syncConsoleTheme } from './modules/console-theme'
+import { useThemeModeRuntime } from './modules/console-theme/themeMode'
 
 export function installCustomExtensionGuard(router: Router): void {
   router.beforeEach(async to => {
@@ -26,6 +28,8 @@ export function useCustomExtensionRuntime(router: Router): void {
   const store = useExtensionStore()
   const auth = useAuthStore()
   let timer: ReturnType<typeof setInterval> | undefined
+  syncConsoleTheme(store)
+  useThemeModeRuntime()
   const refresh = () => { if (document.visibilityState !== 'hidden' && router.currentRoute.value.path !== '/setup') void store.refresh(true) }
   const onStorage = (event: StorageEvent) => { if (event.key === EXTENSION_STORAGE_EVENT) refresh() }
   watch(() => [store.flags, router.currentRoute.value.path], () => {

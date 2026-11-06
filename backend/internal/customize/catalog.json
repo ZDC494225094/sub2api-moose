@@ -11,7 +11,7 @@
   {
     "id": "gateway-log-archive",
     "name": "网关日志存储",
-    "description": "按会话保存网关完整请求体与返回体（原始数据），同模型按天打包为 ZIP（默认 10GB 滚动），上传到 S3 兼容存储桶，后台可检索与预览。",
+    "description": "按会话保存网关完整请求体与返回体（原始数据），同模型按天打包为 ZIP（默认 10GB 滚动），按优先级上传到多个 S3 兼容存储桶（失败自动切换），后台可检索、预览并按模型统计已上传量。",
     "managed": true,
     "disable_behavior": "关闭后立即停止采集；进行中的会话写入压缩包并封包，上传暂停。本地与存储桶中的数据保留，重新开启后继续上传。",
     "paths": ["/admin/gateway-log-archive"],
@@ -209,6 +209,17 @@
     "paths": [],
     "gates": [
       "access-policy-configuration-write"
+    ]
+  },
+  {
+    "id": "console-theme",
+    "name": "控制台主题",
+    "description": "控制台、登录注册及公共页面统一为毛玻璃（Glass）风格：中性墨色与柔和渐变底、半透明卡片、胶囊按钮和克制的蓝色强调，并在顶栏提供浅色/深色/跟随系统切换。仅改变前端外观，不涉及任何接口或数据。",
+    "managed": true,
+    "disable_behavior": "关闭后立即恢复上游默认青色主题和原有页面排版；用户的浅色/深色偏好保留，不修改任何业务配置或数据。",
+    "paths": [],
+    "slots": [
+      "header-actions"
     ]
   }
 ]

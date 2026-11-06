@@ -3,8 +3,9 @@
     :announcements="panelAnnouncements"
     :open="!!displayedAnnouncement"
     :show-dismiss-today="!preview"
-    :initial-selected-announcement="displayedAnnouncement"
-    close-on-reader-close
+    :initial-selected-announcement="preview ? displayedAnnouncement : null"
+    :highlight-ids="preview ? [] : highlightIds"
+    :close-on-reader-close="preview"
     @close="handleDismiss"
     @dismiss-today="handleDismissToday"
     @select="handleSelect"
@@ -47,6 +48,13 @@ const displayedAnnouncement = computed<UserAnnouncement | null>(() => {
 const panelAnnouncements = computed(() => {
   if (props.preview) return displayedAnnouncement.value ? [displayedAnnouncement.value] : []
   return announcementStore.announcements
+})
+
+// Automatic popups open only the list and mark the notices that triggered them;
+// the full text opens when the user picks one. Admin preview still shows it directly.
+const highlightIds = computed(() => {
+  if (announcementStore.popupHighlightIds.length) return announcementStore.popupHighlightIds
+  return announcementStore.currentPopup ? [announcementStore.currentPopup.id] : []
 })
 
 function todayDismissKey() {

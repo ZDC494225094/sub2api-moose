@@ -722,5 +722,25 @@ export default {
     "participantUser": "用户ID",
     "rewardReference": "奖励凭证",
     "chanceSource": "来源"
+  },
+  "customerSupport": {
+    "entryLabel": "名称",
+    "groupLabelPlaceholder": "名称（可选），如 QQ 售后一群",
+    "linkLabelPlaceholder": "名称（可选），如 企业微信客服",
+    "addGroup": "添加群号",
+    "addLink": "添加链接",
+    "remove": "删除",
+    "invalidUrl": "需以 http:// 或 https:// 开头",
+    "maxEntries": "最多 {max} 条",
+    "groupsHint": "可添加多个，悬浮客服面板逐条展示并支持一键复制；名称可留空。",
+    "linksHint": "可添加多个 http(s) 链接；只有一个时“联系我们”直接跳转，多个时在面板中逐个列出。",
+    "onlineService": "在线客服",
+    "afterSalesGroups": "售后群"
+  },
+  "consoleTheme": {
+    "switcher": "切换主题",
+    "light": "浅色",
+    "dark": "深色",
+    "system": "跟随系统"
   }
 } as const

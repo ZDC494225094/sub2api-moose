@@ -76,8 +76,13 @@ describe('AnnouncementPopup', () => {
         '<script>window.__announcementXss = true</script>',
       ].join('\n'),
     }
+    store.announcements = [store.currentPopup]
 
     const wrapper = mount(AnnouncementPopup)
+    await nextTick()
+
+    // The automatic popup only opens the list; the full text renders on selection.
+    document.body.querySelector<HTMLButtonElement>('.notice-item')?.click()
     await nextTick()
 
     const content = document.body.querySelector('.markdown-body')
@@ -128,11 +133,40 @@ describe('AnnouncementPopup', () => {
     const wrapper = mount(AnnouncementPopup)
     await nextTick()
 
-    document.body.querySelector<HTMLButtonElement>('[data-testid="announcement-popup-dismiss"]')?.click()
+    document.body.querySelector<HTMLButtonElement>('.notice-close')?.click()
     await nextTick()
 
     expect(dismissPopup).toHaveBeenCalledTimes(1)
     expect(wrapper.emitted('close')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('opens only the announcement list and highlights the popup notices', async () => {
+    const store = useAnnouncementStore()
+    store.announcements = [
+      { ...announcement, id: 11, title: 'Older notice', notify_mode: 'silent', created_at: '2026-07-01T00:00:00.000Z' },
+      { ...announcement, id: 12, title: 'Popup notice', created_at: '2026-07-20T00:00:00.000Z' },
+    ]
+    store.popupHighlightIds = [12]
+    store.currentPopup = store.announcements[1]
+    const wrapper = mount(AnnouncementPopup)
+    await nextTick()
+
+    expect(document.body.querySelector('.notice-card.is-open')).not.toBeNull()
+    expect(document.body.querySelector('.notice-reader.is-open')).toBeNull()
+    const highlighted = document.body.querySelectorAll('.notice-item.is-highlighted')
+    expect(highlighted).toHaveLength(1)
+    expect(highlighted[0].textContent).toContain('Popup notice')
+    expect(highlighted[0].getAttribute('aria-current')).toBe('true')
+
+    // Reading one notice and closing its text returns to the list, not out of the popup.
+    ;(highlighted[0] as HTMLButtonElement).click()
+    await nextTick()
+    expect(document.body.querySelector('.notice-reader.is-open')).not.toBeNull()
+    document.body.querySelector<HTMLButtonElement>('[data-testid="announcement-popup-dismiss"]')?.click()
+    await nextTick()
+    expect(document.body.querySelector('.notice-reader.is-open')).toBeNull()
+    expect(store.currentPopup).not.toBeNull()
     wrapper.unmount()
   })
 })

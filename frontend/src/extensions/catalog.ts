@@ -25,6 +25,8 @@ export const extensionPaths = {
   'media-gateway': [],
   // Issuance policy only; existing subscriptions and redeem pages remain available.
   'subscription-extensions': [],
+  // Presentation only: a root theme attribute and the header theme switcher slot.
+  'console-theme': [],
 } as const
 
 export type ExtensionId = keyof typeof extensionPaths

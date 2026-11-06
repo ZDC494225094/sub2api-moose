@@ -722,5 +722,25 @@ export default {
     "participantUser": "User ID",
     "rewardReference": "Reward Reference",
     "chanceSource": "Source"
+  },
+  "customerSupport": {
+    "entryLabel": "Name",
+    "groupLabelPlaceholder": "Name (optional), e.g. QQ group 1",
+    "linkLabelPlaceholder": "Name (optional), e.g. WeCom support",
+    "addGroup": "Add group",
+    "addLink": "Add link",
+    "remove": "Remove",
+    "invalidUrl": "Must start with http:// or https://",
+    "maxEntries": "Up to {max} entries",
+    "groupsHint": "Add as many as needed; the support panel lists each one with a copy button. The name is optional.",
+    "linksHint": "Add one or more http(s) links. With one link, Contact Us opens it directly; with several, the panel lists them all.",
+    "onlineService": "Online support",
+    "afterSalesGroups": "After-sales groups"
+  },
+  "consoleTheme": {
+    "switcher": "Switch theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
   }
 } as const

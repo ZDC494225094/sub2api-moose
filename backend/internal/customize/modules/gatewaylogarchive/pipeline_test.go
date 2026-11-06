@@ -16,11 +16,11 @@ import (
 func testPipeline(t *testing.T, store *memStore, objects *memObjects, dir string) *pipeline {
 	t.Helper()
 	cfg := DefaultConfig()
-	cfg.Bucket = "test-bucket"
 	require.NoError(t, cfg.Normalize())
-	p, err := startPipeline(store, func(Config) (objectStore, error) { return objects, nil }, "node-a", dir,
+	p, err := startPipeline(store, func(BucketConfig) (objectStore, error) { return objects, nil }, "node-a", dir,
 		func(time.Time) string { return "2026-06-25" }, cfg, func(err error) { t.Log(err) }, &stats{})
 	require.NoError(t, err)
+	p.setBuckets([]BucketConfig{{ID: 1, Name: "primary", Bucket: "test-bucket", Enabled: true, Priority: 100}})
 	return p
 }
 

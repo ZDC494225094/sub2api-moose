@@ -45,7 +45,17 @@
 | 视频与媒体 `media-gateway` | Veo、兼容视频、grok-video-r 文生视频及字符串图片参数适配准入 | 拒绝二开新请求，保留上游媒体协议及历史查询、取消、结算 |
 | 订阅与兑换 `subscription-extensions` | 独立发放策略和 Ent schema 贡献；订单/兑换码冻结策略，原生续期按用户锁串行化 | 新发放采用原生归属的单实例分配/续期；旧独立订阅及已创建订单/兑换码按冻结策略履约；不重算历史用量，不恢复全局唯一性约束 |
 
+| 控制台主题 `console-theme` | 纯前端外观：根节点 `data-console-theme="glass"` 切换调色板变量与作用域样式（`frontend/src/extensions/modules/console-theme/`），顶栏 `header-actions` 插槽挂载浅色/深色/跟随系统切换 | 移除根属性即恢复上游青色主题与原排版；`theme` 偏好保留；不涉及任何接口、配置或数据 |
+
 “已管理”表示已有真实准入和关闭契约，**不表示该模块所有底层依赖都已从共享业务中迁出**。
+
+### 控制台主题的宿主接入点
+
+- `frontend/tailwind.config.js`：`primary`、`gray`、`dark` 三套色板改为 `rgb(var(--sa-<色板>-<色阶>, 原值) / <alpha-value>)`，回退值与上游完全一致；只有主题模块写入变量时颜色才会变化。
+- 布局钩子类（无样式、仅供主题选择器使用）：`AppLayout`（`app-layout`）、`AppHeader`（`app-header*` 与 `header-actions` 插槽）、`AppSidebar`（`sidebar-theme-toggle`，主题开启时由顶栏三态切换替代）、`AuthLayout`（`auth-layout*`）。
+- `RedeemView` 增加两个无样式分栏容器（`ct-redeem-main` / `ct-redeem-side`），关闭主题时仍为原来的单列堆叠；开启后在 ≥1280px 宽屏改为左右两栏。
+- 首屏使用 `localStorage` 中上次确认的开关状态（`custom-extensions.console-theme`）避免闪烁；状态接口暂时失败时保持上次确认的外观，主题不参与任何业务准入。
+- 新插件按惯例默认关闭：需管理员在「二开插件管理」中开启「控制台主题」。
 
 ### 充值与历史交易的关键规则
 
