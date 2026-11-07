@@ -32,6 +32,21 @@ export const extensionPaths = {
 export type ExtensionId = keyof typeof extensionPaths
 export const extensionIds = Object.keys(extensionPaths) as ExtensionId[]
 
+// Switches read only inside the admin console. The public state endpoint omits
+// them; admins load them from the admin-only list (matches catalog.json).
+export const adminExtensionIds: readonly ExtensionId[] = [
+  'bot-notify',
+  'gateway-log-archive',
+  'redeem-marketing',
+  'operations-analytics',
+  'billing-scheduling',
+  'subscription-extensions',
+  'media-gateway',
+  'admin-efficiency',
+  'access-policy',
+]
+export const publicExtensionIds = extensionIds.filter(id => !adminExtensionIds.includes(id))
+
 export function extensionForPath(path: string): ExtensionId | undefined {
   const pathname = path.split(/[?#]/, 1)[0].replace(/\/$/, '') || '/'
   return extensionIds.find(id => extensionPaths[id].some(prefix =>

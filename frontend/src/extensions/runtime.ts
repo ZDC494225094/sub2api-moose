@@ -11,6 +11,7 @@ export function installCustomExtensionGuard(router: Router): void {
   router.beforeEach(async to => {
     if (to.path === '/setup') return
     const store = useExtensionStore()
+    store.setAdminSession(() => useAuthStore().isAdmin === true)
     const id = extensionForPath(to.path)
     if (!id || extensionHistoricalPath(to.path)) {
       // An extension-state outage must not delay core recovery or historical reads.
@@ -27,6 +28,7 @@ export function installCustomExtensionGuard(router: Router): void {
 export function useCustomExtensionRuntime(router: Router): void {
   const store = useExtensionStore()
   const auth = useAuthStore()
+  store.setAdminSession(() => auth.isAdmin === true)
   let timer: ReturnType<typeof setInterval> | undefined
   syncConsoleTheme(store)
   useThemeModeRuntime()

@@ -1,16 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { extensionAPI } from '../api'
-import { extensionIds, type ExtensionId } from '../catalog'
+import { adminExtensionIds, extensionIds, publicExtensionIds, type ExtensionId } from '../catalog'
 import { useExtensionStore } from '../store'
 import { useSiteCustomizationAdmission } from '../modules/site-customization/admission'
 
-vi.mock('../api', () => ({ extensionAPI: { publicState: vi.fn(), update: vi.fn() } }))
+vi.mock('../api', () => ({ extensionAPI: { publicState: vi.fn(), list: vi.fn(), update: vi.fn() } }))
+const auth = { isAdmin: false }
 const all = (enabled: boolean) => Object.fromEntries(extensionIds.map(id => [id, enabled])) as Record<ExtensionId, boolean>
 const response = (enabled: boolean) => ({ data: { enabled: all(enabled) } })
 
 describe('custom extension runtime store', () => {
-  beforeEach(() => { setActivePinia(createPinia()); vi.resetAllMocks() })
+  beforeEach(() => { setActivePinia(createPinia()); vi.resetAllMocks(); auth.isAdmin = false })
   it('fails closed before initialization without hiding core menus', () => {
     const store = useExtensionStore()
     expect(store.pathEnabled('/playground')).toBe(false)
@@ -68,6 +69,37 @@ describe('custom extension runtime store', () => {
     expect(store.enabled('playground')).toBe(true)
     await store.setEnabled('playground', false)
     expect(store.enabled('playground')).toBe(false); expect(store.enabled('premium-home')).toBe(true)
+  })
+  it('never needs admin-only switches for regular users', async () => {
+    const enabled = Object.fromEntries(publicExtensionIds.map(id => [id, true]))
+    vi.mocked(extensionAPI.publicState).mockResolvedValue({ data: { enabled } } as never)
+    const store = useExtensionStore(); await store.refresh()
+    expect(store.error).toBe('')
+    expect(store.enabled('playground')).toBe(true)
+    expect(store.enabled('gateway-log-archive')).toBe(false)
+    expect(extensionAPI.list).not.toHaveBeenCalled()
+  })
+  it('loads admin-only switches from the admin list once the user is an admin', async () => {
+    const enabled = Object.fromEntries(publicExtensionIds.map(id => [id, true]))
+    vi.mocked(extensionAPI.publicState).mockResolvedValue({ data: { enabled } } as never)
+    vi.mocked(extensionAPI.list).mockResolvedValue({ data: { items: extensionIds.map(id => ({ id, managed: true, enabled: true })) } } as never)
+    const store = useExtensionStore(); store.setAdminSession(() => auth.isAdmin); await store.refresh()
+    expect(store.enabled('gateway-log-archive')).toBe(false)
+    auth.isAdmin = true
+    await store.refresh() // a role change bypasses the refresh cache
+    for (const id of adminExtensionIds) expect(store.enabled(id)).toBe(true)
+    auth.isAdmin = false
+    await store.refresh()
+    expect(store.enabled('gateway-log-archive')).toBe(false)
+  })
+  it('keeps public switches when the admin list fails', async () => {
+    auth.isAdmin = true
+    vi.mocked(extensionAPI.publicState).mockResolvedValue(response(true) as never)
+    vi.mocked(extensionAPI.list).mockRejectedValue(new Error('offline'))
+    const store = useExtensionStore(); store.setAdminSession(() => auth.isAdmin); await store.refresh()
+    expect(store.enabled('playground')).toBe(true)
+    expect(store.enabled('gateway-log-archive')).toBe(false)
+    expect(store.error).not.toBe('')
   })
   it('does not let an older public request overwrite a saved toggle', async () => {
     let resolve!: (value: unknown) => void

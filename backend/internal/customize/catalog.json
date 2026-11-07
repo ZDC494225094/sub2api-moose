@@ -4,6 +4,7 @@
     "name": "消息机器人",
     "description": "Telegram 定时推送、关键词回复与接收消息管理，支持渠道状态和公告模板。",
     "managed": true,
+    "audience": "admin",
     "disable_behavior": "关闭后停止轮询与推送、隐藏管理入口，已存消息与规则保留。",
     "paths": ["/admin/bot-notify"],
     "gates": ["/api/v1/admin/bot-notify/*"]
@@ -13,6 +14,7 @@
     "name": "网关日志存储",
     "description": "按会话保存网关完整请求体与返回体（原始数据），同模型按天打包为 ZIP（默认 10GB 滚动），按优先级上传到多个 S3 兼容存储桶（失败自动切换），后台可检索、预览并按模型统计已上传量。",
     "managed": true,
+    "audience": "admin",
     "disable_behavior": "关闭后立即停止采集；进行中的会话写入压缩包并封包，上传暂停。本地与存储桶中的数据保留，重新开启后继续上传。",
     "paths": ["/admin/gateway-log-archive"],
     "gates": ["/api/v1/admin/gateway-log-archive/*", "gateway-traffic-capture"]
@@ -22,6 +24,7 @@
     "name": "营销兑换码转化",
     "description": "营销码新注册用户限制与按批次的付费回购转化统计。",
     "managed": true,
+    "audience": "admin",
     "disable_behavior": "停止新增受限批次并隐藏统计入口；已发行批次的新用户限制始终执行，不影响普通兑换码。",
     "paths": [],
     "gates": ["marketing-batch-generate", "marketing-batch-report"],
@@ -35,6 +38,7 @@
       "GET /api/v1/announcements/public"
     ],
     "managed": true,
+    "audience": "public",
     "disable_behavior": "停止进入品牌首页，不修改上游首页配置。",
     "paths": [
       "/"
@@ -45,6 +49,7 @@
     "name": "用户手册",
     "description": "文档中心（/docs）手册内容，后台可编辑标题与 Markdown 正文，内置默认手册。",
     "managed": true,
+    "audience": "public",
     "disable_behavior": "关闭后文档中心与手册接口停止访问，已保存内容保留。",
     "paths": ["/docs", "/admin/guide"],
     "gates": ["/api/v1/admin/guide/*", "GET /api/v1/guide"]
@@ -54,6 +59,7 @@
     "name": "体验中心",
     "description": "体验中心页面及后台生成任务入口。",
     "managed": true,
+    "audience": "public",
     "disable_behavior": "禁止新建任务；已开始的任务继续执行，仍可查询、下载和取消。",
     "paths": [
       "/playground"
@@ -64,6 +70,7 @@
     "name": "无限画布",
     "description": "画布入口与服务端代调用接口；仍受原有画布功能开关约束。",
     "managed": true,
+    "audience": "public",
     "disable_behavior": "停止打开画布和创建任务；已有任务仍可查询、下载和取消。本地画布数据不删除。",
     "paths": [
       "/canvas"
@@ -74,6 +81,7 @@
     "name": "运营分析",
     "description": "运营漏斗、财务、客户分析与营销邮件入口。",
     "managed": true,
+    "audience": "admin",
     "disable_behavior": "关闭独立分析页面和对应 API，不影响上游仪表盘及运维监控。",
     "paths": [
       "/admin/operations"
@@ -84,6 +92,7 @@
     "name": "充值活动",
     "description": "活动管理、分享落地页和新订单活动优惠。",
     "managed": true,
+    "audience": "public",
     "disable_behavior": "停止新订单享受活动；携带过期活动参数的请求拒绝并要求重新确认。已创建订单仍按活动快照履约和退款。",
     "paths": [
       "/recharge-campaigns",
@@ -101,6 +110,7 @@
     "name": "客服悬浮窗",
     "description": "首页和控制台的客服联系、售后群、外链及品牌首页联系按钮；使用独立 UI 插槽，不改写上游首页。",
     "managed": true,
+    "audience": "public",
     "disable_behavior": "立即移除悬浮窗和品牌首页联系按钮；保留联系方式配置，不影响上游页面和原有帮助链接。",
     "paths": [],
     "slots": [
@@ -114,6 +124,7 @@
     "name": "优惠券与抽奖",
     "description": "优惠券、抽奖与结算折扣独立模块；统一开关控制新增业务，关闭后保留历史读取和订单处理。",
     "managed": true,
+    "audience": "public",
     "disable_behavior": "停止新增抽奖、发券、券报价/预留及管理写入；保留历史页面、券核销/释放、已支付履约重试及宿主支持的退款。已准入的事务继续完成或回滚，不删除历史权益。",
     "paths": [
       "/lottery",
@@ -131,6 +142,7 @@
     "name": "多分组密钥与计费优先级",
     "description": "API 密钥的多分组候选路由、余额/订阅计费优先级及平台选择；密钥创建时持久化路由归属，开关只影响新配置。",
     "managed": true,
+    "audience": "public",
     "disable_behavior": "新建密钥使用上游单分组路由；拒绝新增多分组或订阅优先配置。已有多分组密钥按原归属继续路由与计费，可保持或缩减为单分组；不删除分组、订阅或用量数据。",
     "paths": [],
     "gates": [
@@ -143,6 +155,7 @@
     "name": "计费与调度增强",
     "description": "分组倍率同步、账号级探测间隔与自动同步选项；不控制上游原生账号倍率同步、组合调度、分时定价及高峰倍率。",
     "managed": true,
+    "audience": "admin",
     "disable_behavior": "停止后续分组倍率写回，探测使用上游全局间隔（至少五分钟）且忽略二开自动同步选项；保留现有倍率与配置。已准入的账号探测可完成，上游原生同步继续执行。",
     "paths": [],
     "gates": [
@@ -155,6 +168,7 @@
     "name": "订阅与兑换增强",
     "description": "持久化订阅发放策略；独立多份订阅与上游单实例续期可切换，订单和兑换码冻结归属。",
     "managed": true,
+    "audience": "admin",
     "disable_behavior": "新分配采用上游单实例幂等分配/续期；历史独立订阅、已创建订单及兑换码按原策略履约，已发生用量和账单不重算。",
     "paths": [],
     "gates": [
@@ -166,6 +180,7 @@
     "name": "视频与媒体协议扩展",
     "description": "Veo、新增 OpenAI-compatible 视频适配、grok-video-r 与字符串图片参数兼容；原生 Grok/Seedance/语音协议不受影响。",
     "managed": true,
+    "audience": "admin",
     "disable_behavior": "拒绝新增二开媒体协议请求；不拦截原生媒体请求，历史任务查询、取消、结果规范化和计费继续完成。",
     "paths": [],
     "gates": [
@@ -180,6 +195,7 @@
     "name": "账号、分组与用户管理增强",
     "description": "账号显示排序、上游分组目录与独立仓储端口、分组账号替换及批量用户操作。",
     "managed": true,
+    "audience": "admin",
     "disable_behavior": "拒绝账号排序、上游分组变更、分组账号替换及批量禁用/删除用户；历史分组、顺序和成员关系保留可读，普通账号编辑与上游原生分组排序不受影响。",
     "paths": [],
     "gates": [
@@ -194,6 +210,7 @@
     "name": "站点外观与自定义入口",
     "description": "仅控制二开页脚友情链接；菜单、端点与公告属于上游。",
     "managed": true,
+    "audience": "public",
     "disable_behavior": "隐藏公共页脚友情链接，保留配置；不影响上游菜单、端点及公告。",
     "paths": [],
     "gates": [
@@ -205,6 +222,7 @@
     "name": "访问与注册策略增强",
     "description": "注册凭证、邮箱域名额度与别名去重、区域页面访问规则独立模块；宿主保留鉴权、设置和原子数据库守卫。",
     "managed": true,
+    "audience": "admin",
     "disable_behavior": "关闭后禁止修改二开安全配置；安全规则仍按原安全设置执行，旧凭证继续校验，注册配置读取失败仍拒绝注册；页面保持改造前的正常渲染与已有区域跳转，不增加全页等待。停用已有规则须先在安全设置中明确关闭，再关闭插件。原生邮箱白名单仍可管理。",
     "paths": [],
     "gates": [
@@ -216,6 +234,7 @@
     "name": "控制台主题",
     "description": "控制台、登录注册及公共页面统一为毛玻璃（Glass）风格：中性墨色与柔和渐变底、半透明卡片、胶囊按钮和克制的蓝色强调，并在顶栏提供浅色/深色/跟随系统切换。仅改变前端外观，不涉及任何接口或数据。",
     "managed": true,
+    "audience": "public",
     "disable_behavior": "关闭后立即恢复上游默认青色主题和原有页面排版；用户的浅色/深色偏好保留，不修改任何业务配置或数据。",
     "paths": [],
     "slots": [

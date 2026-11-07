@@ -8,11 +8,19 @@ import { defineComponent } from 'vue'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { EXTENSION_REFRESH_MS, EXTENSION_STORAGE_EVENT } from '../store'
 
-vi.mock('../api', () => ({ extensionAPI: { publicState: vi.fn(), update: vi.fn() } }))
+vi.mock('../api', () => ({ extensionAPI: { publicState: vi.fn(), list: vi.fn(), update: vi.fn() } }))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ isAdmin: true }) }))
 
+// Admin sessions also read the admin-only list; mirror whatever the public
+// state mock returned so each case controls both with one value.
+const mirrorAdminList = () => vi.mocked(extensionAPI.list).mockImplementation(async () => {
+  const result = await vi.mocked(extensionAPI.publicState).mock.results.at(-1)?.value
+  const enabled = (result as { data?: { enabled?: Record<string, boolean> } })?.data?.enabled ?? {}
+  return { data: { items: Object.entries(enabled).map(([id, value]) => ({ id, enabled: value, managed: true })) } } as never
+})
+
 describe('extension navigation gate', () => {
-  beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
+  beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks(); mirrorAdminList() })
   const router = () => {
     const r = createRouter({ history: createMemoryHistory(), routes: [
       '/', '/home', '/lottery', '/admin/orders/coupons', '/admin/orders/lottery', '/playground', '/admin/operations', '/admin/dashboard', '/admin/custom-extensions', '/setup',

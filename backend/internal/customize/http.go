@@ -83,7 +83,7 @@ func (m *Manager) Middleware() gin.HandlerFunc {
 
 func (m *Manager) PublicState(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
-	state, err := m.Snapshot(c.Request.Context())
+	state, err := m.PublicSnapshot(c.Request.Context())
 	if response.ErrorFrom(c, err) {
 		return
 	}

@@ -11,6 +11,7 @@ export interface ExtensionState {
   disable_behavior: string
   paths: string[]
   slots?: string[]
+  audience?: 'public' | 'admin'
 }
 
 export const extensionAPI = {

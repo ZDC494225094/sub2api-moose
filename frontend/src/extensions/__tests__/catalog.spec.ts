@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { extensionForPath, extensionOwnerForPath, extensionPaths, pendingExtensionPaths } from '../catalog'
+import { adminExtensionIds, extensionForPath, extensionOwnerForPath, extensionPaths, pendingExtensionPaths } from '../catalog'
 import { customExtensionRoutes } from '../routes'
 
 describe('extension ownership contract', () => {
@@ -11,6 +11,9 @@ describe('extension ownership contract', () => {
     const managed = Object.fromEntries(catalog.filter((item: { managed: boolean }) => item.managed)
       .map((item: { id: string; paths: string[] }) => [item.id, item.paths]))
     expect(extensionPaths).toEqual(managed)
+    const admin = catalog.filter((item: { managed: boolean; audience: string }) => item.managed && item.audience === 'admin')
+      .map((item: { id: string }) => item.id)
+    expect([...adminExtensionIds].sort()).toEqual(admin.sort())
   })
   it('uses path segment boundaries and leaves upstream routes alone', () => {
     expect(extensionForPath('/canvas/')).toBe('infinite-canvas')

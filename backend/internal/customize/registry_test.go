@@ -60,6 +60,7 @@ func TestCatalogAndDefaultDisabled(t *testing.T) {
 			require.NotNil(t, state.Enabled)
 			require.False(t, *state.Enabled)
 			require.True(t, len(state.Paths) > 0 || len(state.Slots) > 0 || len(state.Gates) > 0, "managed extensions must declare routes, UI slots or admission gates")
+			require.Contains(t, []string{AudiencePublic, AudienceAdmin}, state.Audience, "%s must declare who may read its switch", state.ID)
 		} else {
 			require.Nil(t, state.Enabled)
 		}
@@ -189,14 +190,20 @@ func TestStateHTTPContracts(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
 	require.False(t, response.Data.Enabled["playground"])
-	managedCount := 0
+	publicCount := 0
 	for _, manifest := range Catalog() {
-		if manifest.Managed {
-			managedCount++
+		if manifest.Managed && manifest.Audience == AudiencePublic {
+			publicCount++
 		}
 	}
-	require.Len(t, response.Data.Enabled, managedCount)
+	require.Len(t, response.Data.Enabled, publicCount)
+	for _, id := range []string{"gateway-log-archive", "bot-notify", "operations-analytics", "access-policy", "admin-efficiency"} {
+		require.NotContains(t, w.Body.String(), id, "admin-only switches are not public")
+	}
 	require.NotContains(t, w.Body.String(), "待解耦")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest("GET", "/admin", nil))
+	require.Contains(t, w.Body.String(), `"id":"gateway-log-archive"`, "the admin list still reports every switch")
 }
 
 func TestEnabledIsolatesUnrelatedCorruptSetting(t *testing.T) {

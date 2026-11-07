@@ -20,10 +20,14 @@ const RechargeCampaigns = "recharge-campaigns"
 var catalogJSON []byte
 
 type Manifest struct {
-	ID              string   `json:"id"`
-	Name            string   `json:"name"`
-	Description     string   `json:"description"`
-	Managed         bool     `json:"managed"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Managed     bool   `json:"managed"`
+	// Audience is "public" when pages or slots outside the admin console read
+	// the switch, "admin" otherwise. Admin switches are never sent to
+	// anonymous or regular users.
+	Audience        string   `json:"audience,omitempty"`
 	DisableBehavior string   `json:"disable_behavior"`
 	Paths           []string `json:"paths"`
 	Slots           []string `json:"slots,omitempty"`
@@ -92,6 +96,26 @@ func (m *Manager) Snapshot(ctx context.Context) (map[string]bool, error) {
 		}
 	}
 	return result, nil
+}
+
+const (
+	AudiencePublic = "public"
+	AudienceAdmin  = "admin"
+)
+
+// PublicSnapshot is Snapshot restricted to switches that user-facing pages
+// need; admin-only modules are omitted entirely, not reported as disabled.
+func (m *Manager) PublicSnapshot(ctx context.Context) (map[string]bool, error) {
+	state, err := m.Snapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range Catalog() {
+		if item.Audience != AudiencePublic {
+			delete(state, item.ID)
+		}
+	}
+	return state, nil
 }
 
 func (m *Manager) readValues(ctx context.Context) (map[string]string, error) {
