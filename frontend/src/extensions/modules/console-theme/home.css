@@ -1,0 +1,1886 @@
+/* ==========================================================================
+   Console theme "glass" — brand homepage (/) and docs centre (/docs).
+
+   The homepage and the docs page carry their own stylesheets (premium-home.css,
+   gateway-home.css, user-guide/guide.css), which load after this file and use
+   `.dark .premium-home …` for dark mode. Every rule here therefore starts with
+   :root[data-console-theme='glass'] (one extra pseudo-class), so a light rule
+   (0,4,0) outranks both the base rule (0,2,0) and its dark twin (0,3,0), and a
+   dark rule (0,5,0) outranks everything. Only colour, surface, radius and type
+   are touched; the pages' own layout and breakpoints stay in charge.
+
+   Without the theme attribute none of this applies and both pages look exactly
+   as before. The honeycomb layer (.home-backdrop) is styled in theme.css next
+   to the console backdrop, and pointerField.ts drives it.
+   ========================================================================== */
+
+/* ---------- 1. Page tokens and canvas ---------- */
+:root[data-console-theme='glass'] .premium-home {
+  --bg: #f4f4f4;
+  --white: #ffffff;
+  --ink: #181818;
+  --muted: #737373;
+  --blue: #006fee;
+  --blue-2: #338ef7;
+  --line: rgba(24, 24, 24, 0.08);
+  --line-strong: rgba(24, 24, 24, 0.16);
+  --green: #17c964;
+  --shadow: var(--ct-shadow-card);
+  --shadow-card: var(--ct-shadow-card);
+  --home-frost: rgba(255, 255, 255, 0.62);
+  --home-frost-dense: rgba(255, 255, 255, 0.8);
+  --home-frost-filter: blur(18px) saturate(170%);
+  position: relative;
+  isolation: isolate;
+  /* The console canvas: flat neutral grey, no colour washes. */
+  background-color: #f4f4f4;
+  background-image: var(--ct-canvas);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--ct-font);
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+:root[data-console-theme='glass'].dark .premium-home {
+  --bg: #090909;
+  --white: #181818;
+  --ink: #fafafa;
+  --muted: #a3a3a3;
+  --blue: #338ef7;
+  --blue-2: #66aaf9;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.18);
+  --green: #45d483;
+  --home-frost: rgba(24, 24, 24, 0.55);
+  --home-frost-dense: rgba(24, 24, 24, 0.78);
+  background-color: #090909;
+  background-image: var(--ct-canvas);
+}
+
+/* Content sits above the honeycomb layer (z-index -1 inside the isolated page). */
+:root[data-console-theme='glass'] .premium-home ::selection {
+  background: rgba(0, 111, 238, 0.16);
+}
+
+/* ---------- 2. Top bar and menus ---------- */
+:root[data-console-theme='glass'] .premium-home .topbar {
+  border-bottom: 1px solid var(--line);
+  background: rgba(250, 250, 250, 0.62);
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .topbar {
+  background: rgba(12, 12, 12, 0.62);
+}
+
+:root[data-console-theme='glass'] .premium-home .brand {
+  color: var(--ink);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+:root[data-console-theme='glass'] .premium-home .brand-mark {
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgba(24, 24, 24, 0.06), 0 4px 12px -4px rgba(24, 24, 24, 0.2);
+}
+
+/* Navigation: quiet text links; the current page is a raised white pill. */
+:root[data-console-theme='glass'] .premium-home .nav-links {
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+:root[data-console-theme='glass'] .premium-home .nav-links a {
+  padding: 8px 14px;
+  border-radius: 999px;
+  color: #525252;
+  transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .nav-links a {
+  color: #a3a3a3;
+}
+
+:root[data-console-theme='glass'] .premium-home .nav-links a:hover {
+  background: rgba(24, 24, 24, 0.05);
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .nav-links a:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'] .premium-home .nav-links a.active {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 0 0 1px rgba(24, 24, 24, 0.04), 0 1px 3px rgba(24, 24, 24, 0.08);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .nav-links a.active {
+  background: rgba(64, 64, 64, 0.6);
+  color: var(--ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+:root[data-console-theme='glass'] .premium-home .nav-links a.active::after {
+  content: none;
+}
+
+/* Floating menus: theme, user and the narrow-screen navigation. */
+:root[data-console-theme='glass'] .premium-home :is(.theme-menu, .home-user-dropdown, .mobile-menu) {
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--ct-shadow-pop);
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+}
+
+:root[data-console-theme='glass'].dark .premium-home :is(.theme-menu, .home-user-dropdown, .mobile-menu) {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(30, 30, 30, 0.9);
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.theme-menu button, .home-user-menu-item, .mobile-menu a, .mobile-menu-entry) {
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.theme-menu button, .home-user-menu-item, .mobile-menu a, .mobile-menu-entry):hover,
+:root[data-console-theme='glass'] .premium-home :is(.theme-menu button.active, .mobile-menu a.active) {
+  background: var(--ct-fill);
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'].dark .premium-home :is(.theme-menu button, .home-user-menu-item, .mobile-menu a, .mobile-menu-entry) {
+  background: transparent;
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'].dark .premium-home :is(.theme-menu button, .home-user-menu-item, .mobile-menu a, .mobile-menu-entry):hover,
+:root[data-console-theme='glass'].dark .premium-home :is(.theme-menu button.active, .mobile-menu a.active) {
+  background: var(--ct-fill);
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'] .premium-home .theme-menu button.active {
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'] .premium-home .home-user-logout,
+:root[data-console-theme='glass'].dark .premium-home .home-user-logout {
+  border-top-color: var(--line);
+  color: #f31260;
+}
+
+:root[data-console-theme='glass'] .premium-home .home-user-logout:hover,
+:root[data-console-theme='glass'].dark .premium-home .home-user-logout:hover {
+  background: rgba(243, 18, 96, 0.08);
+  color: #f31260;
+}
+
+:root[data-console-theme='glass'] .premium-home .home-user-info {
+  border-bottom-color: var(--line);
+}
+
+:root[data-console-theme='glass'] .premium-home .home-user-trigger {
+  border: 0;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 0 0 1px rgba(24, 24, 24, 0.05), 0 1px 2px rgba(24, 24, 24, 0.05);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .home-user-trigger {
+  background: rgba(38, 38, 38, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+:root[data-console-theme='glass'] .premium-home .home-user-trigger:hover {
+  transform: none;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(24, 24, 24, 0.06), 0 2px 6px rgba(24, 24, 24, 0.08);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .home-user-trigger:hover {
+  background: rgba(64, 64, 64, 0.7);
+}
+
+:root[data-console-theme='glass'] .premium-home .home-user-avatar {
+  background: #262626;
+  color: #fafafa;
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .home-user-avatar {
+  background: #e5e5e5;
+  color: #181818;
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.home-user-meta strong, .home-user-info strong) {
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.home-user-meta small, .home-user-info span) {
+  font-weight: 400;
+}
+
+/* ---------- 3. Buttons: pills, solid ink for the main action ---------- */
+:root[data-console-theme='glass'] .premium-home :is(.icon-btn, .login-btn, .primary-btn, .secondary-btn) {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-weight: 500;
+  box-shadow: none;
+  transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.icon-btn, .login-btn, .primary-btn, .secondary-btn):hover {
+  transform: none;
+  border-color: transparent;
+}
+
+:root[data-console-theme='glass'] .premium-home .icon-btn,
+:root[data-console-theme='glass'] .premium-home .secondary-btn {
+  background: var(--ct-fill);
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'] .premium-home .icon-btn:hover,
+:root[data-console-theme='glass'] .premium-home .secondary-btn:hover {
+  background: var(--ct-fill-hover);
+  box-shadow: none;
+}
+
+:root[data-console-theme='glass'] .premium-home .login-btn {
+  background: transparent;
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'] .premium-home .login-btn:hover {
+  background: rgba(24, 24, 24, 0.05);
+  box-shadow: none;
+}
+
+:root[data-console-theme='glass'] .premium-home .primary-btn {
+  background: #181818;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(24, 24, 24, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+:root[data-console-theme='glass'] .premium-home .primary-btn:hover {
+  background: #404040;
+  box-shadow: 0 2px 6px rgba(24, 24, 24, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+:root[data-console-theme='glass'].dark .premium-home :is(.icon-btn, .secondary-btn) {
+  background: var(--ct-fill);
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'].dark .premium-home :is(.icon-btn, .secondary-btn):hover {
+  background: var(--ct-fill-hover);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .login-btn {
+  background: transparent;
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .login-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .primary-btn {
+  background: #fafafa;
+  color: #181818;
+  box-shadow: none;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .primary-btn:hover {
+  background: #e5e5e5;
+}
+
+:root[data-console-theme='glass'] .premium-home :is(a, button):focus-visible {
+  outline: 2px solid rgba(0, 111, 238, 0.55);
+  outline-offset: 3px;
+}
+
+/* ---------- 4. Hero ---------- */
+/* The eyebrow becomes a small frosted pill, like the labels above HeroUI's panes. */
+:root[data-console-theme='glass'] .premium-home .gateway-hero .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  color: #525252;
+  font-size: 12.5px;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(24, 24, 24, 0.04);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .gateway-hero .eyebrow {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(38, 38, 38, 0.5);
+  color: #d4d4d4;
+}
+
+:root[data-console-theme='glass'] .premium-home .eyebrow-index {
+  border-left-color: var(--line-strong);
+  color: var(--muted);
+}
+
+:root[data-console-theme='glass'] .premium-home .signal-dot {
+  background: #17c964;
+  box-shadow: 0 0 0 4px rgba(23, 201, 100, 0.14);
+}
+
+/* Ink headline whose last phrase fades to grey, as in the reference. */
+:root[data-console-theme='glass'] .premium-home .gateway-hero h1 {
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+:root[data-console-theme='glass'] .premium-home .gateway-hero h1 span {
+  background-image: linear-gradient(100deg, #525252 0%, #a3a3a3 100%);
+  color: #737373;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .gateway-hero h1 span {
+  background-image: linear-gradient(100deg, #a3a3a3 0%, #525252 100%);
+}
+
+:root[data-console-theme='glass'] .premium-home .gateway-hero .hero-copy > p {
+  color: var(--muted);
+}
+
+:root[data-console-theme='glass'] .premium-home .gateway-hero .hero-btn {
+  font-weight: 500;
+}
+
+:root[data-console-theme='glass'] .premium-home .hero-notes {
+  color: var(--muted);
+}
+
+:root[data-console-theme='glass'] .premium-home .hero-notes svg {
+  color: var(--ink);
+  opacity: 0.7;
+}
+
+/* Provider network around the globe: the page-wide honeycomb replaces the local
+   grid; the glow becomes a quiet neutral halo. */
+:root[data-console-theme='glass'] .premium-home .network-grid {
+  background-image: none;
+}
+
+:root[data-console-theme='glass'] .premium-home .network-grid::after {
+  background: rgba(163, 163, 163, 0.14);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .network-grid::after {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+:root[data-console-theme='glass'] .premium-home .gateway-globe-aura {
+  background: radial-gradient(circle, rgba(163, 163, 163, 0.04) 55%, rgba(163, 163, 163, 0.14) 70%, transparent 73%);
+  box-shadow: 0 0 65px rgba(115, 115, 115, 0.1);
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.network-provider, .network-request) {
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: var(--home-frost);
+  box-shadow: var(--ct-shadow-card);
+  backdrop-filter: var(--home-frost-filter);
+  -webkit-backdrop-filter: var(--home-frost-filter);
+}
+
+:root[data-console-theme='glass'] .premium-home .network-provider {
+  border-radius: 16px;
+}
+
+:root[data-console-theme='glass'] .premium-home .network-request {
+  border-radius: 999px;
+  padding: 10px 16px;
+}
+
+:root[data-console-theme='glass'].dark .premium-home :is(.network-provider, .network-request) {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: var(--home-frost);
+  box-shadow: var(--ct-shadow-card);
+}
+
+:root[data-console-theme='glass'] .premium-home .request-method {
+  border-radius: 999px;
+  padding: 3px 7px;
+}
+
+:root[data-console-theme='glass'] .premium-home .request-spark {
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.network-caption, .network-footnote, .network-footnote span) {
+  color: var(--muted);
+}
+
+/* Full-screen backdrop behind the globe's opening zoom (teleported to <body>). */
+:root[data-console-theme='glass'] .globe-intro-backdrop {
+  background: #f4f4f4;
+}
+
+:root[data-console-theme='glass'].dark .globe-intro-backdrop.is-dark {
+  background: #090909;
+}
+
+/* Announcement strip: one frosted bar instead of two rules. */
+:root[data-console-theme='glass'] .premium-home .gateway-notice {
+  padding: 12px 14px 12px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 18px;
+  background: var(--home-frost);
+  box-shadow: var(--ct-shadow-card);
+  backdrop-filter: var(--home-frost-filter);
+  -webkit-backdrop-filter: var(--home-frost-filter);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .gateway-notice {
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+:root[data-console-theme='glass'] .premium-home .gateway-notice-label {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'] .premium-home .gateway-notice-label svg {
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'] .premium-home .gateway-notice-item {
+  color: #525252;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .gateway-notice-item {
+  color: #a3a3a3;
+}
+
+:root[data-console-theme='glass'] .premium-home .gateway-notice-all {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--ct-fill);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+:root[data-console-theme='glass'] .premium-home .gateway-notice-all:hover {
+  background: var(--ct-fill-hover);
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'] .premium-home .gateway-notice-item:hover {
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'] .premium-home .new-tag,
+:root[data-console-theme='glass'].dark .premium-home .new-tag {
+  background: var(--ct-blue-soft);
+  color: var(--ct-blue);
+  font-weight: 600;
+}
+
+/* ---------- 5. Brand band and capability strip ---------- */
+:root[data-console-theme='glass'] .premium-home .provider-band-label {
+  color: var(--muted);
+}
+
+:root[data-console-theme='glass'] .premium-home .provider-wordmark {
+  color: var(--ink);
+  opacity: 0.62;
+}
+
+:root[data-console-theme='glass'] .premium-home .provider-wordmark:hover {
+  opacity: 1;
+}
+
+:root[data-console-theme='glass'] .premium-home .feature-strip {
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: var(--ct-radius-card);
+  background: var(--home-frost);
+  box-shadow: var(--ct-shadow-card);
+  backdrop-filter: var(--home-frost-filter);
+  -webkit-backdrop-filter: var(--home-frost-filter);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .feature-strip {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: var(--home-frost);
+}
+
+:root[data-console-theme='glass'] .premium-home .feature-item {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+/* Icons sit on a quiet neutral tile, like the console's stat tiles. */
+:root[data-console-theme='glass'] .premium-home .feature-item > svg {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--ct-fill);
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'] .premium-home .feature-item strong,
+:root[data-console-theme='glass'].dark .premium-home .feature-item strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'] .premium-home .feature-item span,
+:root[data-console-theme='glass'].dark .premium-home .feature-item span {
+  color: var(--muted);
+}
+
+/* ---------- 6. Section heads ---------- */
+:root[data-console-theme='glass'] .premium-home .section-title h2,
+:root[data-console-theme='glass'].dark .premium-home .section-title h2 {
+  color: var(--ink);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
+
+:root[data-console-theme='glass'] .premium-home .soft-badge,
+:root[data-console-theme='glass'].dark .premium-home .soft-badge {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+:root[data-console-theme='glass'] .premium-home .all-link {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--ct-fill);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.16s ease;
+}
+
+:root[data-console-theme='glass'] .premium-home .all-link:hover {
+  background: var(--ct-fill-hover);
+}
+
+/* ---------- 7. Shared frosted panes ---------- */
+:root[data-console-theme='glass'] .premium-home :is(.loading-card, .model-card, .home-footer) {
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  background: var(--home-frost);
+  box-shadow: var(--ct-shadow-card);
+  backdrop-filter: var(--home-frost-filter);
+  -webkit-backdrop-filter: var(--home-frost-filter);
+}
+
+:root[data-console-theme='glass'].dark .premium-home :is(.loading-card, .model-card, .home-footer) {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: var(--home-frost);
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.loading-card, .model-card) {
+  border-radius: var(--ct-radius-card);
+}
+
+/* ---------- 8. Price comparison ---------- */
+/* The default table gives way to one pane: the overall price on the left, the
+   item-by-item comparison on the right with the platform column raised as a
+   white card. Markup: .ct-compare in PremiumHomeView.vue. */
+:root[data-console-theme='glass'] .premium-home .pricing-compare-panel {
+  display: none;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(280px, 0.78fr) minmax(0, 1.62fr);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 28px;
+  background: var(--home-frost-dense);
+  box-shadow: var(--ct-shadow-card);
+  backdrop-filter: var(--home-frost-filter);
+  -webkit-backdrop-filter: var(--home-frost-filter);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .ct-compare {
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+/* Summary column */
+:root[data-console-theme='glass'] .premium-home .ct-compare-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 36px 36px 34px;
+  border-right: 1px solid var(--line);
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-kicker {
+  align-self: flex-start;
+  height: 26px;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: var(--ct-fill);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 26px;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-figure {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 6px 0 0;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-figure strong {
+  color: var(--ink);
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-figure span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-lead {
+  max-width: 340px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+/* Two bars: the official price at full length against the platform's sliver. */
+:root[data-console-theme='glass'] .premium-home .ct-compare-bars {
+  display: grid;
+  gap: 16px;
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-bar > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-bar em {
+  color: var(--ink);
+  font-style: normal;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-bar i {
+  grid-column: 1 / -1;
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--ct-fill);
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-bar b {
+  display: block;
+  min-width: 8px;
+  height: 100%;
+  border-radius: inherit;
+  background: #a3a3a3;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-bar.is-platform > span,
+:root[data-console-theme='glass'] .premium-home .ct-compare-bar.is-platform em {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-bar.is-platform b,
+:root[data-console-theme='glass'].dark .premium-home .ct-compare-bar.is-platform b {
+  background: var(--ct-blue);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .ct-compare-bar:not(.is-platform) b {
+  background: #737373;
+}
+
+/* Comparison grid: cells are placed explicitly (row from the template) so the
+   highlight card can sit under the whole platform column. */
+:root[data-console-theme='glass'] .premium-home .ct-compare-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1.05fr);
+  align-content: start;
+  padding: 14px 18px 18px;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-highlight {
+  grid-column: 3;
+  z-index: 0;
+  margin-top: 2px;
+  border: 1px solid rgba(24, 24, 24, 0.05);
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(24, 24, 24, 0.04), 0 12px 30px -12px rgba(24, 24, 24, 0.14);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .ct-compare-highlight {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(38, 38, 38, 0.85);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 12px 30px -12px rgba(0, 0, 0, 0.6);
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.ct-compare-head, .ct-compare-cell) {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  padding: 18px 20px;
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.ct-compare-head, .ct-compare-cell).is-label {
+  grid-column: 1;
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.ct-compare-head, .ct-compare-cell).is-official {
+  grid-column: 2;
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.ct-compare-head, .ct-compare-cell).is-platform {
+  grid-column: 3;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-head {
+  align-items: center;
+  gap: 8px;
+  padding-top: 20px;
+  padding-bottom: 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-head.is-platform strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-head.is-platform span {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ct-blue-soft);
+  color: var(--ct-blue);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Rows are separated by hairlines in the two plain columns only, so the raised
+   platform column reads as one card. */
+:root[data-console-theme='glass'] .premium-home .ct-compare-cell {
+  align-items: center;
+  border-top: 1px solid var(--line);
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-cell.is-platform {
+  gap: 10px;
+  border-top-color: transparent;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-cell.is-label {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-cell.is-label strong {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-cell.is-label span {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-cell.is-official {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-cell.is-platform strong {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-check {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(23, 201, 100, 0.14);
+  color: #12a150;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .ct-compare-check {
+  background: rgba(69, 212, 131, 0.16);
+  color: #45d483;
+}
+
+:root[data-console-theme='glass'] .premium-home .ct-compare-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  :root[data-console-theme='glass'] .premium-home .ct-compare {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-console-theme='glass'] .premium-home .ct-compare-summary {
+    padding: 28px 28px 24px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  :root[data-console-theme='glass'] .premium-home .ct-compare-lead {
+    max-width: 560px;
+  }
+}
+
+/* Phones: each row becomes the item name over the two values side by side. */
+@media (max-width: 640px) {
+  :root[data-console-theme='glass'] .premium-home .ct-compare {
+    border-radius: 22px;
+  }
+
+  :root[data-console-theme='glass'] .premium-home .ct-compare-summary {
+    padding: 22px 20px 20px;
+  }
+
+  :root[data-console-theme='glass'] .premium-home .ct-compare-figure strong {
+    font-size: 52px;
+  }
+
+  :root[data-console-theme='glass'] .premium-home .ct-compare-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0 8px;
+    padding: 6px 14px 16px;
+  }
+
+  :root[data-console-theme='glass'] .premium-home .ct-compare-highlight,
+  :root[data-console-theme='glass'] .premium-home .ct-compare-head.is-label {
+    display: none;
+  }
+
+  :root[data-console-theme='glass'] .premium-home :is(.ct-compare-head, .ct-compare-cell) {
+    grid-row: auto !important;
+    grid-column: auto !important;
+    padding: 10px 12px;
+  }
+
+  :root[data-console-theme='glass'] .premium-home .ct-compare-head {
+    padding-top: 14px;
+    padding-bottom: 6px;
+    font-size: 12px;
+  }
+
+  :root[data-console-theme='glass'] .premium-home .ct-compare-cell.is-label {
+    grid-column: 1 / -1 !important;
+    margin-top: 6px;
+    padding: 14px 4px 6px;
+  }
+
+  :root[data-console-theme='glass'] .premium-home .ct-compare-cell:is(.is-official, .is-platform) {
+    align-items: flex-start;
+    border-top: 0;
+    border-radius: 14px;
+    font-size: 13px;
+  }
+
+  :root[data-console-theme='glass'] .premium-home .ct-compare-cell.is-official {
+    background: var(--ct-fill);
+  }
+
+  :root[data-console-theme='glass'] .premium-home .ct-compare-cell.is-platform {
+    gap: 6px;
+    background: #ffffff;
+    box-shadow: 0 0 0 1px rgba(24, 24, 24, 0.05), 0 4px 12px -6px rgba(24, 24, 24, 0.14);
+  }
+
+  :root[data-console-theme='glass'].dark .premium-home .ct-compare-cell.is-platform {
+    background: rgba(38, 38, 38, 0.85);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  :root[data-console-theme='glass'] .premium-home .ct-compare-cell.is-platform strong {
+    font-size: 13.5px;
+  }
+
+  :root[data-console-theme='glass'] .premium-home .ct-compare-check {
+    width: 18px;
+    height: 18px;
+    margin-top: 1px;
+  }
+}
+
+/* ---------- 9. Subscription plans ---------- */
+/* Segmented control: grey track, raised white thumb. */
+:root[data-console-theme='glass'] .premium-home .plan-tabs {
+  gap: 2px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ct-fill);
+  padding: 4px;
+  box-shadow: none;
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .plan-tabs {
+  background: var(--ct-fill);
+}
+
+:root[data-console-theme='glass'] .premium-home .plan-tabs button,
+:root[data-console-theme='glass'].dark .premium-home .plan-tabs button {
+  border-radius: 999px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+:root[data-console-theme='glass'] .premium-home .plan-tabs button:hover {
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'] .premium-home .plan-tabs button.active {
+  background: #ffffff;
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(24, 24, 24, 0.1), 0 0 0 1px rgba(24, 24, 24, 0.03);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .plan-tabs button.active {
+  background: #404040;
+  color: var(--ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+:root[data-console-theme='glass'] .premium-home .plan-card {
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: var(--ct-radius-card);
+  background: var(--home-frost);
+  box-shadow: var(--ct-shadow-card);
+  backdrop-filter: var(--home-frost-filter);
+  -webkit-backdrop-filter: var(--home-frost-filter);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .plan-card {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: var(--home-frost);
+}
+
+/* The inner overlay sheet is gone; the scan becomes a soft white sheen. */
+:root[data-console-theme='glass'] .premium-home .plan-card::after,
+:root[data-console-theme='glass'].dark .premium-home .plan-card::after {
+  content: none;
+}
+
+:root[data-console-theme='glass'] .premium-home .plan-card::before {
+  background: linear-gradient(115deg, transparent 0 38%, rgba(255, 255, 255, 0.55) 50%, transparent 62% 100%);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .plan-card::before {
+  background: linear-gradient(115deg, transparent 0 38%, rgba(255, 255, 255, 0.06) 50%, transparent 62% 100%);
+}
+
+:root[data-console-theme='glass'] .premium-home .plan-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--ct-shadow-card-hover);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .plan-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Featured and top-tier cards: an ink outline instead of blue and orange glows. */
+:root[data-console-theme='glass'] .premium-home .plan-card.hot,
+:root[data-console-theme='glass'] .premium-home .plan-card.maxed {
+  border-color: rgba(24, 24, 24, 0.85);
+  box-shadow: var(--ct-shadow-card-hover);
+}
+
+:root[data-console-theme='glass'] .premium-home .plan-card.maxed:not(.hot) {
+  border-color: rgba(255, 255, 255, 0.75);
+  box-shadow: var(--ct-shadow-card);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .plan-card.hot {
+  border-color: rgba(250, 250, 250, 0.7);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .plan-card.maxed:not(.hot) {
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+:root[data-console-theme='glass'] .premium-home .hot-ribbon {
+  top: 14px;
+  right: 14px;
+  border-radius: 999px;
+  background: #181818;
+  color: #ffffff;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .hot-ribbon {
+  background: #fafafa;
+  color: #181818;
+}
+
+:root[data-console-theme='glass'] .premium-home .plan-card.hot .plan-top {
+  padding-right: 82px;
+}
+
+:root[data-console-theme='glass'] .premium-home .plan-top h3,
+:root[data-console-theme='glass'].dark .premium-home .plan-top h3 {
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+:root[data-console-theme='glass'] .premium-home .price strong,
+:root[data-console-theme='glass'].dark .premium-home .price strong {
+  color: var(--ink);
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
+
+:root[data-console-theme='glass'] .premium-home .price span,
+:root[data-console-theme='glass'] .premium-home .plan-desc,
+:root[data-console-theme='glass'].dark .premium-home .price span,
+:root[data-console-theme='glass'].dark .premium-home .plan-desc {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+:root[data-console-theme='glass'] .premium-home .price-compare .current-price {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'] .premium-home .price-compare .original-price {
+  color: #a3a3a3;
+  font-weight: 400;
+}
+
+/* Detail chips: filled, borderless. */
+:root[data-console-theme='glass'] .premium-home :is(.deal-row, .stat-chip),
+:root[data-console-theme='glass'].dark .premium-home :is(.deal-row, .stat-chip) {
+  border: 0;
+  border-radius: 12px;
+  background: var(--ct-fill);
+}
+
+:root[data-console-theme='glass'] .premium-home .deal-row {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+:root[data-console-theme='glass'] .premium-home .deal-row strong {
+  color: #12a150;
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .deal-row strong {
+  color: #45d483;
+}
+
+:root[data-console-theme='glass'] .premium-home .promo-pill,
+:root[data-console-theme='glass'].dark .premium-home .promo-pill {
+  border: 0;
+  background: var(--ct-surface-solid);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(24, 24, 24, 0.06);
+}
+
+:root[data-console-theme='glass'] .premium-home .promo-pill.hot {
+  background: #181818;
+  color: #ffffff;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .promo-pill.hot {
+  background: #fafafa;
+  color: #181818;
+}
+
+:root[data-console-theme='glass'] .premium-home .stat-chip span {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+:root[data-console-theme='glass'] .premium-home .stat-chip strong,
+:root[data-console-theme='glass'].dark .premium-home .stat-chip strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Discount meter: an ink bar on the grey track. */
+:root[data-console-theme='glass'] .premium-home .heat-head {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+:root[data-console-theme='glass'] .premium-home .heat-head strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'] .premium-home .heat-track {
+  height: 6px;
+  background: var(--ct-fill);
+}
+
+:root[data-console-theme='glass'] .premium-home .heat-track i,
+:root[data-console-theme='glass'] .premium-home .plan-card.maxed .heat-track i {
+  background: linear-gradient(90deg, #525252, #181818);
+  box-shadow: none;
+  animation: none;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .heat-track i,
+:root[data-console-theme='glass'].dark .premium-home .plan-card.maxed .heat-track i {
+  background: linear-gradient(90deg, #737373, #fafafa);
+}
+
+:root[data-console-theme='glass'] .premium-home .burst-badge {
+  border-color: #ffffff;
+  background: #181818;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  text-shadow: none;
+  box-shadow: 0 4px 10px rgba(24, 24, 24, 0.22);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .burst-badge {
+  border-color: #181818;
+  background: #fafafa;
+  color: #181818;
+}
+
+:root[data-console-theme='glass'] .premium-home .features li,
+:root[data-console-theme='glass'].dark .premium-home .features li {
+  color: var(--muted);
+}
+
+:root[data-console-theme='glass'] .premium-home .features li::before {
+  color: var(--green);
+}
+
+:root[data-console-theme='glass'] .premium-home .plan-btn {
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ct-fill);
+  color: var(--ink);
+  font-weight: 500;
+  transition: background-color 0.16s ease;
+}
+
+:root[data-console-theme='glass'] .premium-home .plan-btn:hover {
+  background: var(--ct-fill-hover);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .plan-btn {
+  background: var(--ct-fill);
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'] .premium-home .plan-card.hot .plan-btn {
+  background: #181818;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(24, 24, 24, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+:root[data-console-theme='glass'] .premium-home .plan-card.hot .plan-btn:hover {
+  background: #404040;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .plan-card.hot .plan-btn {
+  background: #fafafa;
+  color: #181818;
+}
+
+/* ---------- 10. Model plaza and fallback model cards ---------- */
+/* The embedded plaza is the shared console component; only its group panes and
+   active chips change here, so the console page keeps its own look. */
+:root[data-console-theme='glass'] .premium-home .model-plaza-home-section section.rounded-2xl {
+  border-color: rgba(255, 255, 255, 0.75);
+  background: var(--home-frost);
+  box-shadow: var(--ct-shadow-card);
+  backdrop-filter: var(--home-frost-filter);
+  -webkit-backdrop-filter: var(--home-frost-filter);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .model-plaza-home-section section.rounded-2xl {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: var(--home-frost);
+}
+
+:root[data-console-theme='glass'] .premium-home .model-plaza-home-section .bg-gradient-to-r.from-primary-500 {
+  background-image: none;
+  background-color: #181818;
+  box-shadow: none;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .model-plaza-home-section .bg-gradient-to-r.from-primary-500 {
+  background-color: #fafafa;
+  color: #181818;
+}
+
+:root[data-console-theme='glass'] .premium-home .model-plaza-home-section :is(button, .input) {
+  border-radius: 999px;
+}
+
+:root[data-console-theme='glass'] .premium-home .model-card h3,
+:root[data-console-theme='glass'].dark .premium-home .model-card h3 {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'] .premium-home .model-card p,
+:root[data-console-theme='glass'].dark .premium-home .model-card p {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+:root[data-console-theme='glass'] .premium-home .gateway-model-symbol,
+:root[data-console-theme='glass'].dark .premium-home .gateway-model-symbol {
+  border: 0;
+  background: var(--ct-fill);
+}
+
+:root[data-console-theme='glass'] .premium-home .tags span,
+:root[data-console-theme='glass'].dark .premium-home .tags span {
+  border-radius: 999px;
+  background: var(--ct-fill);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* ---------- 11. Enterprise call to action: a plain dark ink slab ---------- */
+:root[data-console-theme='glass'] .premium-home .support-card {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 28px;
+  background-color: #181818;
+  background-image:
+    radial-gradient(70% 120% at 50% 0%, rgba(255, 255, 255, 0.08) 0%, transparent 70%),
+    linear-gradient(180deg, #262626 0%, #181818 100%);
+  padding: 34px 36px;
+  box-shadow: 0 30px 70px -28px rgba(24, 24, 24, 0.55);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .support-card {
+  border-color: rgba(255, 255, 255, 0.08);
+  background-color: #181818;
+  background-image:
+    radial-gradient(70% 120% at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 70%),
+    linear-gradient(180deg, #1f1f1f 0%, #141414 100%);
+}
+
+:root[data-console-theme='glass'] .premium-home .support-card h2,
+:root[data-console-theme='glass'].dark .premium-home .support-card h2 {
+  color: #fafafa;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+:root[data-console-theme='glass'] .premium-home .support-card p,
+:root[data-console-theme='glass'].dark .premium-home .support-card p {
+  color: #a3a3a3;
+}
+
+:root[data-console-theme='glass'] .premium-home .support-card .primary-btn,
+:root[data-console-theme='glass'].dark .premium-home .support-card .primary-btn {
+  background: #fafafa;
+  color: #181818;
+  box-shadow: none;
+}
+
+:root[data-console-theme='glass'] .premium-home .support-card .primary-btn:hover,
+:root[data-console-theme='glass'].dark .premium-home .support-card .primary-btn:hover {
+  background: #e5e5e5;
+}
+
+/* ---------- 12. Footer ---------- */
+:root[data-console-theme='glass'] .premium-home .home-footer {
+  border-radius: 28px;
+}
+
+:root[data-console-theme='glass'] .premium-home .footer-mark,
+:root[data-console-theme='glass'].dark .premium-home .footer-mark {
+  border: 0;
+  border-radius: 12px;
+  background: var(--ct-surface-solid);
+  box-shadow: 0 0 0 1px rgba(24, 24, 24, 0.06), 0 4px 12px -4px rgba(24, 24, 24, 0.2);
+}
+
+:root[data-console-theme='glass'] .premium-home .footer-brand strong,
+:root[data-console-theme='glass'] .premium-home .footer-column h3,
+:root[data-console-theme='glass'].dark .premium-home .footer-brand strong,
+:root[data-console-theme='glass'].dark .premium-home .footer-column h3 {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.footer-brand p, .footer-column a, .footer-column span, .footer-bottom),
+:root[data-console-theme='glass'].dark .premium-home :is(.footer-brand p, .footer-column a, .footer-column span, .footer-bottom) {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+:root[data-console-theme='glass'] .premium-home .footer-column a:hover {
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'] .premium-home .footer-bottom {
+  border-top-color: var(--line);
+}
+
+/* ---------- 13. Announcement list and reader ---------- */
+:root[data-console-theme='glass'] .premium-home :is(.notice-backdrop, .notice-reader-backdrop) {
+  background: rgba(9, 9, 9, 0.22);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+:root[data-console-theme='glass'].dark .premium-home :is(.notice-backdrop, .notice-reader-backdrop) {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.notice-card, .notice-reader) {
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--ct-shadow-pop);
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+}
+
+:root[data-console-theme='glass'].dark .premium-home :is(.notice-card, .notice-reader) {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(28, 28, 28, 0.94);
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.notice-head, .notice-reader-head, .notice-footer),
+:root[data-console-theme='glass'].dark .premium-home :is(.notice-head, .notice-reader-head, .notice-footer) {
+  border-color: var(--line);
+  background: transparent;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .notice-card--dialog .notice-head {
+  border-bottom-color: var(--line);
+  background: transparent;
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.notice-title, .notice-reader-head h2) {
+  color: var(--ink);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.notice-close, .notice-reader-head button),
+:root[data-console-theme='glass'].dark .premium-home :is(.notice-close, .notice-reader-head button) {
+  border: 0;
+  border-radius: 999px;
+  background: var(--ct-fill);
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'] .premium-home .notice-item {
+  border-bottom-color: var(--line);
+}
+
+:root[data-console-theme='glass'] .premium-home .notice-item::before {
+  border-color: rgba(0, 111, 238, 0.18);
+  background: var(--ct-blue);
+}
+
+:root[data-console-theme='glass'] .premium-home .notice-item h3 {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.notice-date, .notice-item p, .notice-reader-head span),
+:root[data-console-theme='glass'].dark .premium-home :is(.notice-date, .notice-item p, .notice-reader-head span) {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+:root[data-console-theme='glass'] .premium-home .notice-item.is-highlighted,
+:root[data-console-theme='glass'].dark .premium-home .notice-item.is-highlighted {
+  border-radius: 14px;
+  background: var(--ct-blue-soft);
+  box-shadow: inset 0 0 0 1px rgba(0, 111, 238, 0.16);
+}
+
+:root[data-console-theme='glass'] .premium-home .notice-item.is-highlighted h3 {
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'] .premium-home .notice-unread-tag,
+:root[data-console-theme='glass'].dark .premium-home .notice-unread-tag {
+  background: var(--ct-blue);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'] .premium-home .notice-footer-btn {
+  border: 0;
+  border-radius: 999px;
+  background: #181818;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+:root[data-console-theme='glass'] .premium-home .notice-footer-btn.is-muted,
+:root[data-console-theme='glass'].dark .premium-home .notice-footer-btn.is-muted {
+  background: var(--ct-fill);
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .notice-footer-btn:not(.is-muted) {
+  background: #fafafa;
+  color: #181818;
+}
+
+/* Markdown shared by the announcement reader. */
+:root[data-console-theme='glass'] .premium-home .markdown-body {
+  color: #404040;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .markdown-body {
+  color: #d4d4d4;
+}
+
+:root[data-console-theme='glass'] .premium-home .markdown-body a {
+  color: var(--ct-blue);
+  text-decoration-color: rgba(0, 111, 238, 0.35);
+  text-underline-offset: 3px;
+}
+
+:root[data-console-theme='glass'] .premium-home .markdown-body code,
+:root[data-console-theme='glass'].dark .premium-home .markdown-body code {
+  border-radius: 6px;
+  background: var(--ct-fill);
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'] .premium-home .markdown-body pre {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  background: #181818;
+  color: #e5e5e5;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .markdown-body pre {
+  background: #0b0b0b;
+}
+
+:root[data-console-theme='glass'] .premium-home .markdown-body pre code,
+:root[data-console-theme='glass'].dark .premium-home .markdown-body pre code {
+  background: transparent;
+  color: inherit;
+}
+
+/* ---------- 14. Docs centre (/docs) ---------- */
+:root[data-console-theme='glass'] .premium-home .guide-shell {
+  padding-top: 36px;
+  padding-bottom: 72px;
+}
+
+:root[data-console-theme='glass'] .premium-home :is(.guide-toc-card, .guide-article, .guide-state) {
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  background: var(--home-frost);
+  box-shadow: var(--ct-shadow-card);
+  backdrop-filter: var(--home-frost-filter);
+  -webkit-backdrop-filter: var(--home-frost-filter);
+}
+
+:root[data-console-theme='glass'].dark .premium-home :is(.guide-toc-card, .guide-article, .guide-state) {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: var(--home-frost);
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-state {
+  border-radius: var(--ct-radius-card);
+  color: var(--muted);
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-state h1 {
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-layout {
+  grid-template-columns: 248px minmax(0, 1fr);
+  gap: 28px;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-toc {
+  top: 100px;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-toc-card {
+  border-radius: var(--ct-radius-card);
+  padding: 16px 10px;
+  max-height: calc(100vh - 128px);
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-toc-title {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-toc-card a {
+  border-radius: 10px;
+  color: #525252;
+  font-size: 13.5px;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .guide-toc-card a {
+  color: #a3a3a3;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-toc-card a.is-h3 {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-toc-card a:hover {
+  background: rgba(24, 24, 24, 0.05);
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .guide-toc-card a:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink);
+}
+
+/* The section in view: a raised white pill, like the console sidebar. */
+:root[data-console-theme='glass'] .premium-home .guide-toc-card a.is-active {
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 0 0 1px rgba(24, 24, 24, 0.04), 0 1px 3px rgba(24, 24, 24, 0.08);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .guide-toc-card a.is-active {
+  background: rgba(64, 64, 64, 0.6);
+  color: var(--ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Reading surface: denser frost so long text stays crisp over the canvas. */
+:root[data-console-theme='glass'] .premium-home .guide-article {
+  border-radius: 28px;
+  background: var(--home-frost-dense);
+  padding: 44px 52px 52px;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .guide-article {
+  background: var(--home-frost-dense);
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  margin: 0 0 16px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--ct-fill);
+  color: #525252;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .guide-eyebrow {
+  color: #d4d4d4;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-title {
+  margin-bottom: 8px;
+  color: var(--ink);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.035em;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-meta {
+  margin: 0 0 28px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body {
+  color: #404040;
+  font-size: 15.5px;
+  line-height: 1.85;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .guide-article .markdown-body {
+  color: #d4d4d4;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body :is(h2, h3),
+:root[data-console-theme='glass'].dark .premium-home .guide-article .markdown-body :is(h2, h3) {
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body h2 {
+  margin: 44px 0 12px;
+  padding-top: 32px;
+  padding-bottom: 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+/* styles/announcement-markdown.css also targets .markdown-body; its rule lines
+   and decorative quote mark are dropped here. */
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body hr {
+  margin: 32px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body hr + h2 {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body h2:first-child {
+  margin-top: 6px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body h3 {
+  margin: 28px 0 8px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body a {
+  color: var(--ct-blue);
+  text-decoration: underline;
+  text-decoration-color: rgba(0, 111, 238, 0.3);
+  text-underline-offset: 3px;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body a:hover {
+  text-decoration-color: currentColor;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body code,
+:root[data-console-theme='glass'].dark .premium-home .guide-article .markdown-body code {
+  border-radius: 6px;
+  background: var(--ct-fill);
+  color: var(--ink);
+  font-family: var(--ct-mono);
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body pre {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  background: #181818;
+  color: #e5e5e5;
+  padding: 16px 20px;
+}
+
+:root[data-console-theme='glass'].dark .premium-home .guide-article .markdown-body pre {
+  background: #0b0b0b;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body pre code,
+:root[data-console-theme='glass'].dark .premium-home .guide-article .markdown-body pre code {
+  background: none;
+  color: inherit;
+}
+
+/* Callouts: a soft blue panel instead of the amber note. */
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body blockquote {
+  margin: 16px 0;
+  padding: 14px 18px;
+  border: 1px solid rgba(0, 111, 238, 0.14);
+  border-radius: 16px;
+  background: rgba(0, 111, 238, 0.05);
+  color: var(--ink);
+}
+
+:root[data-console-theme='glass'].dark .premium-home .guide-article .markdown-body blockquote {
+  border-color: rgba(51, 142, 247, 0.2);
+  background: rgba(51, 142, 247, 0.08);
+  color: #e5e5e5;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body blockquote :is(em, strong) {
+  color: inherit;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body blockquote {
+  font-style: normal;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body blockquote::before {
+  content: none;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body :is(th, td) {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body tr:last-child td {
+  border-bottom: 0;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body th {
+  background: var(--ct-surface-soft);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body img {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--ct-surface-solid);
+  box-shadow: var(--ct-shadow-card);
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-article .markdown-body :is(ol, ul) li::marker {
+  color: var(--muted);
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-lightbox {
+  background: rgba(9, 9, 9, 0.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+:root[data-console-theme='glass'] .premium-home .guide-lightbox img {
+  border-radius: 16px;
+}
+
+@media (max-width: 860px) {
+  :root[data-console-theme='glass'] .premium-home .guide-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  :root[data-console-theme='glass'] .premium-home .guide-toc-card {
+    max-height: 280px;
+  }
+
+  :root[data-console-theme='glass'] .premium-home .guide-article {
+    border-radius: 22px;
+    padding: 24px 18px 28px;
+  }
+
+  :root[data-console-theme='glass'] .premium-home .guide-title {
+    font-size: 23px;
+  }
+}
+
+@media (max-width: 760px) {
+  :root[data-console-theme='glass'] .premium-home .gateway-notice {
+    border-radius: 16px;
+    padding: 10px 10px 10px 14px;
+  }
+
+  :root[data-console-theme='glass'] .premium-home .support-card {
+    border-radius: 22px;
+    padding: 24px 20px;
+  }
+
+  :root[data-console-theme='glass'] .premium-home .section-title h2,
+  :root[data-console-theme='glass'].dark .premium-home .section-title h2 {
+    font-size: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-console-theme='glass'] .premium-home .plan-card:hover {
+    transform: none;
+  }
+}

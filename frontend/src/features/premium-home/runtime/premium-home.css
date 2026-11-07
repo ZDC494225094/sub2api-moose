@@ -1193,6 +1193,12 @@
   color: var(--blue);
 }
 
+/* The glass-theme comparison layout (console-theme/home.css) stays hidden in the
+   default look, which keeps the table above. */
+.premium-home .ct-compare {
+  display: none;
+}
+
 .premium-home .plans-panel {
   display: grid;
   gap: 14px;

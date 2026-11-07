@@ -24,7 +24,8 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ModelIcon from '@/components/common/ModelIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { mountPremiumHomeGlobe, globeProviderMarkers, type PremiumHomeGlobeController } from './premium-home-globe'
+import { useConsoleThemeApplied } from '@/extensions/modules/console-theme/useConsoleThemeApplied'
+import { mountPremiumHomeGlobe, globeProviderMarkers, type PremiumHomeGlobeController, type PremiumHomeGlobePalette } from './premium-home-globe'
 
 const props = defineProps<{ isDark: boolean; siteLogo?: string }>()
 const globeCanvas = ref<HTMLCanvasElement | null>(null)
@@ -34,6 +35,9 @@ const globeFailed = ref(false)
 const globeReady = ref(false)
 const introActive = ref(false)
 const introBackdrop = ref<HTMLDivElement | null>(null)
+// Neutral globe colours while the console theme is on.
+const glassTheme = useConsoleThemeApplied()
+const palette = (): PremiumHomeGlobePalette => (glassTheme.value ? 'glass' : 'default')
 let controller: PremiumHomeGlobeController | undefined
 let unmounted = false
 let entrance: Animation | undefined
@@ -47,6 +51,7 @@ function finishEntrance() {
 }
 
 watch(() => props.isDark, (dark) => controller?.setTheme(dark))
+watch(glassTheme, () => controller?.setPalette(palette()))
 watch(() => props.siteLogo, (logo) => controller?.setSiteLogo(logo || '/logo.svg'))
 onMounted(async () => {
   const providerLogos: Record<string, string> = {}
@@ -58,9 +63,10 @@ onMounted(async () => {
     providerLogos[element.dataset.logoSource!] = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`
   })
   try {
-    const mounted = await mountPremiumHomeGlobe(globeCanvas.value, { maxSize: 760, maxPixelRatio: 1.75, isDark: props.isDark, animate: true, providerLogos })
+    const mounted = await mountPremiumHomeGlobe(globeCanvas.value, { maxSize: 760, maxPixelRatio: 1.75, isDark: props.isDark, palette: palette(), animate: true, providerLogos })
     if (unmounted) { mounted(); return }
     controller = mounted
+    controller.setPalette(palette())
     controller.setTheme(props.isDark)
     controller.setAnimating(true)
     controller.setSiteLogo(props.siteLogo || '/logo.svg')

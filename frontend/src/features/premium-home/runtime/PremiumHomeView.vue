@@ -1,5 +1,7 @@
 <template>
   <div ref="homeRoot" class="premium-home motion-enabled">
+    <!-- Unstyled hook: the console theme draws its honeycomb backdrop here. -->
+    <div class="home-backdrop" aria-hidden="true"></div>
     <header class="topbar">
       <nav class="shell nav" aria-label="主导航">
         <RouterLink class="brand" to="/">
@@ -258,6 +260,46 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Glass-theme layout of the same comparison; hidden unless the console
+             theme is on (premium-home.css / console-theme/home.css). -->
+        <div class="ct-compare">
+          <div class="ct-compare-summary">
+            <span class="ct-compare-kicker">综合价格</span>
+            <p class="ct-compare-figure"><strong>1.4%</strong><span>约为官方价格</span></p>
+            <p class="ct-compare-lead">人民币 1:1 充值，再叠加低至 0.1× 的分组倍率，同样的调用只需官方约 1.4% 的花费。</p>
+            <div class="ct-compare-bars" aria-hidden="true">
+              <div class="ct-compare-bar">
+                <span>官方计费</span><em>1×</em>
+                <i><b style="width: 100%"></b></i>
+              </div>
+              <div class="ct-compare-bar is-platform">
+                <span>{{ siteName }}</span><em>低至 0.014×</em>
+                <i><b style="width: 1.4%"></b></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="ct-compare-grid">
+            <div class="ct-compare-highlight" aria-hidden="true" :style="{ gridRow: `1 / span ${pricingCompareRows.length + 1}` }"></div>
+            <div class="ct-compare-head is-label" style="grid-row: 1">对比项</div>
+            <div class="ct-compare-head is-official" style="grid-row: 1">官方计费</div>
+            <div class="ct-compare-head is-platform" style="grid-row: 1"><strong>{{ siteName }}</strong><span>本平台</span></div>
+            <template v-for="(row, index) in pricingCompareRows" :key="row.label">
+              <div class="ct-compare-cell is-label" :style="{ gridRow: index + 2 }">
+                <strong>{{ row.label }}</strong>
+                <span>{{ row.note }}</span>
+              </div>
+              <div class="ct-compare-cell is-official" :style="{ gridRow: index + 2 }">
+                <span class="ct-compare-sr">官方计费：</span>{{ row.official }}
+              </div>
+              <div class="ct-compare-cell is-platform" :style="{ gridRow: index + 2 }">
+                <Icon name="check" size="xs" class="ct-compare-check" />
+                <span class="ct-compare-sr">{{ siteName }}：</span><strong>{{ row.platform }}</strong>
+              </div>
+            </template>
           </div>
         </div>
       </section>
@@ -631,6 +673,14 @@ const features: Array<{ title: string; desc: string; icon: IconName }> = [
   { title: '密钥管理', desc: '独立密钥 · 访问控制', icon: 'lock' },
   { title: '多元模型', desc: '文本、推理与多模态', icon: 'cube' },
   { title: '用量透明', desc: '实时追踪调用与费用', icon: 'chart' },
+]
+
+// Rows of the glass-theme comparison; the summary column carries the overall price.
+const pricingCompareRows = [
+  { label: '充值方式', note: '人民币充值更便捷，享受更优汇率', official: '美元支付', platform: '人民币 1:1 充值' },
+  { label: '模型单价', note: '所有模型在官方价格上乘以分组倍率', official: '官方美元定价', platform: '官方价 × 分组倍率' },
+  { label: '汇率成本', note: '成本约为官方的 1/7', official: '约 7 RMB / USD', platform: '1 RMB / USD' },
+  { label: '分组折扣', note: '按套餐分组倍率自动生效', official: '1×', platform: '低至 0.1×' },
 ]
 
 const providerBrands = [

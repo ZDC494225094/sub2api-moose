@@ -100,4 +100,13 @@ describe('glass honeycomb pointer field', () => {
     flushFrame()
     expect(layer.style.getPropertyValue('--ct-pointer')).toBe('1')
   })
+
+  it('tracks the homepage and docs backdrop', () => {
+    stop = installPointerField(() => true)
+    layer.className = 'home-backdrop'
+    pointerMove(148, 71)
+    flushFrame()
+    expect(layer.style.getPropertyValue('--ct-pointer')).toBe('1')
+    expect(layer.style.getPropertyValue('--ct-px')).toBe('48.0px')
+  })
 })

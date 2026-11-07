@@ -15,7 +15,7 @@ export function useHomeMotion(root: Ref<HTMLElement | null>) {
       })
     }, { threshold: 0.06, rootMargin: '0px 0px -32px 0px' })
     const register = () => {
-      root.value?.querySelectorAll<HTMLElement>('.provider-band, .feature-item, .section-head, .pricing-compare-panel, .plan-card, .loading-card, .model-card, .support-card, .home-footer, .model-plaza-home-section > :not(.section-head)').forEach((element) => {
+      root.value?.querySelectorAll<HTMLElement>('.provider-band, .feature-item, .section-head, .pricing-compare-panel, .ct-compare, .plan-card, .loading-card, .model-card, .support-card, .home-footer, .model-plaza-home-section > :not(.section-head)').forEach((element) => {
         if (seen.has(element)) return
         seen.add(element)
         const siblings = Array.from(element.parentElement?.children || [])

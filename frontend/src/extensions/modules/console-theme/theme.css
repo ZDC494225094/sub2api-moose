@@ -11,7 +11,8 @@
    lose to later state utilities such as hover:bg-* of equal specificity.
 
    Behind everything sits a honeycomb grid that lights up around the mouse
-   (section 3a, driven by pointerField.ts). Panes are frosted glass over it: the
+   (section 3a, driven by pointerField.ts), also behind the homepage and docs
+   centre, whose own styles live in home.css. Panes are frosted glass over it: the
    blur sits on a ::before layer at z-index -1 rather than on the pane, so panes
    never become containing blocks for fixed popups or trap dropdowns (section 5).
    ========================================================================== */
@@ -195,7 +196,7 @@
    disc that follows the pointer, and the cell under the pointer. pointerField.ts
    feeds --ct-px/--ct-py/--ct-cx/--ct-cy/--ct-pointer; the glass panes above blur
    all of it, which is what gives them their frosted look. */
-[data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor) {
+[data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor, .home-backdrop) {
   overflow: hidden;
   background-image: var(--ct-hex), var(--ct-grain-faint);
   background-position: 0 0, 0 0;
@@ -210,8 +211,17 @@
   z-index: -2;
 }
 
-[data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor)::before,
-[data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor)::after {
+/* Homepage and docs centre: a fixed layer at the back of the isolated page
+   (home.css), under every pane and the sticky top bar. */
+[data-console-theme='glass'] .home-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+[data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor, .home-backdrop)::before,
+[data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor, .home-backdrop)::after {
   position: absolute;
   top: 0;
   left: 0;
@@ -222,7 +232,7 @@
 
 /* Spotlight: a 560px disc centred on the pointer. Its grid copy is shifted back
    by the same amount, so the lit lines sit exactly on the static ones. */
-[data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor)::before {
+[data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor, .home-backdrop)::before {
   width: 560px;
   height: 560px;
   background-image: var(--ct-hex-lit), radial-gradient(closest-side, var(--ct-glow), transparent);
@@ -237,7 +247,7 @@
 }
 
 /* The hexagon under the pointer, gliding from cell to cell. */
-[data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor)::after {
+[data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor, .home-backdrop)::after {
   width: 48px;
   height: 41.569219px;
   background-color: var(--ct-cell);
@@ -247,8 +257,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor)::before,
-  [data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor)::after {
+  [data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor, .home-backdrop)::before,
+  [data-console-theme='glass'] :is(.bg-mesh-gradient, .auth-layout-decor, .home-backdrop)::after {
     transition: none;
   }
 }

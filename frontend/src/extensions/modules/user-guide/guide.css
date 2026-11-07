@@ -57,6 +57,11 @@
   background: #f3ead3;
 }
 
+.guide-toc-card a.is-active {
+  background: #f3ead3;
+  font-weight: 600;
+}
+
 .guide-toc-card a.is-h3 {
   padding-left: 24px;
   font-size: 13px;
@@ -69,6 +74,16 @@
   border-radius: 16px;
   padding: 30px 34px;
   min-width: 0;
+}
+
+.guide-eyebrow {
+  display: none;
+}
+
+.guide-meta {
+  margin: -8px 0 14px;
+  color: #8a97a8;
+  font-size: 13px;
 }
 
 .guide-title {
@@ -96,6 +111,11 @@
   border-top: none;
   padding-top: 0;
   margin-top: 6px;
+}
+
+/* Anchor jumps land below the sticky top bar instead of under it. */
+.guide-article .markdown-body :is(h2, h3) {
+  scroll-margin-top: 92px;
 }
 
 .guide-article .markdown-body h3 {

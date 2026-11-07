@@ -53,6 +53,7 @@
 
 - `frontend/tailwind.config.js`：`primary`、`gray`、`dark` 三套色板改为 `rgb(var(--sa-<色板>-<色阶>, 原值) / <alpha-value>)`，回退值与上游完全一致；只有主题模块写入变量时颜色才会变化。
 - 布局钩子类（无样式、仅供主题选择器使用）：`AppLayout`（`app-layout`）、`AppHeader`（`app-header*` 与 `header-actions` 插槽）、`AppSidebar`（`sidebar-theme-toggle`，主题开启时由顶栏三态切换替代）、`AuthLayout`（`auth-layout*`）。
+- 首页（`PremiumHomeView`）与文档中心（`user-guide/GuideView`）各加一个无样式的 `home-backdrop` 空层，主题开启时在其上绘制六边形网格；两页的 Glass 样式集中在 `console-theme/home.css`，选择器均以 `:root[data-console-theme='glass']` 开头，关闭主题即恢复原样。
 - `RedeemView` 增加两个无样式分栏容器（`ct-redeem-main` / `ct-redeem-side`），关闭主题时仍为原来的单列堆叠；开启后在 ≥1280px 宽屏改为左右两栏。
 - 首屏使用 `localStorage` 中上次确认的开关状态（`custom-extensions.console-theme`）避免闪烁；状态接口暂时失败时保持上次确认的外观，主题不参与任何业务准入。
 - 新插件按惯例默认关闭：需管理员在「二开插件管理」中开启「控制台主题」。

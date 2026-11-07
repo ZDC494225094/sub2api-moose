@@ -84,3 +84,9 @@
   .premium-home .support-card p { font-size: 13px; }
   .premium-home .home-footer { margin-top: 52px; }
 }
+
+/* The rule above aligns title and link at the bottom of a row; once the head
+   stacks into a column on phones it would push both to the right edge. */
+@media (max-width: 640px) {
+  .premium-home .section-head { align-items: flex-start; }
+}

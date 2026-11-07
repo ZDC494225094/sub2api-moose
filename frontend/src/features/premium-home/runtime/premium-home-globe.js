@@ -23,6 +23,51 @@ export const globeProviderMarkers = [
   { id: 'grok', name: 'Grok', model: 'grok' },
 ]
 
+// Colour sets. "default" is the original homepage look and stays the default
+// for every caller; "glass" is the neutral ink set used while the console theme
+// is on: grey land and shell, faint ink routes, one blue accent for traffic.
+const globePalettes = {
+  default: {
+    light: {
+      shellCenter: '#fdfdfe', shellEdge: '#dfe8f5', dots: '#6d829d', dotsOpacity: 0.82, fog: '#f3f6fc',
+      flow: '#238af5', flowHead: '#238af5', flowOpacity: 0.92, flowBlend: 'additive',
+      ink: '#162233', arc: '#a855f7', arcOpacity: 0.52,
+      hub: '#3b82f6', node: '#93c5fd', glow: '#38bdf8', ring: '#46b8ff', ringBlend: 'additive',
+    },
+    dark: {
+      shellCenter: '#142b49', shellEdge: '#071220', dots: '#72a8d7', dotsOpacity: 0.92, fog: '#0b1220',
+      flow: '#67e8f9', flowHead: '#67e8f9', flowOpacity: 0.92, flowBlend: 'additive',
+      ink: '#edf6ff', arc: '#a855f7', arcOpacity: 0.52,
+      hub: '#3b82f6', node: '#93c5fd', glow: '#38bdf8', ring: '#46b8ff', ringBlend: 'additive',
+    },
+  },
+  glass: {
+    light: {
+      shellCenter: '#ffffff', shellEdge: '#e6e6e6', dots: '#8c8c8c', dotsOpacity: 0.72, fog: '#f4f4f4',
+      flow: '#a3cbf9', flowHead: '#006fee', flowOpacity: 1, flowBlend: 'normal',
+      ink: '#181818', arc: '#181818', arcOpacity: 0.16,
+      hub: '#006fee', node: '#a3a3a3', glow: '#006fee', ring: '#006fee', ringBlend: 'normal',
+    },
+    dark: {
+      shellCenter: '#262626', shellEdge: '#0b0b0b', dots: '#a3a3a3', dotsOpacity: 0.6, fog: '#090909',
+      flow: '#2f7fe6', flowHead: '#e8f2ff', flowOpacity: 0.95, flowBlend: 'additive',
+      ink: '#fafafa', arc: '#ffffff', arcOpacity: 0.16,
+      hub: '#338ef7', node: '#737373', glow: '#338ef7', ring: '#66aaf9', ringBlend: 'additive',
+    },
+  },
+}
+
+function setBlending(material, blending) {
+  if (material.blending === blending) return
+  material.blending = blending
+  material.needsUpdate = true
+}
+
+function resolvePalette(name, isDark) {
+  const palette = globePalettes[name] || globePalettes.default
+  return isDark ? palette.dark : palette.light
+}
+
 function latLonToVector3(THREE, lat, lon, radius) {
   const phi = ((90 - lat) * Math.PI) / 180
   const theta = (lon * Math.PI) / 180
@@ -114,6 +159,8 @@ function createFlowSegment(THREE, curve, width, speed, initialOffset) {
   const uniforms = {
     time: { value: initialOffset },
     color: { value: new THREE.Color('#22d3ee') },
+    headColor: { value: new THREE.Color('#22d3ee') },
+    intensity: { value: 0.92 },
   }
 
   const material = new THREE.ShaderMaterial({
@@ -131,12 +178,18 @@ function createFlowSegment(THREE, curve, width, speed, initialOffset) {
     fragmentShader: `
       uniform float time;
       uniform vec3 color;
+      uniform vec3 headColor;
+      uniform float intensity;
       varying vec2 vUv;
 
       void main() {
         float head = fract(vUv.x * 2.0 + time);
-        float mask = smoothstep(0.0, 0.38, head) * (1.0 - smoothstep(0.38, 0.44, head));
-        gl_FragColor = vec4(color, mask * 0.92);
+        float cut = 1.0 - smoothstep(0.38, 0.44, head);
+        float mask = smoothstep(0.0, 0.38, head) * cut;
+        // The last stretch before the cut takes the head colour (same as the
+        // tail colour in the default palette, so nothing changes there).
+        float tip = smoothstep(0.28, 0.38, head) * cut;
+        gl_FragColor = vec4(mix(color, headColor, tip), mask * intensity);
       }
     `,
   })
@@ -148,20 +201,22 @@ function createFlowSegment(THREE, curve, width, speed, initialOffset) {
   }
 }
 
-function createArcGroup(THREE, route, animatedFlows) {
+function createArcGroup(THREE, route, animatedFlows, arcMaterials) {
   const { segments } = buildArcSegments(THREE, route)
   const group = new THREE.Group()
   const initialOffset = Math.random()
 
   segments.forEach((segment) => {
+    const baseMaterial = new THREE.MeshBasicMaterial({
+      color: 0xa855f7,
+      transparent: true,
+      opacity: 0.52,
+      depthWrite: false,
+    })
+    arcMaterials.push(baseMaterial)
     const baseMesh = new THREE.Mesh(
       new THREE.TubeGeometry(segment.curve, 44, 0.008 * (route.width || 1), 8, false),
-      new THREE.MeshBasicMaterial({
-        color: 0xa855f7,
-        transparent: true,
-        opacity: 0.52,
-        depthWrite: false,
-      }),
+      baseMaterial,
     )
     const flow = createFlowSegment(THREE, segment.curve, route.width || 1, route.speed || 0.45, initialOffset)
 
@@ -193,7 +248,7 @@ function collectUniqueNodes() {
 }
 
 export async function mountPremiumHomeGlobe(canvas, options = {}) {
-  const noop = Object.assign(() => {}, { setTheme: () => {}, setAnimating: () => {}, setSiteLogo: () => {} })
+  const noop = Object.assign(() => {}, { setTheme: () => {}, setPalette: () => {}, setAnimating: () => {}, setSiteLogo: () => {} })
   if (!canvas || typeof window === 'undefined') {
     return noop
   }
@@ -284,8 +339,9 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
   group.add(earthDots)
 
   const animatedFlows = []
+  const arcMaterials = []
   globeRoutes.forEach((route) => {
-    group.add(createArcGroup(THREE, route, animatedFlows))
+    group.add(createArcGroup(THREE, route, animatedFlows, arcMaterials))
   })
 
   const nodeGroup = new THREE.Group()
@@ -324,6 +380,7 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
   }
   let disposed = false
   let dark = Boolean(options.isDark)
+  let paletteName = options.palette || 'default'
   const decals = new Map()
   let siteLogoRevision = 0
 
@@ -360,7 +417,7 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
       uniforms: {
         map: { value: texture },
         monochrome: { value: monochrome },
-        ink: { value: new THREE.Color(dark ? '#edf6ff' : '#162233') },
+        ink: { value: new THREE.Color(resolvePalette(paletteName, dark).ink) },
       },
       transparent: true,
       depthTest: true,
@@ -423,16 +480,37 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
     }).catch((error) => console.warn('Globe site logo unavailable:', error))
   }
 
+  const applyPalette = () => {
+    const colors = resolvePalette(paletteName, dark)
+    globeShell.material.uniforms.centerColor.value.set(colors.shellCenter)
+    globeShell.material.uniforms.edgeColor.value.set(colors.shellEdge)
+    earthDots.material.color.set(colors.dots)
+    earthDots.material.opacity = colors.dotsOpacity
+    scene.fog.color.set(colors.fog)
+    const flowBlending = colors.flowBlend === 'normal' ? THREE.NormalBlending : THREE.AdditiveBlending
+    animatedFlows.forEach((flow) => {
+      flow.uniforms.color.value.set(colors.flow)
+      flow.uniforms.headColor.value.set(colors.flowHead)
+      flow.uniforms.intensity.value = colors.flowOpacity
+      setBlending(flow.mesh.material, flowBlending)
+    })
+    arcMaterials.forEach((material) => {
+      material.color.set(colors.arc)
+      material.opacity = colors.arcOpacity
+    })
+    nodeGroup.children.forEach((node, index) => node.material.color.set(index === 0 ? colors.hub : colors.node))
+    hubGlow.material.color.set(colors.glow)
+    const ringBlending = colors.ringBlend === 'normal' ? THREE.NormalBlending : THREE.AdditiveBlending
+    for (const ring of [hubRingA, hubRingB]) {
+      ring.material.color.set(colors.ring)
+      setBlending(ring.material, ringBlending)
+    }
+    decals.forEach((mesh) => mesh.material.uniforms.ink.value.set(colors.ink))
+    render()
+  }
   const setTheme = (isDark) => {
     dark = isDark
-    globeShell.material.uniforms.centerColor.value.set(dark ? '#142b49' : '#fdfdfe')
-    globeShell.material.uniforms.edgeColor.value.set(dark ? '#071220' : '#dfe8f5')
-    earthDots.material.color.set(dark ? '#72a8d7' : '#6d829d')
-    earthDots.material.opacity = dark ? 0.92 : 0.82
-    scene.fog.color.set(dark ? '#0b1220' : '#f3f6fc')
-    animatedFlows.forEach((flow) => flow.uniforms.color.value.set(dark ? '#67e8f9' : '#238af5'))
-    decals.forEach((mesh) => mesh.material.uniforms.ink.value.set(dark ? '#edf6ff' : '#162233'))
-    render()
+    applyPalette()
   }
   setTheme(dark)
 
@@ -610,6 +688,11 @@ export async function mountPremiumHomeGlobe(canvas, options = {}) {
   }
   return Object.assign(cleanup, {
     setTheme: (isDark) => { if (!disposed) setTheme(isDark) },
+    setPalette: (name) => {
+      if (disposed) return
+      paletteName = name || 'default'
+      applyPalette()
+    },
     setAnimating: (enabled) => { animationEnabled = enabled; syncAnimation() },
     setSiteLogo,
   })

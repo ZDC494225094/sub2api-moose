@@ -1,6 +1,7 @@
 import { ref, watch } from 'vue'
 import { installPointerField } from './pointerField'
 import './theme.css'
+import './home.css'
 
 // Presentation-only module: it never admits or blocks business. The whole theme is
 // one root attribute that switches CSS variables and scoped component styles, so

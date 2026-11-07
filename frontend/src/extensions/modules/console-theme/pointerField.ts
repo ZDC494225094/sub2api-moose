@@ -1,7 +1,8 @@
 // Pointer field for the glass theme's honeycomb backdrop.
 //
 // theme.css draws a flat-top hexagon grid on the console backdrop
-// (.bg-mesh-gradient) and the auth backdrop (.auth-layout-decor). This keeps a few
+// (.bg-mesh-gradient), the auth backdrop (.auth-layout-decor) and the homepage /
+// docs backdrop (.home-backdrop). This keeps a few
 // CSS variables on those layers in step with the mouse so the grid lights up
 // around the pointer:
 //   --ct-px / --ct-py  pointer position inside the layer (spotlight)
@@ -17,7 +18,7 @@ export const HEX_ROW = HEX_SIDE * Math.sqrt(3)
 
 const COLUMN_PITCH = HEX_SIDE * 1.5
 const FIRST_COLUMN_X = HEX_SIDE / 2
-const LAYER_CLASSES = ['bg-mesh-gradient', 'auth-layout-decor'] as const
+const LAYER_CLASSES = ['bg-mesh-gradient', 'auth-layout-decor', 'home-backdrop'] as const
 
 export interface Point {
   x: number
