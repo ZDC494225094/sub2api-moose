@@ -16,6 +16,18 @@ export const customExtensionRoutes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresAdmin: true, title: '网关日志存储' },
   },
   {
+    path: '/admin/invoices',
+    name: 'AdminInvoices',
+    component: () => import('./modules/invoices/AdminInvoiceView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: '发票管理' },
+  },
+  {
+    path: '/invoices',
+    name: 'Invoices',
+    component: () => import('./modules/invoices/InvoiceView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: false, title: '发票管理' },
+  },
+  {
     path: '/admin/guide',
     name: 'AdminUserGuide',
     component: () => import('./modules/user-guide/AdminGuideView.vue'),

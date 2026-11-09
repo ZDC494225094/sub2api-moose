@@ -221,6 +221,10 @@ func RequestExtension(method, path string) string {
 		return "bot-notify"
 	case pathUnder(path, "/admin/gateway-log-archive"):
 		return "gateway-log-archive"
+	case (method == "GET" || method == "HEAD") && pathUnder(path, "/invoices"):
+		return "invoices"
+	case pathUnder(path, "/admin/invoices"):
+		return "invoices"
 	case method == "POST" && path == "/api/v1/playground/runs":
 		return "playground"
 	case path == "/api/v1/canvas/config" || (method == "POST" && path == "/api/v1/canvas/runs"):

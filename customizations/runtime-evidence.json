@@ -590,6 +590,48 @@
         "marker": "export const CONSOLE_THEME_ATTRIBUTE = 'data-console-theme'"
       },
       "scope": "纯前端外观模块：开启时在根节点写入 data-console-theme 切换调色板变量与作用域样式，并挂载顶栏主题切换插槽；关闭即移除属性恢复上游样式。状态未知时保持上次确认的外观，不参与任何业务准入。"
+    },
+    {
+      "module": "invoices",
+      "checkpoint": "/api/v1/invoices/*",
+      "read": {
+        "file": "backend/internal/customize/http.go",
+        "marker": "m.Enabled(c.Request.Context(), id)"
+      },
+      "call": {
+        "file": "backend/internal/server/routes/custom_extensions.go",
+        "marker": "h.Extensions.Invoices.RegisterUser(authenticated, extensions)"
+      },
+      "test": {
+        "file": "backend/internal/server/routes/custom_extensions_test.go",
+        "marker": "TestInvoiceRoutesRequireEnabledModuleAndAccess"
+      },
+      "feature": {
+        "file": "backend/internal/customize/modules/invoices/http.go",
+        "marker": "func (h *Handler) RegisterUser("
+      },
+      "scope": "用户接口在宿主登录链之后先校验开关，再按开放范围（全部用户或指定名单）校验本人权限；未开放时仅概览可访问且不读取订单。只读支付订单表，不修改上游订单；关闭后保留申请、抬头、名单与发票文件。"
+    },
+    {
+      "module": "invoices",
+      "checkpoint": "/api/v1/admin/invoices/*",
+      "read": {
+        "file": "backend/internal/customize/http.go",
+        "marker": "m.Enabled(c.Request.Context(), id)"
+      },
+      "call": {
+        "file": "backend/internal/server/routes/custom_extensions.go",
+        "marker": "h.Extensions.Invoices.RegisterAdmin(admin, extensions)"
+      },
+      "test": {
+        "file": "backend/internal/server/routes/custom_extensions_test.go",
+        "marker": "TestInvoiceRoutesRequireEnabledModuleAndAccess"
+      },
+      "feature": {
+        "file": "backend/internal/customize/modules/invoices/http.go",
+        "marker": "func (h *Handler) RegisterAdmin("
+      },
+      "scope": "管理接口在管理员认证之后校验开关；审核状态迁移为条件更新，作废与驳回在同一事务内释放订单；关闭后保留全部已提交数据。"
     }
   ]
 }

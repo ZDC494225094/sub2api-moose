@@ -240,5 +240,17 @@
     "slots": [
       "header-actions"
     ]
+  },
+  {
+    "id": "invoices",
+    "name": "开票申请",
+    "description": "用户按站内支付完成的人民币订单（余额充值与套餐购买）申请开具电子普通发票或增值税专用发票，可多笔订单合并开票并管理发票抬头；管理员设置开票门槛与开放范围（全部用户或指定用户），审核后登记发票号码并上传 PDF。",
+    "managed": true,
+    "audience": "public",
+    "disable_behavior": "关闭后用户端开票入口与接口、管理端审核页同时停用；已提交的申请、抬头、发票文件和名单全部保留，重新开启后继续可用。",
+    "paths": [
+      "/invoices",
+      "/admin/invoices"
+    ]
   }
 ]

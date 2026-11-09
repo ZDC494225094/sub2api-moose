@@ -10,12 +10,14 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/Wei-Shaw/sub2api/internal/customize"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/invoices"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/marketing"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/rechargecampaigns"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/userguide"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/wechat"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
 	adminhandler "github.com/Wei-Shaw/sub2api/internal/handler/admin"
+	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -376,6 +378,74 @@ func TestUserGuideRoutesRequireEnabledModule(t *testing.T) {
 				} else {
 					require.NotContains(t, w.Body.String(), "Saved content")
 					require.Equal(t, "no-store", w.Header().Get("Cache-Control"))
+				}
+			}
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+type invoiceFlagStore struct{ value string }
+
+func (s invoiceFlagStore) GetMultiple(context.Context, []string) (map[string]string, error) {
+	return map[string]string{customize.Key(invoices.ID): s.value}, nil
+}
+func (invoiceFlagStore) Set(context.Context, string, string) error { return nil }
+
+// Exercise the real registrars: a disabled or corrupt switch rejects before any
+// invoice table is read, and an enabled switch still keeps users who are not on
+// the allowlist out of everything except the overview.
+func TestInvoiceRoutesRequireEnabledModuleAndAccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	settingsRow := func() *sqlmock.Rows {
+		return sqlmock.NewRows([]string{"min_amount", "allow_special", "order_window_days", "access_mode", "item_name", "notice", "updated_at"}).
+			AddRow("100.00", true, 365, "allowlist", "信息技术服务费", "", nil)
+	}
+	for _, value := range []string{"false", "true", "invalid"} {
+		t.Run(value, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = db.Close() })
+			h := &handler.Handlers{Extensions: &handler.ExtensionHandlers{Invoices: &invoices.Handler{Store: &invoices.Store{DB: db}}}}
+			manager := customize.NewManager(invoiceFlagStore{value})
+			r := gin.New()
+			v1 := r.Group("/api/v1")
+			authenticated := v1.Group("", func(c *gin.Context) {
+				c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 7})
+				c.Next()
+			})
+			registerCustomUserRoutes(authenticated, h, manager)
+			registerCustomOperationsRoutes(authenticated.Group("/admin"), h, manager)
+
+			if value == "true" {
+				mock.ExpectQuery("SELECT min_amount, allow_special").WillReturnRows(settingsRow())
+				mock.ExpectQuery("SELECT 1 FROM invoice_user_access").WithArgs(int64(7)).WillReturnRows(sqlmock.NewRows([]string{"one"}))
+				mock.ExpectQuery("SELECT min_amount, allow_special").WillReturnRows(settingsRow())
+				mock.ExpectQuery("SELECT 1 FROM invoice_user_access").WithArgs(int64(7)).WillReturnRows(sqlmock.NewRows([]string{"one"}))
+				mock.ExpectQuery("SELECT min_amount, allow_special").WillReturnRows(settingsRow())
+			}
+			for _, tc := range []struct {
+				path, enabledBody string
+				enabledCode       int
+			}{
+				{"/api/v1/invoices/overview", `"allowed":false`, http.StatusOK},
+				{"/api/v1/invoices/orders", "INVOICE_ACCESS_DENIED", http.StatusForbidden},
+				{"/api/v1/admin/invoices/settings", `"min_amount":"100.00"`, http.StatusOK},
+			} {
+				code := http.StatusForbidden
+				if value == "invalid" {
+					code = http.StatusServiceUnavailable
+				} else if value == "true" {
+					code = tc.enabledCode
+				}
+				w := httptest.NewRecorder()
+				r.ServeHTTP(w, httptest.NewRequest("GET", tc.path, nil))
+				require.Equal(t, code, w.Code, tc.path)
+				require.Equal(t, "no-store", w.Header().Get("Cache-Control"), tc.path)
+				if value == "true" {
+					require.Contains(t, w.Body.String(), tc.enabledBody, tc.path)
+				} else {
+					require.NotContains(t, w.Body.String(), "min_amount", tc.path)
 				}
 			}
 			require.NoError(t, mock.ExpectationsWereMet())

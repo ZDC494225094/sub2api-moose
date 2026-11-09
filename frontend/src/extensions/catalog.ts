@@ -27,6 +27,8 @@ export const extensionPaths = {
   'subscription-extensions': [],
   // Presentation only: a root theme attribute and the header theme switcher slot.
   'console-theme': [],
+  // Per-user access is checked by the module itself (allowlist or all users).
+  invoices: ['/invoices', '/admin/invoices'],
 } as const
 
 export type ExtensionId = keyof typeof extensionPaths

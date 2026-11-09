@@ -207,6 +207,7 @@
 
 <script setup lang="ts">
 import { useExtensionStore } from '@/extensions/store'
+import { useInvoiceAccess } from '@/extensions/modules/invoices/useInvoiceAccess'
 import { useThemeMode } from '@/extensions/modules/console-theme/themeMode'
 import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
@@ -271,6 +272,7 @@ const authStore = useAuthStore()
 const onboardingStore = useOnboardingStore()
 const adminSettingsStore = useAdminSettingsStore()
 const { canUseBatchImage, refreshBatchImageAccess } = useBatchImageAccess()
+const { canUseInvoices, refreshInvoiceAccess } = useInvoiceAccess()
 
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
@@ -770,6 +772,7 @@ const flagPluginManagement = makeSidebarFlag(FeatureFlags.pluginManagement)
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 const flagBatchImageAccess = () => canUseBatchImage.value
+const flagInvoiceAccess = () => canUseInvoices.value
 
 
 function isHttpUrl(rawUrl: string): boolean {
@@ -815,6 +818,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/purchase', label: purchaseNavLabel.value, icon: RechargeSubscriptionIcon, hideInSimpleMode: true, featureFlag: flagPayment },
     { path: '/lottery', label: t('nav.lottery'), icon: GiftIcon, hideInSimpleMode: true, featureFlag: flagPayment },
     { path: '/orders', label: t('nav.myOrders'), icon: OrderListIcon, hideInSimpleMode: true, featureFlag: flagPayment },
+    { path: '/invoices', label: '发票管理', icon: OrderListIcon, hideInSimpleMode: true, featureFlag: flagInvoiceAccess },
     { path: '/redeem', label: t('nav.redeem'), icon: GiftIcon, hideInSimpleMode: true },
     { path: '/affiliate', label: t('nav.affiliate'), icon: UsersIcon, hideInSimpleMode: true, featureFlag: flagAffiliate },
     { path: '/profile', label: t('nav.profile'), icon: UserIcon },
@@ -922,6 +926,7 @@ const adminNavItems = computed((): NavItem[] => {
         { path: '/admin/orders/lottery', label: t('nav.marketingLottery'), icon: GiftIcon },
       ],
     },
+    { path: '/admin/invoices', label: '发票管理', icon: OrderIcon, hideInSimpleMode: true },
     { path: '/admin/usage', label: t('nav.usage'), icon: ChartIcon },
     { path: '/admin/storage-assets', label: '存储素材', icon: PlaygroundIcon },
     { path: '/admin/canvas-runs', label: '画布任务', icon: PlaygroundIcon },
@@ -1031,6 +1036,13 @@ watch(
     }
   },
   { immediate: true }
+)
+
+// The invoice entry depends on the module switch and on per-user access.
+watch(
+  () => [useExtensionStore().enabled('invoices'), authStore.user?.id] as const,
+  () => { void refreshInvoiceAccess() },
+  { immediate: true },
 )
 
 onMounted(() => {

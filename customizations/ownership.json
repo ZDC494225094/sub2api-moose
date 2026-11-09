@@ -9,6 +9,15 @@
     ]
   },
   {
+    "id": "invoices",
+    "patterns": [
+      "^backend/internal/customize/modules/invoices/",
+      "^backend/internal/customize/migrations/sql/invoices/",
+      "^backend/internal/customize/wiring/invoices",
+      "^frontend/src/extensions/modules/invoices/"
+    ]
+  },
+  {
     "id": "redeem-marketing",
     "patterns": [
       "^backend/internal/customize/modules/redeemmarketing/",

@@ -12,6 +12,9 @@ func registerCustomUserRoutes(authenticated *gin.RouterGroup, h *handler.Handler
 	if h != nil && h.Extensions != nil && h.Extensions.Wechat != nil {
 		h.Extensions.Wechat.RegisterUserRoutes(authenticated)
 	}
+	if h != nil && h.Extensions != nil && h.Extensions.Invoices != nil {
+		h.Extensions.Invoices.RegisterUser(authenticated, extensions)
+	}
 	// Core-only hosts and upstream route tests do not have to construct plugins.
 	if h == nil || h.Extensions == nil || h.Extensions.Playground == nil {
 		return
@@ -42,6 +45,9 @@ func registerCustomOperationsRoutes(admin *gin.RouterGroup, h *handler.Handlers,
 	}
 	if h != nil && h.Extensions != nil && h.Extensions.GatewayLogArchive != nil {
 		h.Extensions.GatewayLogArchive.Register(admin, extensions)
+	}
+	if h != nil && h.Extensions != nil && h.Extensions.Invoices != nil {
+		h.Extensions.Invoices.RegisterAdmin(admin, extensions)
 	}
 	if h == nil || h.Extensions == nil || h.Extensions.Operations == nil {
 		return
