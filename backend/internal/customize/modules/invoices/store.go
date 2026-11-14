@@ -86,6 +86,23 @@ func (s *Store) SaveSettings(ctx context.Context, in Settings) (Settings, error)
 
 // ---------- access ----------
 
+// UserSettings overlays a user's threshold even when access is open to everyone.
+// A NULL override follows the global rule; an explicit zero means no minimum.
+func (s *Store) UserSettings(ctx context.Context, userID int64, settings Settings) (Settings, error) {
+	if err := s.ready(); err != nil {
+		return Settings{}, err
+	}
+	var amount decimal.NullDecimal
+	err := s.DB.QueryRowContext(ctx, `SELECT min_amount FROM invoice_user_access WHERE user_id = $1`, userID).Scan(&amount)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return Settings{}, fmt.Errorf("invoices: load user threshold: %w", err)
+	}
+	if amount.Valid {
+		settings.MinAmount = amount.Decimal
+	}
+	return settings, nil
+}
+
 // HasAccess reports whether a user may use the invoice pages under the settings.
 func (s *Store) HasAccess(ctx context.Context, userID int64, settings Settings) (bool, error) {
 	if settings.AccessMode == AccessAll {
@@ -109,7 +126,7 @@ func (s *Store) ListAccess(ctx context.Context) ([]AccessEntry, error) {
 	if err := s.ready(); err != nil {
 		return nil, err
 	}
-	rows, err := s.DB.QueryContext(ctx, `SELECT a.user_id, COALESCE(u.email, ''), COALESCE(u.username, ''), a.note, a.created_at
+	rows, err := s.DB.QueryContext(ctx, `SELECT a.user_id, COALESCE(u.email, ''), COALESCE(u.username, ''), a.note, a.created_at, a.min_amount
 		FROM invoice_user_access a LEFT JOIN users u ON u.id = a.user_id
 		ORDER BY a.created_at DESC, a.user_id DESC`)
 	if err != nil {
@@ -120,10 +137,14 @@ func (s *Store) ListAccess(ctx context.Context) ([]AccessEntry, error) {
 	for rows.Next() {
 		var item AccessEntry
 		var created dbTime
-		if err := rows.Scan(&item.UserID, &item.Email, &item.Username, &item.Note, &created); err != nil {
+		var amount decimal.NullDecimal
+		if err := rows.Scan(&item.UserID, &item.Email, &item.Username, &item.Note, &created, &amount); err != nil {
 			return nil, fmt.Errorf("invoices: scan access: %w", err)
 		}
 		item.CreatedAt = created.T
+		if amount.Valid {
+			item.MinAmount = &amount.Decimal
+		}
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -179,6 +200,27 @@ func (s *Store) AddAccess(ctx context.Context, userIDs []int64, note string) err
 		}
 	}
 	return tx.Commit()
+}
+
+// UpdateAccess edits only an existing entry; it never grants access implicitly.
+func (s *Store) UpdateAccess(ctx context.Context, userID int64, note string, minAmount *decimal.Decimal) error {
+	if err := s.ready(); err != nil {
+		return err
+	}
+	var amount any
+	if minAmount != nil {
+		amount = minAmount.StringFixed(2)
+	}
+	res, err := s.DB.ExecContext(ctx, `UPDATE invoice_user_access SET note = $1, min_amount = $2 WHERE user_id = $3`, note, amount, userID)
+	if err != nil {
+		return fmt.Errorf("invoices: update access: %w", err)
+	}
+	if n, err := res.RowsAffected(); err != nil {
+		return err
+	} else if n == 0 {
+		return infraerrors.NotFound("INVOICE_ACCESS_NOT_FOUND", "该用户不在开放名单中，请刷新后重试")
+	}
+	return nil
 }
 
 // RemoveAccess stops new applications from the user; existing applications and
@@ -424,6 +466,14 @@ func (s *Store) CreateApplication(ctx context.Context, userID int64, in ApplyInp
 		return Application{}, fmt.Errorf("invoices: begin apply: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
+
+	// Re-read the override inside the submission transaction so callers cannot
+	// bypass a higher per-user threshold with stale/global settings.
+	err = tx.QueryRowContext(ctx, `SELECT COALESCE((SELECT min_amount FROM invoice_user_access WHERE user_id = $1), min_amount)
+		FROM invoice_settings WHERE id = 1`, userID).Scan(&settings.MinAmount)
+	if err != nil {
+		return Application{}, fmt.Errorf("invoices: load application threshold: %w", err)
+	}
 
 	orders, err := s.queryEligible(ctx, tx, userID, settings, in.OrderIDs, 0)
 	if err != nil {

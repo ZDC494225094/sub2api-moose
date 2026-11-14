@@ -168,11 +168,12 @@ type ApplicationFilter struct {
 
 // AccessEntry is an allowlisted user.
 type AccessEntry struct {
-	UserID    int64     `json:"user_id"`
-	Email     string    `json:"email"`
-	Username  string    `json:"username"`
-	Note      string    `json:"note"`
-	CreatedAt time.Time `json:"created_at"`
+	UserID    int64            `json:"user_id"`
+	Email     string           `json:"email"`
+	Username  string           `json:"username"`
+	Note      string           `json:"note"`
+	MinAmount *decimal.Decimal `json:"min_amount"`
+	CreatedAt time.Time        `json:"created_at"`
 }
 
 // File is an issued invoice document.

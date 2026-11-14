@@ -77,7 +77,7 @@ async function save() {
       <label>
         <span class="input-label">开票门槛（元）</span>
         <input v-model="form.min_amount" type="number" min="0" step="0.01" class="input" />
-        <span class="input-hint">单次申请的订单合计金额需不少于此值，0 表示不限。用户可合并多笔订单达到门槛。</span>
+        <span class="input-hint">单次申请的订单合计金额需不少于此值，0 表示不限。用户可合并多笔订单达到门槛；开放名单中的独立门槛优先。</span>
       </label>
       <label>
         <span class="input-label">可开票订单时限（天）</span>

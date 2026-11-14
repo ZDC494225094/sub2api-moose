@@ -51,10 +51,12 @@ func (h *Handler) RegisterAdmin(group *gin.RouterGroup, manager *customize.Manag
 	g.PUT("/settings", h.saveSettings)
 	g.GET("/access", h.listAccess)
 	g.POST("/access", h.addAccess)
+	g.PUT("/access/:user_id", h.updateAccess)
 	g.DELETE("/access/:user_id", h.removeAccess)
 	g.GET("/applications", h.listApplications)
 	g.GET("/applications/:id", h.adminApplication)
 	g.POST("/applications/:id/process", h.process)
+	g.POST("/applications/:id/prepare-makeout", h.prepareMakeout)
 	g.POST("/applications/:id/issue", h.issue)
 	g.POST("/applications/:id/file", h.uploadFile)
 	g.GET("/applications/:id/file", h.adminFile)
@@ -103,6 +105,11 @@ func (h *Handler) requireAccess(c *gin.Context) {
 		c.Abort()
 		return
 	}
+	settings, err = h.Store.UserSettings(c.Request.Context(), userID, settings)
+	if response.ErrorFrom(c, err) {
+		c.Abort()
+		return
+	}
 	c.Set(settingsKey, settings)
 	c.Next()
 }
@@ -141,6 +148,10 @@ func (h *Handler) overview(c *gin.Context) {
 	}
 	if !allowed {
 		response.Success(c, gin.H{"allowed": false})
+		return
+	}
+	settings, err = h.Store.UserSettings(c.Request.Context(), userID, settings)
+	if response.ErrorFrom(c, err) {
 		return
 	}
 	response.Success(c, gin.H{"allowed": true, "settings": publicSettings(settings)})
@@ -438,6 +449,33 @@ func (h *Handler) removeAccess(c *gin.Context) {
 	}
 }
 
+func (h *Handler) updateAccess(c *gin.Context) {
+	id, ok := pathID(c, "user_id")
+	if !ok {
+		return
+	}
+	var req struct {
+		Note      string  `json:"note"`
+		MinAmount *string `json:"min_amount"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request body")
+		return
+	}
+	note := clean(req.Note)
+	if tooLong(note, 200) {
+		response.ErrorFrom(c, badRequest("INVOICE_ACCESS_INVALID", "备注最多 200 个字符"))
+		return
+	}
+	amount, err := ParseUserThreshold(req.MinAmount)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	if !response.ErrorFrom(c, h.Store.UpdateAccess(c.Request.Context(), id, note, amount)) {
+		response.Success(c, gin.H{"user_id": id})
+	}
+}
+
 func (h *Handler) listApplications(c *gin.Context) {
 	filter := listFilter(c)
 	items, total, err := h.Store.ListApplications(c.Request.Context(), filter)
@@ -483,6 +521,36 @@ func (h *Handler) process(c *gin.Context) {
 	if ok {
 		h.respondApplication(c, id, h.Store.MarkProcessing(c.Request.Context(), adminID, id))
 	}
+}
+
+// prepareMakeout reserves a pending application before sending its snapshot to
+// the browser assistant. Opening the tax site never counts as issuing a bill.
+func (h *Handler) prepareMakeout(c *gin.Context) {
+	adminID, ok := subjectID(c)
+	if !ok {
+		return
+	}
+	id, ok := pathID(c, "id")
+	if !ok {
+		return
+	}
+	app, err := h.Store.Application(c.Request.Context(), id, 0, true)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	if response.ErrorFrom(c, ValidateMakeout(app)) {
+		return
+	}
+	if app.Status == StatusPending {
+		if response.ErrorFrom(c, h.Store.MarkProcessing(c.Request.Context(), adminID, id)) {
+			return
+		}
+	}
+	app, err = h.Store.Application(c.Request.Context(), id, 0, true)
+	if response.ErrorFrom(c, err) || response.ErrorFrom(c, ValidateMakeout(app)) {
+		return
+	}
+	response.Success(c, app)
 }
 
 // readPDF reads an optional "file" part from a multipart request.

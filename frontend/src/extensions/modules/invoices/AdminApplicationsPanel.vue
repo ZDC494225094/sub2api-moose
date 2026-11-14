@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useAppStore } from '@/stores/app'
 import ReviewDialog from './ReviewDialog.vue'
+import { downloadMakeoutAssistant, goMakeout, TAX_MAKEOUT_URL } from './makeout'
 import { invoiceAdminAPI, type ApplicationStatus, type InvoiceApplication } from './api'
 import { errorMessage, formatMoney, formatTime, invoiceTypeLabels, statusBadge, statusLabels, titleTypeLabels } from './format'
 
@@ -18,6 +19,28 @@ const search = ref('')
 const loading = ref(true)
 const error = ref('')
 const reviewing = ref<InvoiceApplication | null>(null)
+const opening = ref<number | null>(null)
+
+async function makeout(app: InvoiceApplication) {
+  opening.value = app.id
+  try {
+    await goMakeout(app)
+    appStore.showSuccess('已打开税务开票页面，请核对助手填写的信息后开具')
+  } catch (e) {
+    appStore.showError(errorMessage(e, '打开开票页面失败'))
+  } finally {
+    opening.value = null
+    void load()
+  }
+}
+
+async function downloadAssistant() {
+  try {
+    await downloadMakeoutAssistant()
+  } catch (e) {
+    appStore.showError(errorMessage(e, '下载填表助手失败'))
+  }
+}
 
 const statusTabs: Array<ApplicationStatus | ''> = ['pending', 'processing', 'issued', 'rejected', 'voided', 'cancelled', '']
 
@@ -77,6 +100,11 @@ onMounted(load)
 
 <template>
   <section class="space-y-4">
+    <div class="flex flex-wrap items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm dark:border-dark-700 dark:bg-dark-800">
+      <span class="min-w-0 flex-1 text-gray-600 dark:text-dark-300">首次使用「去开票」，请下载填表助手，按压缩包内说明安装到 Chrome / Edge 并刷新本页。助手自动填入可识别字段；税率、商品税收编码及开具确认由经办人核对。开具后回到本站登记发票号码。</span>
+      <button type="button" class="btn btn-secondary btn-sm" @click="downloadAssistant">下载填表助手</button>
+      <a :href="TAX_MAKEOUT_URL" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">打开税务页面</a>
+    </div>
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div class="tabs inline-flex flex-wrap" role="tablist" aria-label="按状态筛选">
         <button
@@ -139,6 +167,7 @@ onMounted(load)
                 <span v-if="app.refund_alert" class="badge badge-danger ml-1" title="有订单在申请后发生退款">退款</span>
               </td>
               <td class="whitespace-nowrap text-right">
+                <button v-if="app.status === 'pending' || app.status === 'processing'" type="button" class="btn btn-primary btn-sm mr-2" :disabled="opening !== null || app.refund_alert" :title="app.refund_alert ? '请先核实退款订单' : '打开江苏税务蓝字发票开具页面并填入申请信息'" @click="makeout(app)">{{ opening === app.id ? '正在打开…' : '去开票' }}</button>
                 <button type="button" class="btn btn-sm" :class="app.status === 'pending' || app.status === 'processing' ? 'btn-primary' : 'btn-secondary'" @click="open(app)">
                   {{ app.status === 'pending' || app.status === 'processing' ? '处理' : '查看' }}
                 </button>

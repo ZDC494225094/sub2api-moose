@@ -39,6 +39,10 @@ func newTestStore(t *testing.T) *Store {
 	require.NoError(t, err)
 	_, err = db.Exec(strings.ReplaceAll(string(raw), "BIGSERIAL PRIMARY KEY", "INTEGER PRIMARY KEY"))
 	require.NoError(t, err)
+	raw, err = os.ReadFile("../../migrations/sql/invoices/202611140001_user_threshold.sql")
+	require.NoError(t, err)
+	_, err = db.Exec(string(raw))
+	require.NoError(t, err)
 	var flag string
 	require.NoError(t, db.QueryRow(`SELECT value FROM settings WHERE key = 'custom_extensions.invoices.enabled'`).Scan(&flag))
 	require.Equal(t, "false", flag, "new modules start switched off")
@@ -193,6 +197,56 @@ func TestApplicationCapturesOrdersAndEnforcesThreshold(t *testing.T) {
 	orders, _, err = s.InvoiceableOrders(ctx, 7, settings)
 	require.NoError(t, err)
 	require.Equal(t, []int64{1, 2}, orderIDs(orders), "cancelling releases the orders")
+}
+
+func TestUserThresholdOverridesGlobalAndCanReturnToInheritance(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	settings := allowAll(t, s, "100")
+	require.NoError(t, s.AddAccess(ctx, []int64{7, 8}, "客户"))
+	addOrder(t, s, orderFixture{id: 1, user: 7, amount: "60.50"})
+	title := addTitle(t, s, 7, TitleInput{TitleType: TitlePersonal, Name: "张三"})
+	input := ApplyInput{OrderIDs: []int64{1}, TitleID: title.ID, InvoiceType: InvoiceNormal}
+	_, err := s.CreateApplication(ctx, 7, input, title, settings)
+	requireReason(t, err, "INVOICE_BELOW_THRESHOLD")
+
+	zero := decimal.Zero
+	require.NoError(t, s.UpdateAccess(ctx, 7, "独立门槛", &zero))
+	personal, err := s.UserSettings(ctx, 7, settings)
+	require.NoError(t, err)
+	require.True(t, personal.MinAmount.IsZero(), "explicit zero must override global even in all-users mode")
+	other, err := s.UserSettings(ctx, 8, settings)
+	require.NoError(t, err)
+	require.True(t, other.MinAmount.Equal(settings.MinAmount), "null inherits global")
+	app, err := s.CreateApplication(ctx, 7, input, title, settings)
+	require.NoError(t, err, "submission re-reads the override, independent of incoming global settings")
+	require.NoError(t, s.Cancel(ctx, 7, app.ID))
+
+	higher := decimal.RequireFromString("60.51")
+	require.NoError(t, s.UpdateAccess(ctx, 7, "单独提高", &higher))
+	_, err = s.CreateApplication(ctx, 7, input, title, personal)
+	requireReason(t, err, "INVOICE_BELOW_THRESHOLD")
+	// Re-adding a user must preserve the per-user override.
+	require.NoError(t, s.AddAccess(ctx, []int64{7}, "新备注"))
+	entries, err := s.ListAccess(ctx)
+	require.NoError(t, err)
+	for _, entry := range entries {
+		if entry.UserID == 7 {
+			require.NotNil(t, entry.MinAmount)
+			require.True(t, entry.MinAmount.Equal(higher))
+		}
+	}
+
+	require.NoError(t, s.UpdateAccess(ctx, 7, "跟随全局", nil))
+	_, err = s.CreateApplication(ctx, 7, input, title, personal)
+	requireReason(t, err, "INVOICE_BELOW_THRESHOLD")
+	// If both the override and global rule change, a stale per-request value
+	// cannot keep a lower threshold after the override has been removed.
+	settings = allowAll(t, s, "200")
+	personal, err = s.UserSettings(ctx, 7, settings)
+	require.NoError(t, err)
+	require.Equal(t, "200", personal.MinAmount.String())
+	requireReason(t, s.UpdateAccess(ctx, 999, "", &zero), "INVOICE_ACCESS_NOT_FOUND")
 }
 
 func TestApplicationReviewLifecycle(t *testing.T) {

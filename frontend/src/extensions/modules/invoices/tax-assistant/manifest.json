@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Sub2API 开票填表助手",
+  "version": "1.0.0",
+  "description": "把开票申请带到江苏税务蓝字发票页面，辅助填表并保留人工核对。",
+  "permissions": ["storage"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://*/admin/invoices*", "http://*/admin/invoices*"],
+      "js": ["bridge.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://dppt.jiangsu.chinatax.gov.cn/*"],
+      "js": ["tax-form.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

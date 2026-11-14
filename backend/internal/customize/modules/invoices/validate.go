@@ -28,6 +28,28 @@ func tooLong(value string, max int) bool {
 	return utf8.RuneCountInString(value) > max
 }
 
+// ParseUserThreshold accepts null/blank as inheritance, preserving explicit zero.
+func ParseUserThreshold(raw *string) (*decimal.Decimal, error) {
+	if raw == nil || clean(*raw) == "" {
+		return nil, nil
+	}
+	value, err := decimal.NewFromString(clean(*raw))
+	if err != nil || value.IsNegative() || value.GreaterThan(decimal.NewFromInt(100000000)) || !value.Equal(value.Round(2)) {
+		return nil, badRequest("INVOICE_ACCESS_INVALID", "用户开票门槛需为 0 到 1 亿元之间的金额，最多两位小数")
+	}
+	return &value, nil
+}
+
+func ValidateMakeout(app Application) error {
+	if app.Status != StatusPending && app.Status != StatusProcessing {
+		return stateConflict("仅待处理或开票中的申请可以去开票")
+	}
+	if app.RefundAlert {
+		return stateConflict("申请含已退款或退款中的订单，请先核实并处理申请")
+	}
+	return nil
+}
+
 // NormalizeSettings validates administrator settings.
 func NormalizeSettings(in Settings) (Settings, error) {
 	out := in

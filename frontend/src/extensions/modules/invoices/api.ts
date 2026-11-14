@@ -113,6 +113,7 @@ export interface AccessEntry {
   email: string
   username: string
   note: string
+  min_amount: string | null
   created_at: string
 }
 
@@ -222,6 +223,9 @@ export const invoiceAdminAPI = {
   async removeAccess(userId: number): Promise<void> {
     await apiClient.delete(`/admin/invoices/access/${userId}`)
   },
+  async updateAccess(userId: number, input: { note: string; min_amount: string | null }): Promise<void> {
+    await apiClient.put(`/admin/invoices/access/${userId}`, input)
+  },
   async applications(params: ListQuery = {}): Promise<ApplicationPage> {
     const { data } = await apiClient.get('/admin/invoices/applications', { params: query(params) })
     return data
@@ -232,6 +236,10 @@ export const invoiceAdminAPI = {
   },
   async process(id: number): Promise<InvoiceApplication> {
     const { data } = await apiClient.post(`/admin/invoices/applications/${id}/process`)
+    return data
+  },
+  async prepareMakeout(id: number): Promise<InvoiceApplication> {
+    const { data } = await apiClient.post(`/admin/invoices/applications/${id}/prepare-makeout`)
     return data
   },
   async issue(id: number, invoiceNo: string, adminNote: string, file: File | null): Promise<InvoiceApplication> {

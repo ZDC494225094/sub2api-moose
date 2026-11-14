@@ -97,3 +97,23 @@ func TestValidatePDF(t *testing.T) {
 	_, err = ValidatePDF("a.pdf", make([]byte, MaxFileBytes+1))
 	require.Equal(t, "INVOICE_FILE_TOO_LARGE", infraerrors.Reason(err))
 }
+
+func TestUserThresholdValidationAndMakeoutAdmission(t *testing.T) {
+	value, err := ParseUserThreshold(nil)
+	require.NoError(t, err)
+	require.Nil(t, value)
+	for _, raw := range []string{"", " ", "0", "60.50", "100000000"} {
+		_, err := ParseUserThreshold(&raw)
+		require.NoError(t, err, raw)
+	}
+	for _, raw := range []string{"-1", "abc", "1.001", "100000000.01"} {
+		_, err := ParseUserThreshold(&raw)
+		requireReason(t, err, "INVOICE_ACCESS_INVALID")
+	}
+	require.NoError(t, ValidateMakeout(Application{Status: StatusPending}))
+	require.NoError(t, ValidateMakeout(Application{Status: StatusProcessing}))
+	for _, status := range []string{StatusIssued, StatusRejected, StatusCancelled, StatusVoided} {
+		requireReason(t, ValidateMakeout(Application{Status: status}), "INVOICE_STATE_CONFLICT")
+	}
+	requireReason(t, ValidateMakeout(Application{Status: StatusPending, RefundAlert: true}), "INVOICE_STATE_CONFLICT")
+}
