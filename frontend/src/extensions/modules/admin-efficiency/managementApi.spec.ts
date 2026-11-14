@@ -12,7 +12,6 @@ describe('admin management API contracts', () => {
     expect(accounts.updateSortOrder).toBe(api.updateSortOrder)
     expect(groups.getGroupAccounts).toBe(api.getGroupAccounts)
     expect(groups.updateGroupAccounts).toBe(api.updateGroupAccounts)
-    expect(users.batchDisable).toBe(api.batchDisable)
     expect(users.batchDelete).toBe(api.batchDelete)
   })
   it('retains sort and membership URLs and envelopes', async () => {
@@ -26,14 +25,14 @@ describe('admin management API contracts', () => {
     await api.updateGroupAccounts(7, [2, 1])
     expect(put).toHaveBeenLastCalledWith('/admin/groups/7/accounts', { account_ids: [2, 1] })
   })
-  it.each(['batchDisable', 'batchDelete'] as const)('uses the gated batch endpoint for %s and preserves failures', async action => {
+  it('uses the gated batch deletion endpoint and preserves failures', async () => {
     const result = { affected: 1, skipped: [{ user_id: 2, reason: 'protected' }] }
     post.mockResolvedValueOnce({ data: result })
-    await expect(api[action]([1, 2])).resolves.toEqual(result)
-    expect(post).toHaveBeenCalledWith(`/admin/users/${action === 'batchDelete' ? 'batch-delete' : 'batch-disable'}`, { user_ids: [1, 2] })
+    await expect(api.batchDelete([1, 2])).resolves.toEqual(result)
+    expect(post).toHaveBeenCalledWith('/admin/users/batch-delete', { user_ids: [1, 2] })
     const denied = new Error('CUSTOM_EXTENSION_DISABLED')
     post.mockRejectedValueOnce(denied)
-    await expect(api[action]([1])).rejects.toBe(denied)
+    await expect(api.batchDelete([1])).rejects.toBe(denied)
     expect(post).toHaveBeenCalledTimes(2)
   })
 })

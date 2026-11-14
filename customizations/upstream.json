@@ -1,7 +1,7 @@
 {
   "upstream_remote": "origin",
-  "merged_upstream": "ac1b8f1271be0d674fa6f074403c1410f30a3a81",
-  "merged_upstream_label": "v0.2.18 release (ac1b8f127)",
+  "merged_upstream": "10ba8f9b4dc2e6023d4a9879ab77b21841babd10",
+  "merged_upstream_label": "v0.2.21 release (10ba8f9b4)",
   "inventory_head": "d754fe1dc",
   "schema_version": 1,
   "note": "This records a verified merged base, not the latest upstream release. Update only after a reviewed merge and regression validation."

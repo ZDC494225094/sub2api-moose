@@ -648,7 +648,7 @@ describe('admin UsersView', () => {
     expect(deleteUser).not.toHaveBeenCalled()
     expect(wrapper.get('[data-test="selected-keys"]').text()).toBe('')
   })
-  it.each(['disable', 'delete'])('revokes pending batch %s without falling back to native deletion', async (action) => {
+  it.each(['disable', 'delete'])('keeps native disabling available while revoking custom deletion for %s', async (action) => {
     const wrapper = mount(UsersView, {
       global: {
         stubs: {
@@ -684,15 +684,16 @@ describe('admin UsersView', () => {
     await wrapper.get(`[data-test="bulk-${action}-users"]`).trigger('click')
     useExtensionStore().flags = { 'admin-efficiency': false }
     await flushPromises()
-    expect(wrapper.find('[data-test="bulk-disable-users"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="bulk-disable-users"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="bulk-delete-users"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="bulk-edit-limits"]').exists()).toBe(true)
     await wrapper.get('[data-test="confirm-action"]').trigger('click')
     await flushPromises()
-    expect(batchDisableUsers).not.toHaveBeenCalled()
+    if (action === 'disable') expect(batchDisableUsers).toHaveBeenCalledWith([42])
+    else expect(batchDisableUsers).not.toHaveBeenCalled()
     expect(batchDeleteUsers).not.toHaveBeenCalled()
     expect(deleteUser).not.toHaveBeenCalled()
-    expect(wrapper.get('[data-test="selected-keys"]').text()).toBe('42')
+    expect(wrapper.get('[data-test="selected-keys"]').text()).toBe(action === 'disable' ? '' : '42')
     wrapper.unmount()
   })
 

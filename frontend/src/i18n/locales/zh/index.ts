@@ -1,3 +1,5 @@
+import adminAccessKeys from './adminAccessKeys'
+import mcp from './mcp'
 import landing from './landing'
 import common from './common'
 import dashboard from './dashboard'
@@ -9,6 +11,9 @@ import custom from './custom'
 import { mergeLocale } from '../merge'
 
 const base = {
+  adminAccessKeys,
+  mcp,
+
   ...landing,
   ...common,
   ...dashboard,

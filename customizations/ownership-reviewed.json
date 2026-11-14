@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_at": "2026-10-26",
-  "baseline": "ac1b8f1271be0d674fa6f074403c1410f30a3a81",
+  "reviewed_at": "2026-11-14",
+  "baseline": "10ba8f9b4dc2e6023d4a9879ab77b21841babd10",
   "note": "Exact-path ownership review, including the original 70 unmatched paths and Stage32 Seedance host seam. Records responsibility and host compatibility boundaries, not complete semantic coverage of regex-classified files. The sensitive dump.rdb runtime snapshot was removed from preservation and ownership ledgers; all other original inventory entries remain unchanged.",
   "reviews": [
     {
@@ -695,6 +695,51 @@
       "kind": "compatibility",
       "evidence": "v0.2.18 source merge scope, six conflict decisions, native image gate/payment boundaries, rollback and actual local validation results.",
       "next_step": "Keep runtime limitations explicit; this record does not certify production migrations, real model generation or payments."
+    },
+    {
+      "paths": [
+        "backend/internal/pkg/sysutil/memory_test.go"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "compatibility",
+      "evidence": "The upstream cgroup escape regression still checks traversal on Windows. The symlink portion skips only Windows permission/privilege-not-held errors; native os.Root enforcement is unchanged.",
+      "next_step": "Run the complete symlink escape assertion on Linux or a symlink-capable host; do not infer this branch executed from a Windows suite pass."
+    },
+    {
+      "paths": [
+        "backend/internal/service/billing_inflight_reservation_test.go",
+        "backend/internal/service/gateway_thinking_filter_precheck_test.go"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "compatibility",
+      "evidence": "Two full-suite failures measured process-wide heap or allocation counts, while each original test passed three isolated repetitions. Follow the upstream orphan-precheck child-process pattern, retaining the 8 MiB and 16-allocation thresholds and all original behavior assertions.",
+      "next_step": "Keep the memory regressions isolated from unrelated service workers; production implementations and resource limits remain unchanged."
+    },
+    {
+      "paths": [
+        "backend/internal/service/openai_ws_v2_passthrough_ttft_mode_test.go"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "compatibility",
+      "evidence": "The second-turn fixture began its response delay before receiving response.create, producing 499 ms against a 500 ms lower bound. Replay now waits for the actual forwarded request; semantic/visible and both-turn assertions remain unchanged.",
+      "next_step": "Keep test event timing anchored to the corresponding request and retain the production SSE/WS first-token rules."
+    },
+    {
+      "paths": [
+        "docs/upstream-v0.2.21-merge.md"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "compatibility",
+      "evidence": "Pinned v0.2.21 source merge, upstream ownership of overlapping batch disable, scoped response replay, regenerated schema/Wire, completeness audit, rollback and actual local verification evidence.",
+      "next_step": "Record the final verification results and distinguish local source/build evidence from deployment, database and external-provider acceptance."
     }
   ]
 }

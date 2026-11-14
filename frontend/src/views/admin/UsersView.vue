@@ -253,7 +253,7 @@
             </button>
 
             <button
-              v-if="adminEfficiencyEnabled && selectedCount > 0"
+              v-if="selectedCount > 0"
               class="btn btn-secondary flex-1 md:flex-initial"
               data-test="bulk-disable-users"
               :disabled="batchActionLoading"
@@ -1852,7 +1852,6 @@ const requestBatchAction = (action: 'disable') => {
 }
 
 const confirmBatchAction = async () => {
-  if (!adminEfficiencyEnabled.value) return
   const action = pendingBatchAction.value
   if (!action || batchActionLoading.value) return
 
@@ -1863,12 +1862,7 @@ const confirmBatchAction = async () => {
   batchActionLoading.value = true
   try {
     const result = await adminAPI.users.batchDisable(userIds)
-    const skipped = result.skipped?.length ?? 0
-    const successKey = action === 'disable'
-      ? (skipped > 0 ? 'admin.users.batchActions.disablePartial' : 'admin.users.batchActions.disableSuccess')
-      : (skipped > 0 ? 'admin.users.batchActions.deletePartial' : 'admin.users.batchActions.deleteSuccess')
-
-    appStore.showSuccess(t(successKey, { count: result.affected, skipped }))
+    appStore.showSuccess(t('admin.users.batchActions.disableSuccess', { count: result.affected }))
     clearSelection()
     await loadUsers()
   } catch (error: any) {

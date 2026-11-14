@@ -392,6 +392,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		FooterContent:                         settings[SettingKeyFooterContent],
 		FooterFriendLinks:                     footerFriendLinks,
 		MainlandChinaAccessRestrictionEnabled: settings[SettingKeyMainlandChinaAccessRestrictionEnabled] == "true",
+		MCPEnabled:                            s.cfg != nil && s.cfg.MCP.Enabled(),
 
 		ChannelMonitorEnabled:                !isFalseSettingValue(settings[SettingKeyChannelMonitorEnabled]),
 		ChannelMonitorMode:                   normalizeChannelMonitorMode(settings[SettingKeyChannelMonitorMode]),
@@ -659,6 +660,8 @@ type PublicSettingsInjectionPayload struct {
 	FooterContent                         string                   `json:"footer_content"`
 	FooterFriendLinks                     json.RawMessage          `json:"footer_friend_links"`
 	MainlandChinaAccessRestrictionEnabled bool                     `json:"mainland_china_access_restriction_enabled"`
+	MCPEnabled                            bool                     `json:"mcp_enabled"`
+
 	// 服务器全局时区（IANA 名称与当前 UTC 偏移），高峰时段等服务端本地时间窗口的展示标注用
 	ServerTimezone              string  `json:"server_timezone"`
 	ServerUTCOffset             string  `json:"server_utc_offset"`
@@ -770,6 +773,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		FooterContent:                         settings.FooterContent,
 		FooterFriendLinks:                     safeRawJSONArray(settings.FooterFriendLinks),
 		MainlandChinaAccessRestrictionEnabled: settings.MainlandChinaAccessRestrictionEnabled,
+		MCPEnabled:                            settings.MCPEnabled,
 
 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorMode:                   settings.ChannelMonitorMode,

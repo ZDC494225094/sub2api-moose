@@ -20,3 +20,11 @@ func NormalizeRegistrationEmailSuffixWhitelist(raw []string) ([]string, error) {
 func ParseRegistrationEmailSuffixWhitelist(raw string) []string {
 	return accesspolicy.ParseRegistrationEmailSuffixWhitelist(raw)
 }
+
+func splitEmailForPolicy(raw string) (string, string, bool) {
+	return accesspolicy.SplitEmailForPolicy(raw)
+}
+
+func isValidRegistrationEmailDomain(domain string) bool {
+	return accesspolicy.IsValidRegistrationEmailDomain(domain)
+}

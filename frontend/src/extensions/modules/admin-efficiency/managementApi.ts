@@ -32,13 +32,6 @@ export interface BatchUserActionResponse {
   skipped: BatchUserActionSkipped[]
 }
 
-export async function batchDisable(userIds: number[]): Promise<BatchUserActionResponse> {
-  const { data } = await apiClient.post<BatchUserActionResponse>('/admin/users/batch-disable', {
-    user_ids: userIds
-  })
-  return data
-}
-
 export async function batchDelete(userIds: number[]): Promise<BatchUserActionResponse> {
   const { data } = await apiClient.post<BatchUserActionResponse>('/admin/users/batch-delete', {
     user_ids: userIds

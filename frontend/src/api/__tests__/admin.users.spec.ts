@@ -162,9 +162,10 @@ describe('admin users api auth identity binding', () => {
       affected: 1,
       skipped: [{ user_id: 9, reason: 'cannot modify admin user' }],
     }
-    post.mockResolvedValue({ data: response })
+    post.mockResolvedValueOnce({ data: { affected: 1 } })
+      .mockResolvedValueOnce({ data: response })
 
-    await expect(batchDisable([4, 9])).resolves.toEqual(response)
+    await expect(batchDisable([4, 9])).resolves.toEqual({ affected: 1 })
     expect(post).toHaveBeenNthCalledWith(1, '/admin/users/batch-disable', { user_ids: [4, 9] })
 
     await expect(batchDelete([4, 9])).resolves.toEqual(response)

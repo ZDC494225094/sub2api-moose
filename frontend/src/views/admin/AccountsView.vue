@@ -225,12 +225,13 @@
           @toggle-schedulable="handleBulkToggleSchedulable"
           @set-upstream-group="openBulkSetUpstreamGroup"
         />
-        <div ref="accountTableRef" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div ref="accountTableRef" class="flex min-h-0 flex-1 flex-col overflow-hidden" :aria-busy="loading" :inert="loading && accounts.length > 0">
         <DataTable
           ref="dataTableRef"
           :columns="cols"
           :data="displayAccounts"
-          :loading="loading"
+          :loading="loading && accounts.length === 0"
+
           row-key="id"
           :row-group="accountViewMode === 'upstream' ? getAccountUpstreamKey : undefined"
           :row-group-expanded="accountViewMode === 'upstream' ? isUpstreamGroupExpanded : undefined"

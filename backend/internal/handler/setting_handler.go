@@ -113,6 +113,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		FooterContent:                         settings.FooterContent,
 		FooterFriendLinks:                     dto.ParseFooterFriendLinks(settings.FooterFriendLinks),
 		MainlandChinaAccessRestrictionEnabled: settings.MainlandChinaAccessRestrictionEnabled,
+		MCPEnabled:                            settings.MCPEnabled,
 
 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorMode:                   settings.ChannelMonitorMode,

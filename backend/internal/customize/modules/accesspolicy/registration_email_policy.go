@@ -163,6 +163,14 @@ func isValidRegistrationEmailDomain(domain string) bool {
 		registrationEmailDomainPattern.MatchString(domain)
 }
 
+// IsValidRegistrationEmailDomain shares the native domain validator with host policies.
+func IsValidRegistrationEmailDomain(domain string) bool {
+	return isValidRegistrationEmailDomain(domain)
+}
+
+// SplitEmailForPolicy shares normalization with the native email blacklist.
+func SplitEmailForPolicy(raw string) (string, string, bool) { return splitEmailForPolicy(raw) }
+
 func registrationEmailDomainMatchesWildcard(domain string, allowed string) bool {
 	base := strings.TrimPrefix(allowed, "*.")
 	if !isValidRegistrationEmailDomain(base) {

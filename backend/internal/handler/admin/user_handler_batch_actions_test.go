@@ -64,30 +64,6 @@ func decodeBatchUserActionResult(t *testing.T, recorder *httptest.ResponseRecord
 	return body.Data
 }
 
-func TestUserHandlerBatchDisableDeduplicatesAndReportsSkippedUsers(t *testing.T) {
-	serviceStub := &batchUserActionServiceStub{
-		updateErrors: map[int64]error{2: errors.New("cannot disable admin user")},
-		deleteErrors: map[int64]error{},
-	}
-	recorder := postBatchUserAction(
-		t,
-		setupBatchUserActionRouter(serviceStub),
-		"/api/v1/admin/users/batch-disable",
-		[]byte(`{"user_ids":[1,2,2,3]}`),
-	)
-
-	require.Equal(t, http.StatusOK, recorder.Code)
-	require.Equal(t, []int64{1, 2, 3}, serviceStub.updateCalls)
-	require.Len(t, serviceStub.updateInputs, 3)
-	for _, input := range serviceStub.updateInputs {
-		require.Equal(t, service.StatusDisabled, input.Status)
-	}
-
-	result := decodeBatchUserActionResult(t, recorder)
-	require.Equal(t, 2, result.Affected)
-	require.Equal(t, []batchUserActionSkipped{{UserID: 2, Reason: "cannot disable admin user"}}, result.Skipped)
-}
-
 func TestUserHandlerBatchDeleteReportsPerUserFailures(t *testing.T) {
 	serviceStub := &batchUserActionServiceStub{
 		updateErrors: map[int64]error{},
@@ -134,12 +110,12 @@ func TestUserHandlerBatchActionsRejectInvalidUserIDs(t *testing.T) {
 			recorder := postBatchUserAction(
 				t,
 				setupBatchUserActionRouter(serviceStub),
-				"/api/v1/admin/users/batch-disable",
+				"/api/v1/admin/users/batch-delete",
 				test.body,
 			)
 
 			require.Equal(t, http.StatusBadRequest, recorder.Code)
-			require.Empty(t, serviceStub.updateCalls)
+			require.Empty(t, serviceStub.deleteCalls)
 		})
 	}
 }
@@ -155,7 +131,7 @@ func (s batchAdminEfficiencySettings) GetMultiple(context.Context, []string) (ma
 }
 func TestUserBatchActionsFailClosed(t *testing.T) {
 	for _, state := range []batchAdminEfficiencySettings{{value: "false"}, {}, {value: "invalid"}, {value: "true", err: errors.New("settings unavailable")}} {
-		for _, action := range []string{"batch-disable", "batch-delete"} {
+		for _, action := range []string{"batch-delete"} {
 			stub := &batchUserActionServiceStub{}
 			h := NewUserHandler(stub, nil, nil, nil, nil, nil, service.NewSettingService(state, nil))
 			r := gin.New()
