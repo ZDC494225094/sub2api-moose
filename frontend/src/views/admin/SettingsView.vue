@@ -1862,6 +1862,20 @@
             </div>
           </div>
 
+          <div class="card">
+            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('admin.settings.homepageCaptcha.title') }}</h2>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('admin.settings.homepageCaptcha.description') }}</p>
+            </div>
+            <div class="flex items-center justify-between gap-4 p-6">
+              <div>
+                <label class="font-medium text-gray-900 dark:text-white">{{ t('admin.settings.homepageCaptcha.enabled') }}</label>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('admin.settings.homepageCaptcha.hint') }}</p>
+              </div>
+              <Toggle v-model="form.homepage_captcha_enabled" :disabled="!accessPolicyConfigurationEnabled" data-testid="homepage-captcha-toggle" />
+            </div>
+          </div>
+
           <!-- Panel API Rate Limit Settings -->
           <div class="card">
             <div
@@ -10317,6 +10331,7 @@ const form = reactive<SettingsForm>({
   turnstile_site_key: "",
   turnstile_secret_key: "",
   turnstile_secret_key_configured: false,
+  homepage_captcha_enabled: false,
   registration_proof_enabled: false,
   registration_proof_difficulty: 18,
   tencent_captcha_enabled: false,
@@ -12059,6 +12074,7 @@ async function saveSettings() {
       turnstile_enabled: form.turnstile_enabled,
       turnstile_site_key: form.turnstile_site_key,
       turnstile_secret_key: form.turnstile_secret_key || undefined,
+      homepage_captcha_enabled: form.homepage_captcha_enabled,
       registration_proof_enabled: form.registration_proof_enabled,
       registration_proof_difficulty: form.registration_proof_difficulty,
       tencent_captcha_enabled: form.tencent_captcha_enabled,

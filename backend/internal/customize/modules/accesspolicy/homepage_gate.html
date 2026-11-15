@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" href="data:,">
+  <title>访问验证</title>
+  <style nonce="{{.Nonce}}">
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:#f5f7fb;color:#17243b;font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}main{width:100%;max-width:420px;padding:32px;background:#fff;border:1px solid #e3e9f2;border-radius:20px;box-shadow:0 16px 48px #17243b0a}.mark{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:#edf3ff;color:#245ad1;font-size:23px}h1{margin:20px 0 6px;font-size:24px}p{margin:0 0 24px;color:#66738a}.image{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px 0}img{max-width:75%;height:auto;border-radius:8px}a{color:#245ad1;text-underline-offset:3px;white-space:nowrap}label{font-weight:600}input{margin:8px 0 16px;width:100%;padding:12px 14px;border:1px solid #bac6d8;border-radius:10px;font:20px monospace;letter-spacing:5px}button{width:100%;padding:13px;border:0;border-radius:10px;background:#245ad1;color:#fff;font:600 15px system-ui;cursor:pointer}:focus-visible{outline:3px solid #93b4ff;outline-offset:3px}.hint{margin:18px 0 0;font-size:13px}.error{color:#b42318;margin:12px 0}@media(prefers-color-scheme:dark){body{background:#101723;color:#e6edf9}main{background:#182233;border-color:#2d3a50}p{color:#abb9cf}input{background:#101723;color:#fff;border-color:#53637c}a{color:#91b4ff}}
+  </style>
+</head>
+<body><main>
+  <div class="mark" aria-hidden="true">✓</div>
+  <h1>完成验证，继续访问</h1>
+  <p>请输入图片中的数字，验证通过后进入首页。</p>
+  {{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+  <form method="post" action="/_homepage/verify">
+    <input type="hidden" name="challenge" value="{{.Challenge}}">
+    <input type="hidden" id="return" name="return" value="{{.Return}}">
+    <div class="image"><img src="{{.Image}}" width="240" height="76" alt="六位数字验证码"><a id="refresh" href="{{.Return}}">换一张</a></div>
+    <label for="answer">图片验证码</label>
+    <input id="answer" name="answer" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" required autofocus aria-describedby="hint">
+    <button type="submit">验证并进入</button>
+  </form>
+  <p class="hint" id="hint">请输入 6 位数字。同一浏览器验证后，24 小时内无需重复验证。</p>
+</main>
+<script nonce="{{.Nonce}}">if(location.pathname!=="/_homepage/verify"){document.getElementById("return").value=location.pathname+location.search+location.hash;document.getElementById("refresh").addEventListener("click",function(event){event.preventDefault();location.reload()});}document.querySelector("form").addEventListener("submit",function(){this.querySelector("button").textContent="正在验证…"});</script>
+</body></html>

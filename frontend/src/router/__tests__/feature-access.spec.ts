@@ -27,6 +27,7 @@ const appStore = vi.hoisted(() => ({
     risk_control_enabled?: boolean
     subscription_enabled?: boolean
     custom_menu_items?: []
+    homepage_captcha_enabled?: boolean
   },
   fetchPublicSettings: vi.fn(),
 }))
@@ -120,6 +121,25 @@ describe('feature route guard', () => {
     appStore.publicSettingsLoaded = false
     appStore.cachedPublicSettings = null
     appStore.fetchPublicSettings.mockReset()
+  })
+
+  it('returns in-app home navigation to the server gate before importing page resources', async () => {
+    const assign = vi.fn()
+    const originalWindow = window
+    vi.stubGlobal('window', { location: { assign } })
+    try {
+      appStore.cachedPublicSettings = { homepage_captcha_enabled: true }
+      const next = vi.fn()
+      await routerHarness.guard!(
+        { path: '/', fullPath: '/?aff=keep#plans', meta: {} },
+        { matched: [{ path: '/login' }] },
+        next,
+      )
+      expect(next).toHaveBeenCalledWith(false)
+      expect(assign).toHaveBeenCalledWith('/?aff=keep#plans')
+    } finally {
+      vi.stubGlobal('window', originalWindow)
+    }
   })
 
   it('waits for the first public-settings request before deciding payment access', async () => {

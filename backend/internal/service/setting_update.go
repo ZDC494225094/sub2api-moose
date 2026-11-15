@@ -94,6 +94,13 @@ func (s *SettingService) UpdateSettingsWithAuthSourceDefaultsOmitting(ctx contex
 // it omitted, so in that case the caches are rebuilt from storage rather than
 // from the request struct.
 func (s *SettingService) refreshCachedSettingsAfterWrite(ctx context.Context, settings *SystemSettings, omitted OmittedSettingKeys) {
+	// An explicit saved gate switch takes effect even if the broader settings
+	// reload fails after a partial write. Omission never clears the stored rule.
+	if _, skipped := omitted[SettingKeyHomepageCaptchaEnabled]; !skipped {
+		s.homepageCaptchaMu.Lock()
+		s.homepageCaptchaCache = homepageCaptchaCache{enabled: settings.HomepageCaptchaEnabled, expires: time.Now().Add(30 * time.Second)}
+		s.homepageCaptchaMu.Unlock()
+	}
 	if len(omitted) == 0 {
 		s.refreshCachedSettings(settings)
 		return
@@ -218,6 +225,7 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	if settings.TurnstileSecretKey != "" {
 		updates[SettingKeyTurnstileSecretKey] = settings.TurnstileSecretKey
 	}
+	updates[SettingKeyHomepageCaptchaEnabled] = strconv.FormatBool(settings.HomepageCaptchaEnabled)
 	updates[SettingKeyRegistrationProofEnabled] = strconv.FormatBool(settings.RegistrationProofEnabled)
 	updates[SettingKeyRegistrationProofDifficulty] = strconv.Itoa(clampRegistrationProofDifficulty(settings.RegistrationProofDifficulty))
 
@@ -829,6 +837,9 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 	allowlistedUsers, _ := ParseCyberPolicyUserAllowlist(settings.CyberPolicyUserAllowlist)
 	s.cyberSessionBlockRuntimeCache.Store(&cachedCyberSessionBlockRuntime{allowlistedUsers: allowlistedUsers})
 	s.cyberSessionBlockRuntimeMu.Unlock()
+	s.homepageCaptchaMu.Lock()
+	s.homepageCaptchaCache = homepageCaptchaCache{enabled: settings.HomepageCaptchaEnabled, expires: time.Now().Add(30 * time.Second)}
+	s.homepageCaptchaMu.Unlock()
 	if s.onUpdate != nil {
 		s.onUpdate() // Invalidate cache after settings update
 	}

@@ -271,6 +271,12 @@ export default {
         secretKeyHint: '服务端验证密钥（请保密）',
         secretKeyConfiguredHint: '密钥已配置，留空以保留当前值。'
       },
+      homepageCaptcha: {
+        title: '首页访问验证',
+        description: '先显示轻量图片验证码，通过后才下载首页资源，无需第三方验证码服务。',
+        enabled: '启用首页前置验证码',
+        hint: '验证通过后同一浏览器放行 24 小时。登录、管理后台和 API 保持原有访问方式；需要由后端或同源代理提供首页。'
+      },
       registrationProof: {
         title: '本地注册验证',
         description: '无需境外服务的注册机器人防护',

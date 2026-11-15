@@ -45,6 +45,8 @@
     "id": "premium-home",
     "patterns": [
       "^frontend/src/features/premium-home/",
+      "^frontend/src/composables/(?:__tests__/useNearViewport\\.spec\\.ts|useNearViewport\\.ts)$",
+      "^tools/check-home-bundle\\.mjs$",
       "premium-home",
       "PremiumHome",
       "^frontend/public/(models|textures)/"
@@ -195,7 +197,10 @@
     "id": "access-policy",
     "patterns": [
       "^backend/internal/customize/modules/accesspolicy/",
+      "^backend/internal/(?:service|server/middleware)/homepage_gate(?:_test)?\\.go$",
       "^frontend/src/extensions/modules/access-policy/",
+      "^frontend/dev/homepage-gate\\.ts$",
+      "^frontend/src/__tests__/homepage-gate-dev\\.spec\\.ts$",
       "[Aa]uth",
       "[Ll]ogin",
       "[Rr]egister",

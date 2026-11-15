@@ -54,6 +54,7 @@ type UpdateSettingsRequest struct {
 	TurnstileEnabled            bool   `json:"turnstile_enabled"`
 	TurnstileSiteKey            string `json:"turnstile_site_key"`
 	TurnstileSecretKey          string `json:"turnstile_secret_key"`
+	HomepageCaptchaEnabled      bool   `json:"homepage_captcha_enabled"`
 	RegistrationProofEnabled    bool   `json:"registration_proof_enabled"`
 	RegistrationProofDifficulty int    `json:"registration_proof_difficulty"`
 
@@ -1645,6 +1646,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		TurnstileEnabled:                    req.TurnstileEnabled,
 		TurnstileSiteKey:                    req.TurnstileSiteKey,
 		TurnstileSecretKey:                  req.TurnstileSecretKey,
+		HomepageCaptchaEnabled:              req.HomepageCaptchaEnabled,
 		RegistrationProofEnabled:            req.RegistrationProofEnabled,
 		RegistrationProofDifficulty:         req.RegistrationProofDifficulty,
 		TencentCaptchaEnabled:               req.TencentCaptchaEnabled,
@@ -2341,6 +2343,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		TurnstileEnabled:                                       updatedSettings.TurnstileEnabled,
 		TurnstileSiteKey:                                       updatedSettings.TurnstileSiteKey,
 		TurnstileSecretKeyConfigured:                           updatedSettings.TurnstileSecretKeyConfigured,
+		HomepageCaptchaEnabled:                                 updatedSettings.HomepageCaptchaEnabled,
 		RegistrationProofEnabled:                               updatedSettings.RegistrationProofEnabled,
 		RegistrationProofDifficulty:                            updatedSettings.RegistrationProofDifficulty,
 		TencentCaptchaEnabled:                                  updatedSettings.TencentCaptchaEnabled,

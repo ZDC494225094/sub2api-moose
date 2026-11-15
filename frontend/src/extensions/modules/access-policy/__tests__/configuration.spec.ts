@@ -5,7 +5,7 @@ import { accessPolicyConfigurationKeys, admitAccessPolicySettings, useAccessPoli
 
 describe('security configuration admission', () => {
   it('keeps native settings and omits custom fields rather than clearing enforced rules', () => {
-    const payload = { site_name: 'native', registration_email_suffix_whitelist: ['@example.com'], registration_proof_enabled: true, registration_proof_difficulty: 20, registration_email_domain_quota_enabled: true, mainland_china_access_restriction_enabled: true }
+    const payload = { site_name: 'native', homepage_captcha_enabled: true, registration_email_suffix_whitelist: ['@example.com'], registration_proof_enabled: true, registration_proof_difficulty: 20, registration_email_domain_quota_enabled: true, mainland_china_access_restriction_enabled: true }
     expect(admitAccessPolicySettings(payload, true)).toEqual(payload)
     const admitted = admitAccessPolicySettings(payload, false)
     for (const key of accessPolicyConfigurationKeys) expect(admitted).not.toHaveProperty(key)

@@ -17,7 +17,7 @@ import (
 func TestAccessPolicySettingsHTTPAdmission(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, state := range []string{"true", "false", "missing", "malformed"} {
-		for _, field := range []string{"registration_proof_enabled", "registration_proof_difficulty", "registration_email_domain_quota_enabled", "mainland_china_access_restriction_enabled"} {
+		for _, field := range []string{"homepage_captcha_enabled", "registration_proof_enabled", "registration_proof_difficulty", "registration_email_domain_quota_enabled", "mainland_china_access_restriction_enabled"} {
 			t.Run(state+"/"+field, func(t *testing.T) {
 				repo := &settingHandlerRepoStub{values: map[string]string{service.SettingKeyRegistrationProofEnabled: "true"}}
 				if state != "missing" {
@@ -53,6 +53,16 @@ func TestAccessPolicySettingsHTTPAdmission(t *testing.T) {
 					want = http.StatusOK // Upstream capability is independent of extension state.
 				}
 				require.Equal(t, want, rec.Code, rec.Body.String())
+				if field == "homepage_captcha_enabled" && want == http.StatusOK {
+					require.Equal(t, "true", repo.values[service.SettingKeyHomepageCaptchaEnabled])
+					var result struct {
+						Data struct {
+							Enabled bool `json:"homepage_captcha_enabled"`
+						} `json:"data"`
+					}
+					require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &result))
+					require.True(t, result.Data.Enabled)
+				}
 				if want != http.StatusOK {
 					require.Empty(t, repo.lastUpdates)
 					require.Equal(t, "true", repo.values[service.SettingKeyRegistrationProofEnabled])
@@ -62,6 +72,9 @@ func TestAccessPolicySettingsHTTPAdmission(t *testing.T) {
 				require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 				require.Equal(t, "true", repo.values[service.SettingKeyRegistrationProofEnabled])
 				require.Equal(t, "native save", repo.values[service.SettingKeySiteName])
+				if field == "homepage_captcha_enabled" && state == "true" {
+					require.Equal(t, "true", repo.values[service.SettingKeyHomepageCaptchaEnabled])
+				}
 			})
 		}
 	}

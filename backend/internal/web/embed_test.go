@@ -23,6 +23,20 @@ func init() {
 	gin.SetMode(gin.TestMode)
 }
 
+func TestVerifiedHomepageHTMLRemainsPrivateOnColdAndWarmCache(t *testing.T) {
+	server, err := NewFrontendServer(&mockSettingsProvider{settings: map[string]string{"site_name": "Test"}})
+	require.NoError(t, err)
+	for range 2 {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+		c.Request.AddCookie(&http.Cookie{Name: "sub2api_home_clearance", Value: "verified"})
+		c.Header("X-Homepage-Verification", "passed")
+		server.serveIndexHTML(c)
+		require.Equal(t, "private, no-store", w.Header().Get("Cache-Control"))
+	}
+}
+
 func TestInjectSiteTitle(t *testing.T) {
 	t.Run("replaces_title_with_site_name", func(t *testing.T) {
 		html := []byte(`<html><head><title>Sub2API - AI API Gateway</title></head><body></body></html>`)

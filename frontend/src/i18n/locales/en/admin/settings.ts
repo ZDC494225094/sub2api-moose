@@ -271,6 +271,12 @@ export default {
         secretKeyHint: 'Server-side verification key (keep this secret)',
         secretKeyConfiguredHint: 'Secret key configured. Leave empty to keep the current value.'
       },
+      homepageCaptcha: {
+        title: 'Homepage verification',
+        description: 'Show a lightweight image challenge before downloading homepage resources, without an external captcha provider.',
+        enabled: 'Require verification before the homepage',
+        hint: 'Remember verification in this browser for 24 hours. Login, administration and API access keep their existing behavior. Serve the homepage through the backend or a same-origin proxy.'
+      },
       registrationProof: {
         title: 'Local Registration Verification',
         description: 'Registration bot protection without an external service',

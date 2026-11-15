@@ -69,6 +69,9 @@ func SetupRouter(
 		return nil
 	}))
 	r.Use(middleware2.ServerTiming(cfg.Server.EnableServerTiming))
+	// The verification document runs before extension/public-settings lookups and
+	// contains no SPA assets. Gateway and login/admin recovery routes bypass it.
+	r.Use(middleware2.HomepageGate(settingService, redisClient, cfg.JWT.Secret))
 
 	// Built-in customizations are checked before static/embedded frontend handling.
 	r.Use(settingService.CustomExtensions().PageMiddleware())

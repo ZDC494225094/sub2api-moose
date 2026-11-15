@@ -42,7 +42,9 @@ export function useCustomExtensionRuntime(router: Router): void {
     }
   }, { deep: true })
   onMounted(() => {
-    refresh()
+    // The initial router guard already fetched the same state. Respect its TTL
+    // instead of issuing a second request immediately after the page mounts.
+    if (document.visibilityState !== 'hidden' && router.currentRoute.value.path !== '/setup') void store.refresh()
     timer = setInterval(refresh, EXTENSION_REFRESH_MS)
     document.addEventListener('visibilitychange', refresh)
     window.addEventListener('storage', onStorage)

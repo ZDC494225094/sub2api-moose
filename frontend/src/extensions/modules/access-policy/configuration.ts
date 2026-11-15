@@ -2,6 +2,7 @@ import { computed } from 'vue'
 import { useExtensionStore } from '@/extensions/store'
 
 export const accessPolicyConfigurationKeys = [
+  'homepage_captcha_enabled',
   'registration_proof_enabled',
   'registration_proof_difficulty',
   'mainland_china_access_restriction_enabled',

@@ -241,6 +241,7 @@ export interface PublicSettings {
   tencent_captcha_region?: string
   passkey_enabled?: boolean
   turnstile_site_key: string
+  homepage_captcha_enabled?: boolean
   registration_proof_enabled?: boolean
   aliyun_captcha_enabled?: boolean
   aliyun_captcha_scene_id?: string

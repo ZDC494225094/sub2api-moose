@@ -43,6 +43,7 @@ type SystemSettings struct {
 	TurnstileSiteKey                       string
 	TurnstileSecretKey                     string
 	TurnstileSecretKeyConfigured           bool
+	HomepageCaptchaEnabled                 bool
 	RegistrationProofEnabled               bool
 	RegistrationProofDifficulty            int
 	TencentCaptchaEnabled                  bool
@@ -356,6 +357,7 @@ type PublicSettings struct {
 	LoginAgreementDocuments             []LoginAgreementDocument
 	TurnstileEnabled                    bool
 	TurnstileSiteKey                    string
+	HomepageCaptchaEnabled              bool
 	RegistrationProofEnabled            bool
 	TencentCaptchaEnabled               bool
 	TencentCaptchaAppID                 string

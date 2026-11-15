@@ -192,6 +192,7 @@ func (s *FrontendServer) serveIndexHTML(c *gin.Context) {
 
 		c.Header("ETag", cached.ETag)
 		c.Header("Cache-Control", "no-cache") // Must revalidate
+		preserveHomepageClearanceCache(c)
 		c.Data(http.StatusOK, "text/html; charset=utf-8", content)
 		c.Abort()
 		return
@@ -228,8 +229,15 @@ func (s *FrontendServer) serveIndexHTML(c *gin.Context) {
 		c.Header("ETag", cached.ETag)
 	}
 	c.Header("Cache-Control", "no-cache")
+	preserveHomepageClearanceCache(c)
 	c.Data(http.StatusOK, "text/html; charset=utf-8", content)
 	c.Abort()
+}
+
+func preserveHomepageClearanceCache(c *gin.Context) {
+	if c.GetHeader("Cookie") != "" && c.Writer.Header().Get("X-Homepage-Verification") == "passed" {
+		c.Header("Cache-Control", "private, no-store")
+	}
 }
 
 func (s *FrontendServer) injectSettings(settingsJSON []byte) []byte {

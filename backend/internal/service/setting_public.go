@@ -173,6 +173,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyLoginAgreementDocuments,
 		SettingKeyTurnstileEnabled,
 		SettingKeyTurnstileSiteKey,
+		SettingKeyHomepageCaptchaEnabled,
 		SettingKeyRegistrationProofEnabled,
 		SettingKeyTencentCaptchaEnabled,
 		SettingKeyTencentCaptchaAppID,
@@ -384,6 +385,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		AccountQuotaNotifyEnabled:             settings[SettingKeyAccountQuotaNotifyEnabled] == "true",
 		BalanceLowNotifyThreshold:             balanceLowNotifyThreshold,
 		BalanceLowNotifyRechargeURL:           settings[SettingKeyBalanceLowNotifyRechargeURL],
+		HomepageCaptchaEnabled:                settings[SettingKeyHomepageCaptchaEnabled] == "true",
 		RegistrationProofEnabled:              settings[SettingKeyRegistrationProofEnabled] == "true",
 		AfterSalesGroup:                       settings[SettingKeyAfterSalesGroup],
 		CustomerServiceLink:                   settings[SettingKeyCustomerServiceLink],
@@ -652,6 +654,7 @@ type PublicSettingsInjectionPayload struct {
 	PaymentEnabled                        bool                     `json:"payment_enabled"`
 	PaymentBalanceDisabled                bool                     `json:"payment_balance_disabled"`
 	Version                               string                   `json:"version"`
+	HomepageCaptchaEnabled                bool                     `json:"homepage_captcha_enabled"`
 	RegistrationProofEnabled              bool                     `json:"registration_proof_enabled"`
 	AfterSalesGroup                       string                   `json:"after_sales_group"`
 	CustomerServiceLink                   string                   `json:"customer_service_link"`
@@ -765,6 +768,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		AccountQuotaNotifyEnabled:             settings.AccountQuotaNotifyEnabled,
 		BalanceLowNotifyThreshold:             settings.BalanceLowNotifyThreshold,
 		BalanceLowNotifyRechargeURL:           settings.BalanceLowNotifyRechargeURL,
+		HomepageCaptchaEnabled:                settings.HomepageCaptchaEnabled,
 		RegistrationProofEnabled:              settings.RegistrationProofEnabled,
 		AfterSalesGroup:                       settings.AfterSalesGroup,
 		CustomerServiceLink:                   settings.CustomerServiceLink,

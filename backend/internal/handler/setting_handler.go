@@ -61,6 +61,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		LoginAgreementUpdatedAt:               settings.LoginAgreementUpdatedAt,
 		LoginAgreementRevision:                settings.LoginAgreementRevision,
 		LoginAgreementDocuments:               publicLoginAgreementDocumentsToDTO(settings.LoginAgreementDocuments),
+		HomepageCaptchaEnabled:                settings.HomepageCaptchaEnabled,
 		TurnstileEnabled:                      settings.TurnstileEnabled,
 		TurnstileSiteKey:                      settings.TurnstileSiteKey,
 		TencentCaptchaEnabled:                 settings.TencentCaptchaEnabled,

@@ -110,6 +110,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if req.TurnstileSecretKey != "" {
 		changed = append(changed, "turnstile_secret_key")
 	}
+	if before.HomepageCaptchaEnabled != after.HomepageCaptchaEnabled {
+		changed = append(changed, "homepage_captcha_enabled")
+	}
 	if before.RegistrationProofEnabled != after.RegistrationProofEnabled {
 		changed = append(changed, "registration_proof_enabled")
 	}

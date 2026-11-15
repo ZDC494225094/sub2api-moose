@@ -91,6 +91,19 @@ describe('extension runtime synchronization', () => {
     expect(r.currentRoute.value.path).toBe('/admin/dashboard')
     expect(r.currentRoute.value.query).toEqual({ prompt: 'draft' })
   })
+  it('reuses the initial navigation state when mounting the runtime', async () => {
+    const r = createRouter({ history: createMemoryHistory(), routes: [
+      { path: '/playground', component: { template: '<div />' } },
+      { path: '/admin/dashboard', component: { template: '<div />' } },
+    ] })
+    mirrorAdminList()
+    installCustomExtensionGuard(r)
+    await r.push('/playground')
+    expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
+    wrapper = mount(defineComponent({ setup() { useCustomExtensionRuntime(r); return {} }, template: '<div />' }))
+    await flushPromises()
+    expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
+  })
   it('refreshes for visibility and relevant cross-tab events and removes listeners and timers', async () => {
     await start('/admin/custom-extensions')
     vi.mocked(extensionAPI.publicState).mockClear()

@@ -515,6 +515,7 @@ export interface SystemSettings {
   turnstile_enabled: boolean;
   turnstile_site_key: string;
   turnstile_secret_key_configured: boolean;
+  homepage_captcha_enabled: boolean;
   registration_proof_enabled: boolean;
   registration_proof_difficulty: number;
   tencent_captcha_enabled: boolean;
@@ -877,6 +878,7 @@ export interface UpdateSettingsRequest {
   turnstile_enabled?: boolean;
   turnstile_site_key?: string;
   turnstile_secret_key?: string;
+  homepage_captcha_enabled?: boolean;
   registration_proof_enabled?: boolean;
   registration_proof_difficulty?: number;
   tencent_captcha_enabled?: boolean;

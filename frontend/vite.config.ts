@@ -2,6 +2,7 @@ import { defineConfig, loadEnv, Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { createReadStream, existsSync, statSync } from 'node:fs'
 import { extname, isAbsolute, relative, resolve } from 'path'
+import { homepageGateDevServer } from './dev/homepage-gate'
 
 const canvasDistDir = resolve(__dirname, '../canvas/web/dist')
 const canvasMimeTypes: Record<string, string> = {
@@ -189,7 +190,7 @@ export default defineConfig(async ({ mode, command }) => {
   const devPort = Number(env.VITE_DEV_PORT || 5173)
   const enableChecker = env.VITE_ENABLE_CHECKER === 'true'
 
-  const plugins: Plugin[] = [vue(), canvasDevServer()]
+  const plugins: Plugin[] = [homepageGateDevServer(backendUrl), vue(), canvasDevServer()]
   if (enableChecker) {
     const { default: checker } = await import('vite-plugin-checker')
     plugins.push(checker({ vueTsc: true }))

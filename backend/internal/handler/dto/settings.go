@@ -69,6 +69,7 @@ type SystemSettings struct {
 	TurnstileEnabled                       bool     `json:"turnstile_enabled"`
 	TurnstileSiteKey                       string   `json:"turnstile_site_key"`
 	TurnstileSecretKeyConfigured           bool     `json:"turnstile_secret_key_configured"`
+	HomepageCaptchaEnabled                 bool     `json:"homepage_captcha_enabled"`
 	RegistrationProofEnabled               bool     `json:"registration_proof_enabled"`
 	RegistrationProofDifficulty            int      `json:"registration_proof_difficulty"`
 	TencentCaptchaEnabled                  bool     `json:"tencent_captcha_enabled"`
@@ -442,6 +443,7 @@ type PublicSettings struct {
 	// subscription only) before any authenticated checkout call.
 	PaymentBalanceDisabled                bool               `json:"payment_balance_disabled"`
 	Version                               string             `json:"version"`
+	HomepageCaptchaEnabled                bool               `json:"homepage_captcha_enabled"`
 	RegistrationProofEnabled              bool               `json:"registration_proof_enabled"`
 	AfterSalesGroup                       string             `json:"after_sales_group"`
 	CustomerServiceLink                   string             `json:"customer_service_link"`

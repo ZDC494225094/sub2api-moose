@@ -167,6 +167,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		TurnstileEnabled:                                       settings.TurnstileEnabled,
 		TurnstileSiteKey:                                       settings.TurnstileSiteKey,
 		TurnstileSecretKeyConfigured:                           settings.TurnstileSecretKeyConfigured,
+		HomepageCaptchaEnabled:                                 settings.HomepageCaptchaEnabled,
 		RegistrationProofEnabled:                               settings.RegistrationProofEnabled,
 		RegistrationProofDifficulty:                            settings.RegistrationProofDifficulty,
 		TencentCaptchaEnabled:                                  settings.TencentCaptchaEnabled,
