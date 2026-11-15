@@ -2,12 +2,10 @@
 import { useCustomExtensionRuntime } from '@/extensions/runtime'
 import ExtensionSlot from '@/extensions/components/ExtensionSlot.vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
-import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import Toast from '@/components/common/Toast.vue'
 import NavigationProgress from '@/components/common/NavigationProgress.vue'
-import AdminComplianceDialog from '@/components/admin/AdminComplianceDialog.vue'
 import { resolveRouteDocumentTitle } from '@/router/title'
-import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
 import { useAppStore, useAuthStore, useSubscriptionStore, useAnnouncementStore, useAdminComplianceStore, useAdminSettingsStore } from '@/stores'
 import { getSetupStatus } from '@/api/setup'
 import { updateFavicon } from '@/utils/branding'
@@ -17,6 +15,9 @@ import {
 } from '@/router/mainlandChinaAccessRestriction'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 import { resolveSiteBillingMode } from '@/utils/siteBillingMode'
+
+const AnnouncementPopup = defineAsyncComponent(() => import('@/components/common/AnnouncementPopup.vue'))
+const AdminComplianceDialog = defineAsyncComponent(() => import('@/components/admin/AdminComplianceDialog.vue'))
 
 const router = useRouter()
 useCustomExtensionRuntime(router)
@@ -187,7 +188,7 @@ onMounted(async () => {
   }
 
   // Load public settings into appStore (will be cached for other components)
-  // SSR-injected settings deliberately omit the request-specific IP decision.
+  // Server-injected settings deliberately omit the request-specific IP decision.
   // Refresh once after mounting so this browser receives its own result.
   const settings = await appStore.fetchPublicSettings(true)
   mainlandChinaAccessDecisionResolved.value = settings !== null
@@ -202,6 +203,6 @@ onMounted(async () => {
   <RouterView />
   <ExtensionSlot name="application-overlay" />
   <Toast v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
-  <AnnouncementPopup v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
-  <AdminComplianceDialog v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH" />
+  <AnnouncementPopup v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH && announcementStore.currentPopup" />
+  <AdminComplianceDialog v-if="route.path !== MAINLAND_CHINA_ACCESS_RESTRICTED_PATH && adminComplianceStore.shouldShow" />
 </template>

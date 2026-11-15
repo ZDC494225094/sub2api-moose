@@ -1,6 +1,7 @@
 import { createI18n } from 'vue-i18n'
 
 type LocaleCode = 'en' | 'zh'
+type LocaleScope = 'public' | 'full'
 
 type LocaleMessages = Record<string, any>
 
@@ -11,6 +12,12 @@ const localeLoaders: Record<LocaleCode, () => Promise<{ default: LocaleMessages 
   en: () => import('./locales/en'),
   zh: () => import('./locales/zh')
 }
+const publicLocaleLoaders: typeof localeLoaders = {
+  en: () => import('./locales/en/public'),
+  zh: () => import('./locales/zh/public')
+}
+const publicLocalePaths = new Set(['/', '/home', '/login', '/register'])
+const scopeForPath = (path: string): LocaleScope => publicLocalePaths.has(path) ? 'public' : 'full'
 
 function isLocaleCode(value: string): value is LocaleCode {
   return value === 'en' || value === 'zh'
@@ -40,22 +47,36 @@ export const i18n = createI18n({
   warnHtmlMessage: false
 })
 
-const loadedLocales = new Set<LocaleCode>()
+const loadedLocales = new Map<LocaleCode, LocaleScope>()
+const pendingLocales = new Map<string, Promise<void>>()
 
-export async function loadLocaleMessages(locale: LocaleCode): Promise<void> {
-  if (loadedLocales.has(locale)) {
+export async function loadLocaleMessages(locale: LocaleCode, scope: LocaleScope = 'full'): Promise<void> {
+  const loaded = loadedLocales.get(locale)
+  if (loaded === 'full' || loaded === scope) {
     return
   }
 
-  const loader = localeLoaders[locale]
-  const module = await loader()
-  i18n.global.setLocaleMessage(locale, module.default)
-  loadedLocales.add(locale)
+  const key = `${locale}:${scope}`
+  const pending = pendingLocales.get(key)
+  if (pending) return pending
+  const loader = scope === 'public' ? publicLocaleLoaders[locale] : localeLoaders[locale]
+  const request = loader().then((module) => {
+    // A slower public request must not replace a full dictionary loaded meanwhile.
+    if (loadedLocales.get(locale) === 'full') return
+    i18n.global.setLocaleMessage(locale, module.default)
+    loadedLocales.set(locale, scope)
+  }).finally(() => pendingLocales.delete(key))
+  pendingLocales.set(key, request)
+  return request
+}
+
+export async function loadRouteLocale(path: string): Promise<void> {
+  await loadLocaleMessages(getLocale(), scopeForPath(path))
 }
 
 export async function initI18n(): Promise<void> {
   const current = getLocale()
-  await loadLocaleMessages(current)
+  await loadRouteLocale(window.location.pathname)
   document.documentElement.setAttribute('lang', current)
 }
 
@@ -64,7 +85,7 @@ export async function setLocale(locale: string): Promise<void> {
     return
   }
 
-  await loadLocaleMessages(locale)
+  await loadLocaleMessages(locale, scopeForPath(window.location.pathname))
   i18n.global.locale.value = locale
   localStorage.setItem(LOCALE_KEY, locale)
   document.documentElement.setAttribute('lang', locale)

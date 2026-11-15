@@ -38,6 +38,7 @@ const emit = defineEmits<{
 const announcementStore = useAnnouncementStore()
 const authStore = useAuthStore()
 const DISMISS_KEY_PREFIX = 'console-announcement-dismiss-date'
+let ownsScrollLock = false
 
 const displayedAnnouncement = computed<UserAnnouncement | null>(() => {
   const announcement = props.preview ? props.announcement : announcementStore.currentPopup
@@ -95,12 +96,14 @@ watch(
       handleDismiss()
       return
     }
-    document.body.style.overflow = popup ? 'hidden' : ''
+    ownsScrollLock = !!popup
+    document.body.style.overflow = ownsScrollLock ? 'hidden' : ''
   },
   { immediate: true }
 )
 
 onBeforeUnmount(() => {
-  if (displayedAnnouncement.value) document.body.style.overflow = ''
+  // App can unmount us as soon as currentPopup clears, before the watcher runs.
+  if (ownsScrollLock) document.body.style.overflow = ''
 })
 </script>

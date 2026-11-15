@@ -180,10 +180,12 @@ async function resolveDevBackendUrl(preferredUrl: string | undefined): Promise<s
   return fallback
 }
 
-export default defineConfig(async ({ mode }) => {
+export default defineConfig(async ({ mode, command }) => {
   // 加载环境变量
   const env = loadEnv(mode, process.cwd(), '')
-  const backendUrl = await resolveDevBackendUrl(env.VITE_DEV_PROXY_TARGET)
+  const backendUrl = command === 'serve'
+    ? await resolveDevBackendUrl(env.VITE_DEV_PROXY_TARGET)
+    : normalizeDevBackendUrl(env.VITE_DEV_PROXY_TARGET) || 'http://localhost:6200'
   const devPort = Number(env.VITE_DEV_PORT || 5173)
   const enableChecker = env.VITE_ENABLE_CHECKER === 'true'
 
@@ -227,10 +229,17 @@ export default defineConfig(async ({ mode }) => {
               return 'vendor-vue'
             }
 
-            // UI 工具库（较大，单独分离）
-            if (id.includes('/@vueuse/') || id.includes('/xlsx/')) {
+            // 通用工具不能与仅导出报表时使用的 xlsx 合包。
+            if (id.includes('/@vueuse/')) {
               return 'vendor-ui'
             }
+            if (id.includes('/xlsx/')) return 'vendor-xlsx'
+            if (id.includes('/three/')) return 'vendor-three'
+            if (id.includes('/@airwallex/')) return 'vendor-airwallex'
+            if (id.includes('/jszip/') || id.includes('/file-saver/')) return 'vendor-export'
+            if (id.includes('/qrcode/')) return 'vendor-qrcode'
+            if (id.includes('/driver.js/')) return 'vendor-tour'
+            if (id.includes('/marked/') || id.includes('/dompurify/')) return 'vendor-markdown'
 
             // 图表库
             if (id.includes('/chart.js/') || id.includes('/vue-chartjs/')) {
@@ -247,8 +256,8 @@ export default defineConfig(async ({ mode }) => {
               return 'vendor-stripe'
             }
 
-            // 其他小型第三方库合并
-            return 'vendor-misc'
+            // 其余依赖由 Rollup 按实际引用拆分。统一 vendor-misc 会让首页
+            // 使用 axios 时连带下载支付、导出、3D 等所有功能的依赖。
           }
 
           // 应用代码：按入口点自动分包，不手动干预

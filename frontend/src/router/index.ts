@@ -16,6 +16,7 @@ import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
 import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
+import { loadRouteLocale } from '@/i18n'
 
 /**
  * Route definitions with lazy loading
@@ -837,6 +838,8 @@ function isBackendModePublicRouteAllowed(path: string, hasPendingAuthSession: bo
 }
 
 router.beforeEach(async (to, _from, next) => {
+  // Load console translations only when entering a page that uses them.
+  await loadRouteLocale(to.path)
   if (to.path === '/purchase' && to.query.aff) storeAffiliateReferralCode(to.query.aff)
   if (to.path === '/purchase' && Number(to.query.campaign) > 0) { try { sessionStorage.setItem('recharge_campaign_referral', String(to.query.campaign)) } catch { /* storage unavailable */ } }
   // 开始导航加载状态

@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import { createLandDots } from './globe-land'
 import { createGlobeDecalGeometry } from './globe-decal-geometry'
+import { globeProviderMarkers } from './globe-providers'
+export { globeProviderMarkers }
 
 const globeHub = { lat: 31.2304, lon: 121.4737 }
 
@@ -11,16 +13,6 @@ const globeRoutes = [
   { start: { lat: 37.7749, lon: -122.4194 }, end: globeHub, width: 0.92, speed: 0.46 },
   { start: { lat: 48.8566, lon: 2.3522 }, end: globeHub, width: 0.82, speed: 0.42 },
   { start: { lat: -33.9249, lon: 18.4241 }, end: globeHub, width: 0.9, speed: 0.4 },
-]
-
-// These are schematic network nodes, not provider office locations.
-export const globeProviderMarkers = [
-  { id: 'openai', name: 'OpenAI', model: 'gpt' },
-  { id: 'gemini', name: 'Gemini', model: 'gemini' },
-  { id: 'deepseek', name: 'DeepSeek', model: 'deepseek' },
-  { id: 'claude', name: 'Claude', model: 'claude' },
-  { id: 'qwen', name: 'Qwen', model: 'qwen' },
-  { id: 'grok', name: 'Grok', model: 'grok' },
 ]
 
 // Colour sets. "default" is the original homepage look and stays the default

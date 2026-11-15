@@ -182,9 +182,10 @@
         </aside>
 
         <AnnouncementPanel
-          ref="announcementPanel"
+          v-if="noticePanelOpen"
           :announcements="visibleAnnouncements"
           :open="noticePanelOpen"
+          :initial-selected-announcement="selectedNotice"
           @close="closeNoticePanel()"
           @dismiss-today="closeNoticePanel(true)"
         />
@@ -383,6 +384,7 @@
 
       <section
         v-if="modelPlazaHomeEnabled"
+        ref="modelPlazaSection"
         id="model-plaza"
         class="section model-plaza-home-section"
         aria-labelledby="model-plaza-home-title"
@@ -399,12 +401,13 @@
           <RouterLink class="all-link" to="/login">去登录</RouterLink>
         </div>
         <ModelPlazaContent
-          v-else
+          v-else-if="modelPlazaVisible"
           :response="modelPlazaResponse"
           :loading="modelPlazaLoading"
           :error="modelPlazaLoadFailed"
           embedded
         />
+        <div v-else class="loading-card" aria-busy="true">正在准备模型广场…</div>
       </section>
 
       <section v-else id="models" class="section models-section">
@@ -497,7 +500,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAppStore, useAuthStore } from '@/stores'
 import CustomerServiceFloat from '@/extensions/modules/customer-support/SupportWidget.vue'
@@ -506,19 +509,23 @@ import { useExtensionStore } from '@/extensions/store'
 import { useThemeMode, type ThemeMode } from '@/extensions/modules/console-theme/themeMode'
 import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import Icon from '@/components/icons/Icon.vue'
-import AnnouncementPanel from './AnnouncementPanel.vue'
 import type { SubscriptionPlan } from '@/types/payment'
 import type { UserAnnouncement } from '@/types'
 import { announcementPublishedDate, isRecentAnnouncement, sortAnnouncementsByPublishedAt } from '@/utils/announcementOrder'
 import { getPublicAnnouncements, getPublicPlans } from './api'
 import ProviderNetwork from './ProviderNetwork.vue'
 import ModelIcon from '@/components/common/ModelIcon.vue'
-import ModelPlazaContent from '@/components/modelPlaza/ModelPlazaContent.vue'
 import { getModelPlaza, type ModelPlazaResponse } from '@/api/modelPlaza'
 import './premium-home.css'
 import './gateway-home.css'
 import './gateway-motion.css'
 import { useHomeMotion } from './useHomeMotion'
+import { useNearViewport } from '@/composables/useNearViewport'
+
+const AnnouncementPanel = defineAsyncComponent(() => import('./AnnouncementPanel.vue'))
+const ModelPlazaContent = defineAsyncComponent(() => import('@/components/modelPlaza/ModelPlazaContent.vue'))
+const modelPlazaSection = ref<HTMLElement | null>(null)
+const modelPlazaVisible = useNearViewport(modelPlazaSection)
 
 const homeRoot = ref<HTMLElement | null>(null)
 useHomeMotion(homeRoot)
@@ -553,9 +560,7 @@ const themeMenuOpen = ref(false)
 const userMenuOpen = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
 const { mode: themeMode, isDark, setMode } = useThemeMode()
-const announcementPanel = ref<{
-  openAnnouncement: (notice?: UserAnnouncement) => void
-} | null>(null)
+const selectedNotice = ref<UserAnnouncement | null>(null)
 const plans = ref<SubscriptionPlan[]>([])
 const announcements = ref<UserAnnouncement[]>([])
 const modelPlazaResponse = ref<ModelPlazaResponse | null>(null)
@@ -586,7 +591,7 @@ const modelPlazaRequiresAuth = computed(() =>
   appStore.cachedPublicSettings?.model_plaza_require_auth === true
 )
 const canLoadHomeModelPlaza = computed(() =>
-  modelPlazaHomeEnabled.value && (!modelPlazaRequiresAuth.value || isAuthenticated.value)
+  modelPlazaVisible.value && modelPlazaHomeEnabled.value && (!modelPlazaRequiresAuth.value || isAuthenticated.value)
 )
 const infiniteCanvasHomeEnabled = computed(() =>
   appStore.cachedPublicSettings?.infinite_canvas_enabled === true &&
@@ -855,12 +860,13 @@ let entranceStartedAt = 0
 let homeUnmounted = false
 function scheduleAutoNotice() {
   if (homeUnmounted) return
-  // Keep the existing announcement, but let the globe introduction finish first.
+  // Give visitors time to read the first screen before automatically opening notices.
   autoNoticeTimer = setTimeout(openNoticePanel, Math.max(0, 3700 - (performance.now() - entranceStartedAt)))
 }
 
 function openNoticePanel() {
   clearTimeout(autoNoticeTimer)
+  selectedNotice.value = null
   noticePanelOpen.value = true
 }
 
@@ -878,7 +884,10 @@ function closeNoticePanel(dismissToday = false) {
 }
 
 function openAnnouncement(notice?: UserAnnouncement) {
-  announcementPanel.value?.openAnnouncement(notice)
+  if (!notice) return
+  clearTimeout(autoNoticeTimer)
+  selectedNotice.value = notice
+  noticePanelOpen.value = true
 }
 
 function onKeydown(event: KeyboardEvent) {

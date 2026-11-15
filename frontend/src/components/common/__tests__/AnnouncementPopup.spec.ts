@@ -141,6 +141,16 @@ describe('AnnouncementPopup', () => {
     wrapper.unmount()
   })
 
+  it('releases scrolling when a conditional parent unmounts immediately after dismissal', () => {
+    const store = useAnnouncementStore()
+    store.currentPopup = announcement
+    const wrapper = mount(AnnouncementPopup)
+    expect(document.body.style.overflow).toBe('hidden')
+    store.currentPopup = null
+    wrapper.unmount()
+    expect(document.body.style.overflow).toBe('')
+  })
+
   it('opens only the announcement list and highlights the popup notices', async () => {
     const store = useAnnouncementStore()
     store.announcements = [
