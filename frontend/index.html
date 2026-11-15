@@ -6,16 +6,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sub2API - AI API Gateway</title>
     <style nonce="__CSP_NONCE_VALUE__">
-      #app-boot{position:fixed;inset:0;display:grid;place-items:center;padding:24px;box-sizing:border-box;background:#f5f7fb;color:#17243b;font:15px/1.7 system-ui,-apple-system,"Segoe UI",sans-serif}#app-boot section{max-width:360px;text-align:center}#app-boot .boot-mark{display:inline-block;width:32px;height:32px;border:3px solid #dce6fb;border-top-color:#245ad1;border-radius:50%;animation:boot-spin 1s linear infinite}#app-boot h1{font-size:22px;margin:18px 0 8px}#app-boot p{color:#66738a;margin:0 0 16px}#app-boot a{color:#245ad1;text-underline-offset:4px}#app-boot a:focus-visible{outline:3px solid #93b4ff;outline-offset:4px}#app-boot [hidden]{display:none}@keyframes boot-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){#app-boot .boot-mark{animation:none}}@media(prefers-color-scheme:dark){#app-boot{background:#101723;color:#e6edf9}#app-boot p{color:#abb9cf}#app-boot a{color:#91b4ff}}
+      #app-boot{--boot-accent:#006fee;position:fixed;inset:0;isolation:isolate;overflow:hidden;display:grid;place-items:center;padding:24px;box-sizing:border-box;background:#f7f9fc;color:#17243b;font:15px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+      #app-boot::before{content:"";position:absolute;inset:0;z-index:-2;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='34.641016' viewBox='0 0 60 34.641016'%3E%3Cpath d='M0 17.320508H20L30 0H50L60 17.320508L50 34.641016H30L20 17.320508' fill='none' stroke='%236980a5' stroke-opacity='.18' stroke-width='.8'/%3E%3C/svg%3E");mask-image:radial-gradient(ellipse at center,#000 15%,transparent 78%)}
+      #app-boot::after{content:"";position:absolute;z-index:-1;width:min(75vw,680px);height:min(75vw,680px);border-radius:50%;background:radial-gradient(circle,#006fee12,transparent 68%);animation:boot-breathe 4s ease-in-out infinite}
+      #app-boot section{width:100%;max-width:380px;text-align:center;padding:36px 20px;box-sizing:border-box}#app-boot .boot-mark{position:relative;display:grid;place-items:center;width:88px;height:96px;margin:0 auto 30px;filter:drop-shadow(0 8px 20px #006fee20)}
+      #app-boot .boot-mark::before,#app-boot .boot-mark::after{content:"";position:absolute;inset:0;clip-path:polygon(50% 0,94% 25%,94% 75%,50% 100%,6% 75%,6% 25%);background:#006fee14;animation:boot-hex 3s ease-in-out infinite}#app-boot .boot-mark::after{inset:10px;background:linear-gradient(145deg,#fff,#e1edff);animation-delay:-1.5s}
+      #app-boot .boot-core{position:relative;z-index:1;display:block;width:23px;height:23px;border:2px solid #006fee26;border-top-color:var(--boot-accent);border-radius:50%;animation:boot-spin 1.2s linear infinite}
+      #app-boot h1{font-size:24px;letter-spacing:.04em;font-weight:600;margin:0 0 10px}#app-boot p{color:#718096;font-size:14px;margin:0 0 23px}#app-boot .boot-dots{display:flex;justify-content:center;gap:7px;margin:24px auto}#app-boot .boot-dots i{width:5px;height:5px;border-radius:50%;background:var(--boot-accent);animation:boot-dot 1.8s ease-in-out infinite}#app-boot .boot-dots i:nth-child(2){animation-delay:.2s}#app-boot .boot-dots i:nth-child(3){animation-delay:.4s}
+      #app-boot a{font-size:14px;color:var(--boot-accent);text-underline-offset:5px}#app-boot a:focus-visible{outline:3px solid #93b4ff;outline-offset:5px}#app-boot [hidden]{display:none}
+      @keyframes boot-spin{to{transform:rotate(360deg)}}@keyframes boot-breathe{50%{opacity:.45;transform:scale(.88)}}@keyframes boot-hex{50%{opacity:.65;transform:scale(.94)}}@keyframes boot-dot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
+      @media(prefers-reduced-motion:reduce){#app-boot::after,#app-boot .boot-mark::before,#app-boot .boot-mark::after,#app-boot .boot-core,#app-boot .boot-dots i{animation:none}}
+      @media(prefers-color-scheme:dark){#app-boot{--boot-accent:#7ab6ff;background:#10151e;color:#edf3ff}#app-boot p{color:#98a8be}#app-boot::before{opacity:.7}#app-boot::after{background:radial-gradient(circle,#2585ff20,transparent 68%)}#app-boot .boot-mark::before{background:#378cff26}#app-boot .boot-mark::after{background:linear-gradient(145deg,#273d59,#15273f)}#app-boot .boot-core{border-color:#7ab6ff30;border-top-color:var(--boot-accent)}}
     </style>
   </head>
   <body>
     <div id="app">
       <main id="app-boot" aria-busy="true">
         <section aria-live="polite">
-          <span class="boot-mark" aria-hidden="true"></span>
+          <span class="boot-mark" aria-hidden="true"><span class="boot-core"></span></span>
           <h1 id="app-boot-title">正在打开页面</h1>
-          <p id="app-boot-message">页面加载中，请稍候。</p>
+          <p id="app-boot-message">美好即将呈现，请稍候片刻</p>
+          <span class="boot-dots" aria-hidden="true"><i></i><i></i><i></i></span>
           <a id="app-boot-retry" href="" hidden>重新加载</a>
           <noscript><p>请启用浏览器 JavaScript 后重新加载。</p></noscript>
         </section>

@@ -8,6 +8,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
+	"github.com/Wei-Shaw/sub2api/internal/repository"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/server/routes"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -71,7 +72,7 @@ func SetupRouter(
 	r.Use(middleware2.ServerTiming(cfg.Server.EnableServerTiming))
 	// The verification document runs before extension/public-settings lookups and
 	// contains no SPA assets. Gateway and login/admin recovery routes bypass it.
-	r.Use(middleware2.HomepageGate(settingService, redisClient, cfg.JWT.Secret))
+	r.Use(middleware2.HomepageGate(settingService, redisClient, cfg.JWT.Secret, service.NewTurnstileService(settingService, repository.NewTurnstileVerifier())))
 
 	// Built-in customizations are checked before static/embedded frontend handling.
 	r.Use(settingService.CustomExtensions().PageMiddleware())

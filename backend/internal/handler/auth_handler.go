@@ -208,7 +208,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// 验证当前启用的验证码（邮箱验证码注册场景避免重复校验一次性票据）
+	// 每次注册提交都校验新的人机验证票据，邮箱验证码不能替代人机验证。
 	proof := captchaProof(req.TurnstileToken, req.TencentCaptchaTicket, req.TencentCaptchaRandstr)
 	if err := h.authService.VerifyCaptchaForRegister(c.Request.Context(), proof, ip.GetClientIP(c), req.VerifyCode); err != nil {
 		response.ErrorFrom(c, err)

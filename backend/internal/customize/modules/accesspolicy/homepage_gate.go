@@ -20,6 +20,8 @@ const (
 	HomepageCaptchaEnabledKey = "homepage_captcha_enabled"
 	HomepageChallengeTTL      = 5 * time.Minute
 	HomepageClearanceTTL      = 24 * time.Hour
+	HomepageChallengeCookie   = "sub2api_home_challenge"
+	HomepageClearanceCookie   = "sub2api_home_clearance"
 )
 
 var ErrHomepageChallenge = errors.New("invalid or expired homepage verification")
@@ -138,6 +140,24 @@ func (g *HomepageGate) Clearance(userAgent string) (string, error) {
 func (g *HomepageGate) HasClearance(token, userAgent string) bool {
 	ticket, err := g.open(token, "clearance", HomepageClearanceTTL)
 	return err == nil && hmac.Equal([]byte(ticket.Binding), []byte(g.binding(userAgent)))
+}
+
+// Turnstile receipts are distinct from image clearance and tied to both the
+// browser's HttpOnly binding cookie and the active provider credentials.
+type HomepageTurnstileConfig struct {
+	SiteKey, SecretKey string
+}
+
+func (g *HomepageGate) TurnstileClearance(browserID, userAgent string, config HomepageTurnstileConfig) (string, error) {
+	return g.seal(homepageTicket{Kind: "turnstile-clearance", Expires: g.now().Add(HomepageClearanceTTL).Unix(), Binding: g.binding(browserID + "\n" + userAgent + "\n" + config.SiteKey + "\n" + config.SecretKey)})
+}
+
+func (g *HomepageGate) TurnstileClearanceExpires(token, browserID, userAgent string, config HomepageTurnstileConfig) int64 {
+	ticket, err := g.open(token, "turnstile-clearance", HomepageClearanceTTL)
+	if err != nil || browserID == "" || config.SiteKey == "" || config.SecretKey == "" || !hmac.Equal([]byte(ticket.Binding), []byte(g.binding(browserID+"\n"+userAgent+"\n"+config.SiteKey+"\n"+config.SecretKey))) {
+		return 0
+	}
+	return ticket.Expires
 }
 
 func IsHomepagePath(path string) bool {

@@ -273,9 +273,9 @@ export default {
       },
       homepageCaptcha: {
         title: 'Homepage verification',
-        description: 'Show a lightweight image challenge before downloading homepage resources, without an external captcha provider.',
+        description: 'Verify before downloading homepage resources. Uses Cloudflare Turnstile without typing digits when enabled, otherwise a local image challenge.',
         enabled: 'Require verification before the homepage',
-        hint: 'Remember verification in this browser for 24 hours. Login, administration and API access keep their existing behavior. Serve the homepage through the backend or a same-origin proxy.'
+        hint: 'Homepage access is remembered for 24 hours in this browser. Login and signup still require fresh verification on every attempt. Serve the homepage through the backend or a same-origin proxy.'
       },
       registrationProof: {
         title: 'Local Registration Verification',

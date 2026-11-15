@@ -12,18 +12,34 @@
 </head>
 <body><main>
   <div class="mark" aria-hidden="true">✓</div>
-  <h1>完成验证，继续访问</h1>
-  <p>请输入图片中的数字，验证通过后进入首页。</p>
+  <h1>{{if .SiteKey}}正在确认访问环境{{else}}完成验证，继续访问{{end}}</h1>
+  <p>{{if .SiteKey}}正在进行安全验证，完成后将自动进入首页。{{else}}请输入图片中的数字，验证通过后进入首页。{{end}}</p>
   {{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
   <form method="post" action="/_homepage/verify">
     <input type="hidden" name="challenge" value="{{.Challenge}}">
     <input type="hidden" id="return" name="return" value="{{.Return}}">
+    {{if .SiteKey}}
+    <div id="turnstile" data-sitekey="{{.SiteKey}}" data-binding="{{.BrowserID}}"></div>
+    <p id="verification-status" class="hint" role="status">正在连接安全验证服务…</p>
+    <a id="refresh" href="{{.Return}}">重新验证</a>
+    {{else}}
     <div class="image"><img src="{{.Image}}" width="240" height="76" alt="六位数字验证码"><a id="refresh" href="{{.Return}}">换一张</a></div>
     <label for="answer">图片验证码</label>
     <input id="answer" name="answer" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" required autofocus aria-describedby="hint">
     <button type="submit">验证并进入</button>
+    {{end}}
   </form>
-  <p class="hint" id="hint">请输入 6 位数字。同一浏览器验证后，24 小时内无需重复验证。</p>
+  <p class="hint" id="hint">{{if .SiteKey}}由 Cloudflare Turnstile 保护 · 首页放行有效 24 小时{{else}}请输入 6 位数字。同一浏览器验证后，24 小时内访问首页无需重复验证。{{end}}</p>
+  {{if .SiteKey}}<noscript><p class="error">请启用 JavaScript 后刷新以完成安全验证。</p></noscript>{{end}}
 </main>
-<script nonce="{{.Nonce}}">if(location.pathname!=="/_homepage/verify"){document.getElementById("return").value=location.pathname+location.search+location.hash;document.getElementById("refresh").addEventListener("click",function(event){event.preventDefault();location.reload()});}document.querySelector("form").addEventListener("submit",function(){this.querySelector("button").textContent="正在验证…"});</script>
+<script nonce="{{.Nonce}}">
+if(location.pathname!=="/_homepage/verify"){document.getElementById("return").value=location.pathname+location.search+location.hash;document.getElementById("refresh").addEventListener("click",function(event){event.preventDefault();location.reload()});}
+document.querySelector("form").addEventListener("submit",function(){var button=this.querySelector("button");if(button)button.textContent="正在验证…"});
+{{if .SiteKey}}
+var submitted=false,ready=false,statusNode=document.getElementById("verification-status");
+window.homepageTurnstileReady=function(){ready=true;var widget=document.getElementById("turnstile");window.turnstile.render(widget,{sitekey:widget.dataset.sitekey,action:"homepage",cData:widget.dataset.binding,size:"flexible",theme:"auto",callback:function(){if(submitted)return;submitted=true;statusNode.textContent="验证通过，正在进入…";document.querySelector("form").requestSubmit()},"error-callback":function(){statusNode.textContent="安全验证暂时不可用，请点击重新验证。"},"expired-callback":function(){statusNode.textContent="验证已过期，请点击重新验证。"},"timeout-callback":function(){statusNode.textContent="验证超时，请点击重新验证。"}})};
+setTimeout(function(){if(!ready)statusNode.textContent="连接安全验证服务较慢，请稍候或点击重新验证。"},12000);
+{{end}}
+</script>
+{{if .SiteKey}}<script nonce="{{.Nonce}}" src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=homepageTurnstileReady&amp;render=explicit" async defer></script>{{end}}
 </body></html>

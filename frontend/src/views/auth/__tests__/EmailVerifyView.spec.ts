@@ -842,7 +842,7 @@ describe('EmailVerifyView', () => {
     expect(pushMock).toHaveBeenCalledWith('/dashboard')
   })
 
-  it('does not require another Tencent proof for final email registration', async () => {
+  it('requires fresh Tencent proof for final email registration', async () => {
     getPublicSettingsMock.mockResolvedValue({
       turnstile_enabled: false,
       turnstile_site_key: '',
@@ -871,6 +871,7 @@ describe('EmailVerifyView', () => {
             template: '<span />',
             methods: {
               reset: createTurnstileResetMock,
+              verifyAction: () => Promise.resolve({ token: 'fresh-create-ticket', randstr: '@fresh-create-rand' }),
             },
           },
           transition: false,
@@ -895,8 +896,31 @@ describe('EmailVerifyView', () => {
     expect(registerMock).toHaveBeenCalledWith(expect.objectContaining({
       email: 'normal@example.com',
       verify_code: '654321',
-      tencent_captcha_ticket: undefined,
-      tencent_captcha_randstr: undefined,
+      tencent_captcha_ticket: 'fresh-create-ticket',
+      tencent_captcha_randstr: '@fresh-create-rand',
     }))
+  })
+
+  it('requires a new Turnstile result for email registration and after a failed attempt', async () => {
+    getPublicSettingsMock.mockResolvedValue({ turnstile_enabled: true, turnstile_site_key: 'site', site_name: 'Sub2API', registration_email_suffix_whitelist: [] })
+    sessionStorage.setItem('register_data', JSON.stringify({ email: 'normal@example.com', password: 'secret-456', turnstile_token: 'send-code-token' }))
+    registerMock.mockRejectedValue(new Error('registration failed'))
+    const wrapper = mount(EmailVerifyView, { global: { stubs: {
+      AuthLayout: { template: '<div><slot /><slot name="footer" /></div>' }, Icon: true,
+      TurnstileWidget: { template: '<button type="button" data-testid="fresh-captcha" @click="$emit(\'verify\', \'new-registration-token\')">verify</button>', methods: { reset: createTurnstileResetMock } }, transition: false
+    } } })
+    await flushPromises()
+    expect(sendVerifyCodeMock).toHaveBeenCalledWith(expect.objectContaining({ turnstile_token: 'send-code-token' }))
+    await wrapper.get('#code').setValue('654321')
+    await wrapper.get('form').trigger('submit.prevent')
+    expect(registerMock).not.toHaveBeenCalled()
+    await wrapper.get('[data-testid="fresh-captcha"]').trigger('click')
+    await wrapper.get('form').trigger('submit.prevent')
+    await flushPromises()
+    expect(registerMock).toHaveBeenCalledWith(expect.objectContaining({ turnstile_token: 'new-registration-token', verify_code: '654321' }))
+    expect(createTurnstileResetMock).toHaveBeenCalled()
+    await wrapper.get('form').trigger('submit.prevent')
+    expect(registerMock).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
   })
 })

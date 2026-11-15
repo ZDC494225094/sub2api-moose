@@ -273,9 +273,9 @@ export default {
       },
       homepageCaptcha: {
         title: '首页访问验证',
-        description: '先显示轻量图片验证码，通过后才下载首页资源，无需第三方验证码服务。',
+        description: '先验证再下载首页资源。已启用 Cloudflare Turnstile 时自动使用人机验证，无需输入数字；否则使用本地图片验证码。',
         enabled: '启用首页前置验证码',
-        hint: '验证通过后同一浏览器放行 24 小时。登录、管理后台和 API 保持原有访问方式；需要由后端或同源代理提供首页。'
+        hint: '首页在同一浏览器放行 24 小时，登录和注册仍需每次单独验证。需要由后端或同源代理提供首页。'
       },
       registrationProof: {
         title: '本地注册验证',

@@ -59,7 +59,7 @@ func newAuthServiceForRegisterTurnstileTest(settings map[string]string, verifier
 	)
 }
 
-func TestAuthService_VerifyTurnstileForRegister_SkipWhenEmailVerifyCodeProvided(t *testing.T) {
+func TestAuthService_VerifyTurnstileForRegister_RequiresFreshProofEvenWithEmailCode(t *testing.T) {
 	verifier := &turnstileVerifierSpy{}
 	service := newAuthServiceForRegisterTurnstileTest(map[string]string{
 		SettingKeyEmailVerifyEnabled:  "true",
@@ -69,8 +69,11 @@ func TestAuthService_VerifyTurnstileForRegister_SkipWhenEmailVerifyCodeProvided(
 	}, verifier)
 
 	err := service.VerifyTurnstileForRegister(context.Background(), "", "127.0.0.1", "123456")
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrTurnstileVerificationFailed)
 	require.Equal(t, 0, verifier.called)
+	err = service.VerifyTurnstileForRegister(context.Background(), "fresh-registration-token", "127.0.0.1", "123456")
+	require.NoError(t, err)
+	require.Equal(t, 1, verifier.called)
 }
 
 func TestAuthService_VerifyTurnstileForRegister_RequireWhenVerifyCodeMissing(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/accesspolicy"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,6 +23,34 @@ func newAuthServiceForCaptchaRepoTest(repo *settingRepoStub, required bool, turn
 	svc := NewAuthService(nil, &userRepoStub{}, nil, nil, cfg, settingService, nil, turnstileService, nil, nil, nil, nil, nil)
 	svc.SetTencentCaptchaService(tencentService)
 	return svc
+}
+
+func TestVerifyHomepageTokenRequiresSuccessfulBoundHomepageAction(t *testing.T) {
+	config := accesspolicy.HomepageTurnstileConfig{SiteKey: "site", SecretKey: "secret"}
+	for _, tc := range []struct {
+		name     string
+		response *TurnstileVerifyResponse
+		valid    bool
+	}{
+		{"bound homepage", &TurnstileVerifyResponse{Success: true, Action: "homepage", CData: "browser"}, true},
+		{"provider failure", &TurnstileVerifyResponse{Success: false, Action: "homepage", CData: "browser"}, false},
+		{"login widget", &TurnstileVerifyResponse{Success: true, Action: "login", CData: "browser"}, false},
+		{"other browser", &TurnstileVerifyResponse{Success: true, Action: "homepage", CData: "other"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			verifier := &turnstileVerifierSpy{result: tc.response}
+			svc := NewTurnstileService(nil, verifier)
+			err := svc.VerifyHomepageToken(context.Background(), config, "token", "browser", "127.0.0.1")
+			if tc.valid {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+			}
+			require.Equal(t, 1, verifier.called)
+			require.Error(t, svc.VerifyHomepageToken(context.Background(), config, "", "browser", "127.0.0.1"))
+			require.Equal(t, 1, verifier.called)
+		})
+	}
 }
 
 func newAuthServiceForCaptchaTest(settings map[string]string, required bool, turnstileVerifier TurnstileVerifier, tencentVerifier TencentCaptchaVerifier) *AuthService {
@@ -95,7 +124,7 @@ func TestVerifyCaptchaRequiredModeAcceptsCompleteTencentProvider(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestVerifyCaptchaForRegisterSkipsDuplicateTencentTicketAfterEmailCode(t *testing.T) {
+func TestVerifyCaptchaForRegisterRequiresFreshTencentTicketAfterEmailCode(t *testing.T) {
 	settings := tencentCaptchaSettings()
 	settings[SettingKeyEmailVerifyEnabled] = "true"
 	verifier := &tencentCaptchaVerifierStub{response: &TencentCaptchaVerifyResponse{CaptchaCode: 1}}
@@ -103,8 +132,10 @@ func TestVerifyCaptchaForRegisterSkipsDuplicateTencentTicketAfterEmailCode(t *te
 
 	err := svc.VerifyCaptchaForRegister(context.Background(), CaptchaProof{}, "203.0.113.10", "123456")
 
-	require.NoError(t, err)
+	require.Error(t, err)
 	require.Zero(t, verifier.calls)
+	require.NoError(t, svc.VerifyCaptchaForRegister(context.Background(), CaptchaProof{TencentTicket: "fresh-ticket", TencentRandstr: "fresh-rand"}, "203.0.113.10", "123456"))
+	require.Equal(t, 1, verifier.calls)
 }
 
 func TestVerifyCaptchaFailsClosedWhenProviderSettingsCannotBeRead(t *testing.T) {

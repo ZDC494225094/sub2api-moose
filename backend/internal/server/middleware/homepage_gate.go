@@ -16,16 +16,24 @@ import (
 )
 
 const homepageVerifyPath = "/_homepage/verify"
-const homepageChallengeCookie = "sub2api_home_challenge"
-const homepageClearanceCookie = "sub2api_home_clearance"
+const homepageChallengeCookie = accesspolicy.HomepageChallengeCookie
+const homepageClearanceCookie = accesspolicy.HomepageClearanceCookie
 
 type HomepageGateSettings interface {
 	HomepageCaptchaEnabled(context.Context) (bool, error)
 }
 
+type homepageTurnstileSettings interface {
+	HomepageTurnstileConfig(context.Context) (accesspolicy.HomepageTurnstileConfig, error)
+}
+
+type HomepageTurnstileVerifier interface {
+	VerifyHomepageToken(context.Context, accesspolicy.HomepageTurnstileConfig, string, string, string) error
+}
+
 // Only homepage documents enter this middleware. Static files, gateway/API
 // requests, login, OAuth callbacks and admin recovery keep their native routes.
-func HomepageGate(settings HomepageGateSettings, client redis.UniversalClient, secret string) gin.HandlerFunc {
+func HomepageGate(settings HomepageGateSettings, client redis.UniversalClient, secret string, verifiers ...HomepageTurnstileVerifier) gin.HandlerFunc {
 	gate, gateErr := accesspolicy.NewHomepageGate(secret)
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
@@ -71,7 +79,21 @@ func HomepageGate(settings HomepageGateSettings, client redis.UniversalClient, s
 			return
 		}
 		clearance, _ := c.Cookie(homepageClearanceCookie)
-		if path != homepageVerifyPath && gate.HasClearance(clearance, c.Request.UserAgent()) {
+		var turnstile accesspolicy.HomepageTurnstileConfig
+		if provider, ok := settings.(homepageTurnstileSettings); ok {
+			turnstile, err = provider.HomepageTurnstileConfig(ctx)
+			if err != nil {
+				homepageGateUnavailable(c)
+				return
+			}
+		}
+		browserID, _ := c.Cookie(homepageChallengeCookie)
+		usesTurnstile := turnstile.SiteKey != ""
+		passed := gate.HasClearance(clearance, c.Request.UserAgent())
+		if usesTurnstile {
+			passed = gate.TurnstileClearanceExpires(clearance, browserID, c.Request.UserAgent(), turnstile) > 0
+		}
+		if path != homepageVerifyPath && passed {
 			c.Header("X-Homepage-Verification", "passed")
 			if homepageDevCheck(c, "passed") {
 				return
@@ -128,20 +150,41 @@ func HomepageGate(settings HomepageGateSettings, client redis.UniversalClient, s
 					homepageGateUnavailable(c)
 					return
 				}
-				if fresh && gate.CheckAnswer(token, c.Request.PostForm.Get("answer")) {
-					clearance, err := gate.Clearance(c.Request.UserAgent())
+				verified := fresh && !usesTurnstile && gate.CheckAnswer(token, c.Request.PostForm.Get("answer"))
+				if fresh && usesTurnstile && len(verifiers) > 0 && verifiers[0] != nil {
+					// Provider I/O has its own deadline; the short settings/Redis
+					// deadline must not cause a valid Cloudflare check to time out.
+					verifyCtx, verifyCancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+					verified = verifiers[0].VerifyHomepageToken(verifyCtx, turnstile, c.Request.PostForm.Get("cf-turnstile-response"), id, ip.GetTrustedClientIP(c)) == nil
+					verifyCancel()
+				}
+				if verified {
+					var clearance string
+					var err error
+					if usesTurnstile {
+						clearance, err = gate.TurnstileClearance(browserID, c.Request.UserAgent(), turnstile)
+					} else {
+						clearance, err = gate.Clearance(c.Request.UserAgent())
+					}
 					if err != nil {
 						homepageGateUnavailable(c)
 						return
 					}
 					setHomepageCookie(c, homepageClearanceCookie, clearance, int(accesspolicy.HomepageClearanceTTL/time.Second), http.SameSiteLaxMode)
-					setHomepageCookie(c, homepageChallengeCookie, "", -1, http.SameSiteStrictMode)
+					if usesTurnstile {
+						setHomepageCookie(c, homepageChallengeCookie, browserID, int(accesspolicy.HomepageClearanceTTL/time.Second), http.SameSiteLaxMode)
+					} else {
+						setHomepageCookie(c, homepageChallengeCookie, "", -1, http.SameSiteStrictMode)
+					}
 					c.Redirect(http.StatusSeeOther, returnPath)
 					c.Abort()
 					return
 				}
 			}
 			message = "验证码错误或已过期，请输入下方的新验证码。"
+			if usesTurnstile {
+				message = "验证未通过或已过期，请重新完成人机验证。"
+			}
 			status = http.StatusBadRequest
 		}
 		token, browserID, answer, err := gate.NewChallenge(c.Request.UserAgent())
@@ -157,13 +200,17 @@ func HomepageGate(settings HomepageGateSettings, client redis.UniversalClient, s
 				return
 			}
 		}
-		body, err := accesspolicy.RenderHomepageGate(token, answer, returnPath, nonce, message)
+		body, err := accesspolicy.RenderHomepageGateWithTurnstile(token, answer, returnPath, nonce, message, turnstile.SiteKey, browserID)
 		if err != nil {
 			homepageGateUnavailable(c)
 			return
 		}
 		setHomepageCookie(c, homepageChallengeCookie, browserID, int(accesspolicy.HomepageChallengeTTL/time.Second), http.SameSiteStrictMode)
-		c.Header("Content-Security-Policy", "default-src 'none'; img-src data:; style-src 'nonce-"+nonce+"'; script-src 'nonce-"+nonce+"'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+		csp := "default-src 'none'; img-src data:; style-src 'nonce-" + nonce + "'; script-src 'nonce-" + nonce + "'"
+		if usesTurnstile {
+			csp += " https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com"
+		}
+		c.Header("Content-Security-Policy", csp+"; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
 		// Preserve the Origin of the same-origin form POST for CSRF validation.
 		// no-referrer makes Chromium submit Origin: null on HTTP deployments.
 		c.Header("Referrer-Policy", "same-origin")

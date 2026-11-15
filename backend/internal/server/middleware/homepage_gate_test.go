@@ -56,14 +56,67 @@ func TestHomepageDevProbeChecksClearanceBeforeAllowingVite(t *testing.T) {
 }
 
 type homepageSettingsStub struct {
-	enabled bool
-	err     error
-	calls   int
+	enabled   bool
+	err       error
+	calls     int
+	turnstile accesspolicy.HomepageTurnstileConfig
+}
+
+func (s *homepageSettingsStub) HomepageTurnstileConfig(context.Context) (accesspolicy.HomepageTurnstileConfig, error) {
+	return s.turnstile, s.err
 }
 
 func (s *homepageSettingsStub) HomepageCaptchaEnabled(context.Context) (bool, error) {
 	s.calls++
 	return s.enabled, s.err
+}
+
+type homepageVerifierStub struct{ calls int }
+
+func (s *homepageVerifierStub) VerifyHomepageToken(ctx context.Context, config accesspolicy.HomepageTurnstileConfig, token, id, remoteIP string) error {
+	s.calls++
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if token != "valid-cloudflare-token" || id == "" || config.SecretKey != "secret" {
+		return errors.New("invalid proof")
+	}
+	return nil
+}
+
+func TestHomepageTurnstileFlowReusesReceiptWithoutReloadingProvider(t *testing.T) {
+	settings := &homepageSettingsStub{enabled: true, turnstile: accesspolicy.HomepageTurnstileConfig{SiteKey: "site", SecretKey: "secret"}}
+	rdb := redis.NewClient(&redis.Options{Addr: miniredis.RunT(t).Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+	verifier := &homepageVerifierStub{}
+	router := gin.New()
+	router.Use(HomepageGate(settings, rdb, homepageTestSecret, verifier))
+	router.NoRoute(func(c *gin.Context) {
+		c.String(200, "application")
+	})
+	first := homepageRequest(router, "GET", "/?aff=keep", "", nil, nil)
+	require.Equal(t, 200, first.Code)
+	require.Contains(t, first.Header().Get("Content-Security-Policy"), "frame-src https://challenges.cloudflare.com")
+	require.NotContains(t, first.Body.String(), `name="answer"`)
+	challenge, _ := homepageAnswer(t, first.Body.String())
+	form := url.Values{"challenge": {challenge}, "cf-turnstile-response": {"valid-cloudflare-token"}, "return": {"/?aff=keep#plans"}}.Encode()
+	verified := homepageRequest(router, "POST", homepageVerifyPath, form, first.Result().Cookies(), nil)
+	require.Equal(t, 303, verified.Code)
+	require.Equal(t, "/?aff=keep#plans", verified.Header().Get("Location"))
+	cookies := verified.Result().Cookies()
+	require.Len(t, cookies, 2)
+	for _, cookie := range cookies {
+		require.True(t, cookie.HttpOnly)
+		require.Equal(t, 86400, cookie.MaxAge)
+	}
+	passed := homepageRequest(router, "GET", "/", "", cookies, nil)
+	require.Equal(t, "application", passed.Body.String())
+	require.Equal(t, 1, verifier.calls)
+	replay := homepageRequest(router, "POST", homepageVerifyPath, form, first.Result().Cookies(), nil)
+	require.Equal(t, 400, replay.Code)
+	require.Equal(t, 1, verifier.calls)
+	settings.turnstile.SecretKey = "rotated"
+	require.Contains(t, homepageRequest(router, "GET", "/", "", cookies, nil).Body.String(), "challenges.cloudflare.com")
 }
 
 func homepageFixture(t *testing.T, settings *homepageSettingsStub) (*gin.Engine, *redis.Client, *atomic.Int32) {

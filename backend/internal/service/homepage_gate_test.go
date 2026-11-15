@@ -89,3 +89,31 @@ func TestHomepageGateFlagIsIncludedInPublicAndInjectedSettings(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(data), `"homepage_captcha_enabled":true`)
 }
+
+func TestHomepageTurnstileSettingsCacheFailsClosedAndSaveInvalidates(t *testing.T) {
+	repo := &homepageSettingsRepo{registrationProofSettingRepo: registrationProofSettingRepo{values: map[string]string{
+		SettingKeyTurnstileEnabled: "true", SettingKeyTurnstileSiteKey: "site", SettingKeyTurnstileSecretKey: "secret",
+	}}}
+	s := NewSettingService(repo, &config.Config{})
+	for range 5 {
+		config, err := s.HomepageTurnstileConfig(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "site", config.SiteKey)
+	}
+	require.Equal(t, 1, repo.reads)
+	s.homepageCaptchaCache.providerExpires = time.Time{}
+	repo.err = errors.New("settings offline")
+	_, err := s.HomepageTurnstileConfig(context.Background())
+	require.Error(t, err)
+	repo.err = nil
+	s.refreshCachedSettings(&SystemSettings{})
+	repo.values[SettingKeyTurnstileEnabled] = "false"
+	config, err := s.HomepageTurnstileConfig(context.Background())
+	require.NoError(t, err)
+	require.Empty(t, config.SiteKey)
+	s.homepageCaptchaCache.providerExpires = time.Time{}
+	repo.values[SettingKeyTurnstileEnabled] = "true"
+	repo.values[SettingKeyTurnstileSiteKey] = ""
+	_, err = s.HomepageTurnstileConfig(context.Background())
+	require.ErrorIs(t, err, ErrTurnstileNotConfigured)
+}
