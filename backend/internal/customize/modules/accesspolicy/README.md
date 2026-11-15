@@ -47,6 +47,14 @@ also mark it Secure. Challenge and clearance tickets use separate authenticated
 encryption from login credentials, and are bound to the browser user agent;
 challenges additionally require a random HttpOnly browser cookie.
 
+Form origin validation uses browser-generated `Sec-Fetch-Site: same-origin`
+when present, so proxies rewriting Host to an internal upstream do not reject
+legitimate HTTPS submissions. Cross-site and same-site sibling-domain submits
+are rejected. Older clients fall back to comparing Origin with Host; preserve
+the public Host at the proxy for those clients. Forwarded-Host alone is not
+trusted. Origin rejection returns a readable 403 and
+`X-Homepage-Verification-Error: origin_mismatch` for diagnosis.
+
 Redis provides atomic single-use consumption and per-IP limits (30 new pages and
 12 submissions per minute). Every submitted challenge is consumed, including a
 wrong answer. Settings reads are cached for 30 seconds and refreshed on writes;

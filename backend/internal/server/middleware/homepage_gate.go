@@ -107,7 +107,9 @@ func HomepageGate(settings HomepageGateSettings, client redis.UniversalClient, s
 		status := http.StatusOK
 		if path == homepageVerifyPath {
 			if !homepageSameOrigin(c.Request) {
-				c.AbortWithStatus(http.StatusForbidden)
+				c.Header("X-Homepage-Verification-Error", "origin_mismatch")
+				c.String(http.StatusForbidden, "验证请求来源不匹配，请从本站首页刷新后重新验证。")
+				c.Abort()
 				return
 			}
 			c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 8192)
@@ -200,7 +202,17 @@ func setHomepageCookie(c *gin.Context, name, value string, maxAge int, sameSite 
 }
 
 func homepageSameOrigin(r *http.Request) bool {
-	if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
+	// Browsers compute this forbidden request header against the public URL,
+	// before a reverse proxy can replace Host with an internal upstream address.
+	// A cross-origin page cannot spoof same-origin through browser JavaScript.
+	// Challenge, browser cookie, answer and single-use checks still run below.
+	switch strings.ToLower(strings.TrimSpace(r.Header.Get("Sec-Fetch-Site"))) {
+	case "same-origin":
+		return true
+	case "", "none":
+		// Older clients lack Fetch Metadata; retain the Origin/Host fallback.
+	default:
+		// Same-site sibling domains are also cross-origin for this form.
 		return false
 	}
 	origin := r.Header.Get("Origin")

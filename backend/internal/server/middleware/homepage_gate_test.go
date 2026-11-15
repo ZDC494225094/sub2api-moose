@@ -169,6 +169,83 @@ func TestHomepageWrongAnswerConsumesChallengeAndRejectsCrossSiteAndOversize(t *t
 	require.Equal(t, 400, homepageRequest(router, "POST", homepageVerifyPath, strings.Repeat("a", 9000), cookies, nil).Code)
 }
 
+func TestHomepageSameOriginMetadataThroughReverseProxy(t *testing.T) {
+	// The browser accesses HTTPS, while Nginx forwards Host as its HTTP upstream.
+	const upstream = "http://127.0.0.1:8080"
+	for _, tc := range []struct {
+		name, fetchSite string
+		correct         bool
+		status          int
+	}{
+		{"same-origin correct answer", "same-origin", true, http.StatusSeeOther},
+		{"same-origin wrong answer", "same-origin", false, http.StatusBadRequest},
+		{"cross-site valid challenge", "cross-site", true, http.StatusForbidden},
+		{"sibling domain valid challenge", "same-site", true, http.StatusForbidden},
+		{"no metadata mismatched host", "", true, http.StatusForbidden},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			router, _, served := homepageFixture(t, &homepageSettingsStub{enabled: true})
+			first := homepageRequest(router, "GET", upstream+"/?aff=keep", "", nil, map[string]string{"X-Forwarded-Proto": "https"})
+			token, answer := homepageAnswer(t, first.Body.String())
+			if !tc.correct {
+				answer = "wrong"
+			}
+			body := url.Values{"challenge": {token}, "answer": {answer}, "return": {"/?aff=keep#plans"}}.Encode()
+			verified := homepageRequest(router, "POST", upstream+homepageVerifyPath, body, first.Result().Cookies(), map[string]string{
+				"Origin": "https://example.test", "Sec-Fetch-Site": tc.fetchSite,
+				"X-Forwarded-Host": "example.test", "X-Forwarded-Proto": "https",
+			})
+			require.Equal(t, tc.status, verified.Code, verified.Body.String())
+			require.Zero(t, served.Load())
+			if tc.status != http.StatusSeeOther {
+				require.NotContains(t, verified.Header().Get("Set-Cookie"), homepageClearanceCookie+"=")
+				if tc.status == http.StatusForbidden {
+					require.Equal(t, "origin_mismatch", verified.Header().Get("X-Homepage-Verification-Error"))
+					require.Contains(t, verified.Body.String(), "验证请求来源不匹配")
+				}
+				return
+			}
+			require.Equal(t, "/?aff=keep#plans", verified.Header().Get("Location"))
+			var clearance *http.Cookie
+			for _, cookie := range verified.Result().Cookies() {
+				if cookie.Name == homepageClearanceCookie {
+					clearance = cookie
+				}
+			}
+			require.NotNil(t, clearance)
+			require.True(t, clearance.HttpOnly)
+			require.True(t, clearance.Secure)
+			passed := homepageRequest(router, "GET", upstream+"/", "", []*http.Cookie{clearance}, nil)
+			require.Equal(t, "passed", passed.Header().Get("X-Homepage-Verification"))
+			require.Contains(t, passed.Body.String(), "/assets/main.js")
+			require.EqualValues(t, 1, served.Load())
+		})
+	}
+}
+
+func TestHomepageOriginFallbackDoesNotTrustForwardedHost(t *testing.T) {
+	for _, tc := range []struct {
+		name, origin, fetchSite string
+		allowed                 bool
+	}{
+		{"legacy same origin", "https://example.test", "", true},
+		{"legacy wrong origin", "https://other.test", "", false},
+		{"legacy opaque origin", "null", "", false},
+		{"legacy no origin", "", "", true},
+		{"cross-site without origin", "", "cross-site", false},
+		{"same-site despite matching origin", "https://example.test", "same-site", false},
+		{"unknown metadata", "https://example.test", "unknown", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest("POST", "https://example.test"+homepageVerifyPath, nil)
+			req.Header.Set("Origin", tc.origin)
+			req.Header.Set("Sec-Fetch-Site", tc.fetchSite)
+			req.Header.Set("X-Forwarded-Host", "other.test")
+			require.Equal(t, tc.allowed, homepageSameOrigin(req))
+		})
+	}
+}
+
 func TestHomepageGateDoesNotGateAPIsRecoveryOrStaticFiles(t *testing.T) {
 	settings := &homepageSettingsStub{enabled: true, err: errors.New("offline")}
 	router, _, served := homepageFixture(t, settings)
