@@ -25,6 +25,37 @@ describe('custom extension runtime store', () => {
     expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
     expect(store.enabled('playground')).toBe(true)
   })
+  it('reuses state across navigation after fifteen seconds and retries only explicitly', async () => {
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1000)
+    vi.mocked(extensionAPI.publicState).mockResolvedValueOnce(response(true) as never).mockRejectedValue(new Error('offline'))
+    const store = useExtensionStore()
+    try {
+      await store.refresh()
+      now.mockReturnValue(121000)
+      await store.refresh()
+      expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
+      await store.refresh(true)
+      expect(store.error).not.toBe('')
+      await store.refresh()
+      expect(extensionAPI.publicState).toHaveBeenCalledTimes(2)
+    } finally { now.mockRestore() }
+  })
+  it('loads the admin audience if login happens during a public request', async () => {
+    let complete!: (result: unknown) => void
+    vi.mocked(extensionAPI.publicState).mockImplementationOnce(() => new Promise(resolve => { complete = resolve }) as never)
+      .mockResolvedValue(response(true) as never)
+    vi.mocked(extensionAPI.list).mockResolvedValue({ data: { items: extensionIds.map(id => ({ id, enabled: true })) } } as never)
+    const store = useExtensionStore()
+    store.setAdminSession(() => auth.isAdmin)
+    const initial = store.refresh()
+    auth.isAdmin = true
+    const signedIn = store.refresh()
+    complete(response(true))
+    await Promise.all([initial, signedIn])
+    expect(store.enabled('access-policy')).toBe(true)
+    expect(extensionAPI.list).toHaveBeenCalledTimes(1)
+  })
   it('registers site customization and reacts to its persisted switch without gating routes', async () => {
     expect(extensionIds).toContain('site-customization')
     vi.mocked(extensionAPI.publicState).mockResolvedValue(response(true) as never)

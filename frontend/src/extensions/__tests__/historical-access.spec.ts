@@ -50,6 +50,7 @@ describe('disabled extension historical access', () => {
   it('preserves history navigation and sidebar visibility on missing/error state, not write admission', async () => {
     vi.mocked(extensionAPI.publicState).mockRejectedValue(new Error('offline'))
     const r = router(), store = useExtensionStore()
+    await store.refresh()
     for (const route of marketingRoutes) {
       await r.push(`${route.path}?page=2`)
       await flushPromises()
@@ -62,7 +63,9 @@ describe('disabled extension historical access', () => {
     expect(store.error).not.toBe('')
     expect(store.pathEnabled('/lottery/new')).toBe(false)
     await r.push('/lottery/new')
-    expect(r.currentRoute.value.path).toBe('/admin/dashboard')
+    // Unknown state permits the page shell; write admission and backend checks
+    // still reject new business without evicting a reader to the dashboard.
+    expect(r.currentRoute.value.path).toBe('/lottery/new')
   })
   it('does not wait on an unavailable state request to read history', async () => {
     vi.mocked(extensionAPI.publicState).mockImplementation(() => new Promise(() => {}))

@@ -1,146 +1,132 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import { defineComponent, reactive } from 'vue'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { extensionAPI } from '../api'
 import { extensionIds } from '../catalog'
 import { installCustomExtensionGuard, prefetchCustomExtensionState, useCustomExtensionRuntime } from '../runtime'
-import { defineComponent } from 'vue'
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { EXTENSION_REFRESH_MS, EXTENSION_STORAGE_EVENT } from '../store'
+import { EXTENSION_STORAGE_EVENT, useExtensionStore } from '../store'
 
 vi.mock('../api', () => ({ extensionAPI: { publicState: vi.fn(), list: vi.fn(), update: vi.fn() } }))
-vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ isAdmin: true }) }))
-
-// Admin sessions also read the admin-only list; mirror whatever the public
-// state mock returned so each case controls both with one value.
-const mirrorAdminList = () => vi.mocked(extensionAPI.list).mockImplementation(async () => {
-  const result = await vi.mocked(extensionAPI.publicState).mock.results.at(-1)?.value
-  const enabled = (result as { data?: { enabled?: Record<string, boolean> } })?.data?.enabled ?? {}
-  return { data: { items: Object.entries(enabled).map(([id, value]) => ({ id, enabled: value, managed: true })) } } as never
+const session = vi.hoisted(() => ({ current: { isAdmin: false, isAuthenticated: false } }))
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => session.current }))
+const flags = (value: boolean) => Object.fromEntries(extensionIds.map(id => [id, value]))
+let wrapper: VueWrapper | undefined
+beforeEach(() => {
+  setActivePinia(createPinia()); vi.resetAllMocks()
+  session.current = reactive({ isAdmin: false, isAuthenticated: false })
+  vi.mocked(extensionAPI.publicState).mockResolvedValue({ data: { enabled: flags(true) } } as never)
+  vi.mocked(extensionAPI.list).mockResolvedValue({ data: { items: extensionIds.map(id => ({ id, enabled: true })) } } as never)
 })
+afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); vi.useRealTimers() })
+function router() {
+  const r = createRouter({ history: createMemoryHistory(), routes: [
+    '/', '/home', '/docs', '/login', '/playground', '/dashboard', '/admin/operations',
+    '/admin/dashboard', '/admin/custom-extensions', '/admin/settings', '/setup',
+    '/lottery', '/admin/orders/coupons', '/admin/orders/lottery',
+  ].map(path => ({ path, component: { template: '<div />' }, meta: { requiresAuth: !['/', '/home', '/docs', '/login'].includes(path) } })) })
+  installCustomExtensionGuard(r)
+  return r
+}
+async function start(path: string) {
+  const r = router(); await r.push(path)
+  wrapper = mount(defineComponent({ setup() { useCustomExtensionRuntime(r) }, template: '<div />' }))
+  await flushPromises()
+  return r
+}
 
-describe('extension navigation gate', () => {
-  beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks(); mirrorAdminList() })
-  const router = () => {
-    const r = createRouter({ history: createMemoryHistory(), routes: [
-      '/', '/home', '/lottery', '/admin/orders/coupons', '/admin/orders/lottery', '/playground', '/admin/operations', '/admin/dashboard', '/admin/custom-extensions', '/setup',
-    ].map(path => ({ path, component: { template: '<div />' } })) })
-    installCustomExtensionGuard(r); return r
-  }
-  it('returns to upstream home when the brand home is disabled', async () => {
-    vi.mocked(extensionAPI.publicState).mockResolvedValue({ data: { enabled: Object.fromEntries(extensionIds.map(id => [id, false])) } } as never)
-    const r = router(); await r.push('/?aff=ref123'); expect(r.currentRoute.value.path).toBe('/home')
-    expect(r.currentRoute.value.query).toEqual({ aff: 'ref123' })
+describe('nonblocking extension navigation', () => {
+  it.each([false, true])('keeps unknown public state on the page (admin=%s)', async admin => {
+    session.current.isAdmin = admin
+    vi.mocked(extensionAPI.publicState).mockImplementation(() => new Promise(() => {}))
+    const r = router()
+    await r.push('/?aff=keep')
+    expect(r.currentRoute.value.path).toBe('/')
+    await r.push('/docs')
+    expect(r.currentRoute.value.path).toBe('/docs')
+    expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
   })
-  it('reuses the early request but still blocks a disabled homepage', async () => {
+  it('returns known disabled public pages to a public home, never a console', async () => {
+    const store = useExtensionStore()
+    vi.mocked(extensionAPI.publicState).mockResolvedValue({ data: { enabled: flags(false) } } as never)
+    await store.refresh()
+    const r = router(); await r.push('/docs?from=menu#help')
+    expect(r.currentRoute.value.fullPath).toBe('/home?from=menu#help')
+    await r.push('/?aff=keep')
+    expect(r.currentRoute.value.path).toBe('/home')
+  })
+  it('reuses warmup without waiting or evicting an already opened page', async () => {
     let resolve!: (value: unknown) => void
     vi.mocked(extensionAPI.publicState).mockImplementation(() => new Promise(done => { resolve = done }) as never)
     prefetchCustomExtensionState()
-    const r = router()
-    const navigation = r.push('/?aff=keep')
-    await flushPromises()
-    expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
-    resolve({ data: { enabled: Object.fromEntries(extensionIds.map(id => [id, false])) } })
-    await navigation
-    expect(r.currentRoute.value.path).toBe('/home')
-    expect(r.currentRoute.value.query).toEqual({ aff: 'keep' })
+    const r = await start('/?aff=keep')
+    expect(r.currentRoute.value.path).toBe('/')
+    resolve({ data: { enabled: flags(false) } }); await flushPromises()
+    expect(r.currentRoute.value.path).toBe('/')
     expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
   })
-  it('blocks direct navigation, not only sidebar entries', async () => {
-    vi.mocked(extensionAPI.publicState).mockResolvedValue({ data: { enabled: Object.fromEntries(extensionIds.map(id => [id, false])) } } as never)
-    const r = router(); await r.push('/admin/operations'); expect(r.currentRoute.value.path).toBe('/admin/dashboard')
-    await r.push('/admin/custom-extensions'); expect(r.currentRoute.value.path).toBe('/admin/custom-extensions')
-  })
-  it('retains managed marketing historical routes while new business is disabled', async () => {
-    vi.mocked(extensionAPI.publicState).mockResolvedValue({ data: { enabled: Object.fromEntries(extensionIds.map(id => [id, false])) } } as never)
-    const r = router()
-    for (const path of ['/lottery', '/admin/orders/coupons', '/admin/orders/lottery']) {
-      await r.push(path)
-      expect(r.currentRoute.value.path).toBe(path)
+  it('does not check or redirect same-page anchor changes', async () => {
+    const r = await start('/')
+    useExtensionStore().flags = { 'premium-home': false }
+    for (const hash of ['#plans', '#model-plaza', '#top']) {
+      await r.push('/' + hash)
+      expect(r.currentRoute.value.fullPath).toBe('/' + hash)
     }
+    expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
   })
-  it('allows enabled routes', async () => {
-    vi.mocked(extensionAPI.publicState).mockResolvedValue({ data: { enabled: Object.fromEntries(extensionIds.map(id => [id, true])) } } as never)
-    const r = router(); await r.push('/playground'); expect(r.currentRoute.value.path).toBe('/playground')
-  })
-  it('does not block host navigation on an unavailable extension API', async () => {
+  it('keeps core navigation independent of plugin discovery', async () => {
     vi.mocked(extensionAPI.publicState).mockImplementation(() => new Promise(() => {}))
     const r = router()
-    await r.push('/admin/custom-extensions')
-    expect(r.currentRoute.value.path).toBe('/admin/custom-extensions')
-    await r.push('/admin/dashboard')
-    expect(r.currentRoute.value.path).toBe('/admin/dashboard')
+    await r.push('/admin/settings'); await r.push('/dashboard')
+    expect(r.currentRoute.value.path).toBe('/dashboard')
+    expect(extensionAPI.publicState).not.toHaveBeenCalled()
   })
-  it('never depends on database setup to enter the setup wizard', async () => {
-    const r = router(); await r.push('/setup'); expect(extensionAPI.publicState).not.toHaveBeenCalled()
+  it('retains marketing history even with a confirmed disabled plugin', async () => {
+    useExtensionStore().flags = { 'marketing-tools': false }
+    const r = router()
+    for (const path of ['/lottery', '/admin/orders/coupons', '/admin/orders/lottery']) {
+      await r.push(path); expect(r.currentRoute.value.path).toBe(path)
+    }
   })
 })
 
-
-describe('extension runtime synchronization', () => {
-  let wrapper: VueWrapper | undefined
-  let visibility: ReturnType<typeof vi.spyOn>
-  beforeEach(() => {
-    setActivePinia(createPinia())
-    vi.resetAllMocks()
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] })
-    visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
-    vi.mocked(extensionAPI.publicState).mockResolvedValue({ data: { enabled: Object.fromEntries(extensionIds.map(id => [id, true])) } } as never)
-  })
-  afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); vi.useRealTimers() })
-  async function start(path: string) {
-    const r = createRouter({ history: createMemoryHistory(), routes: [
-      '/playground', '/admin/dashboard', '/admin/custom-extensions', '/setup',
-    ].map(path => ({ path, component: { template: '<div />' } })) })
-    await r.push(path)
-    wrapper = mount(defineComponent({ setup() { useCustomExtensionRuntime(r); return {} }, template: '<div />' }))
-    await flushPromises()
-    return r
-  }
-  it('refreshes an open page and redirects after disablement without dropping its query', async () => {
-    const r = await start('/playground?prompt=draft')
+describe('event driven extension state', () => {
+  it('loads core-page menus once, never polls or refetches on visibility/navigation', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+    const r = await start('/dashboard')
     expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
-    vi.mocked(extensionAPI.publicState).mockResolvedValue({ data: { enabled: Object.fromEntries(extensionIds.map(id => [id, false])) } } as never)
-    await vi.advanceTimersByTimeAsync(EXTENSION_REFRESH_MS); await flushPromises()
-    expect(r.currentRoute.value.path).toBe('/admin/dashboard')
-    expect(r.currentRoute.value.query).toEqual({ prompt: 'draft' })
-  })
-  it('reuses the initial navigation state when mounting the runtime', async () => {
-    const r = createRouter({ history: createMemoryHistory(), routes: [
-      { path: '/playground', component: { template: '<div />' } },
-      { path: '/admin/dashboard', component: { template: '<div />' } },
-    ] })
-    mirrorAdminList()
-    installCustomExtensionGuard(r)
-    await r.push('/playground')
-    expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
-    wrapper = mount(defineComponent({ setup() { useCustomExtensionRuntime(r); return {} }, template: '<div />' }))
-    await flushPromises()
-    expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
-  })
-  it('refreshes for visibility and relevant cross-tab events and removes listeners and timers', async () => {
-    await start('/admin/custom-extensions')
-    vi.mocked(extensionAPI.publicState).mockClear()
-    visibility.mockReturnValue('hidden')
-    await vi.advanceTimersByTimeAsync(EXTENSION_REFRESH_MS)
-    window.dispatchEvent(new StorageEvent('storage', { key: EXTENSION_STORAGE_EVENT }))
-    expect(extensionAPI.publicState).not.toHaveBeenCalled()
-    visibility.mockReturnValue('visible')
-    document.dispatchEvent(new Event('visibilitychange')); await flushPromises()
-    expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
-    window.dispatchEvent(new StorageEvent('storage', { key: 'unrelated' })); await flushPromises()
-    expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
-    window.dispatchEvent(new StorageEvent('storage', { key: EXTENSION_STORAGE_EVENT })); await flushPromises()
-    expect(extensionAPI.publicState).toHaveBeenCalledTimes(2)
-    wrapper?.unmount(); wrapper = undefined
-    await vi.advanceTimersByTimeAsync(EXTENSION_REFRESH_MS)
+    await vi.advanceTimersByTimeAsync(120000)
     document.dispatchEvent(new Event('visibilitychange'))
+    await r.push('/playground'); await r.push('/docs'); await flushPromises()
+    expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
+  })
+  it('syncs an explicit save across tabs without moving the current page', async () => {
+    const r = await start('/playground?draft=keep')
+    vi.mocked(extensionAPI.publicState).mockResolvedValue({ data: { enabled: flags(false) } } as never)
+    window.dispatchEvent(new StorageEvent('storage', { key: EXTENSION_STORAGE_EVENT })); await flushPromises()
+    expect(useExtensionStore().enabled('playground')).toBe(false)
+    expect(r.currentRoute.value.fullPath).toBe('/playground?draft=keep')
+    expect(extensionAPI.publicState).toHaveBeenCalledTimes(2)
+    window.dispatchEvent(new StorageEvent('storage', { key: 'unrelated' })); await flushPromises()
+    wrapper?.unmount(); wrapper = undefined
     window.dispatchEvent(new StorageEvent('storage', { key: EXTENSION_STORAGE_EVENT })); await flushPromises()
     expect(extensionAPI.publicState).toHaveBeenCalledTimes(2)
   })
-  it('does not poll extension storage while database setup is incomplete', async () => {
-    await start('/setup')
-    await vi.advanceTimersByTimeAsync(EXTENSION_REFRESH_MS)
+  it('loads admin-only configuration after login and clears it after logout', async () => {
+    await start('/login')
+    expect(extensionAPI.list).not.toHaveBeenCalled()
+    session.current.isAuthenticated = true; session.current.isAdmin = true
+    await flushPromises()
+    expect(useExtensionStore().enabled('access-policy')).toBe(true)
+    session.current.isAuthenticated = false; session.current.isAdmin = false
+    await flushPromises()
+    expect(useExtensionStore().enabled('access-policy')).toBe(false)
+  })
+  it('does not discover plugins until setup is complete', async () => {
+    const r = await start('/setup')
     expect(extensionAPI.publicState).not.toHaveBeenCalled()
+    await r.push('/login'); await flushPromises()
+    expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
   })
 })

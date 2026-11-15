@@ -80,6 +80,8 @@ vi.mock('@/composables/useRoutePrefetch', () => ({
   }),
 }))
 
+vi.mock('@/extensions/runtime', () => ({ installCustomExtensionGuard: vi.fn(), prefetchCustomExtensionState: vi.fn() }))
+
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
   const promise = new Promise<T>((resolvePromise) => {
@@ -140,6 +142,22 @@ describe('feature route guard', () => {
     } finally {
       vi.stubGlobal('window', originalWindow)
     }
+  })
+
+  it.each(['#top', '#plans', '#model-plaza'])('keeps homepage section %s in the current document', async hash => {
+    const assign = vi.fn()
+    const originalWindow = window
+    vi.stubGlobal('window', { location: { assign } })
+    try {
+      appStore.cachedPublicSettings = { homepage_captcha_enabled: true }
+      const next = vi.fn()
+      await routerHarness.guard!(
+        { path: '/', fullPath: '/' + hash, params: {}, query: {}, name: 'PremiumHome', meta: { requiresAuth: false } },
+        { path: '/', matched: [{ path: '/' }] }, next,
+      )
+      expect(assign).not.toHaveBeenCalled()
+      expect(next).toHaveBeenCalledWith()
+    } finally { vi.stubGlobal('window', originalWindow) }
   })
 
   it('waits for the first public-settings request before deciding payment access', async () => {

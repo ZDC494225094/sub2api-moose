@@ -840,7 +840,7 @@ function isBackendModePublicRouteAllowed(path: string, hasPendingAuthSession: bo
 router.beforeEach(async (to, _from, next) => {
   // An in-app RouterLink to home must also request the server gate before Vue
   // imports the homepage chunk. Initial document navigations already did so.
-  if (_from.matched?.length > 0 && ['/', '/home', '/home/'].includes(to.path) && useAppStore().cachedPublicSettings?.homepage_captcha_enabled) {
+  if (_from.matched?.length > 0 && to.path !== _from.path && ['/', '/home', '/home/'].includes(to.path) && useAppStore().cachedPublicSettings?.homepage_captcha_enabled) {
     next(false)
     window.location.assign(to.fullPath)
     return

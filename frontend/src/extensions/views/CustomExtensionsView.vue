@@ -51,7 +51,7 @@ async function confirm() {
   try {
     await store.setEnabled(item.id as ExtensionId, pendingTarget.value)
     item.configuration_error = false
-    notice.value = `${item.name}已${store.enabled(item.id as ExtensionId) ? '开启' : '关闭'}。服务端新请求立即生效，其他页面在约 15 秒内同步。`
+    notice.value = `${item.name}已${store.enabled(item.id as ExtensionId) ? '开启' : '关闭'}。服务端新请求立即生效，同一浏览器的其他标签页同步菜单；其他访问者刷新页面后更新入口。`
   } catch {
     error.value = '保存失败，开关未确认变更。请刷新状态后重试。'
     await store.refresh(true)

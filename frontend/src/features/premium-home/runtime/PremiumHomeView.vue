@@ -554,6 +554,7 @@ const fallbackAnnouncements: UserAnnouncement[] = [
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const router = useRouter()
+const extensions = useExtensionStore()
 const menuOpen = ref(false)
 const noticePanelOpen = ref(false)
 const themeMenuOpen = ref(false)
@@ -582,7 +583,10 @@ const siteSubtitle = computed(() =>
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
 const homeSubscriptionsEnabled = computed(() => resolveFeatureFlag(appStore.cachedPublicSettings, FeatureFlags.subscription))
 const homePricingCompareEnabled = computed(() => appStore.cachedPublicSettings?.home_pricing_compare_enabled !== false)
-const homeDocsEnabled = computed(() => appStore.cachedPublicSettings?.home_docs_enabled !== false)
+const homeDocsEnabled = computed(() =>
+  appStore.cachedPublicSettings?.home_docs_enabled !== false &&
+  extensions.flags['user-guide'] !== false
+)
 const modelPlazaHomeEnabled = computed(() =>
   appStore.cachedPublicSettings?.model_plaza_enabled === true &&
   appStore.cachedPublicSettings?.model_plaza_home_enabled === true
@@ -595,7 +599,8 @@ const canLoadHomeModelPlaza = computed(() =>
 )
 const infiniteCanvasHomeEnabled = computed(() =>
   appStore.cachedPublicSettings?.infinite_canvas_enabled === true &&
-  appStore.cachedPublicSettings?.infinite_canvas_home_enabled === true
+  appStore.cachedPublicSettings?.infinite_canvas_home_enabled === true &&
+  extensions.flags['infinite-canvas'] !== false
 )
 const contactInfo = computed(() => appStore.cachedPublicSettings?.contact_info || appStore.contactInfo || '')
 const customerServiceLinks = computed(() => parseContactLinks(appStore.cachedPublicSettings?.customer_service_link))
@@ -606,7 +611,6 @@ const customerServiceLink = computed(() => {
   if (links.length === 1 || (links.length > 1 && !extensions.enabled('customer-support'))) return links[0].url
   return ''
 })
-const extensions = useExtensionStore()
 const customerServiceFloat = ref<InstanceType<typeof CustomerServiceFloat> | null>(null)
 const footerContent = computed(() => appStore.cachedPublicSettings?.footer_content?.trim() || siteSubtitle.value)
 const footerFriendLinks = computed(() => {

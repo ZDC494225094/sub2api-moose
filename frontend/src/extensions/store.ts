@@ -4,14 +4,12 @@ import { extensionAPI } from './api'
 import { extensionHistoricalPath } from './route-access'
 import { extensionForPath, extensionIds, publicExtensionIds, type ExtensionId } from './catalog'
 
-export const EXTENSION_REFRESH_MS = 15_000
 export const EXTENSION_STORAGE_EVENT = 'custom-extensions-updated-at'
 
 export const useExtensionStore = defineStore('customExtensions', () => {
   const flags = ref<Partial<Record<ExtensionId, boolean>>>({})
   const loaded = ref(false)
   const error = ref('')
-  let lastFetch = 0
   // Which audience the current flags were loaded for; logging in or out
   // invalidates the cache so admin switches appear or disappear at once.
   let loadedAsAdmin = false
@@ -29,9 +27,15 @@ export const useExtensionStore = defineStore('customExtensions', () => {
   }
 
   function refresh(force = false): Promise<void> {
-    if (inFlight) return inFlight
+    // If authentication changed during a public request, load the new audience
+    // once it completes. Never reuse public-only state for an admin session.
+    if (inFlight) return inFlight.then(() => {
+      if (force || adminSession() !== loadedAsAdmin) return refresh(force)
+    })
     const asAdmin = adminSession() === true
-    if (!force && loaded.value && asAdmin === loadedAsAdmin && Date.now() - lastFetch < EXTENSION_REFRESH_MS) return Promise.resolve()
+    // Document/session cache, refreshed by explicit changes rather than a TTL.
+    // This also avoids retrying a failed request on every navigation.
+    if (!force && loaded.value && asAdmin === loadedAsAdmin) return Promise.resolve()
     const requestRevision = revision
     inFlight = (async () => {
       try {
@@ -65,7 +69,6 @@ export const useExtensionStore = defineStore('customExtensions', () => {
       } finally {
         if (requestRevision === revision) {
           loaded.value = true
-          lastFetch = Date.now()
         }
         inFlight = null
       }
@@ -79,7 +82,6 @@ export const useExtensionStore = defineStore('customExtensions', () => {
     // Ignore public requests that started before this successful save.
     revision++
     flags.value = { ...flags.value, [id]: value }
-    lastFetch = 0
     try { localStorage.setItem(EXTENSION_STORAGE_EVENT, `${Date.now()}:${id}:${value}`) } catch { /* storage unavailable */ }
   }
 
