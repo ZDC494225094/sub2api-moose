@@ -522,6 +522,7 @@ func serveEmbeddedHTML(c *gin.Context, fsys fs.FS, path string) {
 	if strings.HasPrefix(path, "canvas/") {
 		content = addNonceToInlineScripts(content, middleware.GetNonceFromContext(c))
 	}
+	content = replaceNoncePlaceholder(content, middleware.GetNonceFromContext(c))
 	c.Data(http.StatusOK, "text/html; charset=utf-8", content)
 	c.Abort()
 }

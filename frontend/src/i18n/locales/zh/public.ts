@@ -1,6 +1,6 @@
 import landing from './landing'
 import common from './common'
-import custom from './custom'
+import custom from './customPublic'
 import modelPlaza from './modelPlaza'
 import { mergeLocale } from '../merge'
 

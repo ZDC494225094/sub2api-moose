@@ -45,6 +45,7 @@
     "id": "premium-home",
     "patterns": [
       "^frontend/src/features/premium-home/",
+      "^frontend/dev/homepage-preloads\\.ts$",
       "^frontend/src/composables/(?:__tests__/useNearViewport\\.spec\\.ts|useNearViewport\\.ts)$",
       "^tools/check-home-bundle\\.mjs$",
       "premium-home",
@@ -213,6 +214,7 @@
   {
     "id": "shared-infrastructure",
     "patterns": [
+      "^frontend/index\\.html$",
       "^backend/ent/",
       "^backend/migrations/",
       "^frontend/src/(types|i18n|api|router|stores|components/layout)/",

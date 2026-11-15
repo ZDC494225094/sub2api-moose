@@ -5,9 +5,25 @@
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sub2API - AI API Gateway</title>
+    <style nonce="__CSP_NONCE_VALUE__">
+      #app-boot{position:fixed;inset:0;display:grid;place-items:center;padding:24px;box-sizing:border-box;background:#f5f7fb;color:#17243b;font:15px/1.7 system-ui,-apple-system,"Segoe UI",sans-serif}#app-boot section{max-width:360px;text-align:center}#app-boot .boot-mark{display:inline-block;width:32px;height:32px;border:3px solid #dce6fb;border-top-color:#245ad1;border-radius:50%;animation:boot-spin 1s linear infinite}#app-boot h1{font-size:22px;margin:18px 0 8px}#app-boot p{color:#66738a;margin:0 0 16px}#app-boot a{color:#245ad1;text-underline-offset:4px}#app-boot a:focus-visible{outline:3px solid #93b4ff;outline-offset:4px}#app-boot [hidden]{display:none}@keyframes boot-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){#app-boot .boot-mark{animation:none}}@media(prefers-color-scheme:dark){#app-boot{background:#101723;color:#e6edf9}#app-boot p{color:#abb9cf}#app-boot a{color:#91b4ff}}
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <main id="app-boot" aria-busy="true">
+        <section aria-live="polite">
+          <span class="boot-mark" aria-hidden="true"></span>
+          <h1 id="app-boot-title">正在打开页面</h1>
+          <p id="app-boot-message">页面加载中，请稍候。</p>
+          <a id="app-boot-retry" href="" hidden>重新加载</a>
+          <noscript><p>请启用浏览器 JavaScript 后重新加载。</p></noscript>
+        </section>
+      </main>
+    </div>
+    <script nonce="__CSP_NONCE_VALUE__">
+      setTimeout(function(){var message=document.getElementById('app-boot-message'),retry=document.getElementById('app-boot-retry');if(message)message.textContent='网络较慢，仍在加载。你可以继续等待或重新加载。';if(retry)retry.hidden=false},12000);
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

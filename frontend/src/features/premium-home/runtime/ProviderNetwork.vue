@@ -5,7 +5,7 @@
       <div class="network-caption"><span class="signal-dot"></span> ONE API. MORE POSSIBILITIES.</div>
       <div class="gateway-globe-aura" aria-hidden="true"></div>
       <canvas ref="globeCanvas" class="gateway-globe-canvas" :style="{ visibility: globeReady ? 'visible' : 'hidden', background: 'transparent' }" role="img" aria-label="可拖动旋转的点阵地球，光点沿全球航线流动"></canvas>
-      <div ref="logoSources" hidden aria-hidden="true">
+      <div v-if="loadLogos" ref="logoSources" hidden aria-hidden="true">
         <div v-for="provider in globeProviderMarkers" :key="provider.id" :data-logo-source="provider.id">
           <ModelIcon :model="provider.model" size="26px" />
         </div>
@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ModelIcon from '@/components/common/ModelIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useConsoleThemeApplied } from '@/extensions/modules/console-theme/useConsoleThemeApplied'
@@ -29,6 +29,7 @@ const props = defineProps<{ isDark: boolean; siteLogo?: string }>()
 const globeCanvas = ref<HTMLCanvasElement | null>(null)
 const logoSources = ref<HTMLDivElement | null>(null)
 const globeReady = ref(false)
+const loadLogos = ref(false)
 // Neutral globe colours while the console theme is on.
 const glassTheme = useConsoleThemeApplied()
 const palette = (): PremiumHomeGlobePalette => (glassTheme.value ? 'glass' : 'default')
@@ -41,6 +42,8 @@ watch(() => props.isDark, (dark) => controller?.setTheme(dark))
 watch(glassTheme, () => controller?.setPalette(palette()))
 watch(() => props.siteLogo, (logo) => controller?.setSiteLogo(logo || '/logo.svg'))
 async function loadGlobe() {
+  loadLogos.value = true
+  await nextTick()
   const providerLogos: Record<string, string> = {}
   logoSources.value?.querySelectorAll<HTMLElement>('[data-logo-source]').forEach((element) => {
     const svg = element.querySelector('svg')?.cloneNode(true) as SVGElement | undefined
@@ -76,7 +79,7 @@ onMounted(() => {
     } else {
       void loadGlobe()
     }
-  }, 200)
+  }, 1500)
 })
 onBeforeUnmount(() => {
   unmounted = true

@@ -1,3 +1,4 @@
+import customPublic from './customPublic'
 // Local customizations preserved across the upstream locale module split.
 export default {
   "dashboard": {
@@ -304,14 +305,7 @@ export default {
     "emptyTextResponse": "模型没有返回文本内容",
     "noImageReturned": "接口没有返回图片"
   },
-  "nav": {
-    "playground": "体验中心",
-    "operationsAnalysis": "运营分析",
-    "couponTemplates": "优惠券模板",
-    "rechargeCampaigns": "充值活动",
-    "marketingLottery": "营销抽奖",
-    "lottery": "抽奖"
-  },
+  ...customPublic,
   "keys": {
     "platformLabel": "厂商类别",
     "selectedGroupCount": "已选 {count} 个",

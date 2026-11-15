@@ -24,6 +24,13 @@ export function installCustomExtensionGuard(router: Router): void {
   })
 }
 
+/** Start the same admission request while translations load, without bypassing the guard. */
+export function prefetchCustomExtensionState(): void {
+  const store = useExtensionStore()
+  store.setAdminSession(() => useAuthStore().isAdmin === true)
+  void store.refresh()
+}
+
 // Called once by App.vue. No timers are created by individual menus or pages.
 export function useCustomExtensionRuntime(router: Router): void {
   const store = useExtensionStore()

@@ -4,7 +4,7 @@
  */
 
 import { customExtensionRoutes } from '@/extensions/routes'
-import { installCustomExtensionGuard } from '@/extensions/runtime'
+import { installCustomExtensionGuard, prefetchCustomExtensionState } from '@/extensions/runtime'
 import { storeAffiliateReferralCode } from '@/utils/oauthAffiliate'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -844,6 +844,11 @@ router.beforeEach(async (to, _from, next) => {
     next(false)
     window.location.assign(to.fullPath)
     return
+  }
+  if (to.path === '/' && !authInitialized) {
+    useAuthStore().checkAuth()
+    authInitialized = true
+    prefetchCustomExtensionState()
   }
   // Load console translations only when entering a page that uses them.
   await loadRouteLocale(to.path)

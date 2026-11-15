@@ -503,7 +503,6 @@
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAppStore, useAuthStore } from '@/stores'
-import CustomerServiceFloat from '@/extensions/modules/customer-support/SupportWidget.vue'
 import { parseContactLinks } from '@/extensions/modules/customer-support/contacts'
 import { useExtensionStore } from '@/extensions/store'
 import { useThemeMode, type ThemeMode } from '@/extensions/modules/console-theme/themeMode'
@@ -523,6 +522,7 @@ import { useHomeMotion } from './useHomeMotion'
 import { useNearViewport } from '@/composables/useNearViewport'
 
 const AnnouncementPanel = defineAsyncComponent(() => import('./AnnouncementPanel.vue'))
+const CustomerServiceFloat = defineAsyncComponent(() => import('@/extensions/modules/customer-support/SupportWidget.vue'))
 const ModelPlazaContent = defineAsyncComponent(() => import('@/components/modelPlaza/ModelPlazaContent.vue'))
 const modelPlazaSection = ref<HTMLElement | null>(null)
 const modelPlazaVisible = useNearViewport(modelPlazaSection)

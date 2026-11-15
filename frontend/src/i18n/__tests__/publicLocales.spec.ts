@@ -4,8 +4,17 @@ import en from '../locales/en'
 import zhPublic from '../locales/zh/public'
 import zh from '../locales/zh'
 import { i18n, loadLocaleMessages } from '../index'
+import enCustom from '../locales/en/custom'
+import zhCustom from '../locales/zh/custom'
+import enCustomPublic from '../locales/en/customPublic'
+import zhCustomPublic from '../locales/zh/customPublic'
 
 describe('public page translations', () => {
+  it.each([[enPublic, enCustom, enCustomPublic], [zhPublic, zhCustom, zhCustomPublic]])(
+    'keeps every public override in the small shared dictionary', (publicMessages, custom, customPublic) => {
+      expect(Object.fromEntries(Object.entries(custom).filter(([key]) => key in publicMessages))).toEqual(customPublic)
+    },
+  )
   it.each([['en', enPublic, en], ['zh', zhPublic, zh]] as const)(
     '%s preserves the complete dictionary values for every public namespace',
     (_locale, publicMessages, fullMessages) => {

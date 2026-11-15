@@ -21,7 +21,7 @@ if ([...visited].some(key => /src\/i18n\/locales\/(zh|en)\/index\.ts/.test(key))
   throw new Error('Homepage eagerly loads a complete console translation dictionary')
 }
 const files = [...new Set([...visited].flatMap(key => [manifest[key].file, ...manifest[key].css || []]))]
-const forbidden = files.filter(file => /vendor-(three|xlsx|chart|airwallex|export|qrcode|tour|stripe)|premium-home-globe|AdminComplianceDialog|AnnouncementPanel|ModelPlazaContent/.test(file))
+const forbidden = files.filter(file => /vendor-(three|xlsx|chart|airwallex|export|qrcode|tour|stripe)|premium-home-globe|AdminComplianceDialog|AnnouncementPanel|ModelPlazaContent|SupportWidget|\/custom-/.test(file))
 if (forbidden.length) throw new Error(`Homepage eagerly loads optional features: ${forbidden.join(', ')}`)
 const report = {
   scope: 'Chinese premium homepage static JS/CSS dependencies, excluding API responses, images and deferred features',

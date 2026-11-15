@@ -15,7 +15,7 @@ export interface ExtensionState {
 }
 
 export const extensionAPI = {
-  publicState: () => apiClient.get<{ enabled: Record<ExtensionId, boolean> }>('/custom-extensions'),
+  publicState: () => apiClient.get<{ enabled: Record<ExtensionId, boolean> }>('/custom-extensions', { timeout: 5000 }),
   list: () => apiClient.get<{ items: ExtensionState[] }>('/admin/custom-extensions'),
   update: (id: ExtensionId, enabled: boolean) =>
     apiClient.put<{ id: ExtensionId; enabled: boolean }>(`/admin/custom-extensions/${id}`, { enabled }),

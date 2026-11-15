@@ -3,7 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { extensionAPI } from '../api'
 import { extensionIds } from '../catalog'
-import { installCustomExtensionGuard, useCustomExtensionRuntime } from '../runtime'
+import { installCustomExtensionGuard, prefetchCustomExtensionState, useCustomExtensionRuntime } from '../runtime'
 import { defineComponent } from 'vue'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { EXTENSION_REFRESH_MS, EXTENSION_STORAGE_EVENT } from '../store'
@@ -31,6 +31,20 @@ describe('extension navigation gate', () => {
     vi.mocked(extensionAPI.publicState).mockResolvedValue({ data: { enabled: Object.fromEntries(extensionIds.map(id => [id, false])) } } as never)
     const r = router(); await r.push('/?aff=ref123'); expect(r.currentRoute.value.path).toBe('/home')
     expect(r.currentRoute.value.query).toEqual({ aff: 'ref123' })
+  })
+  it('reuses the early request but still blocks a disabled homepage', async () => {
+    let resolve!: (value: unknown) => void
+    vi.mocked(extensionAPI.publicState).mockImplementation(() => new Promise(done => { resolve = done }) as never)
+    prefetchCustomExtensionState()
+    const r = router()
+    const navigation = r.push('/?aff=keep')
+    await flushPromises()
+    expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
+    resolve({ data: { enabled: Object.fromEntries(extensionIds.map(id => [id, false])) } })
+    await navigation
+    expect(r.currentRoute.value.path).toBe('/home')
+    expect(r.currentRoute.value.query).toEqual({ aff: 'keep' })
+    expect(extensionAPI.publicState).toHaveBeenCalledTimes(1)
   })
   it('blocks direct navigation, not only sidebar entries', async () => {
     vi.mocked(extensionAPI.publicState).mockResolvedValue({ data: { enabled: Object.fromEntries(extensionIds.map(id => [id, false])) } } as never)

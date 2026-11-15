@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/gin-gonic/gin"
@@ -35,6 +36,19 @@ func TestVerifiedHomepageHTMLRemainsPrivateOnColdAndWarmCache(t *testing.T) {
 		server.serveIndexHTML(c)
 		require.Equal(t, "private, no-store", w.Header().Get("Cache-Control"))
 	}
+}
+
+func TestLegacyFrontendResolvesBootScriptNonces(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Set(middleware.CSPNonceKey, "request-nonce")
+	files := fstest.MapFS{"index.html": &fstest.MapFile{Data: []byte(`<style nonce="__CSP_NONCE_VALUE__">#app-boot{display:block}</style><script nonce="__CSP_NONCE_VALUE__">void 0</script><div id="app-boot">正在打开页面</div>`)}}
+	serveEmbeddedHTML(c, files, "index.html")
+	require.Equal(t, http.StatusOK, w.Code)
+	require.NotContains(t, w.Body.String(), NonceHTMLPlaceholder)
+	require.Equal(t, 2, strings.Count(w.Body.String(), `nonce="request-nonce"`))
+	require.Contains(t, w.Body.String(), "正在打开页面")
 }
 
 func TestInjectSiteTitle(t *testing.T) {

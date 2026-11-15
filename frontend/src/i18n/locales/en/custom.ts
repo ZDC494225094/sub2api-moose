@@ -1,3 +1,4 @@
+import customPublic from './customPublic'
 // Local customizations preserved across the upstream locale module split.
 export default {
   "dashboard": {
@@ -304,14 +305,7 @@ export default {
     "emptyTextResponse": "The model returned no text content",
     "noImageReturned": "The API returned no image"
   },
-  "nav": {
-    "playground": "Playground",
-    "operationsAnalysis": "Operations Analysis",
-    "couponTemplates": "Coupon Templates",
-    "rechargeCampaigns": "Recharge Campaigns",
-    "marketingLottery": "Marketing Lottery",
-    "lottery": "Lottery"
-  },
+  ...customPublic,
   "keys": {
     "platformLabel": "Vendor Category",
     "selectedGroupCount": "{count} selected",

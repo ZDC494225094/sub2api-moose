@@ -47,6 +47,17 @@ function initThemeClass() {
   document.documentElement.classList.toggle('dark', shouldUseDark)
 }
 
+async function waitForApplicationStyles() {
+  await Promise.all(Array.from(document.querySelectorAll<HTMLLinkElement>('link[data-app-styles]')).map(link => {
+    if (link.dataset.appStyles === 'ready') return Promise.resolve()
+    if (link.dataset.appStyles === 'error') return Promise.reject(new Error('Application stylesheet unavailable'))
+    return new Promise<void>((resolve, reject) => {
+      link.addEventListener('load', () => resolve(), { once: true })
+      link.addEventListener('error', () => reject(new Error('Application stylesheet unavailable')), { once: true })
+    })
+  }))
+}
+
 async function bootstrap() {
   // Apply theme class globally before app mount to keep all routes consistent.
   initThemeClass()
@@ -68,14 +79,25 @@ async function bootstrap() {
   }
   updateFavicon(appStore.siteLogo)
 
-  await initI18n()
-
   app.use(router)
   app.use(i18n)
 
+  // The route guard loads the same locale promise. Run routing/admission in
+  // parallel with initialization instead of starting it after the locale fetch.
+  await initI18n()
+
   // 等待路由器完成初始导航后再挂载，避免竞态条件导致的空白渲染
   await router.isReady()
+  await waitForApplicationStyles()
   app.mount('#app')
 }
 
-bootstrap()
+bootstrap().catch((error: unknown) => {
+  console.error('Application startup failed:', error)
+  const title = document.getElementById('app-boot-title')
+  const message = document.getElementById('app-boot-message')
+  const retry = document.getElementById('app-boot-retry')
+  if (title) title.textContent = '页面暂未加载完成'
+  if (message) message.textContent = '请检查网络连接后重新加载。'
+  if (retry) retry.hidden = false
+})
