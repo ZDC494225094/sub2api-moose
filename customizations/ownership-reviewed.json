@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_at": "2026-11-14",
-  "baseline": "10ba8f9b4dc2e6023d4a9879ab77b21841babd10",
+  "reviewed_at": "2026-11-17",
+  "baseline": "b0fa9f3e6eeab1968a53e1289b69daa4bb40ca2b",
   "note": "Exact-path ownership review, including the original 70 unmatched paths and Stage32 Seedance host seam. Records responsibility and host compatibility boundaries, not complete semantic coverage of regex-classified files. The sensitive dump.rdb runtime snapshot was removed from preservation and ownership ledgers; all other original inventory entries remain unchanged.",
   "reviews": [
     {
@@ -740,6 +740,43 @@
       "kind": "compatibility",
       "evidence": "Pinned v0.2.21 source merge, upstream ownership of overlapping batch disable, scoped response replay, regenerated schema/Wire, completeness audit, rollback and actual local verification evidence.",
       "next_step": "Record the final verification results and distinguish local source/build evidence from deployment, database and external-provider acceptance."
+    },
+    {
+      "paths": [
+        "docs/upstream-v0.2.22-merge.md"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "compatibility",
+      "evidence": "Pinned v0.2.22 source merge with eight conflict resolutions, generated Ent/Wire, canvas settlement compatibility, native error isolation and full-tree completeness evidence.",
+      "next_step": "Keep local test/build evidence separate from deployment and real PostgreSQL or provider acceptance."
+    },
+    {
+      "paths": [
+        "backend/internal/service/usage_billing_lane.go",
+        "backend/internal/service/usage_billing_lane_test.go",
+        "backend/internal/repository/usage_billing_batch_repo.go",
+        "backend/internal/repository/usage_log_canvas_cost_test.go"
+      ],
+      "owners": [
+        "billing-scheduling",
+        "infinite-canvas"
+      ],
+      "kind": "compatibility",
+      "evidence": "Native ordinary billing batches remain intact; canvas requests keep per-user ordering but settle through the existing ledger-aware single Apply. The batch repository rejects canvas charges before SQL. Regression coverage keeps actual user cost distinct from account cost under canvas filters.",
+      "next_step": "Retain deduplication and ledger ownership; SQL mocks do not certify real PostgreSQL transaction behavior."
+    },
+    {
+      "paths": [
+        "backend/internal/service/openai_gateway_upstream_errors.go"
+      ],
+      "owners": [
+        "media-gateway"
+      ],
+      "kind": "compatibility",
+      "evidence": "The normal compatibility handler keeps the native error extractor. The independent video path supplies a message-only extractor without changing raw error bodies, passthrough rules, failover or account cooldown decisions.",
+      "next_step": "Keep provider-specific string and array parsing out of the shared extractor and native Grok policy."
     }
   ]
 }

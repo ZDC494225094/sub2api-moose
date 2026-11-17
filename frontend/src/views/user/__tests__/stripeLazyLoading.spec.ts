@@ -1,6 +1,8 @@
+// @vitest-environment node
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { loadConfigFromFile } from 'vite'
 
 const frontendRoot = resolve(__dirname, '../../../..')
 const stripeConsumers = [
@@ -21,13 +23,19 @@ describe('Stripe lazy-loading contract', () => {
     expect(source).not.toMatch(/await import\(['"]@stripe\/stripe-js['"]\)/)
   })
 
-  it('keeps Stripe out of the shared vendor chunk', () => {
-    const viteConfig = readFrontendFile('vite.config.ts')
-    const stripeRule = viteConfig.indexOf("id.includes('/@stripe/stripe-js/')")
-    const miscFallback = viteConfig.indexOf("return 'vendor-misc'")
+  it('keeps Stripe out of the shared vendor chunk', async () => {
+    const loaded = await loadConfigFromFile(
+      { command: 'build', mode: 'production' },
+      resolve(frontendRoot, 'vite.config.ts'),
+    )
+    const output = loaded?.config.build?.rollupOptions?.output
+    const manualChunks = (Array.isArray(output) ? output[0] : output)?.manualChunks
+    if (typeof manualChunks !== 'function') throw new Error('Expected manual chunk configuration')
+    const moduleInfo = { getModuleIds: () => [][Symbol.iterator](), getModuleInfo: () => null }
 
-    expect(stripeRule).toBeGreaterThan(-1)
-    expect(viteConfig.slice(stripeRule, miscFallback)).toContain("return 'vendor-stripe'")
-    expect(stripeRule).toBeLessThan(miscFallback)
+    expect(manualChunks('/node_modules/@stripe/stripe-js/dist/pure.mjs', moduleInfo)).toBe('vendor-stripe')
+    expect(manualChunks('/node_modules/.pnpm/@stripe+stripe-js@9.0.1/node_modules/@stripe/stripe-js/dist/pure.mjs', moduleInfo)).toBe('vendor-stripe')
+    expect(manualChunks('/node_modules/axios/index.js', moduleInfo)).not.toBe('vendor-stripe')
+    expect(manualChunks('/node_modules/vue/dist/vue.runtime.esm-bundler.js', moduleInfo)).toBe('vendor-vue')
   })
 })

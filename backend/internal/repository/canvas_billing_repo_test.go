@@ -140,6 +140,8 @@ func TestCanvasLateUsageCannotRechargeRefundedRun(t *testing.T) {
 			r, m := canvasTestRepo(t)
 			c := canvasTestCharge()
 			c.Status = status
+			lanes := service.NewUsageBillingLaneCombiner(r)
+			t.Cleanup(lanes.Stop)
 			if status == "succeeded" {
 				c.ChargedCost = 3
 			}
@@ -156,7 +158,7 @@ func TestCanvasLateUsageCannotRechargeRefundedRun(t *testing.T) {
 			m.ExpectExec(`UPDATE canvas_run_charges SET actual_cost=\$2,charged_cost=\$3,usage_recorded=TRUE,updated_at=NOW\(\) WHERE id=\$1`).WithArgs(c.ID, 1.25, c.ChargedCost).WillReturnResult(sqlmock.NewResult(0, 1))
 			// No standard wallet deduction SQL is expected: ledger is sole money owner.
 			m.ExpectCommit()
-			result, err := r.Apply(context.Background(), cmd)
+			result, err := lanes.Apply(context.Background(), cmd)
 			require.NoError(t, err)
 			require.True(t, result.Applied)
 			require.True(t, result.CanvasCharge.UsageRecorded)
@@ -167,11 +169,20 @@ func TestCanvasLateUsageCannotRechargeRefundedRun(t *testing.T) {
 			m.ExpectQuery(`(?s)INSERT INTO usage_billing_dedup .*RETURNING id`).WillReturnError(sql.ErrNoRows)
 			m.ExpectQuery(`(?s)SELECT request_fingerprint.*FROM usage_billing_dedup\s+WHERE`).WillReturnRows(sqlmock.NewRows([]string{"request_fingerprint"}).AddRow(cmd.RequestFingerprint))
 			m.ExpectRollback()
-			again, err := r.Apply(context.Background(), cmd)
+			again, err := lanes.Apply(context.Background(), cmd)
 			require.NoError(t, err)
 			require.False(t, again.Applied)
 		})
 	}
+}
+
+func TestCanvasBillingBatchRejectsBeforeSQL(t *testing.T) {
+	r, _ := canvasTestRepo(t)
+	_, err := r.ApplyBatch(context.Background(), []*service.UsageBillingCommand{
+		{RequestID: "ordinary", UserID: 7, APIKeyID: 9, BalanceCost: 1},
+		{RequestID: "canvas", UserID: 7, APIKeyID: 9, BalanceCost: 3, CanvasChargeID: "charge"},
+	})
+	require.ErrorIs(t, err, errUsageBillingBatchCanvasCharge)
 }
 func TestCanvasSubscriptionUsesExactIDAndOriginalWindows(t *testing.T) {
 	r, m := canvasTestRepo(t)

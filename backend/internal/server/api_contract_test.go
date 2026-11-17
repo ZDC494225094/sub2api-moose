@@ -904,6 +904,7 @@ func TestAPIContracts(t *testing.T) {
 						"invitation_code_enabled": false,
 						"home_content": "",
 					"home_pricing_compare_enabled": true,
+					"homepage_captcha_enabled": false,
 					"home_docs_enabled": true,
 					"footer_content": "",
 					"footer_friend_links": [],
@@ -1210,6 +1211,7 @@ func TestAPIContracts(t *testing.T) {
 					"doc_url": "",
 					"home_content": "",
 					"home_pricing_compare_enabled": true,
+					"homepage_captcha_enabled": false,
 					"home_docs_enabled": true,
 					"footer_content": "",
 					"footer_friend_links": [],
@@ -2079,6 +2081,10 @@ func (s *stubAccountRepo) ClearAntigravityQuotaScopes(ctx context.Context, id in
 }
 
 func (s *stubAccountRepo) ClearModelRateLimits(ctx context.Context, id int64) error {
+	return errors.New("not implemented")
+}
+
+func (s *stubAccountRepo) ClearModelRateLimit(ctx context.Context, id int64, scope string) error {
 	return errors.New("not implemented")
 }
 

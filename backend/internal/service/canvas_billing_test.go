@@ -266,6 +266,29 @@ func TestCanvasBillingCannotFallBackToSecondDebit(t *testing.T) {
 	require.Equal(t, "charge", repo.cmds[0].CanvasChargeID)
 	require.NotEqual(t, buildUsageBillingFingerprint(&UsageBillingCommand{RequestID: "request"}), repo.cmds[0].RequestFingerprint)
 }
+
+func TestCanvasBillingFingerprintUsesAmountBeforeQuantization(t *testing.T) {
+	const originalCost = 0.000078125
+	p := &postUsageBillingParams{
+		Cost: &CostBreakdown{ActualCost: originalCost}, User: &User{ID: 7},
+		APIKey: &APIKey{ID: 9}, Account: &Account{ID: 11},
+	}
+	for _, chargeID := range []string{"", "charge"} {
+		t.Run(chargeID, func(t *testing.T) {
+			ctx := context.Background()
+			if chargeID != "" {
+				ctx = WithCanvasCharge(ctx, &CanvasCharge{ID: chargeID})
+			}
+			repo := &simpleModeUsageBillingRepoStub{}
+			_, err := applyUsageBilling(ctx, "request", nil, p, &billingDeps{deferredService: &DeferredService{}}, repo)
+			require.NoError(t, err)
+			require.Len(t, repo.cmds, 1)
+			want := &UsageBillingCommand{RequestID: "request", UserID: 7, APIKeyID: 9, AccountID: 11, CanvasChargeID: chargeID, BalanceCost: originalCost}
+			require.Equal(t, buildUsageBillingFingerprint(want), repo.cmds[0].RequestFingerprint)
+			require.Equal(t, 0.00007813, repo.cmds[0].BalanceCost)
+		})
+	}
+}
 func TestCanvasCancelSuccessRaceAndRefundError(t *testing.T) {
 	for _, status := range []string{"succeeded", "reserved"} {
 		t.Run(status, func(t *testing.T) {

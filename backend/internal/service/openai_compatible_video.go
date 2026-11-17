@@ -18,6 +18,26 @@ import (
 	"github.com/tidwall/sjson"
 )
 
+func writeCompatibleVideoErrorResponse(c *gin.Context, statusCode int, errType, message string) {
+	writeGrokMediaErrorResponse(c, statusCode, errType, message, "")
+}
+
+// Video relays may return flat strings or arrays. Keep this extension out of
+// shared failover and account cooldown parsing, which follows upstream rules.
+func extractVideoUpstreamErrorMessage(body []byte) string {
+	if message := extractUpstreamErrorMessage(body); strings.TrimSpace(message) != "" {
+		return message
+	}
+	if value := gjson.GetBytes(body, "error"); value.Type == gjson.String || value.IsArray() {
+		return strings.TrimSpace(value.String())
+	}
+	return ""
+}
+
+func (s *OpenAIGatewayService) handleCompatibleVideoErrorResponse(resp *http.Response, c *gin.Context, account *Account, requestedModel string) (*OpenAIForwardResult, error) {
+	return s.handleCompatErrorResponseWithMessageExtractor(resp, c, account, writeCompatibleVideoErrorResponse, extractVideoUpstreamErrorMessage, requestedModel)
+}
+
 const arkVideoTasksPath = "/contents/generations/tasks"
 
 // ForwardOpenAICompatibleVideo forwards the normalized /v1/videos contract to
@@ -92,7 +112,7 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 	}
 	if endpoint == GrokMediaEndpointVideosGenerations {
 		if arkNative && gjson.GetBytes(body, "_video_protocol").String() == "relay" {
-			writeGrokMediaErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "当前账号地址是 /api/v3 原生方舟接口，兼容网关格式需配置网关地址")
+			writeCompatibleVideoErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "当前账号地址是 /api/v3 原生方舟接口，兼容网关格式需配置网关地址")
 			return nil, errors.New("relay format requires a relay account base URL")
 		}
 		if upstreamModel != requestInfo.Model && gjson.ValidBytes(body) {
@@ -113,7 +133,7 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 			var path string
 			body, path, nativeTask, err = nativeVideoGeneration(protocol, body)
 			if err != nil {
-				writeGrokMediaErrorResponse(c, http.StatusBadRequest, "invalid_request_error", sanitizeUpstreamErrorMessage(err.Error()))
+				writeCompatibleVideoErrorResponse(c, http.StatusBadRequest, "invalid_request_error", sanitizeUpstreamErrorMessage(err.Error()))
 				return nil, err
 			}
 			nativeTask.BillingModel = requestInfo.Model
@@ -179,12 +199,12 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if protocol != "" && resp.StatusCode >= 300 && resp.StatusCode < 400 {
-		writeGrokMediaErrorResponse(c, http.StatusBadGateway, "upstream_error", "原生视频接口不允许重定向，请检查渠道地址")
+		writeCompatibleVideoErrorResponse(c, http.StatusBadGateway, "upstream_error", "原生视频接口不允许重定向，请检查渠道地址")
 		return nil, errors.New("native video redirect rejected")
 	}
 
 	if resp.StatusCode >= http.StatusBadRequest {
-		return s.handleCompatErrorResponse(resp, c, account, writeGrokMediaErrorResponse, requestInfo.Model)
+		return s.handleCompatibleVideoErrorResponse(resp, c, account, requestInfo.Model)
 	}
 	requestIDHeader := firstNonEmpty(resp.Header.Get("x-request-id"), resp.Header.Get("x-goog-request-id"))
 	if endpoint == GrokMediaEndpointVideoContent && protocol != "omni" {
@@ -204,7 +224,7 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 	if protocol != "" {
 		respBody, nativeTask, err = normalizeNativeVideoResponse(respBody, nativeTask, endpoint == GrokMediaEndpointVideosGenerations)
 		if err != nil {
-			writeGrokMediaErrorResponse(c, http.StatusBadGateway, "upstream_error", sanitizeUpstreamErrorMessage(err.Error()))
+			writeCompatibleVideoErrorResponse(c, http.StatusBadGateway, "upstream_error", sanitizeUpstreamErrorMessage(err.Error()))
 			return nil, err
 		}
 		if fileID := gjson.GetBytes(respBody, "file_id").String(); protocol == "minimax" && fileID != "" {
@@ -223,7 +243,7 @@ func (s *OpenAIGatewayService) ForwardOpenAICompatibleVideo(
 			}
 			defer fileResp.Body.Close()
 			if fileResp.StatusCode >= 400 {
-				return s.handleCompatErrorResponse(fileResp, c, account, writeGrokMediaErrorResponse, requestInfo.Model)
+				return s.handleCompatibleVideoErrorResponse(fileResp, c, account, requestInfo.Model)
 			}
 			fileBody, err := ReadUpstreamResponseBody(fileResp.Body, s.cfg, c, openAITooLargeError)
 			if err != nil {

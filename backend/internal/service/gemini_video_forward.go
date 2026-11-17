@@ -188,7 +188,7 @@ func (s *GeminiMessagesCompatService) ForwardAIStudioVideoContent(ctx context.Co
 	}
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-		message := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(body)))
+		message := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractVideoUpstreamErrorMessage(body)))
 		if message == "" {
 			message = fmt.Sprintf("Gemini video content returned status %d", resp.StatusCode)
 		}
