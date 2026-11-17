@@ -1,10 +1,11 @@
 // Package gatewaylogarchive stores complete gateway request/response bodies,
 // one JSON document per client session, packs documents of the same model into
-// one ZIP per day (rolling at a configurable size) and uploads the ZIPs to
+// one uncompressed JSONL per day (rolling at a configurable size) and uploads it to
 // S3-compatible buckets under <prefix>/<YYYY-MM-DD>/.
 package gatewaylogarchive
 
 import (
+	"encoding/json"
 	"errors"
 	"regexp"
 	"strings"
@@ -21,8 +22,8 @@ const (
 )
 
 // ModelRule matches client-written model names with case-insensitive "*"
-// wildcards. Alias, when set, becomes the ZIP name so several model variants
-// share one archive (fewer, larger ZIPs).
+// wildcards. Alias, when set, becomes the file name so several model variants
+// share one archive (fewer, larger JSONL files).
 type ModelRule struct {
 	Pattern string `json:"pattern"`
 	Alias   string `json:"alias"`
@@ -35,7 +36,8 @@ type Config struct {
 	Mode               string      `json:"mode"`
 	Rules              []ModelRule `json:"rules"`
 	SuccessOnly        bool        `json:"success_only"`
-	MaxZipSizeMB       int64       `json:"max_zip_size_mb"`
+	MaxFileSizeMB      int64       `json:"max_file_size_mb"`
+	RedactPII          bool        `json:"redact_pii"`
 	SessionIdleSeconds int         `json:"session_idle_seconds"`
 	MaxBodyMB          int         `json:"max_body_mb"`
 	KeepLocalHours     int         `json:"keep_local_hours"`
@@ -55,6 +57,26 @@ type Config struct {
 	ForcePathStyle bool   `json:"force_path_style,omitempty"`
 }
 
+// UnmarshalJSON adopts the previous size setting without losing a site's
+// chosen limit. An omitted privacy setting uses the caller's default.
+func (c *Config) UnmarshalJSON(data []byte) error {
+	type plain Config
+	v := struct {
+		*plain
+		LegacySize *int64 `json:"max_zip_size_mb"`
+		FileSize   *int64 `json:"max_file_size_mb"`
+	}{plain: (*plain)(c)}
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	if v.FileSize != nil {
+		c.MaxFileSizeMB = *v.FileSize
+	} else if v.LegacySize != nil {
+		c.MaxFileSizeMB = *v.LegacySize
+	}
+	return nil
+}
+
 func (c *Config) clearLegacyStorage() {
 	c.Provider, c.Bucket, c.Region, c.Endpoint, c.Prefix, c.ForcePathStyle = "", "", "", "", "", false
 }
@@ -72,7 +94,8 @@ func DefaultConfig() Config {
 		Mode:               ModeAll,
 		Rules:              []ModelRule{},
 		SuccessOnly:        true,
-		MaxZipSizeMB:       10240,
+		MaxFileSizeMB:      10240,
+		RedactPII:          true,
 		SessionIdleSeconds: 1800,
 		MaxBodyMB:          64,
 		KeepLocalHours:     0,
@@ -125,7 +148,7 @@ func (c *Config) Normalize() error {
 	if c.Mode == ModeSelected && len(c.Rules) == 0 && c.CaptureEnabled {
 		return errors.New("“指定模型”模式至少需要一条模型规则")
 	}
-	c.MaxZipSizeMB = clamp(c.MaxZipSizeMB, 64, 1024*1024, def.MaxZipSizeMB)
+	c.MaxFileSizeMB = clamp(c.MaxFileSizeMB, 64, 1024*1024, def.MaxFileSizeMB)
 	c.SessionIdleSeconds = int(clamp(int64(c.SessionIdleSeconds), 30, 86400, int64(def.SessionIdleSeconds)))
 	c.MaxBodyMB = int(clamp(int64(c.MaxBodyMB), 1, 256, int64(def.MaxBodyMB)))
 	if c.KeepLocalHours < 0 {
@@ -208,13 +231,13 @@ func SanitizeName(s string) string {
 	return out
 }
 
-// BundleFileName follows "<Model>-<YYYY-MM-DD>.zip"; later parts of the same
+// BundleFileName follows "<Model>-<YYYY-MM-DD>.jsonl"; later parts of the same
 // day add "-partNNN".
 func BundleFileName(modelKey, day string, part int) string {
 	if part <= 1 {
-		return modelKey + "-" + day + ".zip"
+		return modelKey + "-" + day + ".jsonl"
 	}
-	return modelKey + "-" + day + "-part" + pad3(part) + ".zip"
+	return modelKey + "-" + day + "-part" + pad3(part) + ".jsonl"
 }
 
 func pad3(n int) string {

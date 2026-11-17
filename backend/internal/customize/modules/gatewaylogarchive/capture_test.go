@@ -57,7 +57,7 @@ func gatewayEngine(r *Runtime) *gin.Engine {
 			c.Status(http.StatusOK)
 			_, _ = c.Writer.WriteString("event: message_start\ndata: {\"type\":\"message_start\"}\n\n")
 			c.Writer.Flush()
-			_, _ = c.Writer.Write([]byte("data: {\"type\":\"message_stop\",\"t\":\"<b>&\"}\n\n"))
+			_, _ = c.Writer.Write([]byte("data: {\"type\":\"message_stop\",\"t\":\"<b>& alice@example.com 13800138000\"}\n\n"))
 			return
 		}
 		if strings.Contains(string(body), "fail") {
@@ -93,6 +93,7 @@ func TestCaptureHTTPKeepsRawBodiesAndPassesRequestThrough(t *testing.T) {
 
 	w = post(e, "/v1/messages", `{"model":"claude-opus-5","stream":true}`, "X-Test-Session", "hdr-1")
 	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), "alice@example.com 13800138000", "SSE is forwarded unchanged with upload privacy enabled")
 	post(e, "/v1/messages", `{"model":"claude-opus-5","fail":1}`)
 	post(e, "/v1/messages/count_tokens", `{"model":"claude-opus-5"}`)
 
@@ -163,7 +164,7 @@ func TestCaptureWebSocketWithContextTakeover(t *testing.T) {
 			if err != nil {
 				return
 			}
-			big := strings.Repeat("delta text ", 400)
+			big := "alice@example.com 13800138000 " + strings.Repeat("delta text ", 400)
 			_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"response.output_text.delta","delta":"`+big+`"}`))
 			_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"response.completed","echo":`+string(msg)+`}`))
 		}
@@ -179,17 +180,18 @@ func TestCaptureWebSocketWithContextTakeover(t *testing.T) {
 		&websocket.DialOptions{HTTPHeader: header, CompressionMode: websocket.CompressionContextTakeover})
 	require.NoError(t, err)
 	for turn := 0; turn < 2; turn++ {
-		req := `{"type":"response.create","model":"gpt-6.1-sol","input":"` + strings.Repeat("question ", 100) + `"}`
+		req := `{"type":"response.create","model":"gpt-6.1-sol","input":"alice@example.com ` + strings.Repeat("question ", 100) + `"}`
 		require.NoError(t, conn.Write(ctx, websocket.MessageText, []byte(req)))
 		for i := 0; i < 2; i++ {
-			_, _, err := conn.Read(ctx)
+			_, received, err := conn.Read(ctx)
 			require.NoError(t, err)
+			require.Contains(t, string(received), "alice@example.com", "upload privacy never changes WebSocket wire messages")
 		}
 	}
 	_ = conn.Close(websocket.StatusNormalClosure, "")
 	require.Eventually(t, func() bool { return len(sink.all()) == 2 }, 5*time.Second, 20*time.Millisecond)
 	require.Equal(t, "permessage-deflate", negotiated, "context takeover in both directions")
-	wantDelta := `{"type":"response.output_text.delta","delta":"` + strings.Repeat("delta text ", 400) + `"}`
+	wantDelta := `{"type":"response.output_text.delta","delta":"alice@example.com 13800138000 ` + strings.Repeat("delta text ", 400) + `"}`
 
 	for _, x := range sink.all() {
 		require.Equal(t, "websocket", x.Transport)
@@ -198,7 +200,7 @@ func TestCaptureWebSocketWithContextTakeover(t *testing.T) {
 		require.Contains(t, string(x.Request), `"response.create"`)
 		require.Len(t, x.ResponseEvents, 2)
 		require.Equal(t, wantDelta, string(x.ResponseEvents[0]))
-		require.Equal(t, `{"type":"response.create","model":"gpt-6.1-sol","input":"`+strings.Repeat("question ", 100)+`"}`, string(x.Request))
+		require.Equal(t, `{"type":"response.create","model":"gpt-6.1-sol","input":"alice@example.com `+strings.Repeat("question ", 100)+`"}`, string(x.Request))
 		require.Contains(t, string(x.ResponseEvents[1]), `"response.completed"`)
 		var doc map[string]any
 		require.NoError(t, json.Unmarshal(encodeExchange(1, x), &doc))

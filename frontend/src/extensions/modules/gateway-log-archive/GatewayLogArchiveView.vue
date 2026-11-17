@@ -9,7 +9,7 @@
           <div class="min-w-0">
             <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">网关日志存储</h1>
             <p class="mt-1 max-w-3xl text-sm leading-6 text-gray-500 dark:text-dark-400">
-              按会话保存完整请求体与返回体（原始数据），同模型按天打包为 ZIP，按优先级上传到存储桶。
+              每行保存一个会话 JSON，同模型按天合并为大体积 JSONL 文件，不压缩，按优先级上传到存储桶。
             </p>
           </div>
         </div>
@@ -18,7 +18,7 @@
             <Icon name="refresh" size="sm" />刷新
           </button>
           <button type="button" class="btn btn-primary" :disabled="busy || !status?.running" @click="flush">
-            <Icon name="upload" size="sm" />立即封包上传
+            <Icon name="upload" size="sm" />立即结束写入并上传
           </button>
         </div>
       </header>
@@ -58,7 +58,7 @@
           <button type="button" class="kpi kpi-action text-left" @click="tab = 'stats'">
             <span class="kpi-label"><Icon name="cloud" size="sm" />已上传总量</span>
             <span class="kpi-value">{{ formatBytes(status.uploaded_bytes) }}</span>
-            <span class="kpi-sub">{{ status.uploaded_bundles.toLocaleString() }} 个 ZIP · <span class="text-primary-600 dark:text-primary-400">按模型查看 ›</span></span>
+            <span class="kpi-sub">{{ status.uploaded_bundles.toLocaleString() }} 个文件 · <span class="text-primary-600 dark:text-primary-400">按模型查看 ›</span></span>
           </button>
           <button type="button" class="kpi kpi-action text-left" @click="tab = 'buckets'">
             <span class="kpi-label"><Icon name="server" size="sm" />可用存储桶</span>
@@ -90,7 +90,7 @@
           <div class="progress mt-2"><div class="progress-bar" :style="{ width: uploadPercent + '%' }" /></div>
         </div>
         <div v-if="status.open_bundles?.length" class="mt-4">
-          <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-dark-400">写入中的压缩包</h3>
+          <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-dark-400">写入中的归档文件</h3>
           <ul class="mt-2 flex flex-wrap gap-2">
             <li v-for="b in status.open_bundles" :key="b.id" class="badge badge-gray font-normal">
               {{ b.day }}/{{ b.file_name }} · {{ b.entry_count }} 个会话 · {{ formatBytes(b.size_bytes) }}
@@ -138,6 +138,14 @@
             </div>
             <Toggle v-model="form.success_only" />
           </div>
+          <div class="setting-row">
+            <div class="min-w-0">
+              <p class="setting-title">上传时脱敏个人信息</p>
+              <p class="setting-desc">默认开启。识别邮箱、手机号、身份证号，以及明确标注的姓名、住址、银行卡号等个人信息；其他内容保留。仅在后台上传时处理，不修改正常请求与响应。</p>
+              <p class="setting-desc mt-1">本地待上传日志保留原始内容，上传后预览读取存储桶中的版本。规则无法识别所有自然语言中的个人信息。</p>
+            </div>
+            <Toggle v-model="form.redact_pii" aria-label="上传时脱敏个人信息" />
+          </div>
           <div>
             <p class="setting-title">存储模式</p>
             <div class="tabs mt-2 w-fit">
@@ -151,7 +159,7 @@
               <button type="button" class="btn btn-secondary btn-sm" @click="addRule"><Icon name="plus" size="sm" />添加规则</button>
             </div>
             <p class="setting-desc mt-1">
-              按客户端请求的模型名匹配，支持 * 通配（不区分大小写）。「压缩包名」相同的模型打进同一个 ZIP，留空用模型名；全量模式下规则只用于合并命名。
+              按客户端请求的模型名匹配，支持 * 通配（不区分大小写）。「归档文件名」相同的模型合并到同一个 JSONL，留空用模型名；全量模式下规则只用于合并命名。
             </p>
             <div class="mt-3 overflow-hidden rounded-xl border border-gray-200 dark:border-dark-700">
               <div v-if="!form.rules.length" class="px-4 py-6 text-center text-sm text-gray-500 dark:text-dark-400">
@@ -164,7 +172,7 @@
               >
                 <input v-model="rule.pattern" class="input min-w-[12rem] flex-1 font-mono" placeholder="claude-opus-5*" :aria-label="`规则 ${i + 1} 模型`" />
                 <Icon name="chevronRight" size="sm" class="text-gray-400" />
-                <input v-model="rule.alias" class="input w-44 font-mono" placeholder="压缩包名，如 Opus5" :aria-label="`规则 ${i + 1} 压缩包名`" />
+                <input v-model="rule.alias" class="input w-44 font-mono" placeholder="归档文件名，如 Opus5" :aria-label="`规则 ${i + 1} 归档文件名`" />
                 <button type="button" class="btn btn-ghost btn-sm" :aria-label="`删除规则 ${i + 1}`" @click="form.rules.splice(i, 1)">
                   <Icon name="trash" size="sm" />
                 </button>
@@ -175,13 +183,13 @@
 
         <div class="card space-y-4 p-5 lg:col-span-2">
           <div>
-            <h2 class="text-base font-semibold text-gray-900 dark:text-white">打包与保留</h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">控制 ZIP 大小、会话切分与本地磁盘占用。</p>
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white">文件与保留</h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">默认聚合到 10 GB，达到上限、跨天或手动结束写入时上传；会话结束后继续追加，减少小文件。</p>
           </div>
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
             <label>
-              <span class="input-label">单个 ZIP 上限（GB）</span>
-              <input v-model.number="zipSizeGB" type="number" min="0.0625" step="1" class="input" />
+              <span class="input-label">单个 JSONL 上限（GB）</span>
+              <input v-model.number="fileSizeGB" type="number" min="0.0625" max="1024" step="1" class="input" aria-label="单个 JSONL 上限（GB）" />
             </label>
             <label>
               <span class="input-label">会话空闲结束（分钟）</span>
@@ -222,7 +230,7 @@
       <section v-if="tab === 'bundles'" class="space-y-4">
         <div class="card flex flex-wrap items-center gap-2 p-3">
           <input v-model="bundleFilter.day" type="date" class="input w-44" aria-label="日期" />
-          <input v-model="bundleFilter.model" class="input w-48" placeholder="模型 / 压缩包名" aria-label="模型" @keyup.enter="loadBundles(1)" />
+          <input v-model="bundleFilter.model" class="input w-48" placeholder="模型 / 归档文件名" aria-label="模型" @keyup.enter="loadBundles(1)" />
           <select v-model="bundleFilter.status" class="input w-36" aria-label="状态">
             <option value="">全部状态</option>
             <option v-for="(label, key) in statusLabels" :key="key" :value="key">{{ label }}</option>
@@ -245,7 +253,7 @@
               </thead>
               <tbody>
                 <tr v-if="!bundles.items.length">
-                  <td colspan="7" class="py-10 text-center text-sm text-gray-500 dark:text-dark-400">暂无压缩包</td>
+                  <td colspan="7" class="py-10 text-center text-sm text-gray-500 dark:text-dark-400">暂无归档文件</td>
                 </tr>
                 <tr v-for="b in bundles.items" :key="b.id">
                   <td class="whitespace-nowrap font-mono text-xs">{{ b.day }}</td>
@@ -289,8 +297,8 @@
           <input v-model.number="entryFilter.user_id" type="number" min="0" class="input w-32" placeholder="用户 ID" aria-label="用户 ID" />
           <button type="button" class="btn btn-secondary" @click="loadEntries(1)"><Icon name="search" size="sm" />查询</button>
           <span v-if="entryFilter.bundle_id" class="badge badge-primary">
-            压缩包 #{{ entryFilter.bundle_id }}
-            <button type="button" class="ml-1" aria-label="清除压缩包筛选" @click="clearBundleFilter">×</button>
+            归档文件 #{{ entryFilter.bundle_id }}
+            <button type="button" class="ml-1" aria-label="清除归档文件筛选" @click="clearBundleFilter">×</button>
           </span>
         </div>
         <div class="card overflow-hidden">
@@ -298,7 +306,7 @@
             <table class="table min-w-[1040px]">
               <thead>
                 <tr>
-                  <th>压缩包 / 文件</th>
+                  <th>归档文件 / 文件</th>
                   <th>会话 ID</th>
                   <th>模型</th>
                   <th class="!text-right">轮次</th>
@@ -378,7 +386,7 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: 'capture', label: '采集配置' },
   { key: 'buckets', label: '存储桶' },
   { key: 'stats', label: '上传统计' },
-  { key: 'bundles', label: '压缩包' },
+  { key: 'bundles', label: '归档文件' },
   { key: 'entries', label: '会话数据' },
 ]
 const tab = ref<TabKey>('capture')
@@ -427,10 +435,10 @@ const Pager = defineComponent({
 
 const today = computed(() => status.value?.today || new Date().toISOString().slice(0, 10))
 
-const zipSizeGB = computed({
-  get: () => (form.value ? Math.round((form.value.max_zip_size_mb / 1024) * 1000) / 1000 : 10),
+const fileSizeGB = computed({
+  get: () => (form.value ? Math.round((form.value.max_file_size_mb / 1024) * 1000) / 1000 : 10),
   set: (v: number) => {
-    if (form.value) form.value.max_zip_size_mb = Math.round((Number(v) || 0) * 1024)
+    if (form.value) form.value.max_file_size_mb = Math.round((Number(v) || 0) * 1024)
   },
 })
 const idleMinutes = computed({
@@ -509,7 +517,7 @@ async function saveConfig() {
 async function flush() {
   await run(async () => {
     status.value = await archiveAPI.flush()
-    notice.value = '已结束当前会话并封包，压缩包正在上传。'
+    notice.value = '已结束当前会话与文件写入，归档文件已加入上传队列。'
     if (tab.value === 'bundles') await loadBundles(1)
   }, '操作失败')
 }
@@ -523,7 +531,7 @@ async function loadBundles(page = bundles.value.page) {
       model: bundleFilter.model.trim() || undefined,
       status: bundleFilter.status || undefined,
     })
-  }, '加载压缩包失败')
+  }, '加载归档文件失败')
 }
 
 async function loadEntries(page = entries.value.page) {
@@ -589,7 +597,7 @@ async function downloadEntry(e: Entry) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${e.file_name.replace(/\.zip$/, '')}-${e.entry_name}`
+    a.download = `${e.file_name.replace(/\.(?:jsonl|zip)$/, '')}-${e.entry_name}`
     a.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }, '下载失败')

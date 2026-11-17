@@ -161,8 +161,8 @@ func TestStoreBucketsAndUploadStatsOnSQLite(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, s.CommitEntry(ctx, int64(500*(i+1)), Entry{BundleID: b.ID, Seq: 1, Name: EntryName(1), StartedAt: time.Now(), EndedAt: time.Now()}))
 		require.NoError(t, s.MarkSealed(ctx, b.ID, int64(500*(i+1))))
-		require.NoError(t, s.MarkUploaded(ctx, b.ID, second.ID, "backup", "k"+model))
-		require.NoError(t, s.MarkUploaded(ctx, b.ID, second.ID, "backup", "k"+model))
+		require.NoError(t, s.MarkUploaded(ctx, b.ID, second.ID, "backup", "k"+model, nil))
+		require.NoError(t, s.MarkUploaded(ctx, b.ID, second.ID, "backup", "k"+model, nil))
 	}
 
 	all, err := s.ModelStats(ctx, 0)

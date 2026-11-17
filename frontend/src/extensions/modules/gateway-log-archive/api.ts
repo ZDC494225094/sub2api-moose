@@ -10,7 +10,8 @@ export interface ArchiveConfig {
   mode: 'all' | 'selected'
   rules: ModelRule[]
   success_only: boolean
-  max_zip_size_mb: number
+  redact_pii: boolean
+  max_file_size_mb: number
   session_idle_seconds: number
   max_body_mb: number
   keep_local_hours: number

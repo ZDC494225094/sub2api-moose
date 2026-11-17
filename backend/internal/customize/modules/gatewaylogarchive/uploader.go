@@ -132,7 +132,7 @@ func (s *s3Objects) Upload(ctx context.Context, key, path string, progress func(
 	if size < multipartThreshold {
 		_, err = s.client.PutObject(ctx, &s3.PutObjectInput{
 			Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), Body: io.NewSectionReader(f, 0, size),
-			ContentLength: aws.Int64(size), ContentType: aws.String("application/zip"),
+			ContentLength: aws.Int64(size), ContentType: aws.String(archiveContentType(key)),
 		})
 		if err == nil && progress != nil {
 			progress(size)
@@ -140,7 +140,7 @@ func (s *s3Objects) Upload(ctx context.Context, key, path string, progress func(
 		return err
 	}
 	created, err := s.client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
-		Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), ContentType: aws.String("application/zip"),
+		Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), ContentType: aws.String(archiveContentType(key)),
 	})
 	if err != nil {
 		return err
@@ -329,6 +329,11 @@ type uploadPass struct {
 // uploadToBuckets tries the enabled buckets in priority order and stops at the
 // first success; the bundle records which bucket received it.
 func (p *pipeline) uploadToBuckets(buckets []BucketConfig, pass *uploadPass, row *Bundle) error {
+	prepared, err := p.prepareUpload(row)
+	if err != nil {
+		return err
+	}
+	defer prepared.cleanup()
 	order := make([]BucketConfig, 0, len(buckets))
 	for _, b := range buckets {
 		if !pass.down[b.ID] {
@@ -353,7 +358,7 @@ func (p *pipeline) uploadToBuckets(buckets []BucketConfig, pass *uploadPass, row
 			}
 			pass.clients[bucket.ID] = objects
 		}
-		err := p.uploadOne(bucket, objects, row)
+		err := p.uploadOne(bucket, objects, row, prepared)
 		if err == nil {
 			delete(pass.down, bucket.ID)
 			return nil
@@ -392,7 +397,7 @@ func (p *pipeline) failUpload(row *Bundle, err error) {
 	_ = p.store.MarkUploadFailed(ctx, row.ID, err.Error(), time.Now().Add(backoff(row.Attempts)))
 }
 
-// chooseKey keeps "<model>-<day>.zip" unless the object already exists (for
+// chooseKey keeps "<model>-<day>.jsonl" unless the object already exists (for
 // example written by another deployment); then the next free part name.
 func (p *pipeline) chooseKey(cfg BucketConfig, objects objectStore, row *Bundle) (string, error) {
 	for part := row.Part; part < row.Part+100; part++ {
@@ -406,7 +411,7 @@ func (p *pipeline) chooseKey(cfg BucketConfig, objects objectStore, row *Bundle)
 		}
 		exists, err := objects.Exists(p.ctx, key)
 		if err != nil {
-			// Without HeadObject permission the configured name is used.
+			// Preserve support for write-only storage credentials.
 			return key, nil
 		}
 		if !exists {
@@ -416,9 +421,9 @@ func (p *pipeline) chooseKey(cfg BucketConfig, objects objectStore, row *Bundle)
 	return "", errors.New("找不到可用的对象名称")
 }
 
-var errLocalBundleMissing = errors.New("本地压缩包不存在")
+var errLocalBundleMissing = errors.New("本地归档文件不存在")
 
-func (p *pipeline) uploadOne(cfg BucketConfig, objects objectStore, row *Bundle) error {
+func (p *pipeline) uploadOne(cfg BucketConfig, objects objectStore, row *Bundle, prepared *preparedUpload) error {
 	if _, err := os.Stat(row.LocalPath); err != nil {
 		return fmt.Errorf("%w：%v", errLocalBundleMissing, err)
 	}
@@ -427,14 +432,17 @@ func (p *pipeline) uploadOne(cfg BucketConfig, objects objectStore, row *Bundle)
 		return err
 	}
 	progress := &uploadProgress{BundleID: row.ID, FileName: row.FileName, Total: row.SizeBytes}
+	if prepared.layout != nil {
+		progress.FileName, progress.Total = prepared.layout.FileName, prepared.layout.Size
+	}
 	p.uploading.Store(progress)
 	defer p.uploading.Store(nil)
-	if err := objects.Upload(p.ctx, key, row.LocalPath, func(n int64) { progress.sent.Add(n) }); err != nil {
+	if err := objects.Upload(p.ctx, key, prepared.path, func(n int64) { progress.sent.Add(n) }); err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	if err := p.store.MarkUploaded(ctx, row.ID, cfg.ID, objects.Bucket(), key); err != nil {
+	if err := p.store.MarkUploaded(ctx, row.ID, cfg.ID, objects.Bucket(), key, prepared.layout); err != nil {
 		return err
 	}
 	if p.keepLocal.Load() == 0 {
@@ -457,5 +465,6 @@ func (p *pipeline) cleanupLocal() {
 		if err := os.Remove(row.LocalPath); err == nil || os.IsNotExist(err) {
 			_ = p.store.MarkLocalDeleted(ctx, row.ID)
 		}
+		_ = os.Remove(row.LocalPath + ".upload-tmp")
 	}
 }

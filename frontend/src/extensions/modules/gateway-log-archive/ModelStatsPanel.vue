@@ -54,7 +54,7 @@ defineExpose({ reload: load })
       <div class="min-w-0">
         <h2 class="text-base font-semibold text-gray-900 dark:text-white">按模型统计已上传</h2>
         <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">
-          累计统计，不受后台索引保留期影响；点击模型可查看该模型的压缩包。
+          累计统计，不受后台索引保留期影响；点击模型可查看该模型的归档文件。
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -77,7 +77,7 @@ defineExpose({ reload: load })
         <dd class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ formatBytes(stats.total_bytes) }}</dd>
       </div>
       <div class="card p-4">
-        <dt class="text-xs font-medium text-gray-500 dark:text-dark-400">压缩包</dt>
+        <dt class="text-xs font-medium text-gray-500 dark:text-dark-400">归档文件</dt>
         <dd class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ stats.total_bundles.toLocaleString() }}</dd>
       </div>
       <div class="card p-4">
@@ -94,9 +94,9 @@ defineExpose({ reload: load })
         <table class="table min-w-[760px]">
           <thead>
             <tr>
-              <th>模型 / 压缩包名</th>
+              <th>模型 / 归档文件名</th>
               <th class="w-[34%]">已上传大小</th>
-              <th class="!text-right">压缩包</th>
+              <th class="!text-right">归档文件</th>
               <th class="!text-right">会话</th>
               <th>最近上传</th>
               <th class="!text-right">操作</th>
@@ -105,7 +105,7 @@ defineExpose({ reload: load })
           <tbody>
             <tr v-if="!visible.length">
               <td colspan="6" class="py-10 text-center text-sm text-gray-500 dark:text-dark-400">
-                {{ loading ? '正在加载…' : query ? '没有匹配的模型' : '还没有上传完成的压缩包' }}
+                {{ loading ? '正在加载…' : query ? '没有匹配的模型' : '还没有上传完成的归档文件' }}
               </td>
             </tr>
             <tr v-for="m in visible" :key="m.model_key">
@@ -124,7 +124,7 @@ defineExpose({ reload: load })
               <td class="whitespace-nowrap text-xs text-gray-500 dark:text-dark-400">{{ formatTime(m.last_uploaded_at) }}</td>
               <td class="text-right">
                 <button type="button" class="btn btn-ghost btn-sm" @click="emit('viewBundles', m.model_key)">
-                  查看压缩包<Icon name="chevronRight" size="sm" />
+                  查看归档文件<Icon name="chevronRight" size="sm" />
                 </button>
               </td>
             </tr>

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -38,7 +39,7 @@ type flushJob struct {
 type bundle struct {
 	mu      sync.Mutex
 	row     Bundle
-	zip     *zipAppender
+	writer  archiveAppender
 	sealed  bool
 	size    atomic.Int64
 	entries atomic.Int64
@@ -57,7 +58,7 @@ type pipeline struct {
 
 	cfg       atomic.Pointer[Config]
 	buckets   atomic.Pointer[[]BucketConfig] // enabled, in upload order
-	maxZip    atomic.Int64
+	maxFile   atomic.Int64
 	idle      atomic.Int64
 	keepLocal atomic.Int64
 
@@ -146,7 +147,7 @@ func (p *pipeline) enabledBuckets() []BucketConfig {
 func (p *pipeline) setConfig(cfg Config) {
 	c := cfg
 	p.cfg.Store(&c)
-	p.maxZip.Store(cfg.MaxZipSizeMB << 20)
+	p.maxFile.Store(cfg.MaxFileSizeMB << 20)
 	p.idle.Store(int64(cfg.SessionIdleSeconds) * int64(time.Second))
 	p.keepLocal.Store(int64(cfg.KeepLocalHours) * int64(time.Hour))
 }
@@ -346,13 +347,13 @@ func (p *pipeline) flush(job flushJob) error {
 	day := p.day(time.Now())
 	b, err := p.acquire(day, header.ModelKey)
 	if err != nil {
-		return fmt.Errorf("创建压缩包失败：%w", err)
+		return fmt.Errorf("创建归档文件失败：%w", err)
 	}
-	if b.zip.Count() > 0 && b.zip.Size() >= p.maxZip.Load() {
+	if b.writer.Count() > 0 && b.writer.Size() >= p.maxFile.Load() {
 		p.sealLocked(b)
 		b.mu.Unlock()
 		if b, err = p.acquire(day, header.ModelKey); err != nil {
-			return fmt.Errorf("创建压缩包失败：%w", err)
+			return fmt.Errorf("创建归档文件失败：%w", err)
 		}
 	}
 	defer b.mu.Unlock()
@@ -360,33 +361,33 @@ func (p *pipeline) flush(job flushJob) error {
 	if err != nil {
 		return err
 	}
-	seq := b.zip.Count() + 1
+	seq := b.writer.Count() + 1
 	ended := records[len(records)-1].at
-	entry, err := b.zip.Append(EntryName(seq), ended, doc)
+	entry, err := b.writer.Append(EntryName(seq), ended, doc)
 	_ = doc.Close()
 	if err != nil {
-		return fmt.Errorf("写入压缩包失败：%w", err)
+		return fmt.Errorf("写入归档文件失败：%w", err)
 	}
-	if err := b.zip.Sync(); err != nil {
-		b.zip.RemoveLast()
-		return fmt.Errorf("写入压缩包失败：%w", err)
+	if err := b.writer.Sync(); err != nil {
+		b.writer.RemoveLast()
+		return fmt.Errorf("写入归档文件失败：%w", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	err = p.store.CommitEntry(ctx, b.zip.Size(), Entry{
+	err = p.store.CommitEntry(ctx, b.writer.Size(), Entry{
 		BundleID: b.row.ID, Seq: seq, Name: entry.Name, SessionID: header.SessionID, Model: header.Model,
 		Platform: header.Platform, UserID: header.UserID, APIKeyID: header.APIKeyID, ExchangeCount: len(records),
 		Offset: entry.Offset, CSize: entry.CSize, USize: entry.USize, CRC: entry.CRC,
 		StartedAt: header.StartedAt, EndedAt: ended,
 	})
 	if err != nil {
-		b.zip.RemoveLast()
-		return fmt.Errorf("记录压缩包条目失败：%w", err)
+		b.writer.RemoveLast()
+		return fmt.Errorf("记录归档文件条目失败：%w", err)
 	}
-	b.size.Store(b.zip.Size())
-	b.entries.Store(int64(b.zip.Count()))
+	b.size.Store(b.writer.Size())
+	b.entries.Store(int64(b.writer.Count()))
 	_ = os.Remove(job.path)
-	if b.zip.Size() >= p.maxZip.Load() {
+	if b.writer.Size() >= p.maxFile.Load() {
 		p.sealLocked(b)
 	}
 	return nil
@@ -427,12 +428,12 @@ func (p *pipeline) createBundle(day, modelKey string) (*bundle, error) {
 	if err != nil {
 		return nil, err
 	}
-	z, err := createZip(row.LocalPath)
+	z, err := createJSONL(row.LocalPath)
 	if err != nil {
 		_ = p.store.MarkBroken(ctx, row.ID, "创建本地文件失败："+err.Error())
 		return nil, err
 	}
-	return &bundle{row: row, zip: z}, nil
+	return &bundle{row: row, writer: z}, nil
 }
 
 // sealLocked finishes the archive and queues it for upload. b.mu is held.
@@ -448,16 +449,16 @@ func (p *pipeline) sealLocked(b *bundle) {
 	p.bundlesMu.Unlock()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if b.zip.Count() == 0 {
-		_ = b.zip.Close()
+	if b.writer.Count() == 0 {
+		_ = b.writer.Close()
 		_ = os.Remove(b.row.LocalPath)
-		_ = p.store.MarkBroken(ctx, b.row.ID, "空压缩包，已丢弃")
+		_ = p.store.MarkBroken(ctx, b.row.ID, "空归档文件，已丢弃")
 		_ = p.store.MarkLocalDeleted(ctx, b.row.ID)
 		return
 	}
-	size, err := b.zip.Seal()
+	size, err := b.writer.Seal()
 	if err != nil {
-		_ = b.zip.Close()
+		_ = b.writer.Close()
 		p.report(fmt.Errorf("封包 %s 失败：%w", b.row.FileName, err))
 		_ = p.store.MarkBroken(ctx, b.row.ID, "封包失败："+err.Error())
 		return
@@ -499,7 +500,7 @@ func (p *pipeline) closeOpen() {
 	defer p.bundlesMu.Unlock()
 	for key, b := range p.bundles {
 		b.mu.Lock()
-		_ = b.zip.Close()
+		_ = b.writer.Close()
 		b.sealed = true
 		b.mu.Unlock()
 		delete(p.bundles, key)
@@ -583,14 +584,25 @@ func (p *pipeline) recover() error {
 		if err != nil {
 			return err
 		}
-		z, err := reopenZip(row.LocalPath, row.SizeBytes, entries)
+		var z archiveAppender
+		if strings.HasSuffix(row.FileName, ".jsonl") {
+			z, err = reopenJSONL(row.LocalPath, row.SizeBytes, len(entries))
+		} else {
+			z, err = reopenZip(row.LocalPath, row.SizeBytes, entries)
+		}
 		if err != nil {
-			_ = p.store.MarkBroken(ctx, row.ID, "本地压缩包丢失或损坏："+err.Error())
+			_ = p.store.MarkBroken(ctx, row.ID, "本地归档文件丢失或损坏："+err.Error())
 			continue
 		}
-		b := &bundle{row: row, zip: z}
+		b := &bundle{row: row, writer: z}
 		b.size.Store(z.Size())
 		b.entries.Store(int64(z.Count()))
+		if !strings.HasSuffix(row.FileName, ".jsonl") {
+			// Finish legacy ZIPs without appending new sessions. The upload
+			// worker converts their committed entries to JSONL.
+			p.sealLocked(b)
+			continue
+		}
 		key := row.Day + "/" + row.ModelKey
 		if old := p.bundles[key]; old != nil {
 			old.mu.Lock()

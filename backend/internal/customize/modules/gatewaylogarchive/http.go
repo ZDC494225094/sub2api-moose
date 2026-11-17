@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -69,7 +70,7 @@ func (h *Handler) getConfig(c *gin.Context) {
 }
 
 func (h *Handler) saveConfig(c *gin.Context) {
-	var req Config
+	req := DefaultConfig()
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "配置格式错误")
 		return
@@ -386,7 +387,7 @@ func (h *Handler) loadBundle(c *gin.Context) (Bundle, bool) {
 	}
 	b, err := h.Runtime.Store.Bundle(c.Request.Context(), id)
 	if errors.Is(err, sql.ErrNoRows) {
-		response.NotFound(c, "压缩包不存在")
+		response.NotFound(c, "归档文件不存在")
 		return Bundle{}, false
 	}
 	return b, !response.ErrorFrom(c, err)
@@ -408,7 +409,7 @@ func (h *Handler) retryBundle(c *gin.Context) {
 		return
 	}
 	if !retried {
-		response.BadRequest(c, "只有上传失败且本地文件仍在的压缩包可以重试")
+		response.BadRequest(c, "只有上传失败且本地文件仍在的归档文件可以重试")
 		return
 	}
 	if pipe := h.Runtime.current(); pipe != nil {
@@ -423,7 +424,7 @@ func (h *Handler) downloadBundle(c *gin.Context) {
 		return
 	}
 	if b.Status != StatusUploaded || b.ObjectKey == "" {
-		response.BadRequest(c, "压缩包上传完成后才能下载")
+		response.BadRequest(c, "归档文件上传完成后才能下载")
 		return
 	}
 	objects, err := h.Runtime.objectStoreFor(c.Request.Context(), b)
@@ -481,7 +482,7 @@ func (h *Handler) entryContent(c *gin.Context) {
 	defer rc.Close()
 	c.Header("Cache-Control", "no-store")
 	if c.Query("download") == "1" {
-		c.Header("Content-Disposition", contentDisposition(strings.TrimSuffix(b.FileName, ".zip")+"-"+e.Name))
+		c.Header("Content-Disposition", contentDisposition(strings.TrimSuffix(b.FileName, filepath.Ext(b.FileName))+"-"+e.Name))
 		c.Header("Content-Length", strconv.FormatInt(e.USize, 10))
 		c.Status(http.StatusOK)
 		c.Header("Content-Type", "application/json; charset=utf-8")

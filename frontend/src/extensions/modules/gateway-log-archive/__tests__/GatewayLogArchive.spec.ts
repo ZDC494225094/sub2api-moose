@@ -3,7 +3,8 @@ import { flushPromises, mount } from '@vue/test-utils'
 import BucketsPanel from '../BucketsPanel.vue'
 import BucketDialog from '../BucketDialog.vue'
 import ModelStatsPanel from '../ModelStatsPanel.vue'
-import { archiveAPI, type ArchiveBucket } from '../api'
+import GatewayLogArchiveView from '../GatewayLogArchiveView.vue'
+import { archiveAPI, type ArchiveBucket, type ArchiveConfig } from '../api'
 
 vi.mock('../api', () => ({
   archiveAPI: {
@@ -13,10 +14,14 @@ vi.mock('../api', () => ({
     deleteBucket: vi.fn(),
     testBucket: vi.fn(),
     modelStats: vi.fn(),
+    getConfig: vi.fn(),
+    saveConfig: vi.fn(),
+    status: vi.fn(),
   },
 }))
 
 const stubs = {
+  AppLayout: { template: '<main><slot /></main>' },
   Icon: true,
   BaseDialog: { props: ['show', 'title'], template: '<section v-if="show" data-dialog><h2>{{ title }}</h2><slot /><footer><slot name="footer" /></footer></section>' },
   ConfirmDialog: {
@@ -25,6 +30,39 @@ const stubs = {
     template: '<div v-if="show" data-confirm-dialog><p>{{ message }}</p><button data-confirm @click="$emit(\'confirm\')">ok</button></div>',
   },
 }
+
+describe('gateway log archive JSONL and privacy settings', () => {
+  it('loads and saves the file limit and upload-only privacy switch', async () => {
+    vi.resetAllMocks()
+    vi.useFakeTimers()
+    const config: ArchiveConfig = {
+      capture_enabled: false, mode: 'all', rules: [], success_only: true, redact_pii: true,
+      max_file_size_mb: 10240, session_idle_seconds: 1800, max_body_mb: 64,
+      keep_local_hours: 0, entry_retention_days: 90, min_free_disk_gb: 5,
+    }
+    vi.mocked(archiveAPI.getConfig).mockResolvedValue(config)
+    vi.mocked(archiveAPI.saveConfig).mockImplementation(async value => value)
+    vi.mocked(archiveAPI.buckets).mockResolvedValue({ items: [], unattributed: { bundle_count: 0, size_bytes: 0 } })
+    const wrapper = mount(GatewayLogArchiveView, { global: { stubs } })
+    try {
+      await flushPromises()
+      expect(wrapper.text()).toContain('每行保存一个会话 JSON')
+      expect(wrapper.text()).toContain('不修改正常请求与响应')
+      const privacy = wrapper.get('[aria-label="上传时脱敏个人信息"]')
+      expect(privacy.attributes('aria-checked')).toBe('true')
+      await privacy.trigger('click')
+      await wrapper.get('input[aria-label="单个 JSONL 上限（GB）"]').setValue(20)
+      await wrapper.findAll('button').find(button => button.text() === '保存采集配置')!.trigger('click')
+      await flushPromises()
+      expect(archiveAPI.saveConfig).toHaveBeenCalledWith(expect.objectContaining({ redact_pii: false, max_file_size_mb: 20480 }))
+      expect(wrapper.text()).toContain('采集配置已保存')
+    } finally {
+      wrapper.unmount()
+      vi.clearAllTimers()
+      vi.useRealTimers()
+    }
+  })
+})
 
 function bucket(overrides: Partial<ArchiveBucket> = {}): ArchiveBucket {
   return {
@@ -73,7 +111,7 @@ describe('gateway log archive buckets', () => {
     const del = wrapper.findAll('tbody tr')[1].findAll('button').find(b => b.text() === '删除')!
     await del.trigger('click')
     expect(archiveAPI.deleteBucket).not.toHaveBeenCalled()
-    expect(wrapper.get('[data-confirm-dialog]').text()).toContain('已上传 3 个压缩包')
+    expect(wrapper.get('[data-confirm-dialog]').text()).toContain('已上传 3 个归档文件')
     await wrapper.get('[data-confirm]').trigger('click')
     await flushPromises()
     expect(archiveAPI.deleteBucket).toHaveBeenCalledWith(1)

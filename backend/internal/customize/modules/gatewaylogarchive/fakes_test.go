@@ -124,8 +124,15 @@ func (m *memStore) ClaimUpload(_ context.Context, node string, _ time.Time) (*Bu
 func (m *memStore) ObjectKeyTaken(_ context.Context, bucket, key string, except int64) (bool, error) {
 	return len(m.list(func(b *Bundle) bool { return b.Bucket == bucket && b.ObjectKey == key && b.ID != except })) > 0, nil
 }
-func (m *memStore) MarkUploaded(_ context.Context, id, bucketID int64, bucket, key string) error {
+func (m *memStore) MarkUploaded(_ context.Context, id, bucketID int64, bucket, key string, layout *uploadLayout) error {
 	return m.update(id, func(b *Bundle) {
+		if layout != nil {
+			b.FileName, b.SizeBytes = layout.FileName, layout.Size
+			for i, e := range layout.Entries {
+				stored := &m.entries[id][i]
+				stored.Offset, stored.CSize, stored.USize, stored.CRC = e.Offset, e.CSize, e.USize, e.CRC
+			}
+		}
 		now := time.Now()
 		bid := bucketID
 		b.Status, b.Bucket, b.BucketID, b.ObjectKey, b.UploadedAt = StatusUploaded, bucket, &bid, key, &now

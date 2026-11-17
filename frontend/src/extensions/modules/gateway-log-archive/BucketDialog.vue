@@ -46,7 +46,7 @@ const title = computed(() => (editing.value ? `编辑存储桶 · ${props.bucket
 const samplePath = computed(() => {
   const prefix = (form.prefix || '').replace(/^s3:\/\/[^/]*\/?/, '').replace(/^\/+|\/+$/g, '')
   const bucket = form.bucket || (form.prefix.startsWith('s3://') ? form.prefix.slice(5).split('/')[0] : '') || 'bucket'
-  return `s3://${bucket}/${prefix ? prefix + '/' : ''}${props.today}/Opus5-${props.today}.zip`
+  return `s3://${bucket}/${prefix ? prefix + '/' : ''}${props.today}/Opus5-${props.today}.jsonl`
 })
 
 watch(
@@ -146,7 +146,7 @@ async function save() {
         <label class="sm:col-span-2">
           <span class="input-label">S3 路径前缀</span>
           <input v-model="form.prefix" class="input font-mono" placeholder="可留空；也可直接粘贴 s3://bucket/前缀" autocomplete="off" />
-          <span class="input-hint break-all">上传到「前缀/日期/模型-日期.zip」，例如 {{ samplePath }}</span>
+          <span class="input-hint break-all">上传到「前缀/日期/模型-日期.jsonl」，例如 {{ samplePath }}</span>
         </label>
       </div>
 
@@ -200,7 +200,7 @@ async function save() {
         <div class="flex items-center justify-between gap-3 rounded-xl border border-gray-200 px-4 py-3 dark:border-dark-700 sm:col-span-2">
           <div class="min-w-0">
             <p class="text-sm font-medium text-gray-900 dark:text-white">启用</p>
-            <p class="text-xs text-gray-500 dark:text-dark-400">关闭后不再上传新压缩包，已上传的数据仍可读取</p>
+            <p class="text-xs text-gray-500 dark:text-dark-400">关闭后不再上传新归档文件，已上传的数据仍可读取</p>
           </div>
           <Toggle v-model="form.enabled" />
         </div>

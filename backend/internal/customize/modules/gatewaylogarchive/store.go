@@ -83,7 +83,7 @@ type archiveStore interface {
 	ResetUploading(ctx context.Context, node string) error
 	ClaimUpload(ctx context.Context, node string, now time.Time) (*Bundle, error)
 	ObjectKeyTaken(ctx context.Context, bucket, key string, exceptID int64) (bool, error)
-	MarkUploaded(ctx context.Context, id, bucketID int64, bucket, key string) error
+	MarkUploaded(ctx context.Context, id, bucketID int64, bucket, key string, layout *uploadLayout) error
 	MarkUploadFailed(ctx context.Context, id int64, reason string, next time.Time) error
 	MarkLocalDeleted(ctx context.Context, id int64) error
 	LocalExpired(ctx context.Context, node string, before time.Time) ([]Bundle, error)
@@ -334,7 +334,7 @@ func (s *Store) ObjectKeyTaken(ctx context.Context, bucket, key string, exceptID
 
 // MarkUploaded records the destination and adds the bundle to the cumulative
 // per-bucket/model totals in one transaction; a repeated call counts nothing.
-func (s *Store) MarkUploaded(ctx context.Context, id, bucketID int64, bucket, key string) error {
+func (s *Store) MarkUploaded(ctx context.Context, id, bucketID int64, bucket, key string, layout *uploadLayout) error {
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -351,6 +351,18 @@ func (s *Store) MarkUploaded(ctx context.Context, id, bucketID int64, bucket, ke
 	if err != nil {
 		return err
 	}
+	if layout != nil {
+		if int64(len(layout.Entries)) != entries {
+			return errors.New("uploaded entry count does not match index")
+		}
+		if err := updateUploadEntries(ctx, tx, id, layout.Entries); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE gateway_log_archive_bundles SET file_name = $1, size_bytes = $2 WHERE id = $3`, layout.FileName, layout.Size, id); err != nil {
+			return err
+		}
+		size = layout.Size
+	}
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO gateway_log_archive_upload_stats (bucket_id, model_key, bundle_count, entry_count, size_bytes, last_uploaded_at)
 		VALUES ($1, $2, 1, $3, $4, CURRENT_TIMESTAMP)
@@ -361,6 +373,49 @@ func (s *Store) MarkUploaded(ctx context.Context, id, bucketID int64, bucket, ke
 		return err
 	}
 	return tx.Commit()
+}
+
+// Large JSONLs can contain hundreds of thousands of sessions. Batch the index
+// updates to avoid a database round trip for every line. Explicit BIGINT casts
+// also make PostgreSQL infer the parameter types inside the VALUES relation.
+func updateUploadEntries(ctx context.Context, tx *sql.Tx, bundleID int64, entries []zipEntry) error {
+	const batchSize = 1000
+	for start := 0; start < len(entries); start += batchSize {
+		end := start + batchSize
+		if end > len(entries) {
+			end = len(entries)
+		}
+		var query strings.Builder
+		query.WriteString(`WITH uploaded(seq, pos, csize, usize, crc) AS (VALUES `)
+		args := make([]any, 0, (end-start)*5+1)
+		for i := start; i < end; i++ {
+			if i > start {
+				query.WriteByte(',')
+			}
+			e := entries[i]
+			query.WriteByte('(')
+			for col := 0; col < 5; col++ {
+				if col > 0 {
+					query.WriteByte(',')
+				}
+				fmt.Fprintf(&query, "CAST($%d AS BIGINT)", len(args)+col+1)
+			}
+			query.WriteByte(')')
+			args = append(args, i+1, e.Offset, e.CSize, e.USize, int64(e.CRC))
+		}
+		fmt.Fprintf(&query, `) UPDATE gateway_log_archive_entries AS target SET header_offset = uploaded.pos,
+			compressed_size = uploaded.csize, uncompressed_size = uploaded.usize, crc32 = uploaded.crc
+			FROM uploaded WHERE target.bundle_id = $%d AND target.seq = uploaded.seq`, len(args)+1)
+		args = append(args, bundleID)
+		res, err := tx.ExecContext(ctx, query.String(), args...)
+		if err != nil {
+			return err
+		}
+		if n, err := res.RowsAffected(); err != nil || n != int64(end-start) {
+			return errors.New("uploaded entry index missing")
+		}
+	}
+	return nil
 }
 
 func (s *Store) MarkUploadFailed(ctx context.Context, id int64, reason string, next time.Time) error {
@@ -523,13 +578,21 @@ func (s *Store) ListEntries(ctx context.Context, f EntryFilter, page, size int) 
 }
 
 func (s *Store) Entry(ctx context.Context, id int64) (Entry, Bundle, error) {
-	e, err := scanEntry(s.DB.QueryRowContext(ctx, `SELECT `+entryColumns+` FROM gateway_log_archive_entries e
+	// Upload commits the remote layout atomically, but these two SELECTs can
+	// straddle that commit. Retry once when the joined status changed so an old
+	// local offset is never paired with an uploaded/redacted object.
+	for attempt := 0; attempt < 2; attempt++ {
+		e, err := scanEntry(s.DB.QueryRowContext(ctx, `SELECT `+entryColumns+` FROM gateway_log_archive_entries e
 		JOIN gateway_log_archive_bundles b ON b.id = e.bundle_id WHERE e.id = $1`, id))
-	if err != nil {
-		return e, Bundle{}, err
+		if err != nil {
+			return e, Bundle{}, err
+		}
+		b, err := s.Bundle(ctx, e.BundleID)
+		if err != nil || e.BundleStatus == b.Status {
+			return e, b, err
+		}
 	}
-	b, err := s.Bundle(ctx, e.BundleID)
-	return e, b, err
+	return Entry{}, Bundle{}, errors.New("归档状态正在更新，请重试")
 }
 
 type StatusCount struct {

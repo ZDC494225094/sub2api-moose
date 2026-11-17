@@ -25,8 +25,8 @@ const deleteMessage = computed(() => {
   const b = deleting.value
   if (!b) return ''
   const used = b.usage.bundle_count
-    ? `该存储桶已上传 ${b.usage.bundle_count} 个压缩包（${formatBytes(b.usage.size_bytes)}）。删除配置后，后台将无法再预览或下载这些压缩包；存储桶内的对象和统计数据不受影响。`
-    : '该存储桶还没有上传过压缩包。'
+    ? `该存储桶已上传 ${b.usage.bundle_count} 个归档文件（${formatBytes(b.usage.size_bytes)}）。删除配置后，后台将无法再预览或下载这些归档文件；存储桶内的对象和统计数据不受影响。`
+    : '该存储桶还没有上传过归档文件。'
   return `${used}如只是暂停使用，建议改为关闭“启用”。`
 })
 
@@ -118,7 +118,7 @@ defineExpose({ reload: load })
       <div class="min-w-0 max-w-3xl">
         <h2 class="text-base font-semibold text-gray-900 dark:text-white">存储桶</h2>
         <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-dark-400">
-          压缩包按「优先级」从小到大选择启用的存储桶上传；上传失败会自动切换到下一个。每个压缩包记录所在存储桶，预览和下载会从对应存储桶读取。
+          归档文件按「优先级」从小到大选择启用的存储桶上传；上传失败会自动切换到下一个。每个归档文件记录所在存储桶，预览和下载会从对应存储桶读取。
         </p>
       </div>
       <div class="flex shrink-0 gap-2">
@@ -186,7 +186,7 @@ defineExpose({ reload: load })
               </td>
               <td class="whitespace-nowrap text-right">
                 <p class="font-semibold text-gray-900 dark:text-white">{{ formatBytes(b.usage.size_bytes) }}</p>
-                <p class="text-xs text-gray-500 dark:text-dark-400">{{ b.usage.bundle_count }} 个 ZIP</p>
+                <p class="text-xs text-gray-500 dark:text-dark-400">{{ b.usage.bundle_count }} 个文件</p>
               </td>
               <td>
                 <Toggle :model-value="b.enabled" :aria-label="`启用 ${b.name || b.bucket}`" @update:model-value="setEnabled(b, $event)" />
@@ -214,7 +214,7 @@ defineExpose({ reload: load })
         v-if="list.unattributed.bundle_count"
         class="border-t border-gray-100 px-5 py-3 text-xs text-gray-500 dark:border-dark-700 dark:text-dark-400"
       >
-        另有 {{ list.unattributed.bundle_count }} 个压缩包（{{ formatBytes(list.unattributed.size_bytes) }}）上传到已删除的存储桶，计入总量统计。
+        另有 {{ list.unattributed.bundle_count }} 个归档文件（{{ formatBytes(list.unattributed.size_bytes) }}）上传到已删除的存储桶，计入总量统计。
       </p>
     </div>
 

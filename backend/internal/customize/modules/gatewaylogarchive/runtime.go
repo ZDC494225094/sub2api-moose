@@ -363,7 +363,7 @@ func (r *Runtime) objectStoreFor(ctx context.Context, b Bundle) (objectStore, er
 	}
 	bucket, ok := resolveBucket(all, b)
 	if !ok {
-		return nil, errors.New("该压缩包所在的存储桶配置已删除，无法从存储桶读取")
+		return nil, errors.New("该归档文件所在的存储桶配置已删除，无法从存储桶读取")
 	}
 	return r.objects(bucket)
 }
@@ -380,14 +380,19 @@ func (rc readCloser) Close() error {
 	return nil
 }
 
-// OpenEntry streams one session document, from the local bundle when this
-// node still has it, otherwise with a ranged GET from the bucket.
+// OpenEntry uses remote indexes after upload (the uploaded JSONL may be
+// redacted, while a retained local source is raw). Pending entries use local
+// offsets. Historical ZIP objects remain readable.
 func (r *Runtime) OpenEntry(ctx context.Context, e Entry, b Bundle) (io.ReadCloser, error) {
 	r.mu.Lock()
 	node := r.nodeID
 	r.mu.Unlock()
-	if !b.LocalDeleted && b.LocalPath != "" && (node == "" || b.NodeID == node) {
+	jsonl := strings.HasSuffix(b.FileName, ".jsonl")
+	if b.Status != StatusUploaded && !b.LocalDeleted && b.LocalPath != "" && (node == "" || b.NodeID == node) {
 		if f, err := os.Open(b.LocalPath); err == nil {
+			if jsonl {
+				return readCloser{Reader: io.NewSectionReader(f, e.Offset, e.USize), closers: []io.Closer{f}}, nil
+			}
 			rd, err := readEntry(io.NewSectionReader(f, e.Offset, 30+int64(len(e.Name))+1024+e.CSize), e.CSize)
 			if err != nil {
 				_ = f.Close()
@@ -397,15 +402,22 @@ func (r *Runtime) OpenEntry(ctx context.Context, e Entry, b Bundle) (io.ReadClos
 		}
 	}
 	if b.Status != StatusUploaded || b.ObjectKey == "" {
-		return nil, errors.New("该数据所在压缩包不在本节点且尚未上传")
+		return nil, errors.New("该数据所在归档文件不在本节点且尚未上传")
 	}
 	objects, err := r.objectStoreFor(ctx, b)
 	if err != nil {
 		return nil, err
 	}
-	body, err := objects.OpenRange(ctx, b.ObjectKey, e.Offset, 30+int64(len(e.Name))+1024+e.CSize)
+	length := 30 + int64(len(e.Name)) + 1024 + e.CSize
+	if jsonl {
+		length = e.USize
+	}
+	body, err := objects.OpenRange(ctx, b.ObjectKey, e.Offset, length)
 	if err != nil {
 		return nil, err
+	}
+	if jsonl {
+		return body, nil
 	}
 	rd, err := readEntry(body, e.CSize)
 	if err != nil {

@@ -12,10 +12,10 @@
   {
     "id": "gateway-log-archive",
     "name": "网关日志存储",
-    "description": "按会话保存网关完整请求体与返回体（原始数据），同模型按天打包为 ZIP（默认 10GB 滚动），按优先级上传到多个 S3 兼容存储桶（失败自动切换），后台可检索、预览并按模型统计已上传量。",
+    "description": "按会话保存网关请求体与返回体，每行一个 JSON，同模型按天合并为未压缩 JSONL（默认 10GB 滚动）；支持仅在后台上传时脱敏个人信息，按优先级上传到多个 S3 兼容存储桶，后台可检索、预览并统计已上传量。",
     "managed": true,
     "audience": "admin",
-    "disable_behavior": "关闭后立即停止采集；进行中的会话写入压缩包并封包，上传暂停。本地与存储桶中的数据保留，重新开启后继续上传。",
+    "disable_behavior": "关闭后立即停止采集；进行中的会话写入 JSONL 并结束写入，上传暂停。本地与存储桶中的数据保留，重新开启后继续上传。",
     "paths": ["/admin/gateway-log-archive"],
     "gates": ["/api/v1/admin/gateway-log-archive/*", "gateway-traffic-capture"]
   },

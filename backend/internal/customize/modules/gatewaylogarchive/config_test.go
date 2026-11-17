@@ -1,10 +1,32 @@
 package gatewaylogarchive
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestConfigAdoptsLegacySizeAndDefaultsPrivacyOn(t *testing.T) {
+	for _, tc := range []struct {
+		raw    string
+		size   int64
+		redact bool
+	}{
+		{`{"max_zip_size_mb":20480}`, 20480, true},
+		{`{"max_zip_size_mb":20480,"max_file_size_mb":40960,"redact_pii":false}`, 40960, false},
+		{`{}`, 10240, true},
+	} {
+		cfg := DefaultConfig()
+		require.NoError(t, json.Unmarshal([]byte(tc.raw), &cfg))
+		require.NoError(t, cfg.Normalize())
+		require.Equal(t, tc.size, cfg.MaxFileSizeMB)
+		require.Equal(t, tc.redact, cfg.RedactPII)
+		raw, err := json.Marshal(cfg)
+		require.NoError(t, err)
+		require.NotContains(t, string(raw), "max_zip_size_mb")
+	}
+}
 
 func TestBucketNormalizeParsesS3URIAndValidates(t *testing.T) {
 	b := BucketConfig{Prefix: "s3://incoming-04-20260624/logs/"}
@@ -13,11 +35,11 @@ func TestBucketNormalizeParsesS3URIAndValidates(t *testing.T) {
 	require.Equal(t, "logs", b.Prefix)
 	require.Equal(t, ProviderAWS, b.Provider)
 	require.Equal(t, "us-east-1", b.Region)
-	require.Equal(t, "logs/2026-06-25/Opus5-2026-06-25.zip", b.ObjectKey("2026-06-25", BundleFileName("Opus5", "2026-06-25", 1)))
+	require.Equal(t, "logs/2026-06-25/Opus5-2026-06-25.jsonl", b.ObjectKey("2026-06-25", BundleFileName("Opus5", "2026-06-25", 1)))
 
 	b = BucketConfig{Bucket: "incoming-04-20260624"}
 	require.NoError(t, b.Normalize())
-	require.Equal(t, "2026-06-25/Opus5-2026-06-25.zip", b.ObjectKey("2026-06-25", "Opus5-2026-06-25.zip"))
+	require.Equal(t, "2026-06-25/Opus5-2026-06-25.jsonl", b.ObjectKey("2026-06-25", "Opus5-2026-06-25.jsonl"))
 	require.Equal(t, "incoming-04-20260624", b.Label())
 
 	for _, bad := range []func(*BucketConfig){
@@ -35,9 +57,9 @@ func TestBucketNormalizeParsesS3URIAndValidates(t *testing.T) {
 }
 
 func TestConfigNormalizeClampsCaptureSettings(t *testing.T) {
-	cfg := Config{MaxZipSizeMB: 1, MaxBodyMB: 9999}
+	cfg := Config{MaxFileSizeMB: 1, MaxBodyMB: 9999}
 	require.NoError(t, cfg.Normalize())
-	require.Equal(t, int64(64), cfg.MaxZipSizeMB)
+	require.Equal(t, int64(64), cfg.MaxFileSizeMB)
 	require.Equal(t, 256, cfg.MaxBodyMB)
 	require.Equal(t, 1800, cfg.SessionIdleSeconds)
 
@@ -67,6 +89,6 @@ func TestModelKeySelectionAndAliases(t *testing.T) {
 
 	require.True(t, wildcardMatch("*sonnet*", "claude-sonnet-5"))
 	require.False(t, wildcardMatch("gpt-*-mini", "gpt-6"))
-	require.Equal(t, "Opus5-2026-06-25-part002.zip", BundleFileName("Opus5", "2026-06-25", 2))
+	require.Equal(t, "Opus5-2026-06-25-part002.jsonl", BundleFileName("Opus5", "2026-06-25", 2))
 	require.Equal(t, "数据_000012.json", EntryName(12))
 }

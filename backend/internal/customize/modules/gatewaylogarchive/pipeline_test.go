@@ -1,11 +1,9 @@
 package gatewaylogarchive
 
 import (
-	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
-	"io"
 	"path/filepath"
 	"testing"
 	"time"
@@ -41,24 +39,20 @@ type sessionDoc struct {
 	Exchanges []json.RawMessage `json:"exchanges"`
 }
 
-func zipDocs(t *testing.T, data []byte) map[string]sessionDoc {
+func jsonlDocs(t *testing.T, data []byte) map[string]sessionDoc {
 	t.Helper()
-	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-	require.NoError(t, err)
+	require.NotEmpty(t, data)
+	require.Equal(t, byte('\n'), data[len(data)-1])
 	out := map[string]sessionDoc{}
-	for _, f := range zr.File {
-		rc, err := f.Open()
-		require.NoError(t, err)
-		raw, err := io.ReadAll(rc)
-		require.NoError(t, err)
+	for i, raw := range bytes.Split(bytes.TrimSuffix(data, []byte{'\n'}), []byte{'\n'}) {
 		var doc sessionDoc
 		require.NoError(t, json.Unmarshal(raw, &doc), string(raw))
-		out[f.Name] = doc
+		out[EntryName(i+1)] = doc
 	}
 	return out
 }
 
-func TestPipelineArchivesOneDocumentPerSessionAndOneZipPerModel(t *testing.T) {
+func TestPipelineArchivesOneDocumentPerLineAndOneJSONLPerModel(t *testing.T) {
 	store, objects := newMemStore(), newMemObjects()
 	p := testPipeline(t, store, objects, t.TempDir())
 	for _, x := range []*Exchange{
@@ -83,7 +77,7 @@ func TestPipelineArchivesOneDocumentPerSessionAndOneZipPerModel(t *testing.T) {
 	}, 10*time.Second, 50*time.Millisecond)
 	p.stop(false)
 
-	opus := zipDocs(t, objects.objects["2026-06-25/Opus5-2026-06-25.zip"])
+	opus := jsonlDocs(t, objects.objects["2026-06-25/Opus5-2026-06-25.jsonl"])
 	require.Len(t, opus, 2, "two sessions share the Opus5 archive")
 	counts := map[string]int{}
 	for _, doc := range opus {
@@ -100,7 +94,7 @@ func TestPipelineArchivesOneDocumentPerSessionAndOneZipPerModel(t *testing.T) {
 	}
 	require.Equal(t, map[string]any{"model": "claude-opus-5", "n": "1"}, first["request"], "request JSON is embedded as-is")
 
-	gpt := zipDocs(t, objects.objects["2026-06-25/gpt-6.1-sol-2026-06-25.zip"])
+	gpt := jsonlDocs(t, objects.objects["2026-06-25/gpt-6.1-sol-2026-06-25.jsonl"])
 	require.Len(t, gpt, 2, "a request without session id is its own document")
 	for _, b := range store.bundleList() {
 		require.True(t, b.LocalDeleted, "local copies are removed after upload by default")
@@ -131,7 +125,7 @@ func TestPipelineRecoversSessionsAndOpenBundlesAfterRestart(t *testing.T) {
 		return len(bs) == 1 && bs[0].Status == StatusUploaded
 	}, 10*time.Second, 50*time.Millisecond)
 	p.stop(false)
-	docs := zipDocs(t, objects.objects["2026-06-25/m-2026-06-25.zip"])
+	docs := jsonlDocs(t, objects.objects["2026-06-25/m-2026-06-25.jsonl"])
 	require.Len(t, docs, 2)
 	require.Equal(t, 2, docs[EntryName(2)].Count, "the session continued across the restart in one document")
 }
@@ -139,7 +133,7 @@ func TestPipelineRecoversSessionsAndOpenBundlesAfterRestart(t *testing.T) {
 func TestPipelineRollsBundlesAtSizeLimit(t *testing.T) {
 	store, objects := newMemStore(), newMemObjects()
 	p := testPipeline(t, store, objects, t.TempDir())
-	p.maxZip.Store(1) // every document fills a bundle
+	p.maxFile.Store(1) // every document fills a bundle
 	for _, n := range []string{"1", "2", "3"} {
 		require.True(t, p.submit(exchange("", "m", "m", n)))
 	}
@@ -153,14 +147,14 @@ func TestPipelineRollsBundlesAtSizeLimit(t *testing.T) {
 		return n == 3
 	}, 10*time.Second, 50*time.Millisecond)
 	p.stop(false)
-	for _, key := range []string{"2026-06-25/m-2026-06-25.zip", "2026-06-25/m-2026-06-25-part002.zip", "2026-06-25/m-2026-06-25-part003.zip"} {
+	for _, key := range []string{"2026-06-25/m-2026-06-25.jsonl", "2026-06-25/m-2026-06-25-part002.jsonl", "2026-06-25/m-2026-06-25-part003.jsonl"} {
 		require.Contains(t, objects.objects, key)
 	}
 }
 
 func TestUploadPicksNextNameWhenObjectExists(t *testing.T) {
 	store, objects := newMemStore(), newMemObjects()
-	objects.objects["2026-06-25/m-2026-06-25.zip"] = []byte("from another deployment")
+	objects.objects["2026-06-25/m-2026-06-25.jsonl"] = []byte("from another deployment")
 	p := testPipeline(t, store, objects, t.TempDir())
 	require.True(t, p.submit(exchange("", "m", "m", "1")))
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -171,6 +165,6 @@ func TestUploadPicksNextNameWhenObjectExists(t *testing.T) {
 		return len(bs) == 1 && bs[0].Status == StatusUploaded
 	}, 10*time.Second, 50*time.Millisecond)
 	p.stop(false)
-	require.Equal(t, "from another deployment", string(objects.objects["2026-06-25/m-2026-06-25.zip"]))
-	require.Equal(t, "2026-06-25/m-2026-06-25-part002.zip", store.bundleList()[0].ObjectKey)
+	require.Equal(t, "from another deployment", string(objects.objects["2026-06-25/m-2026-06-25.jsonl"]))
+	require.Equal(t, "2026-06-25/m-2026-06-25-part002.jsonl", store.bundleList()[0].ObjectKey)
 }
