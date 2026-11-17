@@ -8,6 +8,7 @@ const {
   showErrorMock,
   pushMock,
   verifyActionMock,
+  buildOAuthLoginStartURLMock,
   appStoreMock
 } = vi.hoisted(() => ({
   getPublicSettingsMock: vi.fn(),
@@ -15,6 +16,7 @@ const {
   showErrorMock: vi.fn(),
   pushMock: vi.fn(),
   verifyActionMock: vi.fn(),
+  buildOAuthLoginStartURLMock: vi.fn(),
   appStoreMock: {
     cachedPublicSettings: null as { promo_code_enabled?: boolean } | null,
     showError: (...args: unknown[]) => showErrorMock(...args),
@@ -69,6 +71,7 @@ vi.mock('@/api/auth', async () => {
   const actual = await vi.importActual<typeof import('@/api/auth')>('@/api/auth')
   return {
     ...actual,
+    buildOAuthLoginStartURL: buildOAuthLoginStartURLMock,
     getPublicSettings: (...args: unknown[]) => getPublicSettingsMock(...args)
   }
 })
@@ -83,7 +86,6 @@ function mountRegister() {
           template: '<div data-testid="turnstile-widget" />',
           methods: { verifyAction: verifyActionMock, reset: vi.fn() }
         },
-        LoginAgreementPrompt: true,
         EmailOAuthButtons: true,
         LinuxDoOAuthSection: true,
         WechatOAuthSection: true,
@@ -97,6 +99,9 @@ function mountRegister() {
 
 describe('RegisterView', () => {
   beforeEach(() => {
+    localStorage.removeItem('sub2api_login_agreement_consent')
+    appStoreMock.showWarning.mockReset()
+    buildOAuthLoginStartURLMock.mockReset()
     getPublicSettingsMock.mockReset()
     registerMock.mockReset()
     showErrorMock.mockReset()
@@ -107,6 +112,55 @@ describe('RegisterView', () => {
     verifyActionMock.mockResolvedValue({ token: 'ticket', randstr: 'randstr' })
     getPublicSettingsMock.mockResolvedValue(publicSettings)
     registerMock.mockResolvedValue({})
+  })
+
+  it.each([false, true])('requires consent only on submission with email verification=%s', async (emailVerification) => {
+    getPublicSettingsMock.mockResolvedValueOnce({
+      ...publicSettings,
+      turnstile_enabled: false,
+      email_verify_enabled: emailVerification,
+      github_oauth_enabled: true,
+      login_agreement_enabled: true,
+      login_agreement_mode: 'checkbox',
+      login_agreement_revision: 'register-test-v1',
+      login_agreement_documents: [{ id: 'terms', title: 'Terms', content: 'Terms' }]
+    })
+    const wrapper = mountRegister()
+    await flushPromises()
+    for (const selector of ['#email', '#password', '#confirmPassword', 'button[type="submit"]']) {
+      expect(wrapper.get(selector).attributes('disabled')).toBeUndefined()
+    }
+    await wrapper.get('#email').setValue('user@example.com')
+    await wrapper.get('#password').setValue('secret-123')
+    await wrapper.get('#confirmPassword').setValue('secret-123')
+    expect(appStoreMock.showWarning).not.toHaveBeenCalled()
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(appStoreMock.showWarning).not.toHaveBeenCalled()
+    expect(wrapper.find('.agreement-shake').exists()).toBe(true)
+    expect(wrapper.get('#login-agreement-consent').attributes('aria-invalid')).toBe('true')
+    expect(registerMock).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem('register_data')).toBeNull()
+    expect(pushMock).not.toHaveBeenCalled()
+    expect(verifyActionMock).not.toHaveBeenCalled()
+
+    wrapper.getComponent({ name: 'EmailOAuthButtons' }).vm.$emit('start', { provider: 'github' })
+    await flushPromises()
+    expect(buildOAuthLoginStartURLMock).not.toHaveBeenCalled()
+
+    await wrapper.get('#login-agreement-consent').setValue(true)
+    expect(wrapper.find('.agreement-shake').exists()).toBe(false)
+    expect(wrapper.get('#login-agreement-consent').attributes('aria-invalid')).toBeUndefined()
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    if (emailVerification) {
+      expect(JSON.parse(sessionStorage.getItem('register_data')!)).toEqual({ email: 'user@example.com', password: 'secret-123' })
+      expect(pushMock).toHaveBeenCalledWith('/email-verify')
+    } else {
+      expect(registerMock).toHaveBeenCalledWith(expect.objectContaining({ email: 'user@example.com', password: 'secret-123' }))
+      expect(pushMock).toHaveBeenCalledWith('/dashboard')
+    }
+    wrapper.unmount()
   })
 
   it('does not flash the promo-code field before disabled settings finish loading', async () => {

@@ -1,13 +1,18 @@
 <template>
   <div
     v-if="mode === 'checkbox' && documents.length > 0"
-    class="px-0.5"
+    ref="agreementRegion"
+    class="rounded-md px-0.5"
+    :class="{ 'agreement-shake': shaking, 'ring-2 ring-red-400/70 bg-red-50 dark:bg-red-500/10': requiredReminder }"
+    @animationend="shaking = false"
   >
     <div class="flex items-start gap-2">
       <input
         id="login-agreement-consent"
+        ref="consentCheckbox"
         type="checkbox"
         :checked="accepted"
+        :aria-invalid="requiredReminder || undefined"
         class="mt-[2px] h-4 w-4 flex-shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-900"
         @change="handleCheckboxChange"
       />
@@ -143,7 +148,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import type { LoginAgreementDocument } from '@/types'
@@ -171,6 +176,32 @@ const documents = computed(() => props.documents.filter((doc) => doc.title.trim(
 const updatedAt = computed(() => props.updatedAt || '')
 const accepted = computed(() => props.accepted)
 const mode = computed(() => props.mode === 'checkbox' ? 'checkbox' : 'modal')
+const agreementRegion = ref<HTMLElement | null>(null)
+const consentCheckbox = ref<HTMLInputElement | null>(null)
+const requiredReminder = ref(false)
+const shaking = ref(false)
+
+async function remindRequired(): Promise<void> {
+  if (props.accepted) return
+  requiredReminder.value = true
+  shaking.value = false
+  await nextTick()
+  if (props.accepted || !agreementRegion.value) return
+  // Restart the animation even when the user submits again before it finishes.
+  void agreementRegion.value.offsetWidth
+  shaking.value = true
+  consentCheckbox.value?.focus({ preventScroll: true })
+  agreementRegion.value.scrollIntoView?.({ block: 'nearest' })
+}
+
+watch(accepted, (value) => {
+  if (value) {
+    requiredReminder.value = false
+    shaking.value = false
+  }
+})
+
+defineExpose({ remindRequired })
 
 function documentRoute(doc: LoginAgreementDocument) {
   return {
@@ -216,6 +247,20 @@ function documentIcon(index: number, title: string): 'document' | 'shield' | 'gl
 </script>
 
 <style scoped>
+.agreement-shake {
+  animation: agreement-shake 0.4s ease-in-out;
+}
+
+@keyframes agreement-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agreement-shake { animation: none; }
+}
+
 .agreement-fade-enter-active,
 .agreement-fade-leave-active {
   transition: opacity 0.18s ease;

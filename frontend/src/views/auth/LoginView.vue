@@ -129,6 +129,7 @@
 
         <LoginAgreementPrompt
           v-if="loginAgreementEnabled"
+          ref="agreementPromptRef"
           :accepted="agreementAccepted"
           :documents="loginAgreementDocuments"
           :mode="loginAgreementMode"
@@ -296,6 +297,7 @@ const loginAgreementUpdatedAt = ref<string>('')
 const loginAgreementRevision = ref<string>('')
 const loginAgreementDocuments = ref<LoginAgreementDocument[]>([])
 const agreementAccepted = ref<boolean>(false)
+const agreementPromptRef = ref<InstanceType<typeof LoginAgreementPrompt> | null>(null)
 const showAgreementModal = ref<boolean>(false)
 
 // Turnstile
@@ -345,7 +347,7 @@ const agreementGateActive = computed(
 )
 
 const authActionDisabled = computed(
-  () => isLoading.value || passkeyLoading.value || !publicSettingsLoaded.value || agreementGateActive.value
+  () => isLoading.value || passkeyLoading.value || !publicSettingsLoaded.value
 )
 
 const showPasskeyLogin = computed(
@@ -472,7 +474,19 @@ function rejectLoginAgreement(): void {
   localStorage.removeItem(LOGIN_AGREEMENT_STORAGE_KEY)
   agreementAccepted.value = false
   showAgreementModal.value = false
-  appStore.showWarning(t('legal.loginAgreementPrompt.loginRejectedWarning'))
+  if (loginAgreementMode.value !== 'checkbox') {
+    appStore.showWarning(t('legal.loginAgreementPrompt.loginRejectedWarning'))
+  }
+}
+
+function ensureAgreementAccepted(): boolean {
+  if (!agreementGateActive.value) return true
+  if (loginAgreementMode.value === 'checkbox') {
+    void agreementPromptRef.value?.remindRequired()
+  } else {
+    showAgreementModal.value = true
+  }
+  return false
 }
 
 // ==================== Turnstile Handlers ====================
@@ -523,13 +537,7 @@ function validateForm(): boolean {
 
   let isValid = true
 
-  if (agreementGateActive.value) {
-    appStore.showWarning(t('legal.loginAgreementPrompt.loginRequiredWarning'))
-    if (loginAgreementMode.value !== 'checkbox') {
-      showAgreementModal.value = true
-    }
-    return false
-  }
+  if (!ensureAgreementAccepted()) return false
 
   // Email validation
   if (!formData.email.trim()) {
@@ -617,13 +625,7 @@ async function handleLogin(): Promise<void> {
 }
 
 async function handlePasskeyLogin(): Promise<void> {
-  if (agreementGateActive.value) {
-    appStore.showWarning(t('legal.loginAgreementPrompt.loginRequiredWarning'))
-    if (loginAgreementMode.value !== 'checkbox') {
-      showAgreementModal.value = true
-    }
-    return
-  }
+  if (authActionDisabled.value || !ensureAgreementAccepted()) return
 
   passkeyLoading.value = true
   try {
@@ -658,7 +660,7 @@ async function handlePasskeyLogin(): Promise<void> {
 }
 
 async function handleOAuthStart(request: OAuthLoginStart): Promise<void> {
-  if (authActionDisabled.value) return
+  if (authActionDisabled.value || !ensureAgreementAccepted()) return
 
   if (!actionCaptchaEnabled.value) {
     window.location.href = buildOAuthLoginStartURL(request)

@@ -2,9 +2,12 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import LoginView from '@/views/auth/LoginView.vue'
 
-const { getPublicSettingsMock, pushMock } = vi.hoisted(() => ({
+const { getPublicSettingsMock, pushMock, loginMock, showWarningMock, buildOAuthLoginStartURLMock } = vi.hoisted(() => ({
   getPublicSettingsMock: vi.fn(),
-  pushMock: vi.fn()
+  pushMock: vi.fn(),
+  loginMock: vi.fn(),
+  showWarningMock: vi.fn(),
+  buildOAuthLoginStartURLMock: vi.fn()
 }))
 
 const publicSettings = {
@@ -50,19 +53,19 @@ vi.mock('vue-i18n', () => ({
 
 vi.mock('@/stores', () => ({
   useAuthStore: () => ({
-    login: vi.fn(),
+    login: loginMock,
     loginWithPasskey: vi.fn(),
     login2FA: vi.fn()
   }),
   useAppStore: () => ({
     showError: vi.fn(),
     showSuccess: vi.fn(),
-    showWarning: vi.fn()
+    showWarning: showWarningMock
   })
 }))
 
 vi.mock('@/api/auth', () => ({
-  buildOAuthLoginStartURL: vi.fn(),
+  buildOAuthLoginStartURL: buildOAuthLoginStartURLMock,
   getPublicSettings: (...args: unknown[]) => getPublicSettingsMock(...args),
   isTotp2FARequired: vi.fn(() => false),
   isWeChatWebOAuthEnabled: vi.fn(() => false),
@@ -78,7 +81,6 @@ function mountLogin() {
         EmailOAuthButtons: true,
         Icon: true,
         LinuxDoOAuthSection: true,
-        LoginAgreementPrompt: true,
         OidcOAuthSection: true,
         RouterLink: { template: '<a><slot /></a>' },
         TotpLoginModal: true,
@@ -92,9 +94,68 @@ function mountLogin() {
 
 describe('LoginView registration entry', () => {
   beforeEach(() => {
+    localStorage.removeItem('sub2api_login_agreement_consent')
+    loginMock.mockReset()
+    loginMock.mockResolvedValue({})
+    showWarningMock.mockReset()
+    buildOAuthLoginStartURLMock.mockReset()
     getPublicSettingsMock.mockReset()
     pushMock.mockReset()
     getPublicSettingsMock.mockResolvedValue(publicSettings)
+  })
+
+  it('allows editing before consent, blocks submission, and submits the same values after consent', async () => {
+    getPublicSettingsMock.mockResolvedValueOnce({
+      ...publicSettings,
+      github_oauth_enabled: true,
+      login_agreement_enabled: true,
+      login_agreement_mode: 'checkbox',
+      login_agreement_revision: 'login-test-v1',
+      login_agreement_documents: [{ id: 'terms', title: 'Terms', content: 'Terms' }]
+    })
+    const wrapper = mountLogin()
+    await flushPromises()
+
+    for (const selector of ['#email', '#password', 'button[type="submit"]']) {
+      expect(wrapper.get(selector).attributes('disabled')).toBeUndefined()
+    }
+    await wrapper.get('#email').setValue('user@example.com')
+    await wrapper.get('#password').setValue('secret-123')
+    expect(showWarningMock).not.toHaveBeenCalled()
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(showWarningMock).not.toHaveBeenCalled()
+    expect(wrapper.find('.agreement-shake').exists()).toBe(true)
+    expect(wrapper.get('#login-agreement-consent').attributes('aria-invalid')).toBe('true')
+    expect(loginMock).not.toHaveBeenCalled()
+
+    await wrapper.get('.agreement-shake').trigger('animationend')
+    expect(wrapper.find('.agreement-shake').exists()).toBe(false)
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.find('.agreement-shake').exists()).toBe(true)
+    expect(loginMock).not.toHaveBeenCalled()
+
+    wrapper.getComponent({ name: 'EmailOAuthButtons' }).vm.$emit('start', { provider: 'github' })
+    await flushPromises()
+    expect(buildOAuthLoginStartURLMock).not.toHaveBeenCalled()
+
+    await wrapper.get('#login-agreement-consent').setValue(true)
+    expect(wrapper.find('.agreement-shake').exists()).toBe(false)
+    expect(wrapper.get('#login-agreement-consent').attributes('aria-invalid')).toBeUndefined()
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(loginMock).toHaveBeenCalledOnce()
+    expect(loginMock).toHaveBeenCalledWith(expect.objectContaining({ email: 'user@example.com', password: 'secret-123' }))
+
+    await wrapper.get('#login-agreement-consent').setValue(false)
+    expect(wrapper.get('#email').attributes('disabled')).toBeUndefined()
+    expect((wrapper.get('#password').element as HTMLInputElement).value).toBe('secret-123')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(loginMock).toHaveBeenCalledOnce()
+    expect(showWarningMock).not.toHaveBeenCalled()
+    wrapper.unmount()
   })
 
   it('shows the registration entry when registration is enabled', async () => {
