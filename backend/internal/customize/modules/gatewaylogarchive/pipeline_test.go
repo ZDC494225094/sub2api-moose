@@ -5,11 +5,37 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestCaptureBudgetIsReservedBeforeConcurrentEnqueue(t *testing.T) {
+	p := &pipeline{open: true, in: make(chan *Exchange, intakeCapacity)}
+	sharedBody := make([]byte, 1<<20)
+	x := &Exchange{Request: sharedBody}
+	var accepted atomic.Int64
+	var wg sync.WaitGroup
+	for i := 0; i < 1024; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if p.submit(x) {
+				accepted.Add(1)
+			}
+		}()
+	}
+	wg.Wait()
+	require.Equal(t, int64(512), accepted.Load())
+	require.Equal(t, int64(maxPendingBytes), p.pending.Load())
+	p = &pipeline{open: true, in: make(chan *Exchange, 1)}
+	require.True(t, p.submit(x))
+	require.False(t, p.submit(x))
+	require.Equal(t, int64(1<<20), p.pending.Load(), "a full channel returns the reserved bytes")
+}
 
 func testPipeline(t *testing.T, store *memStore, objects *memObjects, dir string) *pipeline {
 	t.Helper()

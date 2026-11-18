@@ -67,3 +67,15 @@ func TestRedactionPreservesNonPIIAndMalformedInputFailsClosed(t *testing.T) {
 	var out bytes.Buffer
 	require.ErrorIs(t, redactJSON(ctx, &out, strings.NewReader(`{}`)), context.Canceled)
 }
+
+func TestRedactionProtectsOpaqueSignaturesAndToolReferences(t *testing.T) {
+	input := `{"signature":"13800138000","thoughtSignature":"alice@example.com","encrypted_content":"13800138000","tool_use_id":"13800138000","call_id":"alice@example.com","content":"联系 alice@example.com 或 13800138000","profile":{"phone":"13800138000"}}`
+	want := `{"signature":"13800138000","thoughtSignature":"alice@example.com","encrypted_content":"13800138000","tool_use_id":"13800138000","call_id":"alice@example.com","content":"联系 [REDACTED] 或 [REDACTED]","profile":{"phone":"[REDACTED]"}}`
+	require.Equal(t, want, redactForTest(t, input))
+	sse := "data: " + input + "\n\n"
+	encoded, _ := json.Marshal(map[string]string{"response": sse})
+	result := redactForTest(t, string(encoded))
+	var decoded map[string]string
+	require.NoError(t, json.Unmarshal([]byte(result), &decoded))
+	require.Equal(t, "data: "+want+"\n\n", decoded["response"])
+}

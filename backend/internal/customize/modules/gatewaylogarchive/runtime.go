@@ -46,8 +46,9 @@ type Runtime struct {
 	buckets func(context.Context) ([]BucketConfig, error)
 	dayOf   func(time.Time) string
 
-	policy atomic.Pointer[capturePolicy]
-	stats  stats
+	policy     atomic.Pointer[capturePolicy]
+	stats      stats
+	exportBusy atomic.Bool
 
 	mu        sync.Mutex
 	pipe      *pipeline

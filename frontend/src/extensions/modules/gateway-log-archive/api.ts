@@ -268,4 +268,11 @@ export const archiveAPI = {
     })
     return data
   },
+  async exportSession(id: number): Promise<Blob> {
+    const { data } = await apiClient.get(`${base}/entries/${id}/session`, {
+      responseType: 'blob',
+      timeout: 330000,
+    })
+    return data
+  },
 }

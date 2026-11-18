@@ -12,6 +12,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -160,14 +162,15 @@ func (p *pipeline) submit(x *Exchange) bool {
 		return false
 	}
 	size := x.size()
-	if p.pending.Load()+size > maxPendingBytes {
+	if p.pending.Add(size) > maxPendingBytes {
+		p.pending.Add(-size)
 		return false
 	}
 	select {
 	case p.in <- x:
-		p.pending.Add(size)
 		return true
 	default:
+		p.pending.Add(-size)
 		return false
 	}
 }
@@ -217,6 +220,7 @@ func (p *pipeline) appendExchange(x *Exchange) {
 		header := sessionHeader{
 			SessionID: x.SessionID, Key: x.SessionKey, Model: x.Model, ModelKey: x.ModelKey, Platform: x.Platform,
 			UserID: x.UserID, APIKeyID: x.APIKeyID, Part: part, StartedAt: x.StartedAt, Ephemeral: x.Ephemeral,
+			NodeID: p.node, SegmentID: uuid.NewString(), CorrelationID: sessionCorrelationID(x.APIKeyID, x.SessionID),
 		}
 		raw, _ := json.Marshal(header)
 		path := filepath.Join(p.spoolDir(), x.SessionKey+"-"+fmt.Sprint(time.Now().UnixNano())+".spool")

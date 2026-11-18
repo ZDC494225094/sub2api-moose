@@ -107,7 +107,10 @@ func TestUploadFailureLeavesOriginalAndRetriesWithPrivacy(t *testing.T) {
 	objects.fail = errors.New("storage unavailable")
 	dir := t.TempDir()
 	p := testPipeline(t, store, objects, dir)
-	flushAll(t, p, exchange("s", "m", "m", "alice@example.com"))
+	x := exchange("s", "m", "m", "alice@example.com")
+	x.RequestID = "req-privacy-retry"
+	x.Response = []byte(`{"text":"alice@example.com"}`)
+	flushAll(t, p, x)
 	require.Eventually(t, func() bool { rows := store.bundleList(); return len(rows) == 1 && rows[0].Status == StatusFailed }, 10*time.Second, 10*time.Millisecond)
 	p.stop(false)
 	row := store.bundleList()[0]

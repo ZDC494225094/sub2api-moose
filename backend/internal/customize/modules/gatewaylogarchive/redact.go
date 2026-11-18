@@ -137,6 +137,16 @@ func personalField(key, parent string) bool {
 	return false
 }
 
+// Protocol signatures and references are opaque, not prose. Applying phone or
+// email regexes to their bytes can invalidate a signature or break tool pairing.
+func opaqueProtocolField(key string) bool {
+	switch normalizePIIKey(key) {
+	case "signature", "thoughtsignature", "encryptedcontent", "requestid", "callid", "tooluseid", "toolcallid", "previousresponseid", "correlationid", "segmentid", "nodeid":
+		return true
+	}
+	return false
+}
+
 func (p *piiJSON) value(key, parent string, depth int, mask bool) error {
 	if err := p.ctx.Err(); err != nil {
 		return err
@@ -216,6 +226,9 @@ func (p *piiJSON) value(key, parent string, depth int, mask bool) error {
 		raw, text, err := p.stringToken()
 		if err != nil {
 			return err
+		}
+		if (opaqueProtocolField(key) || normalizePIIKey(key) == "id" && !personalContext(parent)) && !mask {
+			return p.write(raw)
 		}
 		redacted := text
 		if mask && text != "" {

@@ -145,6 +145,21 @@ func TestEncodeExchangeBodies(t *testing.T) {
 	require.Equal(t, map[string]any{"ok": true}, doc["response"])
 }
 
+func TestCompressedResponseLimitDoesNotClaimPrefixIsComplete(t *testing.T) {
+	var compressed bytes.Buffer
+	w := gzip.NewWriter(&compressed)
+	body := []byte(strings.Repeat("body", 128))
+	_, err := w.Write(body)
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	decoded, ok := decodeContentLimited("gzip", compressed.Bytes(), int64(len(body)))
+	require.True(t, ok)
+	require.Equal(t, body, decoded)
+	decoded, ok = decodeContentLimited("gzip", compressed.Bytes(), 64)
+	require.False(t, ok, "oversized decompression must retain the encoded original, not a silent prefix")
+	require.Nil(t, decoded)
+}
+
 func TestCaptureWebSocketWithContextTakeover(t *testing.T) {
 	sink := &captured{}
 	r := captureRuntime(DefaultConfig(), sink)

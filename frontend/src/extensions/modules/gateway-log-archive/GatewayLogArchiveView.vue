@@ -134,7 +134,7 @@
           <div class="setting-row">
             <div class="min-w-0">
               <p class="setting-title">只存储成功的请求</p>
-              <p class="setting-desc">仅保存 2xx 响应</p>
+              <p class="setting-desc">仅保存 2xx 响应。排查完整执行链路时建议关闭，以保留错误请求和重试前的失败轮次。</p>
             </div>
             <Toggle v-model="form.success_only" />
           </div>
@@ -198,6 +198,7 @@
             <label>
               <span class="input-label">请求/响应体上限（MB）</span>
               <input v-model.number="form.max_body_mb" type="number" min="1" max="256" class="input" />
+              <span class="input-hint">仅限制日志副本；超限会标记截断，不截断客户端请求。长上下文可调至 256 MB，并监控内存与丢弃计数。</span>
             </label>
             <label>
               <span class="input-label">上传后本地保留（小时）</span>
@@ -290,6 +291,10 @@
 
       <!-- Entries -->
       <section v-if="tab === 'entries'" class="space-y-4">
+        <p class="text-sm leading-6 text-gray-500 dark:text-dark-400">
+          每条记录是一个节点的会话片段。「合并会话导出」汇总同一用户、API Key 与会话 ID 在各节点、日期和模型下已上传的片段，并还原流式 assistant、工具调用和签名。
+          活跃会话、未上传或已清理索引的数据不代表已收齐；导出附带完整性诊断，无法补回未采集的内容。
+        </p>
         <div class="card flex flex-wrap items-center gap-2 p-3">
           <input v-model="entryFilter.day" type="date" class="input w-44" aria-label="日期" />
           <input v-model="entryFilter.model" class="input w-44" placeholder="模型" aria-label="模型" @keyup.enter="loadEntries(1)" />
@@ -334,6 +339,7 @@
                   <td class="whitespace-nowrap text-right">
                     <button type="button" class="btn btn-ghost btn-sm" @click="preview(e)">预览</button>
                     <button type="button" class="btn btn-ghost btn-sm" @click="downloadEntry(e)">下载 JSON</button>
+                    <button type="button" class="btn btn-ghost btn-sm" :disabled="busy" @click="exportSession(e)">合并会话导出</button>
                   </td>
                 </tr>
               </tbody>
@@ -601,6 +607,29 @@ async function downloadEntry(e: Entry) {
     a.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }, '下载失败')
+}
+
+async function exportSession(e: Entry) {
+  await run(async () => {
+    let blob: Blob
+    try {
+      blob = await archiveAPI.exportSession(e.id)
+    } catch (error) {
+      const data = (error as { response?: { data?: unknown } }).response?.data
+      if (data instanceof Blob) {
+        const payload = JSON.parse(await data.text()) as { message?: string }
+        throw new Error(payload.message || '会话片段尚未全部上传或无法读取')
+      }
+      throw error
+    }
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `session-${e.id}.json`
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    notice.value = '已导出当前可检索的已上传会话片段；请查看文件中的 summary 与 analysis 完整性诊断。'
+  }, '合并会话导出失败')
 }
 
 async function refreshAll() {

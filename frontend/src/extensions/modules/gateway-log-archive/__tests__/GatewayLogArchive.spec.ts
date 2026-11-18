@@ -4,7 +4,7 @@ import BucketsPanel from '../BucketsPanel.vue'
 import BucketDialog from '../BucketDialog.vue'
 import ModelStatsPanel from '../ModelStatsPanel.vue'
 import GatewayLogArchiveView from '../GatewayLogArchiveView.vue'
-import { archiveAPI, type ArchiveBucket, type ArchiveConfig } from '../api'
+import { archiveAPI, type ArchiveBucket, type ArchiveConfig, type Entry } from '../api'
 
 vi.mock('../api', () => ({
   archiveAPI: {
@@ -17,6 +17,8 @@ vi.mock('../api', () => ({
     getConfig: vi.fn(),
     saveConfig: vi.fn(),
     status: vi.fn(),
+    entries: vi.fn(),
+    exportSession: vi.fn(),
   },
 }))
 
@@ -58,6 +60,51 @@ describe('gateway log archive JSONL and privacy settings', () => {
       expect(wrapper.text()).toContain('采集配置已保存')
     } finally {
       wrapper.unmount()
+      vi.clearAllTimers()
+      vi.useRealTimers()
+    }
+  })
+
+  it('exports all indexed session fragments from an entry and surfaces pending-fragment errors', async () => {
+    vi.resetAllMocks()
+    vi.useFakeTimers()
+    vi.mocked(archiveAPI.getConfig).mockResolvedValue({ capture_enabled: false, mode: 'all', rules: [], success_only: true, redact_pii: true,
+      max_file_size_mb: 10240, session_idle_seconds: 1800, max_body_mb: 64, keep_local_hours: 0, entry_retention_days: 90, min_free_disk_gb: 5 })
+    vi.mocked(archiveAPI.buckets).mockResolvedValue({ items: [], unattributed: { bundle_count: 0, size_bytes: 0 } })
+    const entry: Entry = { id: 42, bundle_id: 1, seq: 1, entry_name: '数据_000001.json', session_id: 'shared', model: 'm', platform: 'anthropic',
+      user_id: 3, api_key_id: 9, exchange_count: 2, compressed_size: 100, uncompressed_size: 100, started_at: '', ended_at: '', day: '2026-11-17', file_name: 'm.jsonl', bundle_status: 'uploaded' }
+    vi.mocked(archiveAPI.entries).mockResolvedValue({ items: [entry], total: 1, page: 1, page_size: 20 })
+    vi.mocked(archiveAPI.exportSession).mockResolvedValue(new Blob(['{"summary":{}}'], { type: 'application/json' }))
+    const createURL = vi.fn(() => 'blob:session')
+    const oldCreate = URL.createObjectURL
+    const oldRevoke = URL.revokeObjectURL
+    URL.createObjectURL = createURL
+    URL.revokeObjectURL = vi.fn()
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const wrapper = mount(GatewayLogArchiveView, { global: { stubs } })
+    try {
+      await flushPromises()
+      await wrapper.findAll('[role="tab"]').find(tab => tab.text() === '会话数据')!.trigger('click')
+      await flushPromises()
+      expect(wrapper.text()).toContain('每条记录是一个节点的会话片段')
+      const exportButton = wrapper.findAll('tbody button').find(button => button.text() === '合并会话导出')!
+      await exportButton.trigger('click')
+      await flushPromises()
+      expect(archiveAPI.exportSession).toHaveBeenCalledWith(42)
+      expect(createURL).toHaveBeenCalledOnce()
+      expect(click).toHaveBeenCalledOnce()
+      const pending = new Blob()
+      Object.defineProperty(pending, 'text', { value: async () => JSON.stringify({ message: '该会话有 1 个片段尚未上传' }) })
+      vi.mocked(archiveAPI.exportSession).mockRejectedValue({ response: { data: pending } })
+      await exportButton.trigger('click')
+      await flushPromises()
+      expect(wrapper.get('[role="alert"]').text()).toContain('片段尚未上传')
+      expect(createURL).toHaveBeenCalledOnce()
+    } finally {
+      wrapper.unmount()
+      click.mockRestore()
+      URL.createObjectURL = oldCreate
+      URL.revokeObjectURL = oldRevoke
       vi.clearAllTimers()
       vi.useRealTimers()
     }

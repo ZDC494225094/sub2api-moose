@@ -60,16 +60,19 @@ func (e *Exchange) size() int64 {
 // sessionHeader is the first spool record. UserID and APIKeyID are kept for
 // the admin index only and are not written into the archived document.
 type sessionHeader struct {
-	SessionID string    `json:"session_id"`
-	Key       string    `json:"key"`
-	Model     string    `json:"model"`
-	ModelKey  string    `json:"model_key"`
-	Platform  string    `json:"platform"`
-	UserID    int64     `json:"user_id"`
-	APIKeyID  int64     `json:"api_key_id"`
-	Part      int       `json:"part"`
-	StartedAt time.Time `json:"started_at"`
-	Ephemeral bool      `json:"ephemeral"`
+	NodeID        string    `json:"node_id,omitempty"`
+	SegmentID     string    `json:"segment_id,omitempty"`
+	CorrelationID string    `json:"correlation_id,omitempty"`
+	SessionID     string    `json:"session_id"`
+	Key           string    `json:"key"`
+	Model         string    `json:"model"`
+	ModelKey      string    `json:"model_key"`
+	Platform      string    `json:"platform"`
+	UserID        int64     `json:"user_id"`
+	APIKeyID      int64     `json:"api_key_id"`
+	Part          int       `json:"part"`
+	StartedAt     time.Time `json:"started_at"`
+	Ephemeral     bool      `json:"ephemeral"`
 }
 
 // Spool record: [len u32][crc u32][unix-nanos i64][payload]. A truncated or
@@ -160,17 +163,25 @@ func openDocument(path string, header sessionHeader, records []spoolRecord) (*do
 	if len(records) > 0 {
 		ended = records[len(records)-1].at
 	}
+	correlationID := header.CorrelationID
+	if correlationID == "" {
+		correlationID = sessionCorrelationID(header.APIKeyID, header.SessionID)
+	}
 	meta := struct {
-		Format    string    `json:"format"`
-		SessionID string    `json:"session_id"`
-		Model     string    `json:"model"`
-		ModelKey  string    `json:"model_key"`
-		Platform  string    `json:"platform"`
-		Part      int       `json:"part,omitempty"`
-		StartedAt time.Time `json:"started_at"`
-		EndedAt   time.Time `json:"ended_at"`
-		Exchanges int       `json:"exchange_count"`
-	}{"sub2api.gateway-log.v1", header.SessionID, header.Model, header.ModelKey, header.Platform, header.Part, header.StartedAt.UTC(), ended.UTC(), len(records)}
+		Format        string    `json:"format"`
+		SessionID     string    `json:"session_id"`
+		Model         string    `json:"model"`
+		ModelKey      string    `json:"model_key"`
+		Platform      string    `json:"platform"`
+		Part          int       `json:"part,omitempty"`
+		StartedAt     time.Time `json:"started_at"`
+		EndedAt       time.Time `json:"ended_at"`
+		Exchanges     int       `json:"exchange_count"`
+		Scope         string    `json:"scope"`
+		NodeID        string    `json:"node_id,omitempty"`
+		SegmentID     string    `json:"segment_id,omitempty"`
+		CorrelationID string    `json:"correlation_id"`
+	}{"sub2api.gateway-log.v1", header.SessionID, header.Model, header.ModelKey, header.Platform, header.Part, header.StartedAt.UTC(), ended.UTC(), len(records), "node_fragment", header.NodeID, header.SegmentID, correlationID}
 	prefix, _ := json.Marshal(meta)
 	prefix = append(prefix[:len(prefix)-1], []byte(`,"exchanges":[`)...)
 	parts := []io.Reader{bytes.NewReader(prefix)}
@@ -333,6 +344,10 @@ func writeJSONString(b *bytes.Buffer, s string) {
 const maxDecodedBody = 512 << 20
 
 func decodeContent(encoding string, body []byte) ([]byte, bool) {
+	return decodeContentLimited(encoding, body, maxDecodedBody)
+}
+
+func decodeContentLimited(encoding string, body []byte, maxBytes int64) ([]byte, bool) {
 	var r io.Reader
 	switch strings.ToLower(strings.TrimSpace(encoding)) {
 	case "", "identity":
@@ -361,8 +376,8 @@ func decodeContent(encoding string, body []byte) ([]byte, bool) {
 	default:
 		return nil, false
 	}
-	out, err := io.ReadAll(io.LimitReader(r, maxDecodedBody))
-	if err != nil {
+	out, err := io.ReadAll(io.LimitReader(r, maxBytes+1))
+	if err != nil || int64(len(out)) > maxBytes {
 		return nil, false
 	}
 	return out, true

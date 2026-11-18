@@ -36,6 +36,7 @@ func (h *Handler) Register(group *gin.RouterGroup, manager *customize.Manager) {
 	g.GET("/bundles/:id/download", h.downloadBundle)
 	g.GET("/entries", h.listEntries)
 	g.GET("/entries/:id/content", h.entryContent)
+	g.GET("/entries/:id/session", h.exportSession)
 }
 
 // GatewayCapture is mounted by the gateway routes; it is a pass-through
@@ -460,6 +461,39 @@ const (
 	defaultPreview = 1 << 20
 	maxPreview     = 16 << 20
 )
+
+func (h *Handler) exportSession(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
+	defer cancel()
+	e, _, err := h.Runtime.Store.Entry(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		response.NotFound(c, "数据不存在")
+		return
+	}
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	export, err := h.Runtime.ExportSession(ctx, e)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	defer export.Close()
+	info, err := export.File.Stat()
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	c.Header("Content-Type", "application/json; charset=utf-8")
+	c.Header("Content-Disposition", contentDisposition(sessionExportName(e)))
+	c.Header("Content-Length", strconv.FormatInt(info.Size(), 10))
+	c.Status(http.StatusOK)
+	_, _ = io.Copy(c.Writer, export.File)
+}
 
 func (h *Handler) entryContent(c *gin.Context) {
 	id, ok := parseID(c)

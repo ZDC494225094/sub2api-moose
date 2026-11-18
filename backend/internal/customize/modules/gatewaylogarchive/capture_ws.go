@@ -127,7 +127,13 @@ func (w *wsCapture) onClient(payload []byte, truncated bool) {
 	}
 	if w.cur != nil {
 		// A client message inside an open turn (e.g. cancel) is kept with it.
-		w.cur.ResponseEvents = append(w.cur.ResponseEvents, wrapClientFollowup(payload))
+		followup := wrapClientFollowup(payload)
+		if w.curSize+len(followup) <= w.policy.maxBody && !truncated {
+			w.cur.ResponseEvents = append(w.cur.ResponseEvents, followup)
+			w.curSize += len(followup)
+		} else {
+			w.cur.ResponseTrunc = true
+		}
 		return
 	}
 	if w.session == "" {

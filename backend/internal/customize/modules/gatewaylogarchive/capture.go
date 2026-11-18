@@ -172,6 +172,13 @@ func sessionKey(apiKeyID int64, sessionID, modelKey string) string {
 	return hex.EncodeToString(sum[:12])
 }
 
+// A conversation can move between models and nodes. This stable identifier is
+// exported with every fragment without exposing the numeric API key identity.
+func sessionCorrelationID(apiKeyID int64, sessionID string) string {
+	sum := sha256.Sum256([]byte("gateway-log-session\x00" + strconv.FormatInt(apiKeyID, 10) + "\x00" + sessionID))
+	return hex.EncodeToString(sum[:])
+}
+
 // redactQuery drops credential-bearing query parameters (Gemini "?key=").
 func redactQuery(raw string) string {
 	if raw == "" {

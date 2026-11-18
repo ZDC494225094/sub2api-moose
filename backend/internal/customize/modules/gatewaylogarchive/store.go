@@ -525,10 +525,14 @@ const entryColumns = `e.id, e.bundle_id, e.seq, e.entry_name, e.session_id, e.mo
 func scanEntry(row scanner) (Entry, error) {
 	var e Entry
 	var crc int64
-	err := row.Scan(&e.ID, &e.BundleID, &e.Seq, &e.Name, &e.SessionID, &e.Model, &e.Platform, &e.UserID, &e.APIKeyID,
-		&e.ExchangeCount, &e.Offset, &e.CSize, &e.USize, &crc, &e.StartedAt, &e.EndedAt, &e.CreatedAt, &e.Day, &e.FileName, &e.BundleStatus)
+	err := row.Scan(entryScanTargets(&e, &crc)...)
 	e.CRC = uint32(crc)
 	return e, err
+}
+
+func entryScanTargets(e *Entry, crc *int64) []any {
+	return []any{&e.ID, &e.BundleID, &e.Seq, &e.Name, &e.SessionID, &e.Model, &e.Platform, &e.UserID, &e.APIKeyID,
+		&e.ExchangeCount, &e.Offset, &e.CSize, &e.USize, crc, &e.StartedAt, &e.EndedAt, &e.CreatedAt, &e.Day, &e.FileName, &e.BundleStatus}
 }
 
 func (s *Store) ListEntries(ctx context.Context, f EntryFilter, page, size int) ([]Entry, int64, error) {
