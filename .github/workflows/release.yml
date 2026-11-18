@@ -124,6 +124,8 @@ jobs:
       - name: Install canvas dependencies
         run: npm ci --legacy-peer-deps
         working-directory: canvas/web
+        env:
+          ONNXRUNTIME_NODE_INSTALL_CUDA: 'skip'
 
       - name: Build infinite canvas
         run: npm run build
