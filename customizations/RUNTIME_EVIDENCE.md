@@ -1,6 +1,6 @@
 # 扩展开关可达性检查表
 
-固定上游基线：b0fa9f3e6eeab1968a53e1289b69daa4bb40ca2b
+固定上游基线：5af9afb588c4b014b3df9db7d4073af1f8ae01b6
 
 本表由 runtime-evidence.json 生成；行号随工作区源码更新。结构门禁检查实际标记、目录覆盖和上游特征缺失，不冒充 Go 调用图分析，也不代表测试已经执行或生产验收。测试结果以 verification 日志为准。
 

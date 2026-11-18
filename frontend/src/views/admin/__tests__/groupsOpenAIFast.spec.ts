@@ -25,8 +25,11 @@ describe("groupsOpenAIFast", () => {
     for (const locale of [zh, en]) {
       expect(locale.groups.openaiFast).toMatchObject({
         forceUltrafast: expect.stringContaining("ultrafast"),
-        ultrafastHint: expect.stringContaining("service_tier=ultrafast"),
+        ultrafastHint: expect.stringContaining("GPT-6.2"),
       });
+      const [pro200Hint, pro500Hint] = locale.groups.openaiFast.ultrafastHint.split("Pro 500");
+      expect(pro200Hint).toMatch(/Pro 200.*Sol/);
+      expect(pro500Hint).toMatch(/Sol.*Astra/);
       expect(locale.groups.openaiFast.ultrafastHint).toContain("GPT-6 Astra");
       expect(locale.groups.openaiFast.ultrafastHint).toContain("GPT-6.1 Sol");
     }

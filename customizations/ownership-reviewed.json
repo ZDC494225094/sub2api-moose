@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_at": "2026-11-17",
-  "baseline": "b0fa9f3e6eeab1968a53e1289b69daa4bb40ca2b",
+  "reviewed_at": "2026-11-18",
+  "baseline": "5af9afb588c4b014b3df9db7d4073af1f8ae01b6",
   "note": "Exact-path ownership review, including the original 70 unmatched paths and Stage32 Seedance host seam. Records responsibility and host compatibility boundaries, not complete semantic coverage of regex-classified files. The sensitive dump.rdb runtime snapshot was removed from preservation and ownership ledgers; all other original inventory entries remain unchanged.",
   "reviews": [
     {
@@ -709,14 +709,13 @@
     },
     {
       "paths": [
-        "backend/internal/service/billing_inflight_reservation_test.go",
         "backend/internal/service/gateway_thinking_filter_precheck_test.go"
       ],
       "owners": [
         "shared-infrastructure"
       ],
       "kind": "compatibility",
-      "evidence": "Two full-suite failures measured process-wide heap or allocation counts, while each original test passed three isolated repetitions. Follow the upstream orphan-precheck child-process pattern, retaining the 8 MiB and 16-allocation thresholds and all original behavior assertions.",
+      "evidence": "The thinking filter retains its isolated 16-allocation guard. As of v0.2.23 the billing estimate heap test uses upstream's own isolation and shared rate resolver without a local override.",
       "next_step": "Keep the memory regressions isolated from unrelated service workers; production implementations and resource limits remain unchanged."
     },
     {
@@ -751,6 +750,13 @@
       "kind": "compatibility",
       "evidence": "Pinned v0.2.22 source merge with eight conflict resolutions, generated Ent/Wire, canvas settlement compatibility, native error isolation and full-tree completeness evidence.",
       "next_step": "Keep local test/build evidence separate from deployment and real PostgreSQL or provider acceptance."
+    },
+    {
+      "paths": ["docs/upstream-v0.2.23-merge.md"],
+      "owners": ["shared-infrastructure"],
+      "kind": "compatibility",
+      "evidence": "Pinned v0.2.23 source merge, native heap-test precedence, pricing and Codex boundaries, and migration inventory.",
+      "next_step": "Distinguish local validation from database migration or real provider acceptance."
     },
     {
       "paths": [
