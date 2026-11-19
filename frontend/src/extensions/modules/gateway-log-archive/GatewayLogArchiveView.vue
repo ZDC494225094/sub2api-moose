@@ -44,6 +44,7 @@
           <span v-if="status.reason" class="text-sm text-amber-600 dark:text-amber-400">{{ status.reason }}</span>
           <span v-if="status.rustfs_fallback" class="text-sm text-amber-600 dark:text-amber-400">此节点正在使用本地回退，RustFS 恢复后自动补传。</span>
           <dl class="flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-500 dark:text-dark-400 lg:ml-auto">
+            <div v-if="status.node_id" class="flex gap-1" :title="status.node_id"><dt>当前节点</dt><dd class="font-mono">{{ status.node_id.slice(0, 8) }}</dd></div>
             <div class="flex gap-1"><dt>今日</dt><dd class="font-mono text-gray-700 dark:text-gray-300">{{ status.today }}</dd></div>
             <div class="flex gap-1">
               <dt>剩余空间</dt>
@@ -54,6 +55,9 @@
             </div>
           </dl>
         </div>
+        <p v-if="status.rustfs_fallback && status.rustfs_probe" class="mt-2 break-words text-xs text-amber-700 dark:text-amber-400">
+          上次 RustFS 探测（{{ formatTime(status.rustfs_probe.at) }}）：{{ status.rustfs_probe.error || '成功' }}
+        </p>
 
         <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <button type="button" class="kpi kpi-action text-left" @click="tab = 'stats'">
@@ -85,11 +89,14 @@
           <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
             <span class="font-medium text-gray-800 dark:text-gray-200">正在上传 {{ status.uploading.file_name }}</span>
             <span v-if="status.uploading.total > 0" class="font-mono text-xs text-gray-500 dark:text-dark-400">
-              {{ formatBytes(status.uploading.sent) }} / {{ formatBytes(status.uploading.total) }} · {{ uploadPercent }}%
+              存储桶已确认 {{ formatBytes(status.uploading.sent) }} / {{ formatBytes(status.uploading.total) }} · {{ uploadPercent }}%
             </span>
-            <span v-else class="font-mono text-xs text-gray-500 dark:text-dark-400">已传输 {{ formatBytes(status.uploading.sent) }}</span>
+            <span v-else class="font-mono text-xs text-gray-500 dark:text-dark-400">存储桶已确认 {{ formatBytes(status.uploading.sent) }}</span>
           </div>
           <div v-if="status.uploading.total > 0" class="progress mt-2"><div class="progress-bar" :style="{ width: uploadPercent + '%' }" /></div>
+          <p v-if="status.uploading.phase" class="mt-2 text-xs text-gray-600 dark:text-dark-400">
+            {{ status.uploading.phase }} · 已交给网络传输 {{ formatBytes(status.uploading.body_bytes ?? 0) }}（含重传）<template v-if="status.uploading.part_retries"> · 分片重试 {{ status.uploading.part_retries }} 次</template>
+          </p>
         </div>
         <div v-if="status.open_bundles?.length" class="mt-4">
           <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-dark-400">写入中的归档文件</h3>
@@ -473,7 +480,7 @@ const idleMinutes = computed({
 
 const uploadPercent = computed(() => {
   const up = status.value?.uploading
-  return up && up.total > 0 ? Math.min(100, Math.round((up.sent / up.total) * 100)) : 0
+  return up && up.total > 0 ? Math.min(100, Math.floor((up.sent / up.total) * 10000) / 100) : 0
 })
 
 const prettyContent = computed(() => {

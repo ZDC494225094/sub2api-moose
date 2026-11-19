@@ -29,6 +29,7 @@ type streamPartWriter struct {
 }
 
 func (s *s3Objects) UploadStream(ctx context.Context, key string, sizeHint int64, produce func(io.Writer) error, progress func(int64)) error {
+	ctx = uploadProtocolContext(ctx)
 	if sizeHint < 0 {
 		return errors.New("归档预计大小无效")
 	}

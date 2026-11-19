@@ -274,42 +274,46 @@ func (r *Runtime) current() *pipeline {
 }
 
 type RuntimeStatus struct {
-	ModuleEnabled    bool             `json:"module_enabled"`
-	Running          bool             `json:"running"`
-	Capturing        bool             `json:"capturing"`
-	Reason           string           `json:"reason"`
-	NodeID           string           `json:"node_id"`
-	DataDir          string           `json:"data_dir"`
-	Today            string           `json:"today"`
-	DiskFreeBytes    int64            `json:"disk_free_bytes"`
-	StorageBuckets   int              `json:"storage_buckets"`
-	RustFSFallback   bool             `json:"rustfs_fallback"`
-	UploadedBundles  int64            `json:"uploaded_bundles"`
-	UploadedBytes    int64            `json:"uploaded_bytes"`
-	ActiveSessions   int64            `json:"active_sessions"`
-	QueuedExchanges  int              `json:"queued_exchanges"`
-	PendingFlushes   int              `json:"pending_flushes"`
-	OpenBundles      []openBundleView `json:"open_bundles"`
-	Uploading        *uploadView      `json:"uploading"`
-	Captured         int64            `json:"captured"`
-	SkippedUser      int64            `json:"skipped_user"`
-	SkippedModel     int64            `json:"skipped_model"`
-	SkippedStatus    int64            `json:"skipped_status"`
-	Dropped          int64            `json:"dropped"`
-	SessionsArchived int64            `json:"sessions_archived"`
-	FlushErrors      int64            `json:"flush_errors"`
-	Uploaded         int64            `json:"uploaded"`
-	UploadErrors     int64            `json:"upload_errors"`
-	LastError        string           `json:"last_error"`
-	LastErrorAt      *time.Time       `json:"last_error_at"`
-	Bundles          []StatusCount    `json:"bundles"`
+	ModuleEnabled    bool                `json:"module_enabled"`
+	Running          bool                `json:"running"`
+	Capturing        bool                `json:"capturing"`
+	Reason           string              `json:"reason"`
+	NodeID           string              `json:"node_id"`
+	DataDir          string              `json:"data_dir"`
+	Today            string              `json:"today"`
+	DiskFreeBytes    int64               `json:"disk_free_bytes"`
+	StorageBuckets   int                 `json:"storage_buckets"`
+	RustFSFallback   bool                `json:"rustfs_fallback"`
+	RustFSProbe      *stagingProbeResult `json:"rustfs_probe,omitempty"`
+	UploadedBundles  int64               `json:"uploaded_bundles"`
+	UploadedBytes    int64               `json:"uploaded_bytes"`
+	ActiveSessions   int64               `json:"active_sessions"`
+	QueuedExchanges  int                 `json:"queued_exchanges"`
+	PendingFlushes   int                 `json:"pending_flushes"`
+	OpenBundles      []openBundleView    `json:"open_bundles"`
+	Uploading        *uploadView         `json:"uploading"`
+	Captured         int64               `json:"captured"`
+	SkippedUser      int64               `json:"skipped_user"`
+	SkippedModel     int64               `json:"skipped_model"`
+	SkippedStatus    int64               `json:"skipped_status"`
+	Dropped          int64               `json:"dropped"`
+	SessionsArchived int64               `json:"sessions_archived"`
+	FlushErrors      int64               `json:"flush_errors"`
+	Uploaded         int64               `json:"uploaded"`
+	UploadErrors     int64               `json:"upload_errors"`
+	LastError        string              `json:"last_error"`
+	LastErrorAt      *time.Time          `json:"last_error_at"`
+	Bundles          []StatusCount       `json:"bundles"`
 }
 
 type uploadView struct {
-	BundleID int64  `json:"bundle_id"`
-	FileName string `json:"file_name"`
-	Total    int64  `json:"total"`
-	Sent     int64  `json:"sent"`
+	BundleID  int64  `json:"bundle_id"`
+	FileName  string `json:"file_name"`
+	Total     int64  `json:"total"`
+	Sent      int64  `json:"sent"`
+	BodyBytes int64  `json:"body_bytes"`
+	Retries   int64  `json:"part_retries"`
+	Phase     string `json:"phase,omitempty"`
 }
 
 func (r *Runtime) Status(ctx context.Context) RuntimeStatus {
@@ -324,6 +328,7 @@ func (r *Runtime) Status(ctx context.Context) RuntimeStatus {
 	st.Today = r.dayOf(time.Now())
 	if pipe != nil {
 		st.RustFSFallback = pipe.stageBackoff.Load() != 0
+		st.RustFSProbe = pipe.stageProbe.Load()
 		st.ActiveSessions = pipe.active.Load()
 		st.QueuedExchanges = len(pipe.in)
 		pipe.retryMu.Lock()
@@ -331,7 +336,10 @@ func (r *Runtime) Status(ctx context.Context) RuntimeStatus {
 		pipe.retryMu.Unlock()
 		st.OpenBundles = pipe.openBundles()
 		if up := pipe.uploading.Load(); up != nil {
-			st.Uploading = &uploadView{BundleID: up.BundleID, FileName: up.FileName, Total: up.Total, Sent: up.sent.Load()}
+			st.Uploading = &uploadView{BundleID: up.BundleID, FileName: up.FileName, Total: up.Total, Sent: up.sent.Load(), BodyBytes: up.bodyBytes.Load(), Retries: up.retries.Load()}
+			if phase := up.phase.Load(); phase != nil {
+				st.Uploading.Phase = *phase
+			}
 		}
 	}
 	st.Captured = r.stats.captured.Load()

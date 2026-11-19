@@ -65,17 +65,19 @@ func newS3Objects(cfg BucketConfig) (objectStore, error) {
 	}
 	client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
 		// Clone the SDK transport *after* defaults and custom CA configuration.
-		// Only a marked relay request uses the second connection pool.
+		// Protocol fallback is scoped to one transfer, not the gateway transport.
+		transport := relayHTTPClient{auto: o.HTTPClient, http1: o.HTTPClient}
 		if base, ok := o.HTTPClient.(*awshttp.BuildableClient); ok {
-			o.HTTPClient = relayHTTPClient{auto: base, http1: base.WithTransportOptions(func(tr *http.Transport) {
+			transport.http1 = base.WithTransportOptions(func(tr *http.Transport) {
 				tr.Protocols = new(http.Protocols)
 				tr.Protocols.SetHTTP1(true)
 				tr.ForceAttemptHTTP2 = false
 				if tr.TLSClientConfig != nil {
 					tr.TLSClientConfig.NextProtos = []string{"http/1.1"}
 				}
-			})}
+			})
 		}
+		o.HTTPClient = transport
 		if cfg.Endpoint != "" {
 			o.BaseEndpoint = aws.String(cfg.Endpoint)
 		}
@@ -110,6 +112,8 @@ func isNotFound(err error) bool {
 }
 
 func (s *s3Objects) Exists(ctx context.Context, key string) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, uploadControlTimeout)
+	defer cancel()
 	_, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key)})
 	if err == nil {
 		return true, nil
@@ -121,10 +125,10 @@ func (s *s3Objects) Exists(ctx context.Context, key string) (bool, error) {
 }
 
 const (
-	multipartThreshold = 64 << 20
-	minPartSize        = 64 << 20
+	minPartSize        = 16 << 20
+	multipartThreshold = minPartSize
 	maxParts           = 9000
-	partConcurrency    = 4
+	partConcurrency    = 2
 )
 
 func partSizeFor(size, minimum, targetParts int64) int64 {
@@ -138,6 +142,7 @@ func partSizeFor(size, minimum, targetParts int64) int64 {
 // Upload sends small files with one PUT and large ones (up to the 10 GB
 // default and beyond) as a multipart upload with concurrent parts.
 func (s *s3Objects) Upload(ctx context.Context, key, path string, progress func(int64)) error {
+	ctx = uploadProtocolContext(ctx)
 	f, err := os.Open(path)
 	if err != nil {
 		return err
@@ -213,9 +218,13 @@ feed:
 }
 
 func (s *s3Objects) put(ctx context.Context, key string, body io.ReadSeeker, size int64, progress func(int64)) error {
-	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), Body: body,
-		ContentLength: aws.Int64(size), ContentType: aws.String(archiveContentType(key)),
+	progressFor(ctx).setPhase("发送对象，等待存储桶确认")
+	err := watchUploadRequest(ctx, func(attempt context.Context) error {
+		_, err := s.client.PutObject(attempt, &s3.PutObjectInput{
+			Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), Body: body,
+			ContentLength: aws.Int64(size), ContentType: aws.String(archiveContentType(key)),
+		})
+		return err
 	})
 	if err == nil && progress != nil {
 		progress(size)
@@ -224,11 +233,14 @@ func (s *s3Objects) put(ctx context.Context, key string, body io.ReadSeeker, siz
 }
 
 func (s *s3Objects) startMultipart(ctx context.Context, key string) (*string, error) {
+	progressFor(ctx).setPhase("创建分片上传")
+	ctx, cancel := context.WithTimeout(ctx, uploadControlTimeout)
+	defer cancel()
 	out, err := s.client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 		Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), ContentType: aws.String(archiveContentType(key)),
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("创建分片上传：%w", err)
 	}
 	if aws.ToString(out.UploadId) == "" {
 		return nil, errors.New("存储桶未返回分片上传 ID")
@@ -238,14 +250,26 @@ func (s *s3Objects) startMultipart(ctx context.Context, key string) (*string, er
 
 func (s *s3Objects) sendPart(ctx context.Context, key string, uploadID *string, number int32, body io.ReadSeeker, size int64) (types.CompletedPart, error) {
 	var err error
+	progress := progressFor(ctx)
+	progress.setPhase("发送分片，等待存储桶确认")
 	for attempt := 0; attempt < 3; attempt++ {
+		if ctx.Err() != nil {
+			return types.CompletedPart{}, ctx.Err()
+		}
+		if attempt > 0 && progress != nil {
+			progress.retries.Add(1)
+		}
 		if _, err = body.Seek(0, io.SeekStart); err != nil {
 			break
 		}
 		var out *s3.UploadPartOutput
-		out, err = s.client.UploadPart(ctx, &s3.UploadPartInput{
-			Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), UploadId: uploadID,
-			PartNumber: aws.Int32(number), Body: body, ContentLength: aws.Int64(size),
+		err = watchUploadRequest(ctx, func(reqCtx context.Context) error {
+			var reqErr error
+			out, reqErr = s.client.UploadPart(reqCtx, &s3.UploadPartInput{
+				Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), UploadId: uploadID,
+				PartNumber: aws.Int32(number), Body: body, ContentLength: aws.Int64(size),
+			})
+			return reqErr
 		})
 		if err == nil {
 			if aws.ToString(out.ETag) == "" {
@@ -256,19 +280,25 @@ func (s *s3Objects) sendPart(ctx context.Context, key string, uploadID *string, 
 		if ctx.Err() != nil {
 			break
 		}
-		// The SDK can also receive the reset while decoding the response body,
-		// after HTTPClient.Do has returned successfully.
+		// The error may arrive after the transport returned (e.g. while
+		// decoding an ACK), or from the request inactivity watchdog.
 		relayProtocolFor(ctx).observe(err)
 	}
 	return types.CompletedPart{}, err
 }
 
 func (s *s3Objects) completeMultipart(ctx context.Context, key string, uploadID *string, parts []types.CompletedPart) error {
+	progressFor(ctx).setPhase("等待存储桶合并分片")
+	ctx, cancel := context.WithTimeout(ctx, uploadCommitTimeout)
+	defer cancel()
 	_, err := s.client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
 		Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), UploadId: uploadID,
 		MultipartUpload: &types.CompletedMultipartUpload{Parts: parts},
 	})
-	return err
+	if err != nil {
+		return fmt.Errorf("等待存储桶合并分片：%w", err)
+	}
+	return nil
 }
 
 func (s *s3Objects) abortMultipart(parent context.Context, key string, uploadID *string) {
@@ -307,8 +337,27 @@ func (s *s3Objects) OpenRange(ctx context.Context, key string, offset, length in
 	return out.Body, nil
 }
 
-// Test checks bucket access and write permission with a tiny marker object
-// that is deleted again (best effort).
+// A single tiny *last* part is legal S3 multipart. Checking the same API used
+// by staging avoids clearing fallback merely because a small ordinary PUT
+// works. This probes capability, not sustained bandwidth.
+func (s *s3Objects) probeMultipart(ctx context.Context, key string) error {
+	ctx = uploadProtocolContext(ctx)
+	id, err := s.startMultipart(ctx, key)
+	if err != nil {
+		return err
+	}
+	const marker = "multipart connection test"
+	part, err := s.sendPart(ctx, key, id, 1, strings.NewReader(marker), int64(len(marker)))
+	if err == nil {
+		err = s.completeMultipart(ctx, key, id, []types.CompletedPart{part})
+	}
+	if err != nil {
+		s.abortMultipart(ctx, key, id)
+	}
+	return err
+}
+
+// Test checks bucket access and write permission with a tiny marker object.
 func (s *s3Objects) Test(ctx context.Context) []TestStep {
 	var steps []TestStep
 	step := func(name string, err error) bool {
@@ -328,12 +377,16 @@ func (s *s3Objects) Test(ctx context.Context) []TestStep {
 	})
 	if step("写入测试文件 "+key, err) {
 		if s.cfg.StorageRole == "rustfs" {
+			firstByte := byte('s')
+			if step("主归档分片写入与合并", s.probeMultipart(ctx, key)) {
+				firstByte = 'm' // read the completed multipart representation
+			}
 			body, readErr := s.OpenRange(ctx, key, 0, 1)
 			if readErr == nil {
 				var probe [1]byte
 				_, readErr = io.ReadFull(body, probe[:])
 				_ = body.Close()
-				if readErr == nil && probe[0] != 's' {
+				if readErr == nil && probe[0] != firstByte {
 					readErr = errors.New("读取的内容与测试文件不符")
 				}
 			}
@@ -366,7 +419,6 @@ func (p *pipeline) uploadLoop() {
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 	for {
-		p.resumeStaging()
 		p.uploadPending()
 		p.cleanupLocal()
 		select {
@@ -526,8 +578,13 @@ func (p *pipeline) chooseKey(ctx context.Context, cfg BucketConfig, objects obje
 		}
 		exists, err := objects.Exists(ctx, key)
 		if err != nil {
-			// Preserve support for write-only storage credentials.
-			return key, nil
+			// A write-only credential may not HEAD. A network timeout does not
+			// establish that the key is free: retry rather than overwrite it.
+			var response *awshttp.ResponseError
+			if errors.As(err, &response) && response.HTTPStatusCode() == http.StatusForbidden {
+				return key, nil
+			}
+			return "", fmt.Errorf("检查存储桶中的归档名称：%w", err)
 		}
 		if !exists {
 			return key, nil
@@ -542,20 +599,24 @@ func (p *pipeline) uploadOne(cfg BucketConfig, objects objectStore, row *Bundle,
 	if _, err := os.Stat(row.LocalPath); err != nil {
 		return fmt.Errorf("%w：%v", errLocalBundleMissing, err)
 	}
-	key, err := p.chooseKey(p.ctx, cfg, objects, row)
-	if err != nil {
-		return err
-	}
 	progress := &uploadProgress{BundleID: row.ID, FileName: prepared.fileName, Total: row.SizeBytes}
 	if prepared.entries != nil {
 		progress.Total = 0
 	}
+	progress.setPhase("检查归档名称")
 	p.uploading.Store(progress)
 	defer p.uploading.Store(nil)
-	layout, err := prepared.upload(p.ctx, objects, key, func(n int64) { progress.sent.Add(n) })
+	uploadCtx := context.WithValue(p.ctx, uploadProgressKey{}, progress)
+	key, err := p.chooseKey(uploadCtx, cfg, objects, row)
 	if err != nil {
 		return err
 	}
+	progress.setPhase("读取归档")
+	layout, err := prepared.upload(uploadCtx, objects, key, func(n int64) { progress.sent.Add(n) })
+	if err != nil {
+		return err
+	}
+	progress.setPhase("记录上传结果")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	var commitErr error

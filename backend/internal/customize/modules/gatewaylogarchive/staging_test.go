@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -283,4 +284,87 @@ func TestRustFSProbeDrainsLocalFallbackWithoutAnotherSession(t *testing.T) {
 		return rows[0].LocalDeleted && strings.Contains(data, piiMask) && !strings.Contains(data, "alice@example.com")
 	}, 5*time.Second, 10*time.Millisecond)
 	require.Zero(t, pipe.stageBackoff.Load())
+}
+
+type busyPrimary struct {
+	*memObjects
+	started, release chan struct{}
+	wholeStageLimit  atomic.Bool
+}
+
+func (s *busyPrimary) Upload(ctx context.Context, key, path string, progress func(int64)) error {
+	close(s.started)
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.release:
+		return s.memObjects.Upload(ctx, key, path, progress)
+	}
+}
+
+func (s *busyPrimary) UploadStream(ctx context.Context, key string, size int64, produce func(io.Writer) error, progress func(int64)) error {
+	if _, limited := ctx.Deadline(); limited && strings.Contains(key, "_gateway-staging/") {
+		s.wholeStageLimit.Store(true)
+	}
+	return s.memObjects.UploadStream(ctx, key, size, produce, progress)
+}
+
+func TestRustFSFallbackRecoversDuringOldBundleUpload(t *testing.T) {
+	ctx := t.Context()
+	store := sqliteStore(t)
+	dir := t.TempDir()
+	primary, err := store.CreateBucket(ctx, BucketConfig{Bucket: "primary", StorageRole: "rustfs", PrivacyMode: "original", Enabled: true})
+	require.NoError(t, err)
+	old, err := store.CreateBundle(ctx, "node", "2026-11-18", "m", func(file string) string { return filepath.Join(dir, file) })
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(old.LocalPath, []byte("{}\n"), 0o600))
+	require.NoError(t, store.CommitEntry(ctx, 3, Entry{BundleID: old.ID, Seq: 1, Name: EntryName(1), USize: 2, CSize: 2, StartedAt: time.Now(), EndedAt: time.Now()}))
+	require.NoError(t, store.MarkSealed(ctx, old.ID, 3))
+	// Also exercise an upgrade from a node that stopped in 'uploading'.
+	claimed, err := store.ClaimUpload(ctx, "node", time.Now())
+	require.NoError(t, err)
+	require.Equal(t, old.ID, claimed.ID)
+	s := &busyPrimary{memObjects: newMemObjects(), started: make(chan struct{}), release: make(chan struct{})}
+	s.fail = errors.New("storage offline")
+	p, err := startPipeline(store, func(BucketConfig) (objectStore, error) { return s, nil }, "node", dir, func(time.Time) string { return "2026-11-19" }, DefaultConfig(), func(err error) { t.Log(err) }, &stats{}, primary)
+	require.NoError(t, err)
+	defer p.stop(false)
+	select {
+	case <-s.started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("old local upload never started")
+	}
+	require.True(t, p.submit(exchange("slow", "m", "m", "new-session")))
+	done := make(chan struct{})
+	p.flushReq <- done
+	<-done
+	deadline, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	require.NoError(t, p.waitIdle(deadline))
+	require.False(t, s.wholeStageLimit.Load())
+	require.NotZero(t, p.stageBackoff.Load())
+	open := p.openBundles()
+	require.Len(t, open, 1)
+	p.stageBackoff.Store(1)
+	p.wakeUploader()
+	require.Eventually(t, func() bool {
+		probe := p.stageProbe.Load()
+		return probe != nil && strings.Contains(probe.Error, "storage offline")
+	}, 3*time.Second, 10*time.Millisecond)
+	s.mu.Lock()
+	s.fail = nil
+	s.mu.Unlock()
+	p.stageBackoff.Store(1)
+	p.wakeUploader()
+	require.Eventually(t, func() bool {
+		row, err := store.Bundle(ctx, open[0].ID)
+		return err == nil && row.Status == StatusSealed && p.stageBackoff.Load() == 0
+	}, 3*time.Second, 10*time.Millisecond, "probe and seal must not wait for an unrelated upload")
+	require.Empty(t, p.stageProbe.Load().Error)
+	require.FileExists(t, old.LocalPath)
+	close(s.release)
+	require.Eventually(t, func() bool {
+		rows, _, err := store.ListBundles(ctx, BundleFilter{Status: StatusUploaded}, 1, 5)
+		return err == nil && len(rows) == 2
+	}, 5*time.Second, 10*time.Millisecond)
 }

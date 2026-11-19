@@ -19,6 +19,28 @@ func (p *pipeline) defaultPrivacy() bool {
 	return cfg == nil || cfg.RedactPII
 }
 
+type stagingProbeResult struct {
+	At    time.Time `json:"at"`
+	Error string    `json:"error,omitempty"`
+}
+
+// A slow bundle must not prevent this node from testing its primary or
+// accepting new staged fragments after the primary is reachable again.
+func (p *pipeline) stagingProbeLoop() {
+	defer p.workers.Done()
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-p.ctx.Done():
+			return
+		case <-p.stageWake:
+		case <-ticker.C:
+		}
+		p.resumeStaging()
+	}
+}
+
 func (p *pipeline) resumeStaging() {
 	due := p.stageBackoff.Load()
 	if due == 0 || time.Now().Unix() < due || p.ctx.Err() != nil {
@@ -26,7 +48,7 @@ func (p *pipeline) resumeStaging() {
 	}
 	primary, enabled := primaryBucket(p.enabledBuckets())
 	if enabled {
-		ctx, cancel := context.WithTimeout(p.ctx, 15*time.Second)
+		ctx, cancel := context.WithTimeout(p.ctx, time.Minute)
 		defer cancel()
 		objects, err := p.bucketClient(primary)
 		if err == nil {
@@ -41,8 +63,16 @@ func (p *pipeline) resumeStaging() {
 				}
 			}
 		}
+		if p.ctx.Err() != nil {
+			return
+		}
+		probe := &stagingProbeResult{At: time.Now()}
 		if err != nil {
-			p.stageBackoff.CompareAndSwap(due, time.Now().Add(30*time.Second).Unix())
+			probe.Error = err.Error()
+		}
+		p.stageProbe.Store(probe)
+		if err != nil {
+			p.stageBackoff.CompareAndSwap(due, probe.At.Add(30*time.Second).Unix())
 			return
 		}
 	}
@@ -144,12 +174,12 @@ func (p *pipeline) flushStaged(job flushJob, h sessionHeader, records []spoolRec
 	}
 	remote := false
 	if p.stageBackoff.Load() == 0 {
-		ctx, cancel := context.WithTimeout(p.ctx, 2*time.Minute)
 		objects, err := p.bucketClient(primary)
 		if err == nil {
-			err = objects.UploadStream(ctx, key, hint, func(out io.Writer) error { return produce(ctx, b.row.StageRedacted, out) }, nil)
+			// Each S3 request has its own timeout. A slow, advancing session
+			// can span many parts; time spent on earlier parts is not a failure.
+			err = objects.UploadStream(p.ctx, key, hint, func(out io.Writer) error { return produce(p.ctx, b.row.StageRedacted, out) }, nil)
 		}
-		cancel()
 		if err == nil {
 			remote = true
 		} else {
@@ -179,7 +209,9 @@ func (p *pipeline) flushStaged(job flushJob, h sessionHeader, records []spoolRec
 	if !remote {
 		b.hasFallback.Store(true)
 	}
-	if size >= p.maxFile.Load() {
+	// The independent probe may have recovered while this local write was
+	// in flight, before it could observe hasFallback in its scan.
+	if size >= p.maxFile.Load() || (!remote && p.stageBackoff.Load() == 0) {
 		p.sealLocked(b)
 	}
 	return nil
@@ -228,9 +260,11 @@ func (p *pipeline) sealStaged(row *Bundle) error {
 	redact := row.StageRedacted || primary.redact(p.defaultPrivacy())
 	layout := &uploadLayout{FileName: row.FileName, Entries: make([]zipEntry, 0, len(entries))}
 	progress := &uploadProgress{BundleID: row.ID, FileName: row.FileName}
+	progress.setPhase("读取暂存片段")
 	p.uploading.Store(progress)
 	defer p.uploading.Store(nil)
-	err = objects.UploadStream(p.ctx, key, row.SizeBytes, func(out io.Writer) error {
+	uploadCtx := context.WithValue(p.ctx, uploadProgressKey{}, progress)
+	err = objects.UploadStream(uploadCtx, key, row.SizeBytes, func(out io.Writer) error {
 		for _, entry := range entries {
 			if err := p.ctx.Err(); err != nil {
 				return err
@@ -264,6 +298,7 @@ func (p *pipeline) sealStaged(row *Bundle) error {
 		}
 		return err
 	}
+	progress.setPhase("记录上传结果")
 	if err := store.commitUploaded(p.ctx, row.ID, primary.ID, primary.Bucket, key, layout, p.deliveryTargets(row, primary), redact); err != nil {
 		return err
 	}

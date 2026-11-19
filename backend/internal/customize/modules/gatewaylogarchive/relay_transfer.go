@@ -38,10 +38,17 @@ func withRelayProtocol(ctx context.Context, http1 bool) context.Context {
 	return context.WithValue(ctx, relayProtocolKey{}, p)
 }
 
+func uploadProtocolContext(ctx context.Context) context.Context {
+	if relayProtocolFor(ctx) != nil {
+		return ctx
+	}
+	return withRelayProtocol(ctx, false)
+}
+
 func (p *relayProtocol) useHTTP1() bool { return p != nil && p.http1.Load() }
 
 func (p *relayProtocol) observe(err error) {
-	if p != nil && err != nil && relayProtocolError(err.Error()) {
+	if p != nil && err != nil && (errors.Is(err, errUploadIdle) || relayProtocolError(err.Error())) {
 		p.http1.Store(true)
 	}
 }
@@ -60,6 +67,7 @@ func retryRelayHTTP1(lastError string) bool {
 type relayHTTPClient struct{ auto, http1 aws.HTTPClient }
 
 func (c relayHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	req = watchHTTPBody(req)
 	p := relayProtocolFor(req.Context())
 	if p.useHTTP1() {
 		return c.http1.Do(req)

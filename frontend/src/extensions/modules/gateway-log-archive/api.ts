@@ -122,6 +122,7 @@ export interface ArchiveStatus {
   /** Enabled buckets at the last reconcile. */
   storage_buckets: number
   rustfs_fallback?: boolean
+  rustfs_probe?: { at: string; error?: string }
   /** Cumulative uploads (not affected by index retention). */
   uploaded_bundles: number
   uploaded_bytes: number
@@ -129,7 +130,7 @@ export interface ArchiveStatus {
   queued_exchanges: number
   pending_flushes: number
   open_bundles: OpenBundle[]
-  uploading: { bundle_id: number; file_name: string; total: number; sent: number } | null
+  uploading: { bundle_id: number; file_name: string; total: number; sent: number; body_bytes?: number; part_retries?: number; phase?: string } | null
   captured: number
   skipped_user?: number
   skipped_model: number

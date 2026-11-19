@@ -65,6 +65,8 @@ type pipeline struct {
 	clientsMu    sync.Mutex
 	clients      map[int64]bucketClient
 	stageBackoff atomic.Int64
+	stageProbe   atomic.Pointer[stagingProbeResult]
+	stageWake    chan struct{}
 	maxFile      atomic.Int64
 	idle         atomic.Int64
 	keepLocal    atomic.Int64
@@ -101,10 +103,13 @@ type pipeline struct {
 }
 
 type uploadProgress struct {
-	BundleID int64  `json:"bundle_id"`
-	FileName string `json:"file_name"`
-	Total    int64  `json:"total"`
-	sent     atomic.Int64
+	BundleID  int64  `json:"bundle_id"`
+	FileName  string `json:"file_name"`
+	Total     int64  `json:"total"`
+	sent      atomic.Int64
+	bodyBytes atomic.Int64 // read by the HTTP transport; includes replayed parts
+	retries   atomic.Int64
+	phase     atomic.Pointer[string]
 }
 
 func (p *pipeline) spoolDir() string  { return filepath.Join(p.dir, "spool") }
@@ -116,7 +121,7 @@ func startPipeline(store archiveStore, objects func(BucketConfig) (objectStore, 
 		open: true, in: make(chan *Exchange, intakeCapacity),
 		sessions: map[string]*sessionState{}, nextPart: map[string]int{},
 		flushReq: make(chan chan struct{}), stopSpool: make(chan bool, 1), spoolDone: make(chan struct{}),
-		jobs: make(chan flushJob, 65536), bundles: map[string]*bundle{}, uploadWake: make(chan struct{}, 1), relayWake: make(chan struct{}, 1),
+		jobs: make(chan flushJob, 65536), bundles: map[string]*bundle{}, uploadWake: make(chan struct{}, 1), relayWake: make(chan struct{}, 1), stageWake: make(chan struct{}, 1),
 	}
 	p.setConfig(cfg)
 	p.setBuckets(buckets)
@@ -138,6 +143,8 @@ func startPipeline(store archiveStore, objects func(BucketConfig) (objectStore, 
 	p.workers.Add(1)
 	go p.uploadLoop()
 	if _, ok := store.(*Store); ok {
+		p.workers.Add(1)
+		go p.stagingProbeLoop()
 		p.workers.Add(1)
 		go p.relayLoop()
 	}
@@ -613,6 +620,10 @@ func (p *pipeline) stop(drain bool) {
 func (p *pipeline) wakeUploader() {
 	select {
 	case p.uploadWake <- struct{}{}:
+	default:
+	}
+	select {
+	case p.stageWake <- struct{}{}:
 	default:
 	}
 }
