@@ -133,6 +133,64 @@ func TestCaptureIsPassThroughWhenOff(t *testing.T) {
 	require.Equal(t, `{"echo":{"model":"x"}}`, w.Body.String())
 }
 
+func TestExcludeUserByVerifiedOwnerBeforeReadingHTTP(t *testing.T) {
+	sink := &captured{}
+	cfg := DefaultConfig()
+	cfg.ExcludedUserIDs = []int64{3}
+	r := captureRuntime(cfg, sink)
+	// The host auth hook resolves a key to its owner, independently of the
+	// client's purported user/session ID. Key 3 even belongs to another user.
+	keys := map[string]Identity{"first": {UserID: 3, APIKeyID: 11}, "second": {UserID: 3, APIKeyID: 12}, "other": {UserID: 5, APIKeyID: 3}}
+	r.Hooks.Identity = func(c *gin.Context) Identity { return keys[c.GetHeader("X-Test-Key")] }
+	gin.SetMode(gin.TestMode)
+	e := gin.New()
+	e.POST("/v1/messages", func(c *gin.Context) {
+		c.Set("originalWriter", c.Writer)
+		c.Set("originalBody", c.Request.Body)
+	}, r.CaptureMiddleware(), func(c *gin.Context) {
+		if c.GetHeader("X-Test-Key") != "other" {
+			require.True(t, c.Request.Body == c.MustGet("originalBody"), "archive did not read/reset the body")
+			require.True(t, c.Writer == c.MustGet("originalWriter"), "archive did not install a response tee")
+		}
+		body, err := io.ReadAll(c.Request.Body)
+		require.NoError(t, err)
+		c.Data(http.StatusOK, "application/json", body)
+	})
+	for _, tc := range []struct{ key, claimed string }{{"first", "5"}, {"second", "5"}, {"other", "3"}, {"unknown", "5"}} {
+		body := `{"model":"m","metadata":{"user_id":"` + tc.claimed + `"}}`
+		w := post(e, "/v1/messages", body, "X-Test-Key", tc.key, "X-User-ID", tc.claimed, "X-Test-Session", "same-session")
+		require.Equal(t, http.StatusOK, w.Code)
+		require.Equal(t, body, w.Body.String())
+	}
+	list := sink.all()
+	require.Len(t, list, 1)
+	require.Equal(t, keys["other"].UserID, list[0].UserID)
+	require.Equal(t, int64(3), r.stats.skippedUser.Load())
+	require.Zero(t, r.stats.dropped.Load())
+}
+
+func TestExcludeUserDuringHTTPStreamBeforeQueueing(t *testing.T) {
+	sink := &captured{}
+	r := captureRuntime(DefaultConfig(), sink)
+	gin.SetMode(gin.TestMode)
+	e := gin.New()
+	e.POST("/v1/responses", r.CaptureMiddleware(), func(c *gin.Context) {
+		c.Header("Content-Type", "text/event-stream")
+		_, _ = c.Writer.WriteString("data: first\n\n")
+		c.Writer.Flush()
+		allowed := r.policy.Load()
+		next := *allowed
+		next.cfg.ExcludedUserIDs = []int64{3}
+		r.policy.Store(&next)
+		_, _ = c.Writer.WriteString("data: last\n\n")
+		r.policy.Store(allowed) // even if removed before EOF, this stream stays skipped
+	})
+	w := post(e, "/v1/responses", `{"model":"m","stream":true}`)
+	require.Equal(t, "data: first\n\ndata: last\n\n", w.Body.String())
+	require.Empty(t, sink.all())
+	require.Equal(t, int64(1), r.stats.skippedUser.Load())
+}
+
 func TestEncodeExchangeBodies(t *testing.T) {
 	var gz bytes.Buffer
 	zw := gzip.NewWriter(&gz)
@@ -220,5 +278,74 @@ func TestCaptureWebSocketWithContextTakeover(t *testing.T) {
 		var doc map[string]any
 		require.NoError(t, json.Unmarshal(encodeExchange(1, x), &doc))
 		require.Len(t, doc["response"], 2)
+	}
+}
+
+func TestWebSocketUserExclusionDoesNotInterruptConversation(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		startExcluded bool
+		wantArchived  int
+	}{{"excluded at handshake", true, 0}, {"excluded during second turn", false, 1}} {
+		t.Run(tc.name, func(t *testing.T) {
+			sink := &captured{}
+			r := captureRuntime(DefaultConfig(), sink)
+			allowed := r.policy.Load()
+			excluded := *allowed
+			excluded.cfg.ExcludedUserIDs = []int64{3}
+			if tc.startExcluded {
+				r.policy.Store(&excluded)
+			}
+			gin.SetMode(gin.TestMode)
+			e := gin.New()
+			done, teeInstalled := make(chan struct{}), make(chan bool, 1)
+			e.GET("/v1/responses", func(c *gin.Context) { c.Next(); close(done) }, r.CaptureMiddleware(), func(c *gin.Context) {
+				_, ok := c.Writer.(*hijackTee)
+				teeInstalled <- ok
+				conn, err := websocket.Accept(c.Writer, c.Request, nil)
+				if err != nil {
+					return
+				}
+				defer conn.CloseNow()
+				ctx := c.Request.Context()
+				for i := range 3 {
+					_, msg, err := conn.Read(ctx)
+					if err != nil {
+						return
+					}
+					switch i {
+					case 1:
+						r.policy.Store(&excluded) // the incoming turn is already open
+					case 2:
+						r.policy.Store(allowed) // never resume a half-observed connection
+					}
+					if err := conn.Write(ctx, websocket.MessageText, []byte(`{"type":"response.completed","echo":`+string(msg)+`}`)); err != nil {
+						return
+					}
+				}
+			})
+			srv := httptest.NewServer(e)
+			defer srv.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			conn, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(srv.URL, "http")+"/v1/responses", nil)
+			require.NoError(t, err)
+			defer conn.CloseNow()
+			require.Equal(t, !tc.startExcluded, <-teeInstalled)
+			for i := range 3 {
+				msg := `{"model":"m","turn":` + itoa(i) + `}`
+				require.NoError(t, conn.Write(ctx, websocket.MessageText, []byte(msg)))
+				_, resp, err := conn.Read(ctx)
+				require.NoError(t, err)
+				require.Equal(t, `{"type":"response.completed","echo":`+msg+`}`, string(resp))
+			}
+			select {
+			case <-done:
+			case <-ctx.Done():
+				t.Fatal("gateway handler did not finish")
+			}
+			require.Len(t, sink.all(), tc.wantArchived)
+			require.Equal(t, int64(1), r.stats.skippedUser.Load())
+		})
 	}
 }

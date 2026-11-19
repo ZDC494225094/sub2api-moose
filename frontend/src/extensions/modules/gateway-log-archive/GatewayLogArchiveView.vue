@@ -75,7 +75,7 @@
             <span class="kpi-label"><Icon name="chart" size="sm" />本次运行</span>
             <span class="kpi-value">{{ status.sessions_archived.toLocaleString() }} <small class="text-sm font-medium text-gray-500 dark:text-dark-400">个会话</small></span>
             <span class="kpi-sub">
-              采集 {{ status.captured.toLocaleString() }} · 丢弃 {{ status.dropped }} ·
+              采集 {{ status.captured.toLocaleString() }} · <template v-if="status.skipped_user != null">按用户跳过 {{ status.skipped_user }} · </template>丢弃 {{ status.dropped }} ·
               <span :class="{ 'text-red-600 dark:text-red-400': status.upload_errors > 0 }">上传失败 {{ status.upload_errors }}</span>
             </span>
           </div>
@@ -132,6 +132,12 @@
               <p class="setting-desc">记录网关对话接口的原始请求与返回</p>
             </div>
             <Toggle v-model="form.capture_enabled" />
+          </div>
+          <div>
+            <p class="setting-title">排除日志留存的用户</p>
+            <p class="setting-desc mb-2">所选用户的所有 API Key 仍可正常请求。生效后不再采集其请求和响应，也不会写入本地、RustFS 或目标存储桶。已采集的数据不受影响。</p>
+            <ExcludedUsersEditor v-if="form.excluded_user_ids" v-model="form.excluded_user_ids" />
+            <p v-else class="text-sm text-amber-600">当前节点不支持按用户排除，请先升级所有网关节点。</p>
           </div>
           <div class="setting-row">
             <div class="min-w-0">
@@ -379,6 +385,7 @@ import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
 import BucketsPanel from './BucketsPanel.vue'
 import ModelStatsPanel from './ModelStatsPanel.vue'
+import ExcludedUsersEditor from './ExcludedUsersEditor.vue'
 import {
   archiveAPI,
   type ArchiveBucket,
@@ -403,6 +410,7 @@ const tabs: { key: TabKey; label: string }[] = [
 const tab = ref<TabKey>('capture')
 const status = ref<ArchiveStatus | null>(null)
 const form = ref<ArchiveConfig | null>(null)
+let savedExclusions: number[] | undefined
 const buckets = ref<ArchiveBucket[]>([])
 const busy = ref(false)
 const error = ref('')
@@ -502,7 +510,8 @@ async function run(action: () => Promise<void>, fallback: string) {
 }
 
 function applyConfig(cfg: ArchiveConfig) {
-  form.value = { ...cfg, rules: (cfg.rules || []).map(r => ({ ...r })) }
+  savedExclusions = cfg.excluded_user_ids
+  form.value = { ...cfg, rules: (cfg.rules || []).map(r => ({ ...r })), excluded_user_ids: savedExclusions?.slice() }
 }
 
 async function loadStatus() {
@@ -523,7 +532,13 @@ async function loadBuckets() {
 
 async function saveConfig() {
   await run(async () => {
-    applyConfig(await archiveAPI.saveConfig(form.value!))
+    const input = { ...form.value! }
+    // Leave a concurrently edited list alone when only other settings changed.
+    const ids = input.excluded_user_ids
+    if (ids && ids.length === savedExclusions?.length && ids.every((id, i) => id === savedExclusions?.[i])) delete input.excluded_user_ids
+    const saved = await archiveAPI.saveConfig(input)
+    if (input.excluded_user_ids && !saved.excluded_user_ids) throw new Error('该节点不支持保存排除名单，请升级所有网关节点后重试。')
+    applyConfig(saved)
     notice.value = '采集配置已保存，几秒内生效。'
     setTimeout(loadStatus, 2500)
   }, '保存失败')

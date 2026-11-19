@@ -73,16 +73,12 @@ func (h *Handler) getConfig(c *gin.Context) {
 
 func (h *Handler) saveConfig(c *gin.Context) {
 	req := DefaultConfig()
+	req.ExcludedUserIDs = nil // omitted or null keeps the saved list; [] clears it
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "配置格式错误")
 		return
 	}
 	ctx := c.Request.Context()
-	stored, _, err := h.Runtime.Store.Config(ctx)
-	if response.ErrorFrom(c, err) {
-		return
-	}
-	req.keepStorageState(stored)
 	if err := req.Normalize(); err != nil {
 		response.BadRequest(c, err.Error())
 		return

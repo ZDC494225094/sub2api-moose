@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -20,8 +21,7 @@ import (
 // Responses WebSocket capture observes the hijacked connection passively: the
 // bytes are tee'd into an RFC 6455 frame parser (with permessage-deflate) and
 // never altered. A parser failure only stops capture for that connection.
-func (r *Runtime) captureWebSocket(c *gin.Context, policy *capturePolicy) {
-	who := r.identity(c)
+func (r *Runtime) captureWebSocket(c *gin.Context, policy *capturePolicy, who Identity) {
 	headerSession := ""
 	if r.Hooks.HeaderSessionID != nil {
 		headerSession = limit(strings.TrimSpace(r.Hooks.HeaderSessionID(c)), 255)
@@ -58,7 +58,7 @@ func (h *hijackTee) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	// library from brw.Reader; observe them without consuming.
 	if n := brw.Reader.Buffered(); n > 0 {
 		if b, peekErr := brw.Reader.Peek(n); peekErr == nil {
-			h.ws.client.feed(b)
+			h.ws.observe(&h.ws.client, b)
 		}
 	}
 	tee := &teeConn{Conn: conn, ws: h.ws}
@@ -75,7 +75,7 @@ type teeConn struct {
 func (t *teeConn) Read(p []byte) (int, error) {
 	n, err := t.Conn.Read(p)
 	if n > 0 {
-		t.ws.client.feed(p[:n])
+		t.ws.observe(&t.ws.client, p[:n])
 	}
 	return n, err
 }
@@ -83,7 +83,7 @@ func (t *teeConn) Read(p []byte) (int, error) {
 func (t *teeConn) Write(p []byte) (int, error) {
 	n, err := t.Conn.Write(p)
 	if n > 0 {
-		t.ws.server.feed(p[:n])
+		t.ws.observe(&t.ws.server, p[:n])
 	}
 	return n, err
 }
@@ -99,14 +99,39 @@ type wsCapture struct {
 	session   string
 	metadata  func(string) string
 
-	client wsParser
-	server wsParser
+	client  wsParser
+	server  wsParser
+	stopped atomic.Bool
 
 	mu      sync.Mutex
 	cur     *Exchange
 	curSize int
 	seq     int
 	closed  bool
+}
+
+// Stop observing an excluded connection without disturbing its wire traffic.
+// Never restart a parser midstream: later bytes may refer to a skipped frame
+// or compression dictionary. A new connection gets a fresh policy decision.
+func (w *wsCapture) observe(parser *wsParser, data []byte) {
+	if w.stopped.Load() {
+		return
+	}
+	policy := w.runtime.policy.Load()
+	if policy == nil || policy.cfg.excludesUser(w.who.UserID) {
+		if !w.stopped.Swap(true) {
+			w.mu.Lock()
+			w.closed, w.cur = true, nil
+			w.mu.Unlock()
+			w.client.discard()
+			w.server.discard()
+			if policy != nil {
+				w.runtime.stats.skippedUser.Add(1)
+			}
+		}
+		return
+	}
+	parser.feed(data)
 }
 
 func (w *wsCapture) negotiate(ext string) {
@@ -194,7 +219,7 @@ func (w *wsCapture) emitLocked() {
 		x.SessionID = "ws-" + w.requestID
 	}
 	finishExchange(x)
-	w.runtime.submit(w.policy, x)
+	w.runtime.submit(x)
 }
 
 func (w *wsCapture) close() {
@@ -235,6 +260,13 @@ type wsParser struct {
 // Compressed payloads are buffered whole (they must be inflated to keep the
 // context-takeover window in sync); beyond this the direction stops capture.
 const maxCompressedMessage = 256 << 20
+
+func (p *wsParser) discard() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.broken = true
+	p.msg, p.window, p.head = nil, nil, nil
+}
 
 func (p *wsParser) feed(b []byte) {
 	p.mu.Lock()

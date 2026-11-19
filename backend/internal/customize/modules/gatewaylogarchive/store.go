@@ -112,32 +112,46 @@ func (s *Store) ready() error {
 	return nil
 }
 
-// Config loads the capture configuration (storage lives in Buckets).
-func (s *Store) Config(ctx context.Context) (Config, *time.Time, error) {
-	cfg := DefaultConfig()
+func (s *Store) configRow(ctx context.Context) (string, *time.Time, error) {
 	if err := s.ready(); err != nil {
-		return cfg, nil, err
+		return "", nil, err
 	}
 	var raw string
-	var updated sql.NullTime
-	err := s.DB.QueryRowContext(ctx, `SELECT config, updated_at FROM gateway_log_archive_config WHERE id = 1`).Scan(&raw, &updated)
+	var at *time.Time
+	err := s.DB.QueryRowContext(ctx, `SELECT config, updated_at FROM gateway_log_archive_config WHERE id = 1`).Scan(&raw, &at)
 	if errors.Is(err, sql.ErrNoRows) {
-		return cfg, nil, nil
+		return "", nil, nil
 	}
 	if err != nil {
-		return cfg, nil, fmt.Errorf("gateway-log-archive: load config: %w", err)
+		return "", nil, fmt.Errorf("gateway-log-archive: load config: %w", err)
 	}
+	return raw, at, nil
+}
+
+func decodeConfig(raw string) (Config, error) {
+	cfg := DefaultConfig()
 	if strings.TrimSpace(raw) != "" {
 		if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
-			return DefaultConfig(), nil, fmt.Errorf("gateway-log-archive: decode config: %w", err)
+			return DefaultConfig(), fmt.Errorf("gateway-log-archive: decode config: %w", err)
 		}
 	}
-	_ = cfg.Normalize()
-	var at *time.Time
-	if updated.Valid {
-		at = &updated.Time
+	if err := cfg.Normalize(); err != nil {
+		return DefaultConfig(), fmt.Errorf("gateway-log-archive: invalid config: %w", err)
 	}
-	return cfg, at, nil
+	if cfg.ExcludedUserIDs == nil {
+		cfg.ExcludedUserIDs = []int64{}
+	}
+	return cfg, nil
+}
+
+// Config loads the capture configuration (storage lives in Buckets).
+func (s *Store) Config(ctx context.Context) (Config, *time.Time, error) {
+	raw, at, err := s.configRow(ctx)
+	if err != nil {
+		return DefaultConfig(), nil, err
+	}
+	cfg, err := decodeConfig(raw)
+	return cfg, at, err
 }
 
 func (s *Store) decrypt(v string) (string, error) {
@@ -160,20 +174,38 @@ func (s *Store) encrypt(v string) (string, error) {
 // SaveConfig persists the capture configuration; bucket credentials are kept
 // in gateway_log_archive_buckets and never pass through here.
 func (s *Store) SaveConfig(ctx context.Context, cfg Config) error {
-	if err := s.ready(); err != nil {
-		return err
+	// Compare the raw row like legacy bucket adoption. If a peer changed it
+	// since our read, re-merge so an omitted list never rolls back its edit.
+	for range 3 {
+		before, _, err := s.configRow(ctx)
+		if err != nil {
+			return err
+		}
+		stored, err := decodeConfig(before)
+		if err != nil {
+			return err
+		}
+		next := cfg
+		next.keepStorageState(stored)
+		if next.ExcludedUserIDs == nil {
+			next.ExcludedUserIDs = stored.ExcludedUserIDs
+		}
+		raw, err := json.Marshal(next)
+		if err != nil {
+			return err
+		}
+		res, err := s.DB.ExecContext(ctx, `
+			INSERT INTO gateway_log_archive_config (id, config, updated_at) VALUES (1, $1, CURRENT_TIMESTAMP)
+			ON CONFLICT (id) DO UPDATE SET config = EXCLUDED.config, updated_at = CURRENT_TIMESTAMP
+			WHERE gateway_log_archive_config.config = $2`, string(raw), before)
+		if err != nil {
+			return fmt.Errorf("gateway-log-archive: save config: %w", err)
+		}
+		if n, err := res.RowsAffected(); err != nil || n == 1 {
+			return err
+		}
 	}
-	raw, err := json.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-	_, err = s.DB.ExecContext(ctx, `
-		INSERT INTO gateway_log_archive_config (id, config, updated_at) VALUES (1, $1, CURRENT_TIMESTAMP)
-		ON CONFLICT (id) DO UPDATE SET config = EXCLUDED.config, updated_at = CURRENT_TIMESTAMP`, string(raw))
-	if err != nil {
-		return fmt.Errorf("gateway-log-archive: save config: %w", err)
-	}
-	return nil
+	return errors.New("采集配置已被其他节点修改，请重新加载后保存")
 }
 
 const bundleColumns = `id, node_id, day, model_key, part, file_name, local_path, status, size_bytes, entry_count,

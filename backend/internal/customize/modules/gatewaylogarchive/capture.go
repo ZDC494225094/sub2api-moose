@@ -106,13 +106,22 @@ func (r *Runtime) CaptureMiddleware() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		switch classifyRoute(c) {
-		case routeHTTP:
-			r.captureHTTP(c, policy)
-		case routeWebSocket:
-			r.captureWebSocket(c, policy)
-		default:
+		route := classifyRoute(c)
+		if route == routeNone {
 			c.Next()
+			return
+		}
+		who := r.identity(c)
+		if policy.cfg.excludesUser(who.UserID) {
+			r.stats.skippedUser.Add(1)
+			c.Next()
+			return
+		}
+		switch route {
+		case routeHTTP:
+			r.captureHTTP(c, policy, who)
+		case routeWebSocket:
+			r.captureWebSocket(c, policy, who)
 		}
 	}
 }
@@ -197,7 +206,7 @@ func redactQuery(raw string) string {
 	return values.Encode()
 }
 
-func (r *Runtime) captureHTTP(c *gin.Context, policy *capturePolicy) {
+func (r *Runtime) captureHTTP(c *gin.Context, policy *capturePolicy, who Identity) {
 	body, err := httputil.ReadRequestBodyWithPrealloc(c.Request)
 	if err != nil {
 		status, message := http.StatusBadRequest, "Failed to read request body"
@@ -221,14 +230,16 @@ func (r *Runtime) captureHTTP(c *gin.Context, policy *capturePolicy) {
 		return
 	}
 	started := time.Now()
-	who := r.identity(c)
 	sid := r.sessionID(c, body)
 	reqType := c.GetHeader("Content-Type")
-	tee := &responseTee{ResponseWriter: c.Writer, limit: policy.maxBody}
+	tee := &responseTee{ResponseWriter: c.Writer, limit: policy.maxBody, runtime: r, policy: policy, userID: who.UserID}
 	c.Writer = tee
 	defer func() { c.Writer = tee.ResponseWriter }()
 	c.Next()
-	captured, truncated := tee.finish()
+	captured, truncated, keep := tee.finish()
+	if !keep {
+		return
+	}
 	status := tee.Status()
 	if policy.cfg.SuccessOnly && (status < 200 || status > 299) {
 		r.stats.skippedStatus.Add(1)
@@ -262,7 +273,7 @@ func (r *Runtime) captureHTTP(c *gin.Context, policy *capturePolicy) {
 		ResponseTrunc:  truncated,
 	}
 	finishExchange(x)
-	r.submit(policy, x)
+	r.submit(x)
 }
 
 // finishExchange assigns the session identity; requests without a client
@@ -278,7 +289,17 @@ func finishExchange(x *Exchange) {
 	}
 }
 
-func (r *Runtime) submit(policy *capturePolicy, x *Exchange) {
+func (r *Runtime) submit(x *Exchange) {
+	// HTTP streams and WebSocket turns may outlive a config refresh. Check
+	// the current policy at admission, before any spool, index or bucket write.
+	policy := r.policy.Load()
+	if policy == nil {
+		return
+	}
+	if policy.cfg.excludesUser(x.UserID) {
+		r.stats.skippedUser.Add(1)
+		return
+	}
 	if policy.submit != nil && policy.submit(x) {
 		r.stats.captured.Add(1)
 		return
@@ -290,6 +311,9 @@ func (r *Runtime) submit(policy *capturePolicy, x *Exchange) {
 // bytes. Writes after finish (late keep-alive goroutines) pass through only.
 type responseTee struct {
 	gin.ResponseWriter
+	runtime   *Runtime
+	policy    *capturePolicy
+	userID    int64
 	mu        sync.Mutex
 	buf       bytes.Buffer
 	limit     int
@@ -302,6 +326,18 @@ func (t *responseTee) record(p []byte) {
 	defer t.mu.Unlock()
 	if t.closed || len(p) == 0 {
 		return
+	}
+	// A stream can span both addition to and removal from the exclusion list.
+	// Once skipped, discard the entire exchange even if capture resumes later.
+	if current := t.runtime.policy.Load(); current != t.policy {
+		t.policy = current
+		if current == nil || current.cfg.excludesUser(t.userID) {
+			t.closed, t.buf = true, bytes.Buffer{}
+			if current != nil {
+				t.runtime.stats.skippedUser.Add(1)
+			}
+			return
+		}
 	}
 	room := t.limit - t.buf.Len()
 	if room <= 0 {
@@ -329,9 +365,10 @@ func (t *responseTee) WriteString(s string) (int, error) {
 
 func (t *responseTee) Unwrap() http.ResponseWriter { return t.ResponseWriter }
 
-func (t *responseTee) finish() ([]byte, bool) {
+func (t *responseTee) finish() (body []byte, truncated, keep bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	keep = !t.closed
 	t.closed = true
-	return t.buf.Bytes(), t.truncated
+	return t.buf.Bytes(), t.truncated, keep
 }

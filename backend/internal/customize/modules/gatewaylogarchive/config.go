@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -19,6 +20,8 @@ const (
 
 	ProviderAWS    = "aws"
 	ProviderCompat = "s3-compatible"
+
+	maxExcludedUsers = 1000
 )
 
 // ModelRule matches client-written model names with case-insensitive "*"
@@ -35,6 +38,7 @@ type Config struct {
 	CaptureEnabled     bool        `json:"capture_enabled"`
 	Mode               string      `json:"mode"`
 	Rules              []ModelRule `json:"rules"`
+	ExcludedUserIDs    []int64     `json:"excluded_user_ids"`
 	SuccessOnly        bool        `json:"success_only"`
 	MaxFileSizeMB      int64       `json:"max_file_size_mb"`
 	RedactPII          bool        `json:"redact_pii"`
@@ -93,6 +97,7 @@ func DefaultConfig() Config {
 	return Config{
 		Mode:               ModeAll,
 		Rules:              []ModelRule{},
+		ExcludedUserIDs:    []int64{},
 		SuccessOnly:        true,
 		MaxFileSizeMB:      10240,
 		RedactPII:          true,
@@ -122,6 +127,15 @@ func clamp(v, lo, hi, def int64) int64 {
 // Normalize trims and validates the capture configuration.
 func (c *Config) Normalize() error {
 	def := DefaultConfig()
+	// Sort once on load/save; the gateway only searches this immutable slice.
+	slices.Sort(c.ExcludedUserIDs)
+	c.ExcludedUserIDs = slices.Compact(c.ExcludedUserIDs)
+	if ids := c.ExcludedUserIDs; len(ids) > 0 && (ids[0] <= 0 || ids[len(ids)-1] > 1<<53-1) {
+		return errors.New("排除用户 ID 必须是 1 至 9007199254740991 之间的整数")
+	}
+	if len(c.ExcludedUserIDs) > maxExcludedUsers {
+		return errors.New("最多可排除 1000 个用户")
+	}
 	c.Mode = strings.TrimSpace(c.Mode)
 	if c.Mode != ModeSelected {
 		c.Mode = ModeAll
@@ -165,6 +179,16 @@ func (c *Config) Normalize() error {
 		c.MinFreeDiskGB = 10000
 	}
 	return nil
+}
+
+// Without a verified owner, a nonempty exclusion list cannot be enforced:
+// forward the request but skip its archive copy.
+func (c *Config) excludesUser(userID int64) bool {
+	if len(c.ExcludedUserIDs) == 0 {
+		return false
+	}
+	_, found := slices.BinarySearch(c.ExcludedUserIDs, userID)
+	return userID <= 0 || found
 }
 
 // ModelKey returns the archive name for a model and whether it is captured.

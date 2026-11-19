@@ -68,6 +68,31 @@ func TestConfigNormalizeClampsCaptureSettings(t *testing.T) {
 	require.Error(t, c.Normalize(), "selected mode needs a rule")
 }
 
+func TestExcludedUsersNormalizeAndRoundTrip(t *testing.T) {
+	cfg := DefaultConfig()
+	require.False(t, cfg.excludesUser(0), "legacy empty list keeps existing behavior")
+	cfg.ExcludedUserIDs = []int64{41, 7, 41}
+	require.NoError(t, cfg.Normalize())
+	require.Equal(t, []int64{7, 41}, cfg.ExcludedUserIDs)
+	require.True(t, cfg.excludesUser(41))
+	require.True(t, cfg.excludesUser(0), "an unknown owner must not bypass a configured list")
+	require.False(t, cfg.excludesUser(9))
+	raw, err := json.Marshal(cfg)
+	require.NoError(t, err)
+	var restored Config
+	require.NoError(t, json.Unmarshal(raw, &restored))
+	require.Equal(t, cfg.ExcludedUserIDs, restored.ExcludedUserIDs)
+	for _, id := range []int64{-1, 0, 1 << 53} {
+		cfg.ExcludedUserIDs = []int64{1, id}
+		require.Error(t, cfg.Normalize())
+	}
+	cfg.ExcludedUserIDs = make([]int64, maxExcludedUsers+1)
+	for i := range cfg.ExcludedUserIDs {
+		cfg.ExcludedUserIDs[i] = int64(i + 1)
+	}
+	require.Error(t, cfg.Normalize())
+}
+
 func TestModelKeySelectionAndAliases(t *testing.T) {
 	cfg := Config{Mode: ModeSelected, Rules: []ModelRule{{Pattern: "claude-opus-5*", Alias: "Opus5"}, {Pattern: "gpt-6.1-sol"}}}
 	require.NoError(t, cfg.Normalize())

@@ -9,6 +9,8 @@ export interface ArchiveConfig {
   capture_enabled: boolean
   mode: 'all' | 'selected'
   rules: ModelRule[]
+  /** Omitted by older nodes; an explicit empty array clears the saved list. */
+  excluded_user_ids?: number[]
   success_only: boolean
   redact_pii: boolean
   max_file_size_mb: number
@@ -129,6 +131,7 @@ export interface ArchiveStatus {
   open_bundles: OpenBundle[]
   uploading: { bundle_id: number; file_name: string; total: number; sent: number } | null
   captured: number
+  skipped_user?: number
   skipped_model: number
   skipped_status: number
   dropped: number

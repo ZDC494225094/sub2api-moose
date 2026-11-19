@@ -24,6 +24,7 @@ type StateReader interface {
 
 type stats struct {
 	captured      atomic.Int64
+	skippedUser   atomic.Int64
 	skippedModel  atomic.Int64
 	skippedStatus atomic.Int64
 	dropped       atomic.Int64
@@ -165,12 +166,20 @@ func (r *Runtime) reconcile(ctx context.Context) {
 	}
 	cfg, _, err := r.Store.Config(ctx)
 	if err != nil {
+		// An unreadable capture policy cannot safely authorize new log copies.
+		r.policy.Store(nil)
 		r.report(err)
 		return
 	}
 	all, err := r.buckets(ctx)
 	if err != nil {
-		// Keep the current destinations; a read failure must not stop uploads.
+		// Keep the current destinations for uploads, but still honor the new
+		// exclusions if e.g. an unrelated bucket credential cannot be decrypted.
+		if current := r.policy.Load(); current != nil {
+			next := *current
+			next.cfg.ExcludedUserIDs = cfg.ExcludedUserIDs
+			r.policy.Store(&next)
+		}
 		r.report(err)
 		return
 	}
@@ -283,6 +292,7 @@ type RuntimeStatus struct {
 	OpenBundles      []openBundleView `json:"open_bundles"`
 	Uploading        *uploadView      `json:"uploading"`
 	Captured         int64            `json:"captured"`
+	SkippedUser      int64            `json:"skipped_user"`
 	SkippedModel     int64            `json:"skipped_model"`
 	SkippedStatus    int64            `json:"skipped_status"`
 	Dropped          int64            `json:"dropped"`
@@ -325,6 +335,7 @@ func (r *Runtime) Status(ctx context.Context) RuntimeStatus {
 		}
 	}
 	st.Captured = r.stats.captured.Load()
+	st.SkippedUser = r.stats.skippedUser.Load()
 	st.SkippedModel = r.stats.skippedModel.Load()
 	st.SkippedStatus = r.stats.skippedStatus.Load()
 	st.Dropped = r.stats.dropped.Load()

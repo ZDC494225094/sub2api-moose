@@ -1,11 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { createI18n } from 'vue-i18n'
+import { searchUsers } from '@/api/admin/usage'
+import { getById } from '@/api/admin/users'
+import type { AdminUser } from '@/types'
 import BucketsPanel from '../BucketsPanel.vue'
 import BucketDialog from '../BucketDialog.vue'
 import ModelStatsPanel from '../ModelStatsPanel.vue'
 import GatewayLogArchiveView from '../GatewayLogArchiveView.vue'
 import { archiveAPI, type ArchiveBucket, type ArchiveConfig, type Entry } from '../api'
 
+vi.mock(import('@/api/admin/usage'), async importOriginal => ({ ...await importOriginal(), searchUsers: vi.fn() }))
+vi.mock(import('@/api/admin/users'), async importOriginal => ({ ...await importOriginal(), getById: vi.fn() }))
 vi.mock('../api', () => ({
   archiveAPI: {
     buckets: vi.fn(),
@@ -49,6 +55,7 @@ describe('gateway log archive JSONL and privacy settings', () => {
     try {
       await flushPromises()
       expect(wrapper.text()).toContain('每行保存一个会话 JSON')
+      expect(wrapper.text()).toContain('当前节点不支持按用户排除')
       expect(wrapper.text()).toContain('不修改正常请求与响应')
       const privacy = wrapper.get('[aria-label="上传时脱敏个人信息"]')
       expect(privacy.attributes('aria-checked')).toBe('true')
@@ -58,6 +65,56 @@ describe('gateway log archive JSONL and privacy settings', () => {
       await flushPromises()
       expect(archiveAPI.saveConfig).toHaveBeenCalledWith(expect.objectContaining({ redact_pii: false, max_file_size_mb: 20480 }))
       expect(wrapper.text()).toContain('采集配置已保存')
+    } finally {
+      wrapper.unmount()
+      vi.clearAllTimers()
+      vi.useRealTimers()
+    }
+  })
+
+  it('loads, searches, edits and explicitly clears excluded users without resending an untouched list', async () => {
+    vi.resetAllMocks()
+    vi.useFakeTimers()
+    let config: ArchiveConfig = {
+      capture_enabled: true, mode: 'all', rules: [], success_only: true, redact_pii: true, excluded_user_ids: [7],
+      max_file_size_mb: 10240, session_idle_seconds: 1800, max_body_mb: 64, keep_local_hours: 0, entry_retention_days: 90, min_free_disk_gb: 5,
+    }
+    vi.mocked(archiveAPI.getConfig).mockResolvedValue(config)
+    vi.mocked(archiveAPI.saveConfig).mockImplementation(async input => (config = { ...config, ...input }))
+    vi.mocked(archiveAPI.buckets).mockResolvedValue({ items: [], unattributed: { bundle_count: 0, size_bytes: 0 } })
+    vi.mocked(searchUsers).mockResolvedValue([{ id: 7, email: 'existing@example.org', deleted: false }, { id: 12, email: 'user@example.org', deleted: false }])
+    vi.mocked(getById).mockResolvedValue({ id: 31, email: 'other@example.org' } as AdminUser)
+    const wrapper = mount(GatewayLogArchiveView, { global: {
+      stubs: { ...stubs, teleport: true }, plugins: [createI18n({ legacy: false, locale: 'zh', messages: { zh: { common: { loading: '加载中' } } } })],
+    } })
+    const save = async () => {
+      await wrapper.findAll('button').find(b => b.text() === '保存采集配置')!.trigger('click')
+      await flushPromises()
+      return vi.mocked(archiveAPI.saveConfig).mock.lastCall![0]
+    }
+    const search = async (query: string) => {
+      await wrapper.get('[aria-label="添加排除用户"]').trigger('click')
+      await wrapper.get('input[aria-label="搜索用户 ID、邮箱或用户名"]').setValue(query)
+      await vi.advanceTimersByTimeAsync(310)
+      await flushPromises()
+    }
+    try {
+      await flushPromises()
+      expect(wrapper.get('[aria-label="排除用户列表"]').text()).toContain('#7')
+      expect(getById).not.toHaveBeenCalled()
+      expect(await save()).not.toHaveProperty('excluded_user_ids')
+      await search('example')
+      expect(searchUsers).toHaveBeenCalledWith('example')
+      expect(wrapper.findAll('[role="option"]')).toHaveLength(1)
+      await wrapper.get('[role="option"]').trigger('click')
+      await search('31')
+      expect(getById).toHaveBeenCalledWith(31, true)
+      await wrapper.get('[role="option"]').trigger('click')
+      await wrapper.get('[aria-label="移除排除用户 7"]').trigger('click')
+      expect((await save()).excluded_user_ids).toEqual([12, 31])
+      await wrapper.get('[aria-label="移除排除用户 12"]').trigger('click')
+      await wrapper.get('[aria-label="移除排除用户 31"]').trigger('click')
+      expect((await save()).excluded_user_ids).toEqual([])
     } finally {
       wrapper.unmount()
       vi.clearAllTimers()

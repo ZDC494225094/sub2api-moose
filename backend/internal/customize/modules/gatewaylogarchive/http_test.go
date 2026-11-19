@@ -137,6 +137,62 @@ func TestRuntimeNeedsAnEnabledBucket(t *testing.T) {
 	}
 }
 
+// Two nodes share only the database. Old admin clients can still save other
+// settings, and each node uses its local snapshot until the next reconcile.
+func TestUserExclusionsPersistAndRefreshAcrossNodes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := sqliteStore(t)
+	state := &toggle{}
+	state.on.Store(true)
+	ctx := context.Background()
+	_, err := store.CreateBucket(ctx, BucketConfig{Bucket: "archive", Enabled: true})
+	require.NoError(t, err)
+	var nodes []*Runtime
+	for range 2 {
+		r := NewRuntime(&Store{DB: store.DB}, state, Hooks{Identity: func(*gin.Context) Identity { return Identity{UserID: 3, APIKeyID: 12} }}, t.TempDir())
+		r.repo = newMemStore()
+		r.objects = func(BucketConfig) (objectStore, error) { return newMemObjects(), nil }
+		nodes = append(nodes, r)
+		t.Cleanup(func() { state.on.Store(false); r.reconcile(ctx) })
+	}
+	h := &Handler{Runtime: nodes[0]}
+	admin := gin.New()
+	h.Register(admin.Group("/admin"), customize.NewManager(flagStore{"true"}))
+	request := func(method, payload string, status int) string {
+		w := httptest.NewRecorder()
+		admin.ServeHTTP(w, httptest.NewRequest(method, "/admin/gateway-log-archive/config", strings.NewReader(payload)))
+		require.Equal(t, status, w.Code, w.Body.String())
+		return w.Body.String()
+	}
+	require.Contains(t, request(http.MethodGet, "", 200), `"excluded_user_ids":[]`)
+	save := func(extra, want string) {
+		t.Helper()
+		body := request(http.MethodPut, `{"capture_enabled":true,"min_free_disk_gb":0`+extra+`}`, 200)
+		require.Contains(t, body, `"excluded_user_ids":`+want)
+	}
+	save(`,"excluded_user_ids":[9,3,9]`, `[3,9]`)
+	save(``, `[3,9]`)
+	save(`,"excluded_user_ids":null`, `[3,9]`)
+	for _, ids := range []string{`[0]`, `[-1]`, `[3.5]`, `["3"]`} {
+		request(http.MethodPut, `{"excluded_user_ids":`+ids+`}`, http.StatusBadRequest)
+	}
+	for _, r := range nodes {
+		r.reconcile(ctx)
+		require.NotNil(t, r.policy.Load())
+		w := post(gatewayEngine(r), "/v1/messages", `{"model":"x"}`)
+		require.Equal(t, http.StatusOK, w.Code)
+		require.Equal(t, int64(1), r.stats.skippedUser.Load())
+		require.Zero(t, r.stats.captured.Load())
+	}
+	save(`,"excluded_user_ids":[]`, `[]`)
+	for _, r := range nodes {
+		r.reconcile(ctx)
+		w := post(gatewayEngine(r), "/v1/messages", `{"model":"x"}`)
+		require.Equal(t, http.StatusOK, w.Code)
+		require.Equal(t, int64(1), r.stats.captured.Load(), "removing the exclusion resumes HTTP capture")
+	}
+}
+
 // The single bucket of earlier versions becomes bucket #1 exactly once, with
 // its credentials copied still encrypted and old uploads attributed to it.
 func TestLegacyBucketIsAdoptedOnce(t *testing.T) {
