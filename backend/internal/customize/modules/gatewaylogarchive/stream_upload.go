@@ -37,7 +37,7 @@ func (s *s3Objects) UploadStream(ctx context.Context, key string, sizeHint int64
 	stream.buffer = make([]byte, 0, int(min(sizeHint, limit)))
 	defer func() {
 		if stream.uploadID != nil {
-			s.abortMultipart(key, stream.uploadID)
+			s.abortMultipart(ctx, key, stream.uploadID)
 		}
 	}()
 	err := produce(stream)

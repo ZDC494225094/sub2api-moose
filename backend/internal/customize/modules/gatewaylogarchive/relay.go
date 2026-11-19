@@ -1,11 +1,9 @@
 package gatewaylogarchive
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -77,7 +75,7 @@ func (p *pipeline) relayPending() {
 	if !ok || p.ctx.Err() != nil {
 		return
 	}
-	rows, err := store.DB.QueryContext(p.ctx, `SELECT d.bundle_id,d.bucket_id,d.object_key,d.attempts,d.key_reserved FROM gateway_log_archive_deliveries d JOIN gateway_log_archive_buckets t ON t.id=d.bucket_id WHERE t.enabled AND t.storage_role='destination' AND d.status <> 'uploaded' AND (d.next_attempt_at IS NULL OR d.next_attempt_at <= $1) AND (d.lease_until IS NULL OR d.lease_until < $1) ORDER BY d.bundle_id,d.bucket_id LIMIT 32`, time.Now().UTC())
+	rows, err := store.DB.QueryContext(p.ctx, `SELECT d.bundle_id,d.bucket_id,d.object_key,d.attempts,d.key_reserved,d.last_error FROM gateway_log_archive_deliveries d JOIN gateway_log_archive_buckets t ON t.id=d.bucket_id WHERE t.enabled AND t.storage_role='destination' AND d.status <> 'uploaded' AND (d.next_attempt_at IS NULL OR d.next_attempt_at <= $1) AND (d.lease_until IS NULL OR d.lease_until < $1) ORDER BY d.bundle_id,d.bucket_id LIMIT 32`, time.Now().UTC())
 	if err != nil {
 		p.report(err)
 		return
@@ -85,7 +83,7 @@ func (p *pipeline) relayPending() {
 	var jobs []delivery
 	for rows.Next() {
 		var job delivery
-		if err = rows.Scan(&job.BundleID, &job.BucketID, &job.Key, &job.Attempts, &job.Reserved); err != nil {
+		if err = rows.Scan(&job.BundleID, &job.BucketID, &job.Key, &job.Attempts, &job.Reserved, &job.LastError); err != nil {
 			break
 		}
 		jobs = append(jobs, job)
@@ -148,6 +146,14 @@ func (p *pipeline) leasedRelay(store *Store, job delivery) error {
 		}
 	}()
 	defer func() { cancel(); <-done }()
+	// Use the persisted failure even if another node (or a newer binary) owns
+	// this attempt. Keep using the compatible transport for this delivery.
+	if retryRelayHTTP1(job.LastError) {
+		if err := p.relayOne(withRelayProtocol(ctx, true), store, job); err != nil {
+			return fmt.Errorf("%s：%w", relayHTTP1Retry, err)
+		}
+		return nil
+	}
 	return p.relayOne(ctx, store, job)
 }
 
@@ -183,7 +189,7 @@ func (p *pipeline) relayOne(ctx context.Context, store *Store, job delivery) err
 		return err
 	}
 	if !job.Reserved {
-		key, err := p.chooseKey(target, to, &row)
+		key, err := p.chooseKey(ctx, target, to, &row)
 		if err != nil {
 			return err
 		}
@@ -201,38 +207,7 @@ func (p *pipeline) relayOne(ctx context.Context, store *Store, job delivery) err
 	if len(entries) != row.EntryCount || len(entries) == 0 {
 		return errors.New("主归档索引不完整")
 	}
-	var size int64
-	err = to.UploadStream(ctx, job.Key, row.SizeBytes, func(out io.Writer) error {
-		body, err := from.OpenRange(ctx, row.ObjectKey, 0, row.SizeBytes)
-		if err != nil {
-			return err
-		}
-		defer body.Close()
-		reader := bufio.NewReaderSize(body, 64<<10)
-		var offset int64
-		for _, entry := range entries {
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-			if entry.Offset != offset {
-				return errors.New("主归档索引偏移不连续")
-			}
-			line, err := writeIndexedLine(out, func(dst io.Writer) error { return copyVerified(ctx, dst, reader, entry, redact && !row.StageRedacted) })
-			if err != nil {
-				return err
-			}
-			lf, err := reader.ReadByte()
-			if err != nil || lf != '\n' {
-				return errors.New("主归档缺少 JSONL 换行")
-			}
-			offset += entry.USize + 1
-			size += line.USize + 1
-		}
-		if offset != row.SizeBytes {
-			return errors.New("主归档大小不符")
-		}
-		return nil
-	}, nil)
+	size, err := transferRelay(ctx, from, to, row, job.Key, entries, redact && !row.StageRedacted)
 	if err != nil {
 		return err
 	}

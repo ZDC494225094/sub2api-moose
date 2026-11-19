@@ -64,6 +64,18 @@ func newS3Objects(cfg BucketConfig) (objectStore, error) {
 		return nil, fmt.Errorf("load aws config: %w", err)
 	}
 	client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
+		// Clone the SDK transport *after* defaults and custom CA configuration.
+		// Only a marked relay request uses the second connection pool.
+		if base, ok := o.HTTPClient.(*awshttp.BuildableClient); ok {
+			o.HTTPClient = relayHTTPClient{auto: base, http1: base.WithTransportOptions(func(tr *http.Transport) {
+				tr.Protocols = new(http.Protocols)
+				tr.Protocols.SetHTTP1(true)
+				tr.ForceAttemptHTTP2 = false
+				if tr.TLSClientConfig != nil {
+					tr.TLSClientConfig.NextProtos = []string{"http/1.1"}
+				}
+			})}
+		}
 		if cfg.Endpoint != "" {
 			o.BaseEndpoint = aws.String(cfg.Endpoint)
 		}
@@ -186,16 +198,16 @@ feed:
 	wg.Wait()
 	close(errs)
 	if err := <-errs; err != nil {
-		s.abortMultipart(key, uploadID)
+		s.abortMultipart(ctx, key, uploadID)
 		return err
 	}
 	if ctx.Err() != nil {
-		s.abortMultipart(key, uploadID)
+		s.abortMultipart(ctx, key, uploadID)
 		return ctx.Err()
 	}
 	err = s.completeMultipart(ctx, key, uploadID, parts)
 	if err != nil {
-		s.abortMultipart(key, uploadID)
+		s.abortMultipart(ctx, key, uploadID)
 	}
 	return err
 }
@@ -244,6 +256,9 @@ func (s *s3Objects) sendPart(ctx context.Context, key string, uploadID *string, 
 		if ctx.Err() != nil {
 			break
 		}
+		// The SDK can also receive the reset while decoding the response body,
+		// after HTTPClient.Do has returned successfully.
+		relayProtocolFor(ctx).observe(err)
 	}
 	return types.CompletedPart{}, err
 }
@@ -256,8 +271,8 @@ func (s *s3Objects) completeMultipart(ctx context.Context, key string, uploadID 
 	return err
 }
 
-func (s *s3Objects) abortMultipart(key string, uploadID *string) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+func (s *s3Objects) abortMultipart(parent context.Context, key string, uploadID *string) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), time.Minute)
 	defer cancel()
 	_, _ = s.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), UploadId: uploadID})
 }
@@ -280,6 +295,14 @@ func (s *s3Objects) OpenRange(ctx context.Context, key string, offset, length in
 	})
 	if err != nil {
 		return nil, err
+	}
+	// Never splice bytes from offset zero into a resumed stream if an endpoint
+	// ignores Range. A range reaching EOF can legitimately be shorter.
+	rangeHeader := aws.ToString(out.ContentRange)
+	if (rangeHeader != "" && !strings.HasPrefix(rangeHeader, fmt.Sprintf("bytes %d-", offset))) ||
+		(rangeHeader == "" && (offset != 0 || aws.ToInt64(out.ContentLength) > length)) {
+		_ = out.Body.Close()
+		return nil, fmt.Errorf("对象存储未返回请求的 Range（起始字节 %d，长度 %d）", offset, length)
 	}
 	return out.Body, nil
 }
@@ -491,17 +514,17 @@ func (p *pipeline) failUpload(row *Bundle, err error) {
 
 // chooseKey keeps "<model>-<day>.jsonl" unless the object already exists (for
 // example written by another deployment); then the next free part name.
-func (p *pipeline) chooseKey(cfg BucketConfig, objects objectStore, row *Bundle) (string, error) {
+func (p *pipeline) chooseKey(ctx context.Context, cfg BucketConfig, objects objectStore, row *Bundle) (string, error) {
 	for part := row.Part; part < row.Part+100; part++ {
 		key := cfg.ObjectKey(row.Day, BundleFileName(row.ModelKey, row.Day, part))
-		taken, err := p.store.ObjectKeyTaken(p.ctx, objects.Bucket(), key, row.ID)
+		taken, err := p.store.ObjectKeyTaken(ctx, objects.Bucket(), key, row.ID)
 		if err != nil {
 			return "", err
 		}
 		if taken {
 			continue
 		}
-		exists, err := objects.Exists(p.ctx, key)
+		exists, err := objects.Exists(ctx, key)
 		if err != nil {
 			// Preserve support for write-only storage credentials.
 			return key, nil
@@ -519,7 +542,7 @@ func (p *pipeline) uploadOne(cfg BucketConfig, objects objectStore, row *Bundle,
 	if _, err := os.Stat(row.LocalPath); err != nil {
 		return fmt.Errorf("%w：%v", errLocalBundleMissing, err)
 	}
-	key, err := p.chooseKey(cfg, objects, row)
+	key, err := p.chooseKey(p.ctx, cfg, objects, row)
 	if err != nil {
 		return err
 	}

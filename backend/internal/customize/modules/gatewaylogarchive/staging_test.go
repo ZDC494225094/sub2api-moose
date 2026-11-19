@@ -14,6 +14,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Simulate a destination that resets every HTTP/2 upload, including attempts
+// made by another worker. The scheduled retry must use its persisted error.
+type http1RelayTarget struct{ *memObjects }
+
+func (o http1RelayTarget) UploadStream(ctx context.Context, key string, size int64, produce func(io.Writer) error, progress func(int64)) error {
+	if !relayProtocolFor(ctx).useHTTP1() {
+		return errors.New(peerReset)
+	}
+	return o.memObjects.UploadStream(ctx, key, size, produce, progress)
+}
+
 func TestRustFSStagingFallbackRestartAndIndependentDeliveries(t *testing.T) {
 	store := sqliteStore(t)
 	ctx := context.Background()
@@ -37,7 +48,12 @@ func TestRustFSStagingFallbackRestartAndIndependentDeliveries(t *testing.T) {
 		client.name = cfg.Bucket
 		clients[cfg.ID] = client
 	}
-	factory := func(cfg BucketConfig) (objectStore, error) { return clients[cfg.ID], nil }
+	factory := func(cfg BucketConfig) (objectStore, error) {
+		if cfg.ID == masked.ID {
+			return http1RelayTarget{clients[cfg.ID]}, nil
+		}
+		return clients[cfg.ID], nil
+	}
 	all, err := store.Buckets(ctx)
 	require.NoError(t, err)
 	var pipe *pipeline
@@ -96,7 +112,6 @@ func TestRustFSStagingFallbackRestartAndIndependentDeliveries(t *testing.T) {
 	require.Empty(t, files)
 	pipe.stop(false)
 	pipe = nil
-	clients[masked.ID].fail = errors.New("external unavailable")
 	clients[primary.ID].fail = nil
 	start()
 	pipe.wakeUploader()
@@ -120,13 +135,15 @@ func TestRustFSStagingFallbackRestartAndIndependentDeliveries(t *testing.T) {
 	jobs, err := store.deliveries(ctx, row.ID)
 	require.NoError(t, err)
 	require.Equal(t, master, clients[raw.ID].objects[jobs[0].Key])
+	require.Contains(t, jobs[1].LastError, "写入目标桶 external-copy")
 	rawUploads := clients[raw.ID].uploads
 	require.NoError(t, store.Prune(ctx, time.Now().Add(time.Hour)))
 	_, err = store.Bundle(ctx, row.ID)
 	require.NoError(t, err, "pending remote copies retain source indexes")
-	clients[masked.ID].fail = nil
 	previousAttempts := clients[masked.ID].uploads
-	require.NoError(t, store.exec(ctx, `UPDATE gateway_log_archive_deliveries SET next_attempt_at=NULL WHERE bundle_id=$1`, row.ID))
+	// Old versions persisted the unadorned Go transport error. Even this
+	// pre-upgrade row should use HTTP/1.1 without intervention or a new key.
+	require.NoError(t, store.exec(ctx, `UPDATE gateway_log_archive_deliveries SET next_attempt_at=NULL,last_error=$1 WHERE bundle_id=$2 AND bucket_id=$3`, peerReset, row.ID, masked.ID))
 	other := &pipeline{ctx: ctx, store: store, objects: factory, node: "node-b", report: func(err error) { t.Log(err) }}
 	other.setConfig(DefaultConfig())
 	peer := &pipeline{ctx: ctx, store: store, objects: factory, node: "node-c", report: other.report}

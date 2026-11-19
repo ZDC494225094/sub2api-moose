@@ -275,7 +275,7 @@ func (p *pipeline) primaryKey(row *Bundle, bucket BucketConfig, objects objectSt
 	if row.ObjectKey != "" {
 		return row.ObjectKey, nil
 	}
-	key, err := p.chooseKey(bucket, objects, row)
+	key, err := p.chooseKey(p.ctx, bucket, objects, row)
 	if err != nil {
 		return "", err
 	}
