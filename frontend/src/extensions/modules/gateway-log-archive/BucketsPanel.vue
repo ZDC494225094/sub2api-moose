@@ -20,7 +20,7 @@ const deleting = ref<ArchiveBucket | null>(null)
 const busyId = ref(0)
 const tests = ref<Record<number, TestResult & { error?: string }>>({})
 
-const primaryId = computed(() => list.value.items.find(b => b.enabled)?.id ?? 0)
+const primaryId = computed(() => (list.value.items.find(b => b.enabled && b.storage_role === 'rustfs') || list.value.items.find(b => b.enabled))?.id ?? 0)
 const deleteMessage = computed(() => {
   const b = deleting.value
   if (!b) return ''
@@ -118,7 +118,7 @@ defineExpose({ reload: load })
       <div class="min-w-0 max-w-3xl">
         <h2 class="text-base font-semibold text-gray-900 dark:text-white">存储桶</h2>
         <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-dark-400">
-          归档文件按「优先级」从小到大选择启用的存储桶上传；上传失败会自动切换到下一个。每个归档文件记录所在存储桶，预览和下载会从对应存储桶读取。
+          未配置 RustFS 主归档时，按优先级上传到第一个可用桶。启用主归档后，文件留在 RustFS 并分别转存到所有启用的目标桶；每个桶按自己的设置处理个人信息。
         </p>
       </div>
       <div class="flex shrink-0 gap-2">
@@ -169,6 +169,7 @@ defineExpose({ reload: load })
               </td>
               <td class="min-w-[220px]">
                 <p class="font-medium text-gray-900 dark:text-white">{{ b.name || b.bucket }}</p>
+                <p class="text-xs text-gray-500">{{ b.storage_role === 'rustfs' ? 'RustFS 主归档' : '目标桶' }} · {{ b.privacy_mode === 'original' ? '保留原文' : b.privacy_mode === 'redact' ? '上传时脱敏' : '跟随默认脱敏设置' }}</p>
                 <p class="mt-0.5 break-all font-mono text-xs text-gray-500 dark:text-dark-400">
                   s3://{{ b.bucket }}{{ b.prefix ? '/' + b.prefix : '' }}
                 </p>

@@ -147,7 +147,7 @@ func TestInvalidUploadDocumentNeverFallsBackToRawData(t *testing.T) {
 	p := &pipeline{store: store, ctx: context.Background(), objects: func(BucketConfig) (objectStore, error) { return objects, nil }}
 	cfg := DefaultConfig()
 	p.setConfig(cfg)
-	err = p.uploadToBuckets([]BucketConfig{{ID: 1, Bucket: objects.Bucket()}}, &uploadPass{clients: map[int64]objectStore{}, down: map[int64]bool{}}, &row)
+	err = p.uploadToBuckets([]BucketConfig{{ID: 1, Bucket: objects.Bucket()}}, &uploadPass{down: map[int64]bool{}}, &row)
 	require.Error(t, err)
 	require.Zero(t, objects.uploads)
 	require.NoFileExists(t, row.LocalPath+".upload-tmp")

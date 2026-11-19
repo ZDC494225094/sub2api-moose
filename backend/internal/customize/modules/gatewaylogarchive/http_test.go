@@ -29,7 +29,7 @@ func (plainCipher) Encrypt(v string) (string, error) { return "enc:" + v, nil }
 func (plainCipher) Decrypt(v string) (string, error) { return strings.TrimPrefix(v, "enc:"), nil }
 
 var bucketRowColumns = []string{"id", "name", "provider", "bucket", "region", "endpoint", "prefix", "force_path_style",
-	"access_key_id", "secret_access_key", "session_token", "enabled", "priority", "created_at", "updated_at"}
+	"access_key_id", "secret_access_key", "session_token", "enabled", "priority", "created_at", "updated_at", "storage_role", "privacy_mode"}
 
 func migratedConfigRow() *sqlmock.Rows {
 	raw, _ := json.Marshal(Config{Mode: ModeAll, BucketsMigrated: true})
@@ -54,7 +54,7 @@ func TestAdminRoutesRequireEnabledModuleAndMaskSecrets(t *testing.T) {
 					WillReturnRows(migratedConfigRow())
 				mock.ExpectQuery("FROM gateway_log_archive_buckets ORDER BY priority, id").
 					WillReturnRows(sqlmock.NewRows(bucketRowColumns).AddRow(3, "主存储", ProviderAWS, "incoming-04-20260624", "us-east-1", "", "logs",
-						false, "enc:AKIAEXAMPLEKEY1234", "enc:very-secret-value", "enc:token-value", true, 10, now, now))
+						false, "enc:AKIAEXAMPLEKEY1234", "enc:very-secret-value", "enc:token-value", true, 10, now, now, "destination", "inherit"))
 				mock.ExpectQuery("FROM gateway_log_archive_upload_stats GROUP BY bucket_id").
 					WillReturnRows(sqlmock.NewRows([]string{"bucket_id", "bundles", "bytes"}).AddRow(3, 2, 2048).AddRow(9, 1, 512))
 			}

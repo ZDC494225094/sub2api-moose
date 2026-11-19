@@ -32,15 +32,14 @@ type preparedUpload struct {
 
 var errUploadSource = errors.New("读取或转换本地归档失败")
 
-func (p *pipeline) prepareUpload(row *Bundle) (*preparedUpload, error) {
+func (p *pipeline) prepareUpload(row *Bundle, redact bool) (*preparedUpload, error) {
 	info, err := os.Stat(row.LocalPath)
 	if err != nil {
 		return nil, fmt.Errorf("%w：%v", errLocalBundleMissing, err)
 	}
 	removeLegacyUploadTemp(row.LocalPath)
-	cfg := p.cfg.Load()
 	prepared := &preparedUpload{path: row.LocalPath, fileName: BundleFileName(row.ModelKey, row.Day, row.Part),
-		jsonl: strings.HasSuffix(row.FileName, ".jsonl"), redact: cfg != nil && cfg.RedactPII}
+		jsonl: strings.HasSuffix(row.FileName, ".jsonl"), redact: redact}
 	if prepared.jsonl && info.Size() != row.SizeBytes {
 		return nil, errors.New("本地 JSONL 大小与已封存的索引不符")
 	}

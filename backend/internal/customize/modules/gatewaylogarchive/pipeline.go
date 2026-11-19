@@ -39,12 +39,14 @@ type flushJob struct {
 }
 
 type bundle struct {
-	mu      sync.Mutex
-	row     Bundle
-	writer  archiveAppender
-	sealed  bool
-	size    atomic.Int64
-	entries atomic.Int64
+	mu          sync.Mutex
+	row         Bundle
+	writer      archiveAppender
+	sealed      bool
+	size        atomic.Int64
+	entries     atomic.Int64
+	mapKey      string
+	hasFallback atomic.Bool
 }
 
 // pipeline owns the on-disk state of one node: session spools, open bundles
@@ -58,11 +60,14 @@ type pipeline struct {
 	report  func(error)
 	stats   *stats
 
-	cfg       atomic.Pointer[Config]
-	buckets   atomic.Pointer[[]BucketConfig] // enabled, in upload order
-	maxFile   atomic.Int64
-	idle      atomic.Int64
-	keepLocal atomic.Int64
+	cfg          atomic.Pointer[Config]
+	buckets      atomic.Pointer[[]BucketConfig]
+	clientsMu    sync.Mutex
+	clients      map[int64]bucketClient
+	stageBackoff atomic.Int64
+	maxFile      atomic.Int64
+	idle         atomic.Int64
+	keepLocal    atomic.Int64
 
 	intakeMu sync.RWMutex
 	open     bool
@@ -86,6 +91,7 @@ type pipeline struct {
 	bundles   map[string]*bundle
 
 	uploadWake chan struct{}
+	relayWake  chan struct{}
 	uploading  atomic.Pointer[uploadProgress]
 
 	ctx       context.Context
@@ -104,15 +110,16 @@ type uploadProgress struct {
 func (p *pipeline) spoolDir() string  { return filepath.Join(p.dir, "spool") }
 func (p *pipeline) bundleDir() string { return filepath.Join(p.dir, "bundles") }
 
-func startPipeline(store archiveStore, objects func(BucketConfig) (objectStore, error), node, dir string, day func(time.Time) string, cfg Config, report func(error), st *stats) (*pipeline, error) {
+func startPipeline(store archiveStore, objects func(BucketConfig) (objectStore, error), node, dir string, day func(time.Time) string, cfg Config, report func(error), st *stats, buckets ...BucketConfig) (*pipeline, error) {
 	p := &pipeline{
 		store: store, objects: objects, node: node, dir: dir, day: day, report: report, stats: st,
 		open: true, in: make(chan *Exchange, intakeCapacity),
 		sessions: map[string]*sessionState{}, nextPart: map[string]int{},
 		flushReq: make(chan chan struct{}), stopSpool: make(chan bool, 1), spoolDone: make(chan struct{}),
-		jobs: make(chan flushJob, 65536), bundles: map[string]*bundle{}, uploadWake: make(chan struct{}, 1),
+		jobs: make(chan flushJob, 65536), bundles: map[string]*bundle{}, uploadWake: make(chan struct{}, 1), relayWake: make(chan struct{}, 1),
 	}
 	p.setConfig(cfg)
+	p.setBuckets(buckets)
 	for _, d := range []string{p.spoolDir(), p.bundleDir()} {
 		if err := os.MkdirAll(d, 0o700); err != nil {
 			return nil, err
@@ -130,18 +137,28 @@ func startPipeline(store archiveStore, objects func(BucketConfig) (objectStore, 
 	}
 	p.workers.Add(1)
 	go p.uploadLoop()
+	if _, ok := store.(*Store); ok {
+		p.workers.Add(1)
+		go p.relayLoop()
+	}
 	return p, nil
 }
 
-// setBuckets replaces the upload destinations (enabled buckets, upload order).
 func (p *pipeline) setBuckets(buckets []BucketConfig) {
 	list := append([]BucketConfig(nil), buckets...)
 	p.buckets.Store(&list)
+	p.clientsMu.Lock()
+	for id := range p.clients {
+		if !bucketExists(list, id) {
+			delete(p.clients, id)
+		}
+	}
+	p.clientsMu.Unlock()
 }
 
 func (p *pipeline) enabledBuckets() []BucketConfig {
 	if list := p.buckets.Load(); list != nil {
-		return *list
+		return enabledBuckets(*list)
 	}
 	return nil
 }
@@ -349,18 +366,23 @@ func (p *pipeline) flush(job flushJob) error {
 		return nil
 	}
 	day := p.day(time.Now())
-	b, err := p.acquire(day, header.ModelKey)
+	primary, staged := primaryBucket(p.enabledBuckets())
+	redact := staged && primary.redact(p.cfg.Load().RedactPII)
+	b, err := p.acquire(day, header.ModelKey, primary, redact)
 	if err != nil {
 		return fmt.Errorf("创建归档文件失败：%w", err)
 	}
-	if b.writer.Count() > 0 && b.writer.Size() >= p.maxFile.Load() {
+	if b.entries.Load() > 0 && b.size.Load() >= p.maxFile.Load() {
 		p.sealLocked(b)
 		b.mu.Unlock()
-		if b, err = p.acquire(day, header.ModelKey); err != nil {
+		if b, err = p.acquire(day, header.ModelKey, primary, redact); err != nil {
 			return fmt.Errorf("创建归档文件失败：%w", err)
 		}
 	}
 	defer b.mu.Unlock()
+	if staged {
+		return p.flushStaged(job, header, records, b, primary)
+	}
 	doc, err := openDocument(job.path, header, records)
 	if err != nil {
 		return err
@@ -398,18 +420,22 @@ func (p *pipeline) flush(job flushJob) error {
 }
 
 // acquire returns the open bundle for (day, model), locked.
-func (p *pipeline) acquire(day, modelKey string) (*bundle, error) {
+func (p *pipeline) acquire(day, modelKey string, primary BucketConfig, redact bool) (*bundle, error) {
 	key := day + "/" + modelKey
+	if primary.ID != 0 {
+		key += fmt.Sprintf("/rustfs/%d/%t", primary.ID, redact)
+	}
 	for {
 		p.bundlesMu.Lock()
 		b := p.bundles[key]
 		if b == nil {
-			created, err := p.createBundle(day, modelKey)
+			created, err := p.createBundle(day, modelKey, primary, redact)
 			if err != nil {
 				p.bundlesMu.Unlock()
 				return nil, err
 			}
 			b = created
+			b.mapKey = key
 			p.bundles[key] = b
 		}
 		p.bundlesMu.Unlock()
@@ -421,13 +447,24 @@ func (p *pipeline) acquire(day, modelKey string) (*bundle, error) {
 	}
 }
 
-func (p *pipeline) createBundle(day, modelKey string) (*bundle, error) {
+func (p *pipeline) createBundle(day, modelKey string, primary BucketConfig, redact bool) (*bundle, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if primary.ID != 0 {
+		store, ok := p.store.(*Store)
+		if !ok {
+			return nil, errors.New("归档索引不支持 RustFS")
+		}
+		row, err := store.createBundle(ctx, p.node, day, modelKey, func(string) string { return filepath.Join(p.dir, "fallback") }, &primary.ID, primary.ObjectKey("_gateway-staging", p.node), redact)
+		if err != nil {
+			return nil, err
+		}
+		return &bundle{row: row}, nil
+	}
 	dir := filepath.Join(p.bundleDir(), day)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 	row, err := p.store.CreateBundle(ctx, p.node, day, modelKey, func(file string) string { return filepath.Join(dir, file) })
 	if err != nil {
 		return nil, err
@@ -447,12 +484,20 @@ func (p *pipeline) sealLocked(b *bundle) {
 	}
 	b.sealed = true
 	p.bundlesMu.Lock()
-	if p.bundles[b.row.Day+"/"+b.row.ModelKey] == b {
-		delete(p.bundles, b.row.Day+"/"+b.row.ModelKey)
+	if p.bundles[b.mapKey] == b {
+		delete(p.bundles, b.mapKey)
 	}
 	p.bundlesMu.Unlock()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	if b.row.StageBucketID != nil {
+		if err := p.store.(*Store).closeStagedBundle(ctx, b.row.ID); err != nil {
+			p.report(err)
+			return
+		}
+		p.wakeUploader()
+		return
+	}
 	if b.writer.Count() == 0 {
 		_ = b.writer.Close()
 		_ = os.Remove(b.row.LocalPath)
@@ -504,7 +549,9 @@ func (p *pipeline) closeOpen() {
 	defer p.bundlesMu.Unlock()
 	for key, b := range p.bundles {
 		b.mu.Lock()
-		_ = b.writer.Close()
+		if b.writer != nil {
+			_ = b.writer.Close()
+		}
 		b.sealed = true
 		b.mu.Unlock()
 		delete(p.bundles, key)
@@ -584,6 +631,12 @@ func (p *pipeline) recover() error {
 	}
 	today := p.day(time.Now())
 	for _, row := range rows {
+		if row.StageBucketID != nil {
+			if err := p.store.(*Store).closeStagedBundle(ctx, row.ID); err != nil {
+				return err
+			}
+			continue
+		}
 		entries, err := p.store.BundleEntries(ctx, row.ID)
 		if err != nil {
 			return err
@@ -608,6 +661,7 @@ func (p *pipeline) recover() error {
 			continue
 		}
 		key := row.Day + "/" + row.ModelKey
+		b.mapKey = key
 		if old := p.bundles[key]; old != nil {
 			old.mu.Lock()
 			p.sealLocked(old)

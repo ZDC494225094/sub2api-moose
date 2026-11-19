@@ -24,6 +24,8 @@ type BucketConfig struct {
 	ForcePathStyle bool      `json:"force_path_style"`
 	Enabled        bool      `json:"enabled"`
 	Priority       int       `json:"priority"`
+	StorageRole    string    `json:"storage_role"`
+	PrivacyMode    string    `json:"privacy_mode"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 
@@ -40,6 +42,18 @@ const (
 // Normalize trims and validates the bucket. An "s3://bucket/prefix" value in
 // the prefix field fills Bucket and Prefix.
 func (b *BucketConfig) Normalize() error {
+	if b.StorageRole == "" {
+		b.StorageRole = "destination"
+	}
+	if b.PrivacyMode == "" {
+		b.PrivacyMode = "inherit"
+	}
+	if b.StorageRole != "destination" && b.StorageRole != "rustfs" {
+		return errors.New("未知的存储桶用途")
+	}
+	if b.PrivacyMode != "inherit" && b.PrivacyMode != "redact" && b.PrivacyMode != "original" {
+		return errors.New("未知的脱敏策略")
+	}
 	b.Name = strings.TrimSpace(b.Name)
 	if len([]rune(b.Name)) > 64 {
 		return errors.New("名称最多 64 个字符")
@@ -96,7 +110,44 @@ func (b *BucketConfig) Normalize() error {
 	return nil
 }
 
+func (b BucketConfig) redact(defaultPolicy bool) bool {
+	switch b.PrivacyMode {
+	case "original":
+		return false
+	case "inherit", "":
+		return defaultPolicy
+	default:
+		return true
+	}
+}
+
+func primaryBucket(all []BucketConfig) (BucketConfig, bool) {
+	for _, item := range all {
+		if item.Enabled && item.StorageRole == "rustfs" {
+			return item, true
+		}
+	}
+	return BucketConfig{}, false
+}
+
 var errTooManyBuckets = fmt.Errorf("最多添加 %d 个存储桶", maxBuckets)
+
+var errPrimaryAlreadyEnabled = errors.New("已有启用的 RustFS 主归档，请先停用再切换")
+var errBucketInUse = errors.New("此存储桶仍有暂存、转存或保留期内的归档引用，请停用或等待任务与索引清理")
+
+func (s *Store) checkPrimary(ctx context.Context, b BucketConfig) error {
+	if !b.Enabled || b.StorageRole != "rustfs" {
+		return nil
+	}
+	var exists bool
+	if err := s.DB.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM gateway_log_archive_buckets WHERE enabled AND storage_role='rustfs' AND id<>$1)`, b.ID).Scan(&exists); err != nil {
+		return err
+	}
+	if exists {
+		return errPrimaryAlreadyEnabled
+	}
+	return nil
+}
 
 // ObjectKey is "<prefix>/<day>/<file>".
 func (b BucketConfig) ObjectKey(day, file string) string {
@@ -145,13 +196,13 @@ func resolveBucket(all []BucketConfig, b Bundle) (BucketConfig, bool) {
 }
 
 const bucketColumns = `id, name, provider, bucket, region, endpoint, prefix, force_path_style, access_key_id, secret_access_key,
-	session_token, enabled, priority, created_at, updated_at`
+	session_token, enabled, priority, created_at, updated_at, storage_role, privacy_mode`
 
 func (s *Store) scanBucket(row scanner) (BucketConfig, error) {
 	var b BucketConfig
 	var ak, sk, token string
 	if err := row.Scan(&b.ID, &b.Name, &b.Provider, &b.Bucket, &b.Region, &b.Endpoint, &b.Prefix, &b.ForcePathStyle,
-		&ak, &sk, &token, &b.Enabled, &b.Priority, &b.CreatedAt, &b.UpdatedAt); err != nil {
+		&ak, &sk, &token, &b.Enabled, &b.Priority, &b.CreatedAt, &b.UpdatedAt, &b.StorageRole, &b.PrivacyMode); err != nil {
 		return b, err
 	}
 	for _, item := range []struct {
@@ -210,10 +261,16 @@ func (s *Store) encryptedCredentials(b BucketConfig) (ak, sk, token string, err 
 }
 
 func (s *Store) CreateBucket(ctx context.Context, b BucketConfig) (BucketConfig, error) {
+	if err := b.Normalize(); err != nil {
+		return b, err
+	}
 	if err := s.ensureBuckets(ctx); err != nil {
 		return BucketConfig{}, err
 	}
 	var n int
+	if err := s.checkPrimary(ctx, b); err != nil {
+		return b, err
+	}
 	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM gateway_log_archive_buckets`).Scan(&n); err != nil {
 		return BucketConfig{}, err
 	}
@@ -226,12 +283,18 @@ func (s *Store) CreateBucket(ctx context.Context, b BucketConfig) (BucketConfig,
 	}
 	return s.scanBucket(s.DB.QueryRowContext(ctx, `
 		INSERT INTO gateway_log_archive_buckets (name, provider, bucket, region, endpoint, prefix, force_path_style,
-			access_key_id, secret_access_key, session_token, enabled, priority)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING `+bucketColumns,
-		b.Name, b.Provider, b.Bucket, b.Region, b.Endpoint, b.Prefix, b.ForcePathStyle, ak, sk, token, b.Enabled, b.Priority))
+			access_key_id, secret_access_key, session_token, enabled, priority, storage_role, privacy_mode)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING `+bucketColumns,
+		b.Name, b.Provider, b.Bucket, b.Region, b.Endpoint, b.Prefix, b.ForcePathStyle, ak, sk, token, b.Enabled, b.Priority, b.StorageRole, b.PrivacyMode))
 }
 
 func (s *Store) UpdateBucket(ctx context.Context, b BucketConfig) (BucketConfig, error) {
+	if err := b.Normalize(); err != nil {
+		return b, err
+	}
+	if err := s.checkPrimary(ctx, b); err != nil {
+		return b, err
+	}
 	ak, sk, token, err := s.encryptedCredentials(b)
 	if err != nil {
 		return BucketConfig{}, err
@@ -239,14 +302,23 @@ func (s *Store) UpdateBucket(ctx context.Context, b BucketConfig) (BucketConfig,
 	return s.scanBucket(s.DB.QueryRowContext(ctx, `
 		UPDATE gateway_log_archive_buckets SET name = $1, provider = $2, bucket = $3, region = $4, endpoint = $5, prefix = $6,
 			force_path_style = $7, access_key_id = $8, secret_access_key = $9, session_token = $10, enabled = $11, priority = $12,
-			updated_at = CURRENT_TIMESTAMP
-		WHERE id = $13 RETURNING `+bucketColumns,
-		b.Name, b.Provider, b.Bucket, b.Region, b.Endpoint, b.Prefix, b.ForcePathStyle, ak, sk, token, b.Enabled, b.Priority, b.ID))
+			storage_role = $14, privacy_mode = $15, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $13 AND ((bucket = $3 AND endpoint = $5 AND provider = $2) OR
+		 (NOT EXISTS (SELECT 1 FROM gateway_log_archive_bundles WHERE stage_bucket_id = $13 OR bucket_id = $13) AND
+		  NOT EXISTS (SELECT 1 FROM gateway_log_archive_deliveries WHERE bucket_id = $13))) RETURNING `+bucketColumns,
+		b.Name, b.Provider, b.Bucket, b.Region, b.Endpoint, b.Prefix, b.ForcePathStyle, ak, sk, token, b.Enabled, b.Priority, b.ID, b.StorageRole, b.PrivacyMode))
 }
 
 // DeleteBucket removes only the configuration; uploaded objects and their
 // statistics stay. Bundles stored there can no longer be read back remotely.
 func (s *Store) DeleteBucket(ctx context.Context, id int64) (bool, error) {
+	var used bool
+	if err := s.DB.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM gateway_log_archive_bundles WHERE stage_bucket_id=$1) OR EXISTS(SELECT 1 FROM gateway_log_archive_deliveries WHERE bucket_id=$1 OR source_bucket_id=$1)`, id).Scan(&used); err != nil {
+		return false, err
+	}
+	if used {
+		return false, errBucketInUse
+	}
 	res, err := s.DB.ExecContext(ctx, `DELETE FROM gateway_log_archive_buckets WHERE id = $1`, id)
 	if err != nil {
 		return false, err

@@ -34,6 +34,7 @@ func (h *Handler) Register(group *gin.RouterGroup, manager *customize.Manager) {
 	g.GET("/bundles/:id", h.getBundle)
 	g.POST("/bundles/:id/retry", h.retryBundle)
 	g.GET("/bundles/:id/download", h.downloadBundle)
+	g.GET("/bundles/:id/deliveries", h.listDeliveries)
 	g.GET("/entries", h.listEntries)
 	g.GET("/entries/:id/content", h.entryContent)
 	g.GET("/entries/:id/session", h.exportSession)
@@ -133,6 +134,8 @@ type bucketRequest struct {
 	ForcePathStyle    bool    `json:"force_path_style"`
 	Enabled           *bool   `json:"enabled"`
 	Priority          *int    `json:"priority"`
+	StorageRole       *string `json:"storage_role"`
+	PrivacyMode       *string `json:"privacy_mode"`
 	AccessKeyID       *string `json:"access_key_id"`
 	SecretAccessKey   *string `json:"secret_access_key"`
 	SessionToken      *string `json:"session_token"`
@@ -142,6 +145,12 @@ type bucketRequest struct {
 
 func (req bucketRequest) merge(stored BucketConfig) (BucketConfig, error) {
 	b := stored
+	if req.StorageRole != nil {
+		b.StorageRole = *req.StorageRole
+	}
+	if req.PrivacyMode != nil {
+		b.PrivacyMode = *req.PrivacyMode
+	}
 	b.Name, b.Provider, b.Bucket, b.Region = req.Name, req.Provider, req.Bucket, req.Region
 	b.Endpoint, b.Prefix, b.ForcePathStyle = req.Endpoint, req.Prefix, req.ForcePathStyle
 	if req.Enabled != nil {
@@ -239,7 +248,7 @@ func (h *Handler) createBucket(c *gin.Context) {
 	}
 	b.ID = 0
 	created, err := h.Runtime.Store.CreateBucket(c.Request.Context(), b)
-	if errors.Is(err, errTooManyBuckets) {
+	if errors.Is(err, errTooManyBuckets) || errors.Is(err, errPrimaryAlreadyEnabled) {
 		response.BadRequest(c, err.Error())
 		return
 	}
@@ -260,8 +269,12 @@ func (h *Handler) updateBucket(c *gin.Context) {
 		return
 	}
 	updated, err := h.Runtime.Store.UpdateBucket(c.Request.Context(), b)
+	if errors.Is(err, errPrimaryAlreadyEnabled) {
+		response.BadRequest(c, err.Error())
+		return
+	}
 	if errors.Is(err, sql.ErrNoRows) {
-		response.NotFound(c, "存储桶不存在")
+		response.BadRequest(c, "存储桶不存在，或已有归档引用此地址；更换地址请新增配置")
 		return
 	}
 	if response.ErrorFrom(c, err) {
@@ -278,6 +291,10 @@ func (h *Handler) deleteBucket(c *gin.Context) {
 		return
 	}
 	deleted, err := h.Runtime.Store.DeleteBucket(c.Request.Context(), id)
+	if errors.Is(err, errBucketInUse) {
+		response.BadRequest(c, err.Error())
+		return
+	}
 	if response.ErrorFrom(c, err) {
 		return
 	}
@@ -397,6 +414,17 @@ func (h *Handler) loadBundle(c *gin.Context) (Bundle, bool) {
 func (h *Handler) getBundle(c *gin.Context) {
 	if b, ok := h.loadBundle(c); ok {
 		response.Success(c, b)
+	}
+}
+
+func (h *Handler) listDeliveries(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	items, err := h.Runtime.Store.deliveries(c.Request.Context(), id)
+	if !response.ErrorFrom(c, err) {
+		response.Success(c, items)
 	}
 }
 

@@ -28,6 +28,8 @@ const blank = (): ArchiveBucketInput => ({
   force_path_style: false,
   enabled: true,
   priority: 100,
+  storage_role: 'destination',
+  privacy_mode: 'inherit',
 })
 
 const form = reactive<ArchiveBucketInput>(blank())
@@ -58,6 +60,7 @@ watch(
           id: bucket.id, name: bucket.name, provider: bucket.provider, bucket: bucket.bucket, region: bucket.region,
           endpoint: bucket.endpoint, prefix: bucket.prefix, force_path_style: bucket.force_path_style,
           enabled: bucket.enabled, priority: bucket.priority,
+          storage_role: bucket.storage_role || 'destination', privacy_mode: bucket.privacy_mode || 'inherit',
         }
       : { id: undefined })
     accessKey.value = ''
@@ -115,6 +118,20 @@ async function save() {
   <BaseDialog :show="show" :title="title" width="wide" @close="emit('close')">
     <form class="space-y-5" @submit.prevent="save">
       <div class="grid gap-4 sm:grid-cols-2">
+        <label>
+          <span class="input-label">用途</span>
+          <select v-model="form.storage_role" class="input" aria-label="存储桶用途" @change="form.storage_role === 'rustfs' && Object.assign(form, {provider: 's3-compatible', force_path_style: true})">
+            <option value="destination">目标存储桶</option>
+            <option value="rustfs">RustFS 主归档（可启用一个）</option>
+          </select>
+        </label>
+        <label>
+          <span class="input-label">此桶的个人信息</span>
+          <select v-model="form.privacy_mode" class="input" aria-label="存储桶脱敏策略">
+            <option value="inherit">跟随采集配置</option><option value="redact">上传时脱敏</option><option value="original">保留原文</option>
+          </select>
+        </label>
+        <p v-if="form.storage_role === 'rustfs'" class="input-hint sm:col-span-2">会话结束后暂存到此桶，按模型合并为大 JSONL，再转存至各启用的目标桶。写入失败时自动回退本地。若有目标需要原文，请在受信任的主桶选择「保留原文」。</p>
         <label>
           <span class="input-label">名称</span>
           <input v-model="form.name" class="input" maxlength="64" placeholder="如 主存储 / R2 备份" autocomplete="off" />

@@ -168,6 +168,17 @@ describe('gateway log archive buckets', () => {
 describe('gateway log archive bucket dialog', () => {
   beforeEach(() => vi.resetAllMocks())
 
+  it('saves RustFS as an explicit primary with its own privacy policy', async () => {
+    vi.mocked(archiveAPI.createBucket).mockResolvedValue(bucket({ id: 12, storage_role: 'rustfs', privacy_mode: 'original' }))
+    const wrapper = mount(BucketDialog, { props: { show: true, bucket: null, today: '2026-11-19' }, global: { stubs } })
+    await wrapper.get('[aria-label="存储桶用途"]').setValue('rustfs')
+    await wrapper.get('[aria-label="存储桶脱敏策略"]').setValue('original')
+    expect(wrapper.text()).toContain('写入失败时自动回退本地')
+    await wrapper.findAll('footer button').find(button => button.text().includes('添加存储桶'))!.trigger('click')
+    await flushPromises()
+    expect(archiveAPI.createBucket).toHaveBeenCalledWith(expect.objectContaining({ storage_role: 'rustfs', privacy_mode: 'original', provider: 's3-compatible', force_path_style: true }))
+  })
+
   it('creates a bucket from the modal form including new credentials', async () => {
     vi.mocked(archiveAPI.createBucket).mockResolvedValue(bucket({ id: 9 }))
     const wrapper = mount(BucketDialog, { props: { show: true, bucket: null, today: '2026-11-05' }, global: { stubs } })

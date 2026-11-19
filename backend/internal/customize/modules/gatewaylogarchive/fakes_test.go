@@ -168,6 +168,12 @@ func (o *memObjects) Bucket() string {
 	}
 	return "test-bucket"
 }
+func (o *memObjects) Delete(_ context.Context, key string) error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	delete(o.objects, key)
+	return nil
+}
 func (o *memObjects) Exists(_ context.Context, key string) (bool, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -224,4 +230,11 @@ func (o *memObjects) OpenRange(_ context.Context, key string, offset, length int
 	}
 	return io.NopCloser(bytes.NewReader(data[offset:end])), nil
 }
-func (o *memObjects) Test(context.Context) []TestStep { return []TestStep{{Name: "ok", OK: true}} }
+func (o *memObjects) Test(context.Context) []TestStep {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if o.fail != nil {
+		return []TestStep{{Name: "write", Error: o.fail.Error()}}
+	}
+	return []TestStep{{Name: "ok", OK: true}}
+}

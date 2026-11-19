@@ -42,6 +42,7 @@
             {{ status.capturing ? '正在采集' : '未在采集' }}
           </span>
           <span v-if="status.reason" class="text-sm text-amber-600 dark:text-amber-400">{{ status.reason }}</span>
+          <span v-if="status.rustfs_fallback" class="text-sm text-amber-600 dark:text-amber-400">此节点正在使用本地回退，RustFS 恢复后自动补传。</span>
           <dl class="flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-500 dark:text-dark-400 lg:ml-auto">
             <div class="flex gap-1"><dt>今日</dt><dd class="font-mono text-gray-700 dark:text-gray-300">{{ status.today }}</dd></div>
             <div class="flex gap-1">
@@ -141,9 +142,9 @@
           </div>
           <div class="setting-row">
             <div class="min-w-0">
-              <p class="setting-title">上传时脱敏个人信息</p>
+              <p class="setting-title">上传时脱敏个人信息（存储桶默认值）</p>
               <p class="setting-desc">默认开启。识别邮箱、手机号、身份证号，以及明确标注的姓名、住址、银行卡号等个人信息；其他内容保留。仅在后台上传时处理，不修改正常请求与响应。</p>
-              <p class="setting-desc mt-1">本地待上传日志保留原始内容，上传后预览读取存储桶中的版本。规则无法识别所有自然语言中的个人信息。</p>
+              <p class="setting-desc mt-1">每个存储桶可覆盖此设置。本地待上传日志保留原文；上传后的预览读取主归档。规则无法识别所有自然语言中的个人信息。</p>
             </div>
             <Toggle v-model="form.redact_pii" aria-label="上传时脱敏个人信息" />
           </div>
@@ -269,15 +270,17 @@
                   <td class="text-right">{{ b.entry_count }}</td>
                   <td class="whitespace-nowrap text-right">{{ formatBytes(b.size_bytes) }}</td>
                   <td class="max-w-xs text-xs">
-                    <template v-if="b.object_key">
+                    <template v-if="b.object_key && b.bucket">
                       <p class="font-medium text-gray-700 dark:text-gray-200">{{ bucketLabel(b) }}</p>
                       <p class="break-all font-mono text-gray-500 dark:text-dark-400">s3://{{ b.bucket }}/{{ b.object_key }}</p>
                     </template>
                     <span v-else class="text-gray-400">—</span>
+                    <div v-if="deliveries[b.id]" class="mt-1"><p v-if="!deliveries[b.id].length">无转存任务</p><p v-for="copy in deliveries[b.id]" :key="copy.bucket_id">{{ buckets.find(item => item.id === copy.bucket_id)?.name || `桶 #${copy.bucket_id}` }}：{{ copy.status === 'uploaded' ? '转存完成' : copy.status === 'failed' ? '重试中' : '待转存' }} {{ copy.last_error }}</p></div>
                   </td>
                   <td class="whitespace-nowrap text-right">
                     <button type="button" class="btn btn-ghost btn-sm" @click="openBundle(b)">查看数据</button>
                     <button v-if="b.status === 'uploaded'" type="button" class="btn btn-ghost btn-sm" @click="download(b)">下载</button>
+                    <button v-if="b.status === 'uploaded'" type="button" class="btn btn-ghost btn-sm" @click="loadDeliveries(b.id)">转存状态</button>
                     <button v-if="b.status === 'failed' && !b.local_deleted && b.sealed_at" type="button" class="btn btn-ghost btn-sm" @click="retry(b)">
                       重试上传
                     </button>
@@ -382,6 +385,7 @@ import {
   type ArchiveConfig,
   type ArchiveStatus,
   type Bundle,
+  type Delivery,
   type Entry,
   type EntryContent,
   type Page,
@@ -405,6 +409,10 @@ const error = ref('')
 const notice = ref('')
 const emptyPage = <T,>(): Page<T> => ({ items: [], total: 0, page: 1, page_size: 20 })
 const bundles = ref<Page<Bundle>>(emptyPage<Bundle>())
+const deliveries = ref<Record<number, Delivery[]>>({})
+async function loadDeliveries(id: number) {
+  await run(async () => { deliveries.value[id] = await archiveAPI.deliveries(id) }, '读取转存状态失败')
+}
 const entries = ref<Page<Entry>>(emptyPage<Entry>())
 const bundleFilter = reactive({ day: '', model: '', status: '' })
 const entryFilter = reactive<{ day: string; model: string; session_id: string; user_id: number | ''; bundle_id: number }>({

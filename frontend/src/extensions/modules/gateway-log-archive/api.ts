@@ -21,6 +21,8 @@ export interface ArchiveConfig {
 }
 
 export type BucketProvider = 'aws' | 's3-compatible'
+export type StorageRole = 'destination' | 'rustfs'
+export type PrivacyMode = 'inherit' | 'redact' | 'original'
 
 export interface BucketUsage {
   bundle_count: number
@@ -29,6 +31,8 @@ export interface BucketUsage {
 
 /** A storage destination; secrets are never returned, only whether they are set. */
 export interface ArchiveBucket {
+  storage_role?: StorageRole
+  privacy_mode?: PrivacyMode
   id: number
   name: string
   provider: BucketProvider
@@ -49,6 +53,8 @@ export interface ArchiveBucket {
 }
 
 export interface ArchiveBucketInput {
+  storage_role?: StorageRole
+  privacy_mode?: PrivacyMode
   id?: number
   name: string
   provider: BucketProvider
@@ -113,6 +119,7 @@ export interface ArchiveStatus {
   disk_free_bytes: number
   /** Enabled buckets at the last reconcile. */
   storage_buckets: number
+  rustfs_fallback?: boolean
   /** Cumulative uploads (not affected by index retention). */
   uploaded_bundles: number
   uploaded_bytes: number
@@ -135,6 +142,7 @@ export interface ArchiveStatus {
 }
 
 export interface Bundle {
+  stage_bucket_id?: number
   id: number
   node_id: string
   day: string
@@ -153,6 +161,13 @@ export interface Bundle {
   created_at: string
   sealed_at: string | null
   uploaded_at: string | null
+}
+
+export interface Delivery {
+  bucket_id: number
+  object_key: string
+  status: 'pending' | 'failed' | 'uploaded'
+  last_error: string
 }
 
 export interface Entry {
@@ -239,6 +254,10 @@ export const archiveAPI = {
   },
   async retry(id: number): Promise<void> {
     await apiClient.post(`${base}/bundles/${id}/retry`)
+  },
+  async deliveries(id: number): Promise<Delivery[]> {
+    const { data } = await apiClient.get(`${base}/bundles/${id}/deliveries`)
+    return data
   },
   async downloadURL(id: number): Promise<string> {
     const { data } = await apiClient.get(`${base}/bundles/${id}/download`)

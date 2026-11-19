@@ -15,12 +15,14 @@ import (
 // zipEntry is everything the central directory needs; it is also persisted
 // per entry so an open bundle can be rebuilt after a restart.
 type zipEntry struct {
-	Name   string
-	Offset int64
-	CRC    uint32
-	CSize  int64
-	USize  int64
-	Mod    time.Time
+	Name         string
+	Offset       int64
+	CRC          uint32
+	CSize        int64
+	USize        int64
+	Mod          time.Time
+	StagedRemote bool
+	StageKey     string
 }
 
 const (

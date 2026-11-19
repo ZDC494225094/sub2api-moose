@@ -29,6 +29,7 @@ type objectStore interface {
 	UploadStream(ctx context.Context, key string, sizeHint int64, produce func(io.Writer) error, progress func(int64)) error
 	Presign(ctx context.Context, key, filename string, ttl time.Duration) (string, error)
 	OpenRange(ctx context.Context, key string, offset, length int64) (io.ReadCloser, error)
+	Delete(ctx context.Context, key string) error
 	Test(ctx context.Context) []TestStep
 }
 
@@ -77,6 +78,11 @@ func newS3Objects(cfg BucketConfig) (objectStore, error) {
 }
 
 func (s *s3Objects) Bucket() string { return s.cfg.Bucket }
+
+func (s *s3Objects) Delete(ctx context.Context, key string) error {
+	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key)})
+	return err
+}
 
 func isNotFound(err error) bool {
 	var nf *types.NotFound
@@ -298,8 +304,24 @@ func (s *s3Objects) Test(ctx context.Context) []TestStep {
 		ContentLength: aws.Int64(int64(len("sub2api gateway log archive connection test"))),
 	})
 	if step("写入测试文件 "+key, err) {
+		if s.cfg.StorageRole == "rustfs" {
+			body, readErr := s.OpenRange(ctx, key, 0, 1)
+			if readErr == nil {
+				var probe [1]byte
+				_, readErr = io.ReadFull(body, probe[:])
+				_ = body.Close()
+				if readErr == nil && probe[0] != 's' {
+					readErr = errors.New("读取的内容与测试文件不符")
+				}
+			}
+			step("读取主归档测试文件", readErr)
+		}
 		_, err = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key)})
-		step("删除测试文件（无删除权限可忽略）", err)
+		if s.cfg.StorageRole == "rustfs" {
+			step("清理主归档测试文件", err)
+		} else {
+			step("删除测试文件（无删除权限可忽略）", err)
+		}
 	}
 	return steps
 }
@@ -321,6 +343,7 @@ func (p *pipeline) uploadLoop() {
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 	for {
+		p.resumeStaging()
 		p.uploadPending()
 		p.cleanupLocal()
 		select {
@@ -333,12 +356,12 @@ func (p *pipeline) uploadLoop() {
 }
 
 func (p *pipeline) uploadPending() {
-	buckets := p.enabledBuckets()
-	if len(buckets) == 0 {
-		return
-	}
-	pass := &uploadPass{clients: map[int64]objectStore{}, down: map[int64]bool{}}
+	pass := &uploadPass{down: map[int64]bool{}}
 	for p.ctx.Err() == nil {
+		buckets := p.enabledBuckets()
+		if len(buckets) == 0 {
+			return
+		}
 		row, err := p.store.ClaimUpload(p.ctx, p.node, time.Now())
 		if err != nil {
 			p.report(fmt.Errorf("读取上传队列失败：%w", err))
@@ -346,6 +369,22 @@ func (p *pipeline) uploadPending() {
 		}
 		if row == nil {
 			return
+		}
+		if row.StageBucketID != nil {
+			if err := p.sealStaged(row); err != nil {
+				p.failUpload(row, err)
+			} else {
+				p.stats.uploaded.Add(1)
+			}
+			continue
+		}
+		if primary, ok := primaryBucket(buckets); ok {
+			if err := p.uploadLocalToPrimary(row, primary); err != nil {
+				p.failUpload(row, err)
+			} else {
+				p.stats.uploaded.Add(1)
+			}
+			continue
 		}
 		if err := p.uploadToBuckets(buckets, pass, row); err != nil {
 			p.failUpload(row, err)
@@ -355,20 +394,38 @@ func (p *pipeline) uploadPending() {
 	}
 }
 
-// uploadPass caches clients for one queue pass and remembers buckets that just
-// failed, so later bundles of the same pass go straight to the next bucket.
 type uploadPass struct {
-	clients map[int64]objectStore
-	down    map[int64]bool
+	down map[int64]bool
+}
+
+type bucketClient struct {
+	config  BucketConfig
+	objects objectStore
+}
+
+func (p *pipeline) bucketClient(cfg BucketConfig) (objectStore, error) {
+	p.clientsMu.Lock()
+	cached, ok := p.clients[cfg.ID]
+	p.clientsMu.Unlock()
+	if ok && cached.config == cfg {
+		return cached.objects, nil
+	}
+	objects, err := p.objects(cfg)
+	if err != nil {
+		return nil, err
+	}
+	p.clientsMu.Lock()
+	defer p.clientsMu.Unlock()
+	if p.clients == nil {
+		p.clients = make(map[int64]bucketClient)
+	}
+	p.clients[cfg.ID] = bucketClient{config: cfg, objects: objects}
+	return objects, nil
 }
 
 // uploadToBuckets tries the enabled buckets in priority order and stops at the
 // first success; the bundle records which bucket received it.
 func (p *pipeline) uploadToBuckets(buckets []BucketConfig, pass *uploadPass, row *Bundle) error {
-	prepared, err := p.prepareUpload(row)
-	if err != nil {
-		return err
-	}
 	order := make([]BucketConfig, 0, len(buckets))
 	for _, b := range buckets {
 		if !pass.down[b.ID] {
@@ -383,17 +440,17 @@ func (p *pipeline) uploadToBuckets(buckets []BucketConfig, pass *uploadPass, row
 		if p.ctx.Err() != nil {
 			return p.ctx.Err()
 		}
-		objects, ok := pass.clients[bucket.ID]
-		if !ok {
-			var err error
-			if objects, err = p.objects(bucket); err != nil {
-				pass.down[bucket.ID] = true
-				failures = append(failures, bucket.Label()+"："+err.Error())
-				continue
-			}
-			pass.clients[bucket.ID] = objects
+		prepared, err := p.prepareUpload(row, bucket.redact(p.defaultPrivacy()))
+		if err != nil {
+			return err
 		}
-		err := p.uploadOne(bucket, objects, row, prepared)
+		objects, err := p.bucketClient(bucket)
+		if err != nil {
+			pass.down[bucket.ID] = true
+			failures = append(failures, bucket.Label()+"："+err.Error())
+			continue
+		}
+		err = p.uploadOne(bucket, objects, row, prepared)
 		if err == nil {
 			delete(pass.down, bucket.ID)
 			return nil
@@ -478,8 +535,17 @@ func (p *pipeline) uploadOne(cfg BucketConfig, objects objectStore, row *Bundle,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	if err := p.store.MarkUploaded(ctx, row.ID, cfg.ID, objects.Bucket(), key, layout); err != nil {
-		return err
+	var commitErr error
+	if cfg.StorageRole == "rustfs" {
+		commitErr = p.store.(*Store).commitUploaded(ctx, row.ID, cfg.ID, objects.Bucket(), key, layout, p.deliveryTargets(row, cfg), prepared.redact)
+	} else {
+		commitErr = p.store.MarkUploaded(ctx, row.ID, cfg.ID, objects.Bucket(), key, layout)
+	}
+	if commitErr != nil {
+		return commitErr
+	}
+	if cfg.StorageRole == "rustfs" {
+		p.wakeRelay()
 	}
 	if p.keepLocal.Load() == 0 {
 		if err := os.Remove(row.LocalPath); err == nil || os.IsNotExist(err) {
@@ -498,6 +564,12 @@ func (p *pipeline) cleanupLocal() {
 		return
 	}
 	for _, row := range rows {
+		if row.StageBucketID != nil {
+			if err := p.cleanupStaged(ctx, row); err != nil {
+				p.report(err)
+			}
+			continue
+		}
 		if err := os.Remove(row.LocalPath); err == nil || os.IsNotExist(err) {
 			_ = p.store.MarkLocalDeleted(ctx, row.ID)
 		}

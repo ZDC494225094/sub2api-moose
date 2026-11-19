@@ -175,7 +175,7 @@ func (r *Runtime) reconcile(ctx context.Context) {
 		return
 	}
 	buckets := enabledBuckets(all)
-	pipe, err := r.ensurePipeline(cfg)
+	pipe, err := r.ensurePipeline(cfg, all)
 	if err != nil {
 		r.policy.Store(nil)
 		r.report(fmt.Errorf("启动归档流程失败：%w", err))
@@ -185,7 +185,7 @@ func (r *Runtime) reconcile(ctx context.Context) {
 		return
 	}
 	pipe.setConfig(cfg)
-	pipe.setBuckets(buckets)
+	pipe.setBuckets(all)
 	free := diskFree(r.dir())
 	reason := ""
 	switch {
@@ -215,7 +215,7 @@ func (r *Runtime) reconcile(ctx context.Context) {
 	pipe.wakeUploader()
 }
 
-func (r *Runtime) ensurePipeline(cfg Config) (*pipeline, error) {
+func (r *Runtime) ensurePipeline(cfg Config, buckets []BucketConfig) (*pipeline, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.pipe != nil {
@@ -231,7 +231,7 @@ func (r *Runtime) ensurePipeline(cfg Config) (*pipeline, error) {
 	if err != nil {
 		return nil, err
 	}
-	pipe, err := startPipeline(r.repo, r.objects, node, r.dir(), r.dayOf, cfg, r.report, &r.stats)
+	pipe, err := startPipeline(r.repo, r.objects, node, r.dir(), r.dayOf, cfg, r.report, &r.stats, buckets...)
 	if err != nil {
 		return nil, err
 	}
@@ -274,6 +274,7 @@ type RuntimeStatus struct {
 	Today            string           `json:"today"`
 	DiskFreeBytes    int64            `json:"disk_free_bytes"`
 	StorageBuckets   int              `json:"storage_buckets"`
+	RustFSFallback   bool             `json:"rustfs_fallback"`
 	UploadedBundles  int64            `json:"uploaded_bundles"`
 	UploadedBytes    int64            `json:"uploaded_bytes"`
 	ActiveSessions   int64            `json:"active_sessions"`
@@ -312,6 +313,7 @@ func (r *Runtime) Status(ctx context.Context) RuntimeStatus {
 	st.Capturing = r.policy.Load() != nil
 	st.Today = r.dayOf(time.Now())
 	if pipe != nil {
+		st.RustFSFallback = pipe.stageBackoff.Load() != 0
 		st.ActiveSessions = pipe.active.Load()
 		st.QueuedExchanges = len(pipe.in)
 		pipe.retryMu.Lock()
@@ -389,6 +391,23 @@ func (r *Runtime) OpenEntry(ctx context.Context, e Entry, b Bundle) (io.ReadClos
 	node := r.nodeID
 	r.mu.Unlock()
 	jsonl := strings.HasSuffix(b.FileName, ".jsonl")
+	if b.Status != StatusUploaded && b.StageBucketID != nil {
+		if !e.StagedRemote {
+			if node != "" && b.NodeID != node {
+				return nil, errors.New("回退文件位于归档所属节点，恢复上传后可跨节点预览")
+			}
+			file, err := os.Open(fallbackPath(b, e.StageKey))
+			if err != nil {
+				return nil, err
+			}
+			return readCloser{Reader: io.LimitReader(file, e.USize), closers: []io.Closer{file}}, nil
+		}
+		objects, err := r.objectStoreFor(ctx, Bundle{BucketID: b.StageBucketID})
+		if err != nil {
+			return nil, err
+		}
+		return objects.OpenRange(ctx, e.StageKey, 0, e.USize)
+	}
 	if b.Status != StatusUploaded && !b.LocalDeleted && b.LocalPath != "" && (node == "" || b.NodeID == node) {
 		if f, err := os.Open(b.LocalPath); err == nil {
 			if jsonl {

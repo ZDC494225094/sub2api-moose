@@ -27,25 +27,28 @@ const (
 )
 
 type Bundle struct {
-	ID           int64      `json:"id"`
-	NodeID       string     `json:"node_id"`
-	Day          string     `json:"day"`
-	ModelKey     string     `json:"model_key"`
-	Part         int        `json:"part"`
-	FileName     string     `json:"file_name"`
-	LocalPath    string     `json:"-"`
-	Status       string     `json:"status"`
-	SizeBytes    int64      `json:"size_bytes"`
-	EntryCount   int        `json:"entry_count"`
-	Bucket       string     `json:"bucket"`
-	BucketID     *int64     `json:"bucket_id"`
-	ObjectKey    string     `json:"object_key"`
-	Attempts     int        `json:"attempts"`
-	LastError    string     `json:"last_error"`
-	LocalDeleted bool       `json:"local_deleted"`
-	CreatedAt    time.Time  `json:"created_at"`
-	SealedAt     *time.Time `json:"sealed_at"`
-	UploadedAt   *time.Time `json:"uploaded_at"`
+	ID            int64      `json:"id"`
+	NodeID        string     `json:"node_id"`
+	Day           string     `json:"day"`
+	ModelKey      string     `json:"model_key"`
+	Part          int        `json:"part"`
+	FileName      string     `json:"file_name"`
+	LocalPath     string     `json:"-"`
+	Status        string     `json:"status"`
+	SizeBytes     int64      `json:"size_bytes"`
+	EntryCount    int        `json:"entry_count"`
+	Bucket        string     `json:"bucket"`
+	BucketID      *int64     `json:"bucket_id"`
+	ObjectKey     string     `json:"object_key"`
+	Attempts      int        `json:"attempts"`
+	LastError     string     `json:"last_error"`
+	LocalDeleted  bool       `json:"local_deleted"`
+	CreatedAt     time.Time  `json:"created_at"`
+	SealedAt      *time.Time `json:"sealed_at"`
+	UploadedAt    *time.Time `json:"uploaded_at"`
+	StageBucketID *int64     `json:"stage_bucket_id,omitempty"`
+	StagePrefix   string     `json:"-"`
+	StageRedacted bool       `json:"stage_redacted,omitempty"`
 }
 
 type Entry struct {
@@ -66,6 +69,9 @@ type Entry struct {
 	StartedAt     time.Time `json:"started_at"`
 	EndedAt       time.Time `json:"ended_at"`
 	CreatedAt     time.Time `json:"created_at"`
+	StagedRemote  bool      `json:"-"`
+	StageKey      string    `json:"-"`
+	StageEvent    string    `json:"-"`
 	// Joined bundle fields for listings.
 	Day          string `json:"day"`
 	FileName     string `json:"file_name"`
@@ -171,7 +177,7 @@ func (s *Store) SaveConfig(ctx context.Context, cfg Config) error {
 }
 
 const bundleColumns = `id, node_id, day, model_key, part, file_name, local_path, status, size_bytes, entry_count,
-	bucket, bucket_id, object_key, attempts, last_error, local_deleted, created_at, sealed_at, uploaded_at`
+	bucket, bucket_id, object_key, attempts, last_error, local_deleted, created_at, sealed_at, uploaded_at, stage_bucket_id, stage_prefix, stage_redacted`
 
 type scanner interface{ Scan(...any) error }
 
@@ -180,7 +186,7 @@ func scanBundle(row scanner) (Bundle, error) {
 	var sealed, uploaded sql.NullTime
 	var bucketID sql.NullInt64
 	err := row.Scan(&b.ID, &b.NodeID, &b.Day, &b.ModelKey, &b.Part, &b.FileName, &b.LocalPath, &b.Status, &b.SizeBytes,
-		&b.EntryCount, &b.Bucket, &bucketID, &b.ObjectKey, &b.Attempts, &b.LastError, &b.LocalDeleted, &b.CreatedAt, &sealed, &uploaded)
+		&b.EntryCount, &b.Bucket, &bucketID, &b.ObjectKey, &b.Attempts, &b.LastError, &b.LocalDeleted, &b.CreatedAt, &sealed, &uploaded, &b.StageBucketID, &b.StagePrefix, &b.StageRedacted)
 	if bucketID.Valid {
 		id := bucketID.Int64
 		b.BucketID = &id
@@ -214,6 +220,10 @@ func (s *Store) bundles(ctx context.Context, query string, args ...any) ([]Bundl
 // CreateBundle allocates the next part number of (day, model); the unique
 // constraint arbitrates races between server instances sharing the database.
 func (s *Store) CreateBundle(ctx context.Context, node, day, modelKey string, pathFor func(string) string) (Bundle, error) {
+	return s.createBundle(ctx, node, day, modelKey, pathFor, nil, "", false)
+}
+
+func (s *Store) createBundle(ctx context.Context, node, day, modelKey string, pathFor func(string) string, primary *int64, prefix string, redacted bool) (Bundle, error) {
 	if err := s.ready(); err != nil {
 		return Bundle{}, err
 	}
@@ -226,8 +236,8 @@ func (s *Store) CreateBundle(ctx context.Context, node, day, modelKey string, pa
 		file := BundleFileName(modelKey, day, part)
 		path := pathFor(file)
 		row := s.DB.QueryRowContext(ctx, `
-			INSERT INTO gateway_log_archive_bundles (node_id, day, model_key, part, file_name, local_path, status)
-			VALUES ($1, $2, $3, $4, $5, $6, 'open') RETURNING `+bundleColumns, node, day, modelKey, part, file, path)
+			INSERT INTO gateway_log_archive_bundles (node_id, day, model_key, part, file_name, local_path, status, stage_bucket_id, stage_prefix, stage_redacted)
+			VALUES ($1, $2, $3, $4, $5, $6, 'open', $7, $8, $9) RETURNING `+bundleColumns, node, day, modelKey, part, file, path, primary, prefix, redacted)
 		b, err := scanBundle(row)
 		if err == nil {
 			return b, nil
@@ -245,10 +255,10 @@ func (s *Store) CommitEntry(ctx context.Context, bundleSize int64, e Entry) erro
 	defer func() { _ = tx.Rollback() }()
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO gateway_log_archive_entries (bundle_id, seq, entry_name, session_id, model, platform, user_id, api_key_id,
-			exchange_count, header_offset, compressed_size, uncompressed_size, crc32, started_at, ended_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+			exchange_count, header_offset, compressed_size, uncompressed_size, crc32, started_at, ended_at, staged_remote, stage_key,stage_event)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
 		e.BundleID, e.Seq, e.Name, e.SessionID, limit(e.Model, 255), limit(e.Platform, 32), e.UserID, e.APIKeyID,
-		e.ExchangeCount, e.Offset, e.CSize, e.USize, int64(e.CRC), e.StartedAt.UTC(), e.EndedAt.UTC()); err != nil {
+		e.ExchangeCount, e.Offset, e.CSize, e.USize, int64(e.CRC), e.StartedAt.UTC(), e.EndedAt.UTC(), e.StagedRemote, e.StageKey, e.StageEvent); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE gateway_log_archive_bundles SET size_bytes = $1, entry_count = entry_count + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, bundleSize, e.BundleID); err != nil {
@@ -262,7 +272,7 @@ func (s *Store) OpenBundles(ctx context.Context, node string) ([]Bundle, error) 
 }
 
 func (s *Store) BundleEntries(ctx context.Context, bundleID int64) ([]zipEntry, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT entry_name, header_offset, crc32, compressed_size, uncompressed_size, ended_at
+	rows, err := s.DB.QueryContext(ctx, `SELECT entry_name, header_offset, crc32, compressed_size, uncompressed_size, ended_at, staged_remote, stage_key
 		FROM gateway_log_archive_entries WHERE bundle_id = $1 ORDER BY seq`, bundleID)
 	if err != nil {
 		return nil, err
@@ -272,7 +282,7 @@ func (s *Store) BundleEntries(ctx context.Context, bundleID int64) ([]zipEntry, 
 	for rows.Next() {
 		var e zipEntry
 		var crc int64
-		if err := rows.Scan(&e.Name, &e.Offset, &crc, &e.CSize, &e.USize, &e.Mod); err != nil {
+		if err := rows.Scan(&e.Name, &e.Offset, &crc, &e.CSize, &e.USize, &e.Mod, &e.StagedRemote, &e.StageKey); err != nil {
 			return nil, err
 		}
 		e.CRC = uint32(crc)
@@ -328,13 +338,18 @@ func (s *Store) ClaimUpload(ctx context.Context, node string, now time.Time) (*B
 
 func (s *Store) ObjectKeyTaken(ctx context.Context, bucket, key string, exceptID int64) (bool, error) {
 	var n int
-	err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM gateway_log_archive_bundles WHERE bucket = $1 AND object_key = $2 AND id <> $3`, bucket, key, exceptID).Scan(&n)
+	err := s.DB.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM gateway_log_archive_bundles b LEFT JOIN gateway_log_archive_buckets t ON t.id=b.stage_bucket_id
+		WHERE (b.bucket=$1 OR t.bucket=$1) AND b.object_key=$2 AND b.id<>$3) + (SELECT COUNT(*) FROM gateway_log_archive_deliveries d JOIN gateway_log_archive_buckets t ON t.id=d.bucket_id WHERE t.bucket=$1 AND d.object_key=$2 AND d.key_reserved AND d.bundle_id<>$3)`, bucket, key, exceptID).Scan(&n)
 	return n > 0, err
 }
 
 // MarkUploaded records the destination and adds the bundle to the cumulative
 // per-bucket/model totals in one transaction; a repeated call counts nothing.
 func (s *Store) MarkUploaded(ctx context.Context, id, bucketID int64, bucket, key string, layout *uploadLayout) error {
+	return s.commitUploaded(ctx, id, bucketID, bucket, key, layout, nil, false)
+}
+
+func (s *Store) commitUploaded(ctx context.Context, id, bucketID int64, bucket, key string, layout *uploadLayout, copies []delivery, sourceRedacted bool) error {
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -343,8 +358,8 @@ func (s *Store) MarkUploaded(ctx context.Context, id, bucketID int64, bucket, ke
 	var modelKey string
 	var size, entries int64
 	err = tx.QueryRowContext(ctx, `UPDATE gateway_log_archive_bundles SET status = 'uploaded', bucket = $1, bucket_id = $2, object_key = $3,
-		last_error = '', next_attempt_at = NULL, uploaded_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $4 AND status <> 'uploaded' RETURNING model_key, size_bytes, entry_count`, bucket, bucketID, key, id).Scan(&modelKey, &size, &entries)
+		last_error = '', next_attempt_at = NULL, uploaded_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, stage_redacted = $5
+		WHERE id = $4 AND status <> 'uploaded' RETURNING model_key, size_bytes, entry_count`, bucket, bucketID, key, id, sourceRedacted).Scan(&modelKey, &size, &entries)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
 	}
@@ -363,16 +378,26 @@ func (s *Store) MarkUploaded(ctx context.Context, id, bucketID int64, bucket, ke
 		}
 		size = layout.Size
 	}
-	if _, err := tx.ExecContext(ctx, `
+	for _, copy := range copies {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO gateway_log_archive_deliveries (bundle_id,bucket_id,object_key,source_bucket_id) VALUES ($1,$2,$3,$4)`, id, copy.BucketID, copy.Key, bucketID); err != nil {
+			return err
+		}
+	}
+	if err := recordUploadStats(ctx, tx, bucketID, modelKey, int(entries), size); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func recordUploadStats(ctx context.Context, tx *sql.Tx, bucketID int64, modelKey string, entries int, size int64) error {
+	_, err := tx.ExecContext(ctx, `
 		INSERT INTO gateway_log_archive_upload_stats (bucket_id, model_key, bundle_count, entry_count, size_bytes, last_uploaded_at)
 		VALUES ($1, $2, 1, $3, $4, CURRENT_TIMESTAMP)
 		ON CONFLICT (bucket_id, model_key) DO UPDATE SET bundle_count = gateway_log_archive_upload_stats.bundle_count + 1,
 			entry_count = gateway_log_archive_upload_stats.entry_count + EXCLUDED.entry_count,
 			size_bytes = gateway_log_archive_upload_stats.size_bytes + EXCLUDED.size_bytes,
-			last_uploaded_at = EXCLUDED.last_uploaded_at`, bucketID, modelKey, entries, size); err != nil {
-		return err
-	}
-	return tx.Commit()
+			last_uploaded_at = EXCLUDED.last_uploaded_at`, bucketID, modelKey, entries, size)
+	return err
 }
 
 // Large JSONLs can contain hundreds of thousands of sessions. Batch the index
@@ -429,17 +454,14 @@ func (s *Store) MarkLocalDeleted(ctx context.Context, id int64) error {
 
 func (s *Store) LocalExpired(ctx context.Context, node string, before time.Time) ([]Bundle, error) {
 	return s.bundles(ctx, `SELECT `+bundleColumns+` FROM gateway_log_archive_bundles
-		WHERE node_id = $1 AND status = 'uploaded' AND local_deleted = false AND uploaded_at < $2 ORDER BY id LIMIT 100`, node, before.UTC())
+		WHERE node_id = $1 AND status = 'uploaded' AND local_deleted = false AND (uploaded_at < $2 OR
+		(stage_bucket_id IS NOT NULL AND EXISTS (SELECT 1 FROM gateway_log_archive_entries e WHERE e.bundle_id=gateway_log_archive_bundles.id AND e.staged_remote AND NOT e.stage_cleaned))) ORDER BY id LIMIT 100`, node, before.UTC())
 }
 
 // Prune drops index rows of uploaded bundles whose local copy is gone; the S3
 // objects are never touched.
 func (s *Store) Prune(ctx context.Context, before time.Time) error {
-	if err := s.exec(ctx, `DELETE FROM gateway_log_archive_entries WHERE bundle_id IN (
-		SELECT id FROM gateway_log_archive_bundles WHERE status = 'uploaded' AND local_deleted = true AND uploaded_at < $1)`, before.UTC()); err != nil {
-		return err
-	}
-	return s.exec(ctx, `DELETE FROM gateway_log_archive_bundles WHERE status = 'uploaded' AND local_deleted = true AND uploaded_at < $1`, before.UTC())
+	return s.exec(ctx, `DELETE FROM gateway_log_archive_bundles WHERE status = 'uploaded' AND local_deleted = true AND uploaded_at < $1 AND NOT EXISTS (SELECT 1 FROM gateway_log_archive_deliveries d WHERE d.bundle_id = gateway_log_archive_bundles.id AND d.status <> 'uploaded')`, before.UTC())
 }
 
 // RetryBundle puts a failed bundle that still has its local file back in the
@@ -520,7 +542,7 @@ type EntryFilter struct {
 
 const entryColumns = `e.id, e.bundle_id, e.seq, e.entry_name, e.session_id, e.model, e.platform, e.user_id, e.api_key_id,
 	e.exchange_count, e.header_offset, e.compressed_size, e.uncompressed_size, e.crc32, e.started_at, e.ended_at, e.created_at,
-	b.day, b.file_name, b.status`
+	b.day, b.file_name, b.status, e.staged_remote, e.stage_key`
 
 func scanEntry(row scanner) (Entry, error) {
 	var e Entry
@@ -532,7 +554,7 @@ func scanEntry(row scanner) (Entry, error) {
 
 func entryScanTargets(e *Entry, crc *int64) []any {
 	return []any{&e.ID, &e.BundleID, &e.Seq, &e.Name, &e.SessionID, &e.Model, &e.Platform, &e.UserID, &e.APIKeyID,
-		&e.ExchangeCount, &e.Offset, &e.CSize, &e.USize, crc, &e.StartedAt, &e.EndedAt, &e.CreatedAt, &e.Day, &e.FileName, &e.BundleStatus}
+		&e.ExchangeCount, &e.Offset, &e.CSize, &e.USize, crc, &e.StartedAt, &e.EndedAt, &e.CreatedAt, &e.Day, &e.FileName, &e.BundleStatus, &e.StagedRemote, &e.StageKey}
 }
 
 func (s *Store) ListEntries(ctx context.Context, f EntryFilter, page, size int) ([]Entry, int64, error) {
