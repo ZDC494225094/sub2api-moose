@@ -3,7 +3,9 @@ package gatewaylogarchive
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"os"
 	"path/filepath"
@@ -20,112 +22,119 @@ type uploadLayout struct {
 }
 
 type preparedUpload struct {
-	path    string
-	layout  *uploadLayout
-	cleanup func()
+	path     string
+	fileName string
+	entries  []zipEntry
+	jsonl    bool
+	redact   bool
+	sizeHint int64
 }
 
+var errUploadSource = errors.New("读取或转换本地归档失败")
+
 func (p *pipeline) prepareUpload(row *Bundle) (*preparedUpload, error) {
-	if _, err := os.Stat(row.LocalPath); err != nil {
+	info, err := os.Stat(row.LocalPath)
+	if err != nil {
 		return nil, fmt.Errorf("%w：%v", errLocalBundleMissing, err)
 	}
+	removeLegacyUploadTemp(row.LocalPath)
 	cfg := p.cfg.Load()
-	redact := cfg != nil && cfg.RedactPII
-	jsonl := strings.HasSuffix(row.FileName, ".jsonl")
-	if jsonl && !redact {
-		return &preparedUpload{path: row.LocalPath, cleanup: func() { _ = os.Remove(row.LocalPath + ".upload-tmp") }}, nil
+	prepared := &preparedUpload{path: row.LocalPath, fileName: BundleFileName(row.ModelKey, row.Day, row.Part),
+		jsonl: strings.HasSuffix(row.FileName, ".jsonl"), redact: cfg != nil && cfg.RedactPII}
+	if prepared.jsonl && info.Size() != row.SizeBytes {
+		return nil, errors.New("本地 JSONL 大小与已封存的索引不符")
+	}
+	if prepared.jsonl && !prepared.redact {
+		return prepared, nil
 	}
 	entries, err := p.store.BundleEntries(p.ctx, row.ID)
 	if err != nil {
 		return nil, err
 	}
 	if len(entries) != row.EntryCount || len(entries) == 0 {
-		return nil, fmt.Errorf("归档条目索引不完整")
+		return nil, errors.New("归档条目索引不完整")
 	}
-	source, err := os.Open(row.LocalPath)
+	for _, entry := range entries {
+		if entry.Offset < 0 || entry.Offset > info.Size() || entry.USize < 0 || entry.CSize < 0 || entry.CSize > info.Size()-entry.Offset || (prepared.jsonl && entry.USize != entry.CSize) {
+			return nil, fmt.Errorf("归档条目 %s 的索引范围无效", entry.Name)
+		}
+		prepared.sizeHint += entry.USize + 1
+	}
+	prepared.entries = entries
+	return prepared, nil
+}
+
+func removeLegacyUploadTemp(source string) {
+	path := source + ".upload-tmp"
+	if info, err := os.Lstat(path); err == nil && info.Mode().IsRegular() {
+		_ = os.Remove(path)
+	}
+}
+
+func (u *preparedUpload) upload(ctx context.Context, objects objectStore, key string, progress func(int64)) (*uploadLayout, error) {
+	if u.entries == nil {
+		return nil, objects.Upload(ctx, key, u.path, progress)
+	}
+	var layout *uploadLayout
+	err := objects.UploadStream(ctx, key, u.sizeHint, func(dst io.Writer) error {
+		var err error
+		layout, err = u.writeJSONL(ctx, dst)
+		if err != nil {
+			return fmt.Errorf("%w：%w", errUploadSource, err)
+		}
+		return nil
+	}, progress)
+	if err != nil {
+		return nil, err
+	}
+	return layout, nil
+}
+
+func (u *preparedUpload) writeJSONL(ctx context.Context, dst io.Writer) (*uploadLayout, error) {
+	source, err := os.Open(u.path)
 	if err != nil {
 		return nil, err
 	}
 	defer source.Close()
-	// A deterministic node-owned scratch name is truncated on each attempt;
-	// interrupted uploads cannot leave an ever-growing collection of temp files.
-	path := row.LocalPath + ".upload-tmp"
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0o600)
-	if err != nil {
-		return nil, err
-	}
-	j := &jsonlAppender{f: f}
-	ok := false
-	defer func() {
-		_ = j.Close()
-		if !ok {
-			_ = os.Remove(path)
-		}
-	}()
-	layout := &uploadLayout{FileName: BundleFileName(row.ModelKey, row.Day, row.Part)}
-	for _, e := range entries {
-		if err := p.ctx.Err(); err != nil {
+	layout := &uploadLayout{FileName: u.fileName, Entries: make([]zipEntry, 0, len(u.entries))}
+	buffer := bufio.NewWriterSize(io.Discard, 64<<10)
+	for _, entry := range u.entries {
+		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		var input io.Reader = io.NewSectionReader(source, e.Offset, e.USize)
-		var legacy io.ReadCloser
-		if !jsonl {
-			legacy, err = readEntry(io.NewSectionReader(source, e.Offset, 30+int64(len(e.Name))+1024+e.CSize), e.CSize)
-			if err != nil {
-				return nil, err
-			}
-			input = legacy
+		checksum := crc32.NewIEEE()
+		count := &countWriter{w: io.MultiWriter(dst, checksum)}
+		buffer.Reset(count)
+		if err := u.writeEntry(ctx, source, entry, buffer); err != nil {
+			return nil, fmt.Errorf("准备上传条目 %s 失败：%w", entry.Name, err)
 		}
-		var transformed io.ReadCloser
-		if redact {
-			transformed = redactedReader(p.ctx, input)
-			input = transformed
+		if err := buffer.Flush(); err != nil {
+			return nil, err
 		}
-		indexed, appendErr := j.Append(e.Name, e.Mod, input)
-		if transformed != nil {
-			_ = transformed.Close()
+		if _, err := io.WriteString(dst, "\n"); err != nil {
+			return nil, err
 		}
-		if legacy != nil {
-			_ = legacy.Close()
-		}
-		if appendErr != nil {
-			return nil, fmt.Errorf("准备上传条目 %s 失败：%w", e.Name, appendErr)
-		}
-		layout.Entries = append(layout.Entries, indexed)
+		entry.Offset, entry.CSize, entry.USize, entry.CRC = layout.Size, count.n, count.n, checksum.Sum32()
+		layout.Entries = append(layout.Entries, entry)
+		layout.Size += count.n + 1
 	}
-	layout.Size, err = j.Seal()
-	if err != nil {
-		return nil, err
-	}
-	ok = true
-	return &preparedUpload{path: path, layout: layout, cleanup: func() { _ = os.Remove(path) }}, nil
+	return layout, ctx.Err()
 }
 
-// Close waits for the transform goroutine, so retries cannot accumulate
-// readers when disk writes, cancellation or JSON parsing fail.
-type transformReader struct {
-	*io.PipeReader
-	done <-chan struct{}
-}
-
-func (r *transformReader) Close() error {
-	err := r.PipeReader.Close()
-	<-r.done
-	return err
-}
-func redactedReader(ctx context.Context, input io.Reader) io.ReadCloser {
-	r, w := io.Pipe()
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		buffer := bufio.NewWriterSize(w, 64<<10)
-		err := redactJSON(ctx, buffer, input)
-		if err == nil {
-			err = buffer.Flush()
+func (u *preparedUpload) writeEntry(ctx context.Context, source *os.File, entry zipEntry, dst io.Writer) error {
+	var input io.Reader = io.NewSectionReader(source, entry.Offset, entry.USize)
+	if !u.jsonl {
+		legacy, err := readEntry(io.NewSectionReader(source, entry.Offset, 30+int64(len(entry.Name))+1024+entry.CSize), entry.CSize)
+		if err != nil {
+			return err
 		}
-		_ = w.CloseWithError(err)
-	}()
-	return &transformReader{PipeReader: r, done: done}
+		defer legacy.Close()
+		input = legacy
+	}
+	if u.redact {
+		return redactJSON(ctx, dst, input, true)
+	}
+	return compactJSON(dst, input)
 }
 
 func archiveContentType(key string) string {

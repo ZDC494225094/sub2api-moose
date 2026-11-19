@@ -3,6 +3,7 @@ package gatewaylogarchive
 import (
 	"context"
 	"errors"
+	"hash/crc32"
 	"io"
 	"os"
 	"path/filepath"
@@ -60,11 +61,14 @@ func TestPrivacyRunsOnlyDuringUploadAndRemoteRangesUseRedactedOffsets(t *testing
 			require.Contains(t, string(before), "alice@example.com", "local pending JSONL is raw")
 			require.Contains(t, string(before), "张三")
 			require.Contains(t, string(before), "13800138000")
+			unwritableScratch := rows[0].LocalPath + ".upload-tmp"
+			require.NoError(t, os.Mkdir(unwritableScratch, 0o700))
 			bucket := BucketConfig{ID: 1, Bucket: objects.Bucket(), Enabled: true}
 			p.setBuckets([]BucketConfig{bucket})
 			p.wakeUploader()
 			waitUploaded(t, store, 1)
 			row := store.bundleList()[0]
+			require.DirExists(t, unwritableScratch, "upload must succeed without opening the legacy scratch path for writing")
 			objects.mu.Lock()
 			uploaded := append([]byte(nil), objects.objects[row.ObjectKey]...)
 			objects.mu.Unlock()
@@ -97,6 +101,7 @@ func TestPrivacyRunsOnlyDuringUploadAndRemoteRangesUseRedactedOffsets(t *testing
 				require.NoError(t, rc.Close())
 				require.Equal(t, lines[i], string(data), "uploaded preview uses remote offsets even when a raw local copy exists")
 				require.Equal(t, int64(len(data)), entry.USize)
+				require.Equal(t, crc32.ChecksumIEEE(data), entry.CRC)
 			}
 		})
 	}
@@ -118,6 +123,7 @@ func TestUploadFailureLeavesOriginalAndRetriesWithPrivacy(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(data), "alice@example.com")
 	require.NoFileExists(t, row.LocalPath+".upload-tmp")
+	require.NoError(t, os.WriteFile(row.LocalPath+".upload-tmp", []byte("stale incomplete copy from an older version"), 0o600))
 	objects.fail = nil
 	require.NoError(t, store.update(row.ID, func(b *Bundle) { b.Status = StatusSealed }))
 	p = testPipeline(t, store, objects, dir)
@@ -126,6 +132,7 @@ func TestUploadFailureLeavesOriginalAndRetriesWithPrivacy(t *testing.T) {
 	p.stop(false)
 	row = store.bundleList()[0]
 	require.NotContains(t, string(objects.objects[row.ObjectKey]), "alice@example.com")
+	require.NoFileExists(t, row.LocalPath+".upload-tmp")
 }
 
 func TestInvalidUploadDocumentNeverFallsBackToRawData(t *testing.T) {

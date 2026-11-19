@@ -191,6 +191,23 @@ func (o *memObjects) Upload(_ context.Context, key, path string, progress func(i
 	progress(int64(len(data)))
 	return nil
 }
+func (o *memObjects) UploadStream(_ context.Context, key string, _ int64, produce func(io.Writer) error, progress func(int64)) error {
+	var out bytes.Buffer
+	if err := produce(&out); err != nil {
+		return err
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.uploads++
+	if o.fail != nil {
+		return o.fail
+	}
+	o.objects[key] = out.Bytes()
+	if progress != nil {
+		progress(int64(out.Len()))
+	}
+	return nil
+}
 func (o *memObjects) Presign(context.Context, string, string, time.Duration) (string, error) {
 	return "https://example.invalid/x", nil
 }

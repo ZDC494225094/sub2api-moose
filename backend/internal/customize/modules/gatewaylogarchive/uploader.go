@@ -26,6 +26,7 @@ type objectStore interface {
 	Bucket() string
 	Exists(ctx context.Context, key string) (bool, error)
 	Upload(ctx context.Context, key, path string, progress func(int64)) error
+	UploadStream(ctx context.Context, key string, sizeHint int64, produce func(io.Writer) error, progress func(int64)) error
 	Presign(ctx context.Context, key, filename string, ttl time.Duration) (string, error)
 	OpenRange(ctx context.Context, key string, offset, length int64) (io.ReadCloser, error)
 	Test(ctx context.Context) []TestStep
@@ -108,9 +109,9 @@ const (
 	partConcurrency    = 4
 )
 
-func partSizeFor(size int64) int64 {
-	part := int64(minPartSize)
-	if need := (size + maxParts - 1) / maxParts; need > part {
+func partSizeFor(size, minimum, targetParts int64) int64 {
+	part := minimum
+	if need := (size-1)/targetParts + 1; need > part {
 		part = (need + (1<<20 - 1)) &^ (1<<20 - 1)
 	}
 	return part
@@ -130,27 +131,13 @@ func (s *s3Objects) Upload(ctx context.Context, key, path string, progress func(
 	}
 	size := info.Size()
 	if size < multipartThreshold {
-		_, err = s.client.PutObject(ctx, &s3.PutObjectInput{
-			Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), Body: io.NewSectionReader(f, 0, size),
-			ContentLength: aws.Int64(size), ContentType: aws.String(archiveContentType(key)),
-		})
-		if err == nil && progress != nil {
-			progress(size)
-		}
-		return err
+		return s.put(ctx, key, io.NewSectionReader(f, 0, size), size, progress)
 	}
-	created, err := s.client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
-		Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), ContentType: aws.String(archiveContentType(key)),
-	})
+	uploadID, err := s.startMultipart(ctx, key)
 	if err != nil {
 		return err
 	}
-	abort := func() {
-		actx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		defer cancel()
-		_, _ = s.client.AbortMultipartUpload(actx, &s3.AbortMultipartUploadInput{Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), UploadId: created.UploadId})
-	}
-	partSize := partSizeFor(size)
+	partSize := partSizeFor(size, minPartSize, maxParts)
 	count := int((size + partSize - 1) / partSize)
 	parts := make([]types.CompletedPart, count)
 	jobs := make(chan int)
@@ -168,23 +155,13 @@ func (s *s3Objects) Upload(ctx context.Context, key, path string, progress func(
 				if offset+n > size {
 					n = size - offset
 				}
-				var out *s3.UploadPartOutput
-				var perr error
-				for attempt := 0; attempt < 3; attempt++ {
-					out, perr = s.client.UploadPart(pctx, &s3.UploadPartInput{
-						Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), UploadId: created.UploadId,
-						PartNumber: aws.Int32(int32(i + 1)), Body: io.NewSectionReader(f, offset, n), ContentLength: aws.Int64(n),
-					})
-					if perr == nil || pctx.Err() != nil {
-						break
-					}
-				}
+				part, perr := s.sendPart(pctx, key, uploadID, int32(i+1), io.NewSectionReader(f, offset, n), n)
 				if perr != nil {
 					errs <- fmt.Errorf("part %d: %w", i+1, perr)
 					cancel()
 					continue
 				}
-				parts[i] = types.CompletedPart{ETag: out.ETag, PartNumber: aws.Int32(int32(i + 1))}
+				parts[i] = part
 				if progress != nil {
 					progress(n)
 				}
@@ -203,21 +180,80 @@ feed:
 	wg.Wait()
 	close(errs)
 	if err := <-errs; err != nil {
-		abort()
+		s.abortMultipart(key, uploadID)
 		return err
 	}
 	if ctx.Err() != nil {
-		abort()
+		s.abortMultipart(key, uploadID)
 		return ctx.Err()
 	}
-	_, err = s.client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
-		Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), UploadId: created.UploadId,
-		MultipartUpload: &types.CompletedMultipartUpload{Parts: parts},
-	})
+	err = s.completeMultipart(ctx, key, uploadID, parts)
 	if err != nil {
-		abort()
+		s.abortMultipart(key, uploadID)
 	}
 	return err
+}
+
+func (s *s3Objects) put(ctx context.Context, key string, body io.ReadSeeker, size int64, progress func(int64)) error {
+	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), Body: body,
+		ContentLength: aws.Int64(size), ContentType: aws.String(archiveContentType(key)),
+	})
+	if err == nil && progress != nil {
+		progress(size)
+	}
+	return err
+}
+
+func (s *s3Objects) startMultipart(ctx context.Context, key string) (*string, error) {
+	out, err := s.client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+		Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), ContentType: aws.String(archiveContentType(key)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if aws.ToString(out.UploadId) == "" {
+		return nil, errors.New("存储桶未返回分片上传 ID")
+	}
+	return out.UploadId, nil
+}
+
+func (s *s3Objects) sendPart(ctx context.Context, key string, uploadID *string, number int32, body io.ReadSeeker, size int64) (types.CompletedPart, error) {
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		if _, err = body.Seek(0, io.SeekStart); err != nil {
+			break
+		}
+		var out *s3.UploadPartOutput
+		out, err = s.client.UploadPart(ctx, &s3.UploadPartInput{
+			Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), UploadId: uploadID,
+			PartNumber: aws.Int32(number), Body: body, ContentLength: aws.Int64(size),
+		})
+		if err == nil {
+			if aws.ToString(out.ETag) == "" {
+				return types.CompletedPart{}, errors.New("存储桶未返回分片 ETag")
+			}
+			return types.CompletedPart{ETag: out.ETag, PartNumber: aws.Int32(number)}, nil
+		}
+		if ctx.Err() != nil {
+			break
+		}
+	}
+	return types.CompletedPart{}, err
+}
+
+func (s *s3Objects) completeMultipart(ctx context.Context, key string, uploadID *string, parts []types.CompletedPart) error {
+	_, err := s.client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
+		Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), UploadId: uploadID,
+		MultipartUpload: &types.CompletedMultipartUpload{Parts: parts},
+	})
+	return err
+}
+
+func (s *s3Objects) abortMultipart(key string, uploadID *string) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	_, _ = s.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key), UploadId: uploadID})
 }
 
 func (s *s3Objects) Presign(ctx context.Context, key, filename string, ttl time.Duration) (string, error) {
@@ -333,7 +369,6 @@ func (p *pipeline) uploadToBuckets(buckets []BucketConfig, pass *uploadPass, row
 	if err != nil {
 		return err
 	}
-	defer prepared.cleanup()
 	order := make([]BucketConfig, 0, len(buckets))
 	for _, b := range buckets {
 		if !pass.down[b.ID] {
@@ -363,7 +398,7 @@ func (p *pipeline) uploadToBuckets(buckets []BucketConfig, pass *uploadPass, row
 			delete(pass.down, bucket.ID)
 			return nil
 		}
-		if errors.Is(err, errLocalBundleMissing) {
+		if errors.Is(err, errLocalBundleMissing) || errors.Is(err, errUploadSource) {
 			return err // no other bucket can help
 		}
 		pass.down[bucket.ID] = true
@@ -431,18 +466,19 @@ func (p *pipeline) uploadOne(cfg BucketConfig, objects objectStore, row *Bundle,
 	if err != nil {
 		return err
 	}
-	progress := &uploadProgress{BundleID: row.ID, FileName: row.FileName, Total: row.SizeBytes}
-	if prepared.layout != nil {
-		progress.FileName, progress.Total = prepared.layout.FileName, prepared.layout.Size
+	progress := &uploadProgress{BundleID: row.ID, FileName: prepared.fileName, Total: row.SizeBytes}
+	if prepared.entries != nil {
+		progress.Total = 0
 	}
 	p.uploading.Store(progress)
 	defer p.uploading.Store(nil)
-	if err := objects.Upload(p.ctx, key, prepared.path, func(n int64) { progress.sent.Add(n) }); err != nil {
+	layout, err := prepared.upload(p.ctx, objects, key, func(n int64) { progress.sent.Add(n) })
+	if err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	if err := p.store.MarkUploaded(ctx, row.ID, cfg.ID, objects.Bucket(), key, prepared.layout); err != nil {
+	if err := p.store.MarkUploaded(ctx, row.ID, cfg.ID, objects.Bucket(), key, layout); err != nil {
 		return err
 	}
 	if p.keepLocal.Load() == 0 {
@@ -465,6 +501,6 @@ func (p *pipeline) cleanupLocal() {
 		if err := os.Remove(row.LocalPath); err == nil || os.IsNotExist(err) {
 			_ = p.store.MarkLocalDeleted(ctx, row.ID)
 		}
-		_ = os.Remove(row.LocalPath + ".upload-tmp")
+		removeLegacyUploadTemp(row.LocalPath)
 	}
 }

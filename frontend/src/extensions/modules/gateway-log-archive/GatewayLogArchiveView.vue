@@ -83,11 +83,12 @@
         <div v-if="status.uploading" class="mt-4 rounded-xl border border-primary-100 bg-primary-50/50 p-4 dark:border-primary-900/40 dark:bg-primary-900/10">
           <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
             <span class="font-medium text-gray-800 dark:text-gray-200">正在上传 {{ status.uploading.file_name }}</span>
-            <span class="font-mono text-xs text-gray-500 dark:text-dark-400">
+            <span v-if="status.uploading.total > 0" class="font-mono text-xs text-gray-500 dark:text-dark-400">
               {{ formatBytes(status.uploading.sent) }} / {{ formatBytes(status.uploading.total) }} · {{ uploadPercent }}%
             </span>
+            <span v-else class="font-mono text-xs text-gray-500 dark:text-dark-400">已传输 {{ formatBytes(status.uploading.sent) }}</span>
           </div>
-          <div class="progress mt-2"><div class="progress-bar" :style="{ width: uploadPercent + '%' }" /></div>
+          <div v-if="status.uploading.total > 0" class="progress mt-2"><div class="progress-bar" :style="{ width: uploadPercent + '%' }" /></div>
         </div>
         <div v-if="status.open_bundles?.length" class="mt-4">
           <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-dark-400">写入中的归档文件</h3>

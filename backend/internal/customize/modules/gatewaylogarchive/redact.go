@@ -24,10 +24,11 @@ type piiJSON struct {
 	w         io.Writer
 	textDepth int
 	inSchema  bool
+	compact   bool
 }
 
-func redactJSON(ctx context.Context, w io.Writer, r io.Reader) error {
-	p := &piiJSON{ctx: ctx, r: bufio.NewReaderSize(r, 64<<10), w: w}
+func redactJSON(ctx context.Context, w io.Writer, r io.Reader, compact bool) error {
+	p := &piiJSON{ctx: ctx, r: bufio.NewReaderSize(r, 64<<10), w: w, compact: compact}
 	if err := p.value("", "", 0, false); err != nil {
 		return err
 	}
@@ -54,8 +55,10 @@ func (p *piiJSON) space() error {
 			return nil
 		}
 		_, _ = p.r.ReadByte()
-		if err := p.write(b); err != nil {
-			return err
+		if !p.compact {
+			if err := p.write(b); err != nil {
+				return err
+			}
 		}
 	}
 }
