@@ -112,7 +112,7 @@ func (p *pipeline) relayPending() {
 		}
 		if err := p.leasedRelay(store, job); err != nil && p.ctx.Err() == nil {
 			p.report(fmt.Errorf("归档 #%d 转存到桶 #%d 失败：%w", job.BundleID, job.BucketID, err))
-			if err := store.exec(p.ctx, `UPDATE gateway_log_archive_deliveries SET status='failed',last_error=$1,attempts=attempts+1,next_attempt_at=$2,lease_owner='',lease_until=NULL WHERE bundle_id=$3 AND bucket_id=$4 AND status<>'uploaded' AND lease_owner=$5`, limit(err.Error(), 2000), time.Now().Add(backoff(job.Attempts+1)).UTC(), job.BundleID, job.BucketID, job.Owner); err != nil {
+			if err := store.exec(p.ctx, `UPDATE gateway_log_archive_deliveries SET status='failed',last_error=$1,attempts=attempts+1,next_attempt_at=$2,lease_owner='',lease_until=NULL WHERE bundle_id=$3 AND bucket_id=$4 AND status<>'uploaded' AND lease_owner=$5`, limit(storageErrorText(err), 2000), time.Now().Add(backoff(job.Attempts+1)).UTC(), job.BundleID, job.BucketID, job.Owner); err != nil {
 				p.report(err)
 			}
 		}

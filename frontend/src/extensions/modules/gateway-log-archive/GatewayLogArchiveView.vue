@@ -277,7 +277,7 @@
                   <td>
                     <span class="badge" :class="statusBadge(b.status)">{{ statusLabels[b.status] || b.status }}</span>
                     <p v-if="b.last_error" class="mt-1 max-w-xs break-words text-xs text-red-600 dark:text-red-400" :title="b.last_error">
-                      {{ b.last_error.slice(0, 160) }}
+                      {{ shortError(b.last_error) }}
                     </p>
                   </td>
                   <td class="text-right">{{ b.entry_count }}</td>
@@ -404,7 +404,7 @@ import {
   type EntryContent,
   type Page,
 } from './api'
-import { errorMessage, formatBytes, formatTime } from './format'
+import { errorMessage, formatBytes, formatTime, shortError } from './format'
 
 type TabKey = 'capture' | 'buckets' | 'stats' | 'bundles' | 'entries'
 const tabs: { key: TabKey; label: string }[] = [

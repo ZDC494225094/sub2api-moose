@@ -124,7 +124,7 @@ func (r *Runtime) report(err error) {
 	}
 	now := time.Now()
 	r.mu.Lock()
-	r.lastErr, r.lastErrAt = err.Error(), &now
+	r.lastErr, r.lastErrAt = storageErrorText(err), &now
 	r.mu.Unlock()
 	slog.Warn("gateway-log-archive", "error", err)
 }

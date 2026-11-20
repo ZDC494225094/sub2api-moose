@@ -9,6 +9,7 @@ import BucketDialog from '../BucketDialog.vue'
 import ModelStatsPanel from '../ModelStatsPanel.vue'
 import GatewayLogArchiveView from '../GatewayLogArchiveView.vue'
 import { archiveAPI, type ArchiveBucket, type ArchiveConfig, type Entry } from '../api'
+import { shortError } from '../format'
 
 vi.mock(import('@/api/admin/usage'), async importOriginal => ({ ...await importOriginal(), searchUsers: vi.fn() }))
 vi.mock(import('@/api/admin/users'), async importOriginal => ({ ...await importOriginal(), getById: vi.fn() }))
@@ -284,5 +285,16 @@ describe('gateway log archive model stats', () => {
     expect(archiveAPI.modelStats).toHaveBeenLastCalledWith(1)
     await rows[1].get('button').trigger('click')
     expect(wrapper.emitted('viewBundles')?.[0]).toEqual(['gpt-6'])
+  })
+})
+
+describe('gateway log archive error text', () => {
+  it('keeps the cause at the end of a long storage error', () => {
+    const sdk = 'operation error S3: PutObject, exceeded maximum number of attempts, 3, https response error StatusCode: 0, RequestID: , HostID: , request send failed, Put "http://rustfs:9000/archive/2026-11-20/claude-2026-11-20-1.jsonl": dial tcp 172.18.0.5:9000: connect: connection refused'
+    const shown = shortError(sdk)
+    expect(shown.length).toBeLessThanOrEqual(243)
+    expect(shown.startsWith('operation error S3: PutObject')).toBe(true)
+    expect(shown.endsWith('connect: connection refused')).toBe(true)
+    expect(shortError('短错误')).toBe('短错误')
   })
 })

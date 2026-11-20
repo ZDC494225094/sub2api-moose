@@ -363,7 +363,7 @@ func (s *s3Objects) Test(ctx context.Context) []TestStep {
 	step := func(name string, err error) bool {
 		st := TestStep{Name: name, OK: err == nil}
 		if err != nil {
-			st.Error = err.Error()
+			st.Error = storageErrorText(err)
 		}
 		steps = append(steps, st)
 		return err == nil
@@ -522,7 +522,7 @@ func (p *pipeline) uploadToBuckets(buckets []BucketConfig, pass *uploadPass, row
 		objects, err := p.bucketClient(bucket)
 		if err != nil {
 			pass.down[bucket.ID] = true
-			failures = append(failures, bucket.Label()+"："+err.Error())
+			failures = append(failures, bucket.Label()+"："+storageErrorText(err))
 			continue
 		}
 		err = p.uploadOne(bucket, objects, row, prepared)
@@ -534,7 +534,7 @@ func (p *pipeline) uploadToBuckets(buckets []BucketConfig, pass *uploadPass, row
 			return err // no other bucket can help
 		}
 		pass.down[bucket.ID] = true
-		failures = append(failures, bucket.Label()+"："+err.Error())
+		failures = append(failures, bucket.Label()+"："+storageErrorText(err))
 	}
 	if len(failures) == 1 {
 		return errors.New(failures[0])
@@ -561,7 +561,7 @@ func (p *pipeline) failUpload(row *Bundle, err error) {
 	p.report(fmt.Errorf("上传 %s 失败：%w", row.FileName, err))
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	_ = p.store.MarkUploadFailed(ctx, row.ID, err.Error(), time.Now().Add(backoff(row.Attempts)))
+	_ = p.store.MarkUploadFailed(ctx, row.ID, storageErrorText(err), time.Now().Add(backoff(row.Attempts)))
 }
 
 // chooseKey keeps "<model>-<day>.jsonl" unless the object already exists (for

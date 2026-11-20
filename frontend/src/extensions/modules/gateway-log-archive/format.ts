@@ -25,3 +25,10 @@ export const providerLabels: Record<string, string> = {
   aws: 'Amazon S3',
   's3-compatible': 'S3 兼容',
 }
+
+// Keep both ends of a long error: storage SDK messages put the cause last.
+export function shortError(text: string, max = 240): string {
+  if (text.length <= max) return text
+  const head = Math.floor(max / 3)
+  return `${text.slice(0, head)} … ${text.slice(text.length - (max - head))}`
+}
