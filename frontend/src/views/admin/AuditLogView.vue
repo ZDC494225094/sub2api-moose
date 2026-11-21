@@ -40,6 +40,17 @@
                 <input v-model.trim="filters.client_ip" type="text" class="input" @keyup.enter="search" />
               </div>
 
+              <div class="w-full sm:w-auto sm:min-w-[200px]">
+                <label class="input-label">{{ t('admin.audit.filters.endpoint') }}</label>
+                <input
+                  v-model.trim="filters.endpoint"
+                  type="text"
+                  class="input"
+                  :placeholder="t('admin.audit.filters.endpointPlaceholder')"
+                  @keyup.enter="search"
+                />
+              </div>
+
               <div class="w-full sm:w-auto sm:min-w-[140px]">
                 <label class="input-label">{{ t('admin.audit.filters.method') }}</label>
                 <Select v-model="filters.method" :options="methodOptions" @change="search" />
@@ -124,6 +135,24 @@
 
           <template #cell-client_ip="{ value }">
             <span class="whitespace-nowrap font-mono text-gray-600 dark:text-gray-300">{{ value || '—' }}</span>
+          </template>
+
+          <template #cell-endpoint="{ row }">
+            <div class="min-w-0 max-w-[220px]">
+              <div
+                class="truncate font-mono text-sm text-gray-700 dark:text-gray-200"
+                :title="row.request_host || ''"
+              >
+                {{ row.request_host || '—' }}
+              </div>
+              <div
+                v-if="serverLabel(row)"
+                class="mt-0.5 truncate font-mono text-xs text-gray-400"
+                :title="serverLabel(row)"
+              >
+                {{ serverLabel(row) }}
+              </div>
+            </div>
           </template>
 
           <template #cell-actions="{ row }">
@@ -237,6 +266,36 @@
             </div>
             <div class="mt-1 break-all font-mono text-sm font-medium text-gray-900 dark:text-white">
               {{ detail.client_ip || '—' }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Endpoint: entry host / handling node / server IP -->
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
+            <div class="text-xs font-bold uppercase tracking-wider text-gray-400">
+              {{ t('admin.audit.detail.requestHost') }}
+            </div>
+            <div class="mt-1 break-all font-mono text-sm font-medium text-gray-900 dark:text-white">
+              {{ detail.request_host || '—' }}
+            </div>
+          </div>
+
+          <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
+            <div class="text-xs font-bold uppercase tracking-wider text-gray-400">
+              {{ t('admin.audit.detail.serverNode') }}
+            </div>
+            <div class="mt-1 break-all font-mono text-sm font-medium text-gray-900 dark:text-white">
+              {{ detail.server_node || '—' }}
+            </div>
+          </div>
+
+          <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
+            <div class="text-xs font-bold uppercase tracking-wider text-gray-400">
+              {{ t('admin.audit.detail.serverIp') }}
+            </div>
+            <div class="mt-1 break-all font-mono text-sm font-medium text-gray-900 dark:text-white">
+              {{ detail.server_ip || '—' }}
             </div>
           </div>
         </div>
@@ -381,6 +440,7 @@ const filters = reactive({
   actor_email: '',
   action: '',
   client_ip: '',
+  endpoint: '',
   method: '',
   auth_method: '',
   success: ''
@@ -470,6 +530,7 @@ const columns = computed<Column[]>(() => [
   { key: 'status_code', label: t('admin.audit.columns.result') },
   { key: 'latency_ms', label: t('admin.audit.detail.latency') },
   { key: 'client_ip', label: t('admin.audit.columns.clientIp') },
+  { key: 'endpoint', label: t('admin.audit.columns.endpoint') },
   { key: 'actions', label: t('common.actions') }
 ])
 
@@ -519,6 +580,11 @@ function buildTimeRangeQuery(): { start_time?: string; end_time?: string } {
   return { start_time: new Date(Date.now() - minutes * 60 * 1000).toISOString() }
 }
 
+// 列表第二行：处理节点 · 服务器 IP（任一缺失时只显示另一个）
+function serverLabel(row: AuditLog): string {
+  return [row.server_node, row.server_ip].filter((part) => !!part).join(' · ')
+}
+
 function buildQuery() {
   return {
     page: page.value,
@@ -527,6 +593,7 @@ function buildQuery() {
     actor_email: filters.actor_email || undefined,
     action: filters.action || undefined,
     client_ip: filters.client_ip || undefined,
+    endpoint: filters.endpoint || undefined,
     method: filters.method || undefined,
     auth_method: filters.auth_method || undefined,
     success: filters.success || undefined,
@@ -557,6 +624,7 @@ function resetFilters() {
   filters.actor_email = ''
   filters.action = ''
   filters.client_ip = ''
+  filters.endpoint = ''
   filters.method = ''
   filters.auth_method = ''
   filters.success = ''

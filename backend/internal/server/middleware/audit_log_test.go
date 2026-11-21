@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -223,4 +224,27 @@ func TestAuditRecordsEveryMCPOAuthReadWithGrant(t *testing.T) {
 	require.Equal(t, "admin.users.read", logs[0].Action)
 	require.Equal(t, "grant-1", logs[0].Extra["mcp_grant_id"])
 	require.Equal(t, "admin_list_users", logs[0].Extra["mcp_tool"])
+}
+
+func TestApplyAuditEndpoint(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts", nil)
+	req.Host = "Node-A.Example.com:8443"
+	local := &net.TCPAddr{IP: net.ParseIP("10.0.0.12"), Port: 8080}
+	req = req.WithContext(context.WithValue(req.Context(), http.LocalAddrContextKey, local))
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = req
+
+	entry := &service.AuditLog{}
+	ApplyAuditEndpoint(c, entry)
+
+	require.Equal(t, "node-a.example.com:8443", entry.RequestHost)
+	require.Equal(t, "10.0.0.12", entry.ServerIP)
+	require.Equal(t, service.AuditServerNode(), entry.ServerNode)
+}
+
+func TestAuditServerLocalIPWithoutLocalAddr(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	require.Equal(t, "", auditServerLocalIP(req))
+	require.Equal(t, "", auditServerLocalIP(nil))
 }

@@ -75,6 +75,9 @@ func (s *AuditLogService) Record(entry *AuditLog) {
 	if entry.CreatedAt.IsZero() {
 		entry.CreatedAt = time.Now().UTC()
 	}
+	if entry.ServerNode == "" {
+		entry.ServerNode = AuditServerNode()
+	}
 	select {
 	case <-s.ctx.Done():
 		return
@@ -114,6 +117,9 @@ func (s *AuditLogService) ClearAll(ctx context.Context, trace *AuditLog) (int64,
 		trace.Action = AuditActionAuditLogClear
 		if trace.CreatedAt.IsZero() {
 			trace.CreatedAt = time.Now().UTC()
+		}
+		if trace.ServerNode == "" {
+			trace.ServerNode = AuditServerNode()
 		}
 		if trace.Extra == nil {
 			trace.Extra = map[string]any{}

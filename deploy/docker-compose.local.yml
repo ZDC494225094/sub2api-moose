@@ -54,6 +54,8 @@ services:
       - SERVER_PORT=8080
       - SERVER_MODE=${SERVER_MODE:-release}
       - ENABLE_SERVER_TIMING=${ENABLE_SERVER_TIMING:-false}
+      # 多节点部署时给每台服务器设置不同的节点名（如 hk-1），操作日志据此显示处理节点；留空则使用容器主机名
+      - SERVER_NODE_NAME=${SERVER_NODE_NAME:-}
       - MCP_PUBLIC_URL=${MCP_PUBLIC_URL:-}
       - RUN_MODE=${RUN_MODE:-standard}
       - SIMPLE_MODE_AUTO_CREATE_DEFAULT_GROUPS=${SIMPLE_MODE_AUTO_CREATE_DEFAULT_GROUPS:-}

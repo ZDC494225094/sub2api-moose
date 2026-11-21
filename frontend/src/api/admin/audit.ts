@@ -23,6 +23,12 @@ export interface AuditLog {
   path: string
   request_id: string
   client_ip: string
+  /** Host the user requested (domain or IP:port), i.e. the entry they came in through. */
+  request_host?: string
+  /** Node name (SERVER_NODE_NAME, falls back to hostname) of the server that handled it. */
+  server_node?: string
+  /** Local address of the server connection that received the request. */
+  server_ip?: string
   user_agent: string
   request_body?: string
   status_code: number
@@ -41,6 +47,7 @@ export interface AuditLogQuery {
   action?: string
   method?: string
   client_ip?: string
+  endpoint?: string
   success?: string
   q?: string
 }

@@ -12,6 +12,8 @@ export default {
       actorEmail: 'Actor Email',
       action: 'Action',
       clientIp: 'Client IP',
+      endpoint: 'Endpoint',
+      endpointPlaceholder: 'Host / IP / node',
       method: 'Method',
       authMethod: 'Auth Method',
       result: 'Result',
@@ -27,6 +29,7 @@ export default {
       method: 'Method',
       result: 'Result',
       clientIp: 'Client IP',
+      endpoint: 'Endpoint',
       detail: 'Detail'
     },
     detail: {
@@ -38,7 +41,10 @@ export default {
       credential: 'Credential (masked)',
       userAgent: 'User-Agent',
       requestBody: 'Request Body (redacted)',
-      extra: 'Extra'
+      extra: 'Extra',
+      requestHost: 'Entry Host',
+      serverNode: 'Server Node',
+      serverIp: 'Server IP'
     },
     clearConfirm: {
       title: 'Clear All Audit Logs',

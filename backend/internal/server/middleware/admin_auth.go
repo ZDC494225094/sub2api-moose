@@ -267,6 +267,7 @@ func recordAdminKeyRequest(c *gin.Context, audit *service.AuditLogService, item 
 		return
 	}
 	entry := &service.AuditLog{CreatedAt: time.Now().UTC(), AuthMethod: service.AuditAuthMethodAdminAPIKey, Action: "admin.api_key.request", Method: c.Request.Method, Path: c.Request.URL.Path, StatusCode: c.Writer.Status(), ClientIP: SecurityClientIP(c), UserAgent: c.Request.UserAgent()}
+	ApplyAuditEndpoint(c, entry)
 	if item != nil {
 		entry.Extra = map[string]any{"admin_key_id": item.ID, "admin_key_name": item.Name, "full_access": item.Policy.FullAccess}
 		uid := item.CreatedBy

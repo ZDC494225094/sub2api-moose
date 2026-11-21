@@ -86,7 +86,7 @@ func enforceSessionBinding(
 		if path == "" {
 			path = c.Request.URL.Path
 		}
-		auditService.Record(&service.AuditLog{
+		entry := &service.AuditLog{
 			ActorUserID: &uid,
 			ActorEmail:  claims.Email,
 			ActorRole:   claims.Role,
@@ -97,7 +97,9 @@ func enforceSessionBinding(
 			ClientIP:    binding.IP,
 			UserAgent:   normalizePersistentText(c.Request.UserAgent(), maxPersistentUserAgentBytes),
 			StatusCode:  401,
-		})
+		}
+		ApplyAuditEndpoint(c, entry)
+		auditService.Record(entry)
 	}
 	AbortWithError(c, 401, "SESSION_BINDING_MISMATCH", "Session network fingerprint changed, please login again")
 	return false

@@ -25,7 +25,7 @@ func NewAuditLogRepository(db *sql.DB) service.AuditLogRepository {
 
 const auditLogInsertColumns = `created_at, actor_user_id, actor_email, actor_role, auth_method,
 credential_masked, action, method, path, request_id, client_ip, user_agent,
-request_body, status_code, latency_ms, extra`
+request_body, status_code, latency_ms, extra, request_host, server_node, server_ip`
 
 func auditLogInsertValues(log *service.AuditLog) []any {
 	createdAt := log.CreatedAt
@@ -55,6 +55,9 @@ func auditLogInsertValues(log *service.AuditLog) []any {
 		log.StatusCode,
 		log.LatencyMs,
 		extraJSON,
+		truncateString(log.RequestHost, 255),
+		truncateString(log.ServerNode, 128),
+		truncateString(log.ServerIP, 64),
 	}
 }
 
@@ -75,6 +78,7 @@ func (r *auditLogRepository) BatchInsert(ctx context.Context, logs []*service.Au
 		"created_at", "actor_user_id", "actor_email", "actor_role", "auth_method",
 		"credential_masked", "action", "method", "path", "request_id", "client_ip", "user_agent",
 		"request_body", "status_code", "latency_ms", "extra",
+		"request_host", "server_node", "server_ip",
 	))
 	if err != nil {
 		_ = tx.Rollback()
@@ -117,7 +121,7 @@ func (r *auditLogRepository) Insert(ctx context.Context, log *service.AuditLog) 
 		return fmt.Errorf("nil audit log")
 	}
 	query := `INSERT INTO audit_logs (` + auditLogInsertColumns + `)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`
 	_, err := r.db.ExecContext(ctx, query, auditLogInsertValues(log)...)
 	return err
 }
@@ -159,6 +163,11 @@ func buildAuditLogsWhere(filter *service.AuditLogFilter) (string, []any) {
 		args = append(args, v)
 		clauses = append(clauses, "l.client_ip = $"+itoa(len(args)))
 	}
+	if v := strings.TrimSpace(filter.Endpoint); v != "" {
+		args = append(args, "%"+escapeLikePattern(v)+"%")
+		idx := itoa(len(args))
+		clauses = append(clauses, "(l.request_host ILIKE $"+idx+" OR l.server_node ILIKE $"+idx+" OR l.server_ip ILIKE $"+idx+")")
+	}
 	if filter.Success != nil {
 		if *filter.Success {
 			clauses = append(clauses, "l.status_code < 400")
@@ -192,7 +201,10 @@ const auditLogSelectColumns = `
   COALESCE(l.request_body, ''),
   l.status_code,
   l.latency_ms,
-  COALESCE(l.extra::text, '{}')`
+  COALESCE(l.extra::text, '{}'),
+  COALESCE(l.request_host, ''),
+  COALESCE(l.server_node, ''),
+  COALESCE(l.server_ip, '')`
 
 func scanAuditLogRow(scan func(dest ...any) error) (*service.AuditLog, error) {
 	item := &service.AuditLog{}
@@ -216,6 +228,9 @@ func scanAuditLogRow(scan func(dest ...any) error) (*service.AuditLog, error) {
 		&item.StatusCode,
 		&item.LatencyMs,
 		&extraRaw,
+		&item.RequestHost,
+		&item.ServerNode,
+		&item.ServerIP,
 	); err != nil {
 		return nil, err
 	}

@@ -3,6 +3,8 @@ package middleware
 import (
 	"bytes"
 	"io"
+	"net"
+	"net/http"
 	"strings"
 	"time"
 
@@ -234,6 +236,7 @@ func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddle
 			StatusCode:  status,
 			LatencyMs:   time.Since(start).Milliseconds(),
 		}
+		ApplyAuditEndpoint(c, entry)
 		if entry.Path == "" {
 			entry.Path = c.Request.URL.Path
 		}
@@ -300,6 +303,36 @@ func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddle
 
 		auditService.Record(entry)
 	})
+}
+
+// ApplyAuditEndpoint 为审计记录补充接入端点：用户请求的 Host、处理节点名与本机接收地址。
+func ApplyAuditEndpoint(c *gin.Context, entry *service.AuditLog) {
+	if c == nil || c.Request == nil || entry == nil {
+		return
+	}
+	entry.RequestHost = service.SanitizeAuditRequestHost(c.Request.Host)
+	entry.ServerNode = service.AuditServerNode()
+	entry.ServerIP = auditServerLocalIP(c.Request)
+}
+
+// auditServerLocalIP 返回接收该请求的本机地址（连接的 local addr，不含端口）。
+// 容器桥接网络下为容器内网地址，host 网络下为服务器网卡地址。
+func auditServerLocalIP(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	addr, ok := r.Context().Value(http.LocalAddrContextKey).(net.Addr)
+	if !ok || addr == nil {
+		return ""
+	}
+	raw := addr.String()
+	if host, _, err := net.SplitHostPort(raw); err == nil {
+		raw = host
+	}
+	if parsed := net.ParseIP(strings.TrimSpace(raw)); parsed != nil {
+		return parsed.String()
+	}
+	return ""
 }
 
 // restoredBody 把审计中间件按上限读出的前缀与未读完的原始 body 拼接回填，

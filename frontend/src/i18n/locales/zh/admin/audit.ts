@@ -12,6 +12,8 @@ export default {
       actorEmail: '操作者邮箱',
       action: '动作',
       clientIp: '客户端 IP',
+      endpoint: '接入端点',
+      endpointPlaceholder: '域名 / IP / 节点名',
       method: '请求方法',
       authMethod: '认证方式',
       result: '结果',
@@ -27,6 +29,7 @@ export default {
       method: '方法',
       result: '结果',
       clientIp: '客户端 IP',
+      endpoint: '接入端点',
       detail: '详情'
     },
     detail: {
@@ -38,7 +41,10 @@ export default {
       credential: '凭证（掩码）',
       userAgent: 'User-Agent',
       requestBody: '请求体（已脱敏）',
-      extra: '附加信息'
+      extra: '附加信息',
+      requestHost: '访问入口',
+      serverNode: '处理节点',
+      serverIp: '服务器 IP'
     },
     clearConfirm: {
       title: '清理全部操作日志',

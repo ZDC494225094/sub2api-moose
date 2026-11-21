@@ -783,6 +783,22 @@
       "kind": "compatibility",
       "evidence": "The normal compatibility handler keeps the native error extractor. The independent video path supplies a message-only extractor without changing raw error bodies, passthrough rules, failover or account cooldown decisions.",
       "next_step": "Keep provider-specific string and array parsing out of the shared extractor and native Grok policy."
+    },
+    {
+      "paths": [
+        "backend/internal/handler/admin/audit_log_handler.go",
+        "backend/internal/service/audit_log.go",
+        "backend/internal/service/audit_log_node.go",
+        "backend/internal/service/audit_log_node_test.go",
+        "backend/internal/service/audit_log_service.go",
+        "frontend/src/views/admin/AuditLogView.vue"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "shared-host",
+      "evidence": "Multi-node audit endpoint: audit_logs gains request_host / server_node / server_ip (migration 253), filled by middleware.ApplyAuditEndpoint; node name comes from SERVER_NODE_NAME with hostname fallback. Upstream files only gain additive fields, an endpoint filter and a detail card.",
+      "next_step": "On upstream merges keep the three extra columns in audit_log_repo insert/select lists and the endpoint column in AuditLogView; do not rename existing audit fields."
     }
   ]
 }

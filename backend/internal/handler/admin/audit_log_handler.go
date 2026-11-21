@@ -44,6 +44,7 @@ func (h *AuditLogHandler) List(c *gin.Context) {
 		Action:     strings.TrimSpace(c.Query("action")),
 		Method:     strings.TrimSpace(c.Query("method")),
 		ClientIP:   strings.TrimSpace(c.Query("client_ip")),
+		Endpoint:   strings.TrimSpace(c.Query("endpoint")),
 		Query:      strings.TrimSpace(c.Query("q")),
 	}
 
@@ -153,6 +154,7 @@ func (h *AuditLogHandler) Clear(c *gin.Context) {
 		UserAgent:        c.Request.UserAgent(),
 		StatusCode:       http.StatusOK,
 	}
+	middleware.ApplyAuditEndpoint(c, trace)
 	if requestID := c.Writer.Header().Get("X-Request-ID"); requestID != "" {
 		trace.RequestID = requestID
 	}
