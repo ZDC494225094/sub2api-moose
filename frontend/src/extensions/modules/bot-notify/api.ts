@@ -11,6 +11,10 @@ export interface BotEntry {
   push_enabled: boolean
   chat_ids: string[]
   interval_minutes: number
+  /** interval：按间隔对齐整点；daily：每天在 push_times 的各时间点推送（服务器时区）。 */
+  push_mode: 'interval' | 'daily'
+  /** 每日推送时间点，HH:MM，后端去重并排序。 */
+  push_times: string[]
   push_template: string
   app_id?: string
   announce_sync_enabled: boolean
@@ -32,6 +36,10 @@ export interface BotMessage {
 export interface Status {
   bot: { id: number; username: string }
   polling: boolean; pushing: boolean; announcing: boolean; last_error: string; last_error_at: string | null
+  /** 仅运行该机器人推送任务的节点会返回下次推送时间。 */
+  next_push_at?: string | null
+  /** 定时推送使用的服务器时区，例如 Asia/Shanghai。 */
+  timezone?: string
 }
 /** AI 客服配置只保存 API Key 引用，绝不回传密钥明文。 */
 export interface AiConfig {

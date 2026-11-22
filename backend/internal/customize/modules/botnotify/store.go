@@ -33,6 +33,16 @@ func ValidateConfig(platform string, c Config) error {
 	if c.IntervalMinutes < 1 || c.IntervalMinutes > 43200 {
 		return errors.New("推送间隔须为 1 至 43200 分钟")
 	}
+	if c.PushMode != "" && c.PushMode != PushModeInterval && c.PushMode != PushModeDaily {
+		return errors.New("无效的推送方式")
+	}
+	times, err := ParsePushTimes(c.PushTimes)
+	if err != nil {
+		return err
+	}
+	if c.PushEnabled && c.PushMode == PushModeDaily && len(times) == 0 {
+		return errors.New("每日定时推送至少需要一个时间点")
+	}
 	if len(c.PushTemplate) > 32000 || len(c.ChatIDs) > 100 {
 		return errors.New("模板或推送目标过多")
 	}
@@ -90,6 +100,15 @@ func normalizeConfig(c Config) Config {
 	if c.ChatIDs == nil {
 		c.ChatIDs = []string{}
 	}
+	if c.PushMode == "" {
+		c.PushMode = PushModeInterval
+	}
+	if times, err := ParsePushTimes(c.PushTimes); err == nil {
+		c.PushTimes = times
+	}
+	if c.PushTimes == nil {
+		c.PushTimes = []string{}
+	}
 	return c
 }
 
@@ -113,6 +132,12 @@ func (s *Store) decodeConfig(raw []byte, decrypt bool) (Config, error) {
 	}
 	if c.ChatIDs == nil {
 		c.ChatIDs = []string{}
+	}
+	if c.PushMode == "" {
+		c.PushMode = PushModeInterval
+	}
+	if c.PushTimes == nil {
+		c.PushTimes = []string{}
 	}
 	return c, nil
 }
@@ -410,6 +435,30 @@ func (s *Store) SaveAnnounceState(ctx context.Context, botID int64, state announ
 	}
 	_, err = s.DB.ExecContext(ctx, "UPDATE bot_notify_bots SET announce_state=$1 WHERE id=$2", raw, botID)
 	return err
+}
+
+// PushState returns when the bot last claimed a push slot (nil if never) and
+// when its row was last edited; the runtime uses both to decide catch-up.
+func (s *Store) PushState(ctx context.Context, botID int64) (*time.Time, time.Time, error) {
+	var last sql.NullTime
+	var updated time.Time
+	err := s.DB.QueryRowContext(ctx, "SELECT last_push_at, updated_at FROM bot_notify_bots WHERE id=$1", botID).Scan(&last, &updated)
+	if err != nil || !last.Valid {
+		return nil, updated, err
+	}
+	return &last.Time, updated, nil
+}
+
+// ClaimPushSlot atomically records slot as the bot's latest scheduled push.
+// It succeeds for exactly one caller per slot, across restarts and server
+// instances sharing the database, and never moves the watermark backwards.
+func (s *Store) ClaimPushSlot(ctx context.Context, botID int64, slot time.Time) (bool, error) {
+	result, err := s.DB.ExecContext(ctx, "UPDATE bot_notify_bots SET last_push_at=$1 WHERE id=$2 AND (last_push_at IS NULL OR last_push_at < $1)", slot, botID)
+	if err != nil {
+		return false, err
+	}
+	n, err := result.RowsAffected()
+	return n == 1, err
 }
 
 func (s *Store) Prune(ctx context.Context) error {

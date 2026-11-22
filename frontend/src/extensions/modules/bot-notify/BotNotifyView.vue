@@ -125,6 +125,37 @@ const runningBots = computed(
         statuses.value[bot.id]?.announcing,
     ).length,
 )
+const pushModes = [
+  ['daily', '每天固定时间'],
+  ['interval', '按间隔'],
+] as const
+const newPushTime = ref('09:00')
+const pushTimeError = ref('')
+const pushTimePattern = /^([01]?\d|2[0-3]):([0-5]\d)$/
+/** 校验并规范为 HH:MM；格式错误返回空字符串。 */
+function canonicalPushTime(value: string) {
+  const match = pushTimePattern.exec(value.trim())
+  return match ? `${match[1].padStart(2, '0')}:${match[2]}` : ''
+}
+function addPushTime() {
+  if (!selected.value) return
+  const value = canonicalPushTime(newPushTime.value)
+  if (!value) {
+    pushTimeError.value = '时间格式应为 HH:MM，例如 09:00、21:30'
+    return
+  }
+  pushTimeError.value = ''
+  if (selected.value.push_times.includes(value)) return
+  if (selected.value.push_times.length >= 48) {
+    pushTimeError.value = '最多 48 个时间点'
+    return
+  }
+  selected.value.push_times = [...selected.value.push_times, value].sort()
+}
+function removePushTime(value: string) {
+  if (!selected.value) return
+  selected.value.push_times = selected.value.push_times.filter((item) => item !== value)
+}
 const targetCount = computed(() => chats.value.split('\n').filter((value) => value.trim()).length)
 const tabIcons = { 机器人配置: 'cog', 收到的消息: 'inbox', 关键词回复: 'chat', 'AI 客服': 'lightbulb' } as const
 function platformLabel(platform: string) {
@@ -189,6 +220,8 @@ async function createBot() {
     push_enabled: false,
     chat_ids: [],
     interval_minutes: 60,
+    push_mode: 'interval',
+    push_times: [],
     push_template: '{channel_status}',
     announce_sync_enabled: false,
   })
@@ -212,7 +245,12 @@ async function removeBot(bot: BotEntry) {
 
 async function openBot(bot: BotEntry) {
   const fresh = await botAPI.getBot(bot.id)
+  // 旧配置没有推送方式字段，按原来的间隔推送处理。
+  fresh.push_mode = fresh.push_mode === 'daily' ? 'daily' : 'interval'
+  fresh.push_times = fresh.push_times ?? []
   selected.value = fresh
+  newPushTime.value = '09:00'
+  pushTimeError.value = 
   token.value = ''
   chats.value = fresh.chat_ids.join('\n')
   testChat.value = ''
@@ -667,7 +705,7 @@ onUnmounted(() => {
                 <label class="setting-toggle"
                   ><span
                     ><span class="field-label">定时推送</span
-                    ><span class="helper mt-1 block">按设定间隔发送推送模板。</span></span
+                    ><span class="helper mt-1 block">按间隔或每天固定时间发送推送模板。</span></span
                   ><input v-model="selected.push_enabled" type="checkbox" class="bot-check"
                 /></label>
                 <label class="setting-toggle"
@@ -704,7 +742,66 @@ onUnmounted(() => {
                       : '填写完整 chat_id，保留群聊 ID 的负号；可从「收到的消息」查看。'
                   }}</span></label
                 >
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-5">
+                <div class="space-y-3">
+                  <span class="field-label">推送方式</span>
+                  <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="推送方式">
+                    <button
+                      v-for="[mode, label] in pushModes"
+                      :key="mode"
+                      type="button"
+                      role="radio"
+                      :aria-checked="selected.push_mode === mode"
+                      class="push-mode"
+                      :class="{ 'push-mode-active': selected.push_mode === mode }"
+                      @click="selected.push_mode = mode"
+                    >
+                      {{ label }}
+                    </button>
+                  </div>
+                </div>
+                <div v-if="selected.push_mode === 'daily'" class="space-y-3">
+                  <span class="field-label"
+                    ><span class="flex flex-wrap justify-between gap-2"
+                      >推送时间点<span class="text-xs font-normal text-gray-400"
+                        >{{ selected.push_times.length }} 个时间点</span
+                      ></span
+                    ></span
+                  >
+                  <div v-if="selected.push_times.length" class="flex flex-wrap gap-2">
+                    <span v-for="time in selected.push_times" :key="time" class="push-time">
+                      <span class="font-mono">{{ time }}</span>
+                      <button
+                        type="button"
+                        class="push-time-remove"
+                        :aria-label="`删除 ${time}`"
+                        @click="removePushTime(time)"
+                      >
+                        <Icon name="x" size="xs" />
+                      </button>
+                    </span>
+                  </div>
+                  <p v-else class="helper">还没有时间点，添加后保存才会生效。</p>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <input
+                      v-model="newPushTime"
+                      type="time"
+                      step="60"
+                      class="input w-36 font-mono"
+                      aria-label="新的推送时间点"
+                      @keydown.enter.prevent="addPushTime"
+                    />
+                    <button type="button" class="btn btn-secondary" @click="addPushTime">
+                      <Icon name="plus" size="sm" />添加时间点
+                    </button>
+                  </div>
+                  <p v-if="pushTimeError" class="text-xs text-red-600 dark:text-red-400">{{ pushTimeError }}</p>
+                  <p class="helper">
+                    每个时间点每天推送一次，按服务器时区{{
+                      statuses[selected.id]?.timezone ? `（${statuses[selected.id]?.timezone}）` : ''
+                    }}计算；多台服务器共用数据库时只会推送一次。
+                  </p>
+                </div>
+                <div v-else class="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-5">
                   <label class="field-label sm:w-40 sm:shrink-0"
                     >推送间隔（分钟）<input
                       v-model.number="selected.interval_minutes"
@@ -716,6 +813,9 @@ onUnmounted(() => {
                   /></label>
                   <p class="helper">对齐整点：60 分钟为每小时 00 分；30 分钟为每小时 00 分、30 分。</p>
                 </div>
+                <p v-if="selected.push_enabled && statuses[selected.id]?.next_push_at" class="helper">
+                  下次推送：{{ new Date(statuses[selected.id]?.next_push_at || '').toLocaleString() }}
+                </p>
                 <TemplateInput v-model="selected.push_template" label="推送模板" />
                 <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
                   <button
@@ -1579,6 +1679,18 @@ onUnmounted(() => {
 }
 .helper {
   @apply text-xs font-normal leading-6 text-gray-500 dark:text-gray-400;
+}
+.push-mode {
+  @apply rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:border-gray-300 dark:border-dark-600 dark:text-gray-300 dark:hover:border-dark-500;
+}
+.push-mode-active {
+  @apply border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-400 dark:bg-primary-900/30 dark:text-primary-300;
+}
+.push-time {
+  @apply inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 py-1 pl-3 pr-1 text-sm text-gray-700 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200;
+}
+.push-time-remove {
+  @apply inline-flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:bg-gray-200 hover:text-red-600 dark:hover:bg-dark-700;
 }
 .bot-check {
   @apply h-5 w-5 shrink-0 cursor-pointer rounded border-gray-300 accent-primary-600;

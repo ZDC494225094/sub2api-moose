@@ -59,6 +59,8 @@ func TestBotEncryptionAndEmptyTokenPreservation(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT config FROM bot_notify_bots.*FOR UPDATE").WillReturnRows(sqlmock.NewRows([]string{"config"}).AddRow(raw))
 	old.ReceiveEnabled = true
+	// Saving normalizes legacy configs to the explicit interval push mode.
+	old.PushMode, old.PushTimes = PushModeInterval, []string{}
 	expected, _ := json.Marshal(old)
 	mock.ExpectExec("UPDATE bot_notify_bots").WithArgs("默认机器人", expected, false, int64(1)).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()

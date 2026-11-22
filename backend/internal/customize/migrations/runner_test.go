@@ -65,7 +65,7 @@ func recorded(t *testing.T, conn *sql.Conn) int {
 	return count
 }
 
-const completeMigrationCount = 22
+const completeMigrationCount = 23
 
 func TestInstallationProvenanceAndDefaultFlags(t *testing.T) {
 	for _, tc := range []struct{ name, previous, kind, enabled string }{
@@ -142,7 +142,7 @@ func TestFailedHostAdoptionRollsBackItsFlagsAndCanRetry(t *testing.T) {
 	require.ErrorContains(t, (Runner{}).Apply(ctx, conn), "fixture write failed")
 	// Each module commits independently; the alphabetically earlier access and admin migrations survive.
 	require.Equal(t, map[string]string{customize.Key("access-policy"): "false", customize.Key("admin-efficiency"): "false", customize.Key("billing-scheduling"): "false", customize.Key("bot-notify"): "false"}, flags(t, conn))
-	require.Equal(t, 8, recorded(t, conn))
+	require.Equal(t, 9, recorded(t, conn))
 	execute(t, conn, "DROP TRIGGER reject_campaign")
 	require.NoError(t, (Runner{}).Apply(ctx, conn))
 	require.Len(t, flags(t, conn), 19)

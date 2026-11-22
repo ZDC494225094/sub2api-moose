@@ -79,6 +79,11 @@ type Config struct {
 	PushEnabled     bool     `json:"push_enabled"`
 	ChatIDs         []string `json:"chat_ids"`
 	IntervalMinutes int      `json:"interval_minutes"`
+	// PushMode is "interval" (IntervalMinutes, aligned to local midnight) or
+	// "daily" (every PushTimes "HH:MM" point in the server timezone). Empty
+	// means interval, the behavior of configs saved before daily times.
+	PushMode  string   `json:"push_mode"`
+	PushTimes []string `json:"push_times"`
 	PushTemplate    string   `json:"push_template"`
 	BotUsername     string   `json:"bot_username"`
 	BotID           int64    `json:"bot_id"`

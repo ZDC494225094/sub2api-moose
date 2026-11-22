@@ -63,10 +63,21 @@ One worker per configured bot, each holding its own PostgreSQL advisory lock
 bot's offset or duplicate its broadcasts. Reconciliation runs every two
 seconds: workers start, stop and restart as bots are created, edited, deleted
 or the module switch changes. Disabled/unconfigured bots never poll or
-broadcast; rows and rules remain intact. Broadcasts are aligned to wall-clock
-boundaries: the interval counts whole multiples after local midnight, so a
-60-minute interval fires exactly on the hour and a hot restart never drifts
-the phase. `POST /bots/:id/push-now` broadcasts the saved template on demand.
+broadcast; rows and rules remain intact. Scheduled pushes (`schedule.go`) have
+two modes in `config.push_mode`: `interval` (also what configs saved before
+the mode existed decode as) aligns to wall-clock boundaries, counting whole
+multiples of `interval_minutes` after local midnight, so 60 minutes fires
+exactly on the hour; `daily` fires at every `push_times` point (`HH:MM`,
+canonicalized, de-duplicated and sorted on save, at most 48). Both evaluate
+in the server timezone (`TZ` / `timezone.Location()`), which the status
+endpoint reports with the next push time. Before sending, the worker claims
+the slot with a conditional update of `bot_notify_bots.last_push_at`
+(migration `202611220001_bot_notify_push_slot.sql`): a slot is sent at most
+once across restarts and instances even if the advisory lease changes hands.
+A worker that starts within 10 minutes after an unclaimed slot still sends
+it, unless the bot never pushed before or its config was saved after that
+slot. `POST /bots/:id/push-now` broadcasts the saved template on demand and
+does not touch the schedule watermark.
 
 Telegram uses net/http with 30-second long polling, a 40-second per-attempt
 deadline, at most three attempts, bounded backoff and sanitized errors.

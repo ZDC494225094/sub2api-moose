@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/customize"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 )
 
 type StateReader interface {
@@ -28,6 +29,10 @@ type Status struct {
 	Announcing  bool       `json:"announcing"`
 	LastError   string     `json:"last_error"`
 	LastErrorAt *time.Time `json:"last_error_at"`
+	// NextPushAt is the next scheduled broadcast while this instance runs it.
+	NextPushAt *time.Time `json:"next_push_at"`
+	// Timezone names the server timezone daily push times are evaluated in.
+	Timezone string `json:"timezone"`
 }
 
 // botWorker tracks one running bot: its poll/push goroutines share a context
@@ -89,10 +94,12 @@ func (r *Runtime) PlatformFor(name string) (Platform, bool) {
 func (r *Runtime) Status(botID int64) Status {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	status := Status{}
 	if s, ok := r.statuses[botID]; ok {
-		return *s
+		status = *s
 	}
-	return Status{}
+	status.Timezone = timezone.Name()
+	return status
 }
 
 func (r *Runtime) signal() {
@@ -379,33 +386,57 @@ func wait(ctx context.Context, d time.Duration) bool {
 	}
 }
 
-// nextPushDelay returns the wait until the next wall-clock boundary that is
-// a whole multiple of interval after local midnight, so a 60-minute interval
-// fires exactly on the hour (13:00, 14:00, ...) instead of drifting with the
-// worker's start time.
-func nextPushDelay(now time.Time, interval time.Duration) time.Duration {
-	if interval < time.Minute {
-		interval = time.Hour
-	}
-	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	elapsed := now.Sub(midnight)
-	next := (elapsed/interval + 1) * interval
-	return midnight.Add(next).Sub(now)
-}
-
+// push sends the template at every slot of the bot's schedule. Each slot is
+// claimed in the database before sending (Store.ClaimPushSlot), so restarts,
+// lease handovers and other instances never send the same slot twice.
 func (r *Runtime) push(ctx context.Context, e BotEntry, platform Platform) {
-	interval := time.Duration(e.IntervalMinutes) * time.Minute
-	if interval < time.Minute {
-		interval = time.Hour
+	schedule, err := scheduleOf(e.Config)
+	if err != nil {
+		r.report(e.ID, ctx, err)
+		return
+	}
+	loc := timezone.Location()
+	if last, updated, stateErr := r.Store.PushState(ctx, e.ID); stateErr != nil {
+		r.report(e.ID, ctx, stateErr)
+	} else if slot, ok := catchUpSlot(time.Now().In(loc), schedule, last, updated); ok && r.allowed(ctx) {
+		r.pushSlot(ctx, e, platform, slot)
 	}
 	for {
-		if !wait(ctx, nextPushDelay(time.Now(), interval)) {
+		slot := schedule.next(time.Now().In(loc))
+		r.setNextPush(e.ID, &slot)
+		if !wait(ctx, time.Until(slot)) {
+			r.setNextPush(e.ID, nil)
 			return
 		}
 		if !r.allowed(ctx) {
+			r.setNextPush(e.ID, nil)
 			return
 		}
-		r.broadcast(ctx, e, platform)
+		r.pushSlot(ctx, e, platform, slot)
+	}
+}
+
+// pushSlot broadcasts one schedule slot if this process wins its claim.
+// The claim is taken before sending: a crash mid-send skips the slot rather
+// than repeating it, matching the best-effort delivery of replies.
+func (r *Runtime) pushSlot(ctx context.Context, e BotEntry, platform Platform, slot time.Time) bool {
+	claimed, err := r.Store.ClaimPushSlot(ctx, e.ID, slot)
+	if err != nil {
+		r.report(e.ID, ctx, err)
+		return false
+	}
+	if !claimed {
+		return false
+	}
+	r.broadcast(ctx, e, platform)
+	return true
+}
+
+func (r *Runtime) setNextPush(botID int64, at *time.Time) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if s, ok := r.statuses[botID]; ok {
+		s.NextPushAt = at
 	}
 }
 

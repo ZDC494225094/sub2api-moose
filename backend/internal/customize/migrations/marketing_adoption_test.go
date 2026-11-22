@@ -85,7 +85,7 @@ func TestMarketingAdoptionLedgerFailureRollsBackOnlyItsMigration(t *testing.T) {
 	execute(t, conn, `CREATE TRIGGER reject_marketing_ledger BEFORE INSERT ON custom_extension_schema_migrations
  WHEN NEW.module_id='marketing-tools' BEGIN SELECT RAISE(ABORT,'marketing ledger failed'); END`)
 	require.ErrorContains(t, (Runner{}).Apply(ctx, conn), "marketing ledger failed")
-	require.Equal(t, 14, recorded(t, conn))
+	require.Equal(t, 15, recorded(t, conn))
 	require.Len(t, flags(t, conn), 12)
 	require.NotContains(t, flags(t, conn), customize.Key("marketing-tools"))
 	execute(t, conn, "DROP TRIGGER reject_marketing_ledger")
