@@ -8,7 +8,8 @@ import BucketsPanel from '../BucketsPanel.vue'
 import BucketDialog from '../BucketDialog.vue'
 import ModelStatsPanel from '../ModelStatsPanel.vue'
 import GatewayLogArchiveView from '../GatewayLogArchiveView.vue'
-import { archiveAPI, type ArchiveBucket, type ArchiveConfig, type Entry } from '../api'
+import DetectorSettings from '../DetectorSettings.vue'
+import { archiveAPI, type ArchiveBucket, type ArchiveConfig, type DetectorConfig, type Entry } from '../api'
 import { shortError } from '../format'
 
 vi.mock(import('@/api/admin/usage'), async importOriginal => ({ ...await importOriginal(), searchUsers: vi.fn() }))
@@ -20,6 +21,7 @@ vi.mock('../api', () => ({
     updateBucket: vi.fn(),
     deleteBucket: vi.fn(),
     testBucket: vi.fn(),
+    testDetector: vi.fn(),
     modelStats: vi.fn(),
     getConfig: vi.fn(),
     saveConfig: vi.fn(),
@@ -296,5 +298,77 @@ describe('gateway log archive error text', () => {
     expect(shown.startsWith('operation error S3: PutObject')).toBe(true)
     expect(shown.endsWith('connect: connection refused')).toBe(true)
     expect(shortError('短错误')).toBe('短错误')
+  })
+})
+
+describe('gateway log archive model detection settings', () => {
+  const detector = (): DetectorConfig => ({
+    enabled: false, url: '', timeout_seconds: 120, min_confidence: 0.8, fail_open: false,
+    kinds: ['email', 'phone', 'account', 'payment_card', 'ip_address', 'common_secret', 'private_address', 'private_person'],
+  })
+
+  it('saves detection settings and sends a key only when a new one is typed', async () => {
+    vi.resetAllMocks()
+    vi.useFakeTimers()
+    const config: ArchiveConfig = {
+      capture_enabled: false, mode: 'all', rules: [], success_only: true, redact_pii: true,
+      max_file_size_mb: 10240, session_idle_seconds: 1800, max_body_mb: 64,
+      keep_local_hours: 0, entry_retention_days: 90, min_free_disk_gb: 5,
+      detector: detector(), detector_api_key_set: true,
+    }
+    vi.mocked(archiveAPI.getConfig).mockResolvedValue(config)
+    vi.mocked(archiveAPI.saveConfig).mockImplementation(async value => ({ ...value, detector_api_key_set: true }))
+    vi.mocked(archiveAPI.buckets).mockResolvedValue({ items: [], unattributed: { bundle_count: 0, size_bytes: 0 } })
+    const wrapper = mount(GatewayLogArchiveView, { global: { stubs } })
+    const save = async () => {
+      await wrapper.findAll('button').find(button => button.text() === '保存采集配置')!.trigger('click')
+      await flushPromises()
+      return vi.mocked(archiveAPI.saveConfig).mock.lastCall![0]
+    }
+    try {
+      await flushPromises()
+      expect(wrapper.text()).toContain('已保存密钥，留空保持不变')
+      await wrapper.get('[aria-label="启用模型脱敏服务"]').trigger('click')
+      await wrapper.get('input[aria-label="脱敏服务地址"]').setValue('http://privacy-detector:8090')
+      await wrapper.get('input[aria-label="识别日期"]').setValue(true)
+      await wrapper.get('input[aria-label="置信度阈值"]').setValue(65)
+      let sent = await save()
+      expect(sent.detector).toMatchObject({ enabled: true, url: 'http://privacy-detector:8090', min_confidence: 0.65 })
+      expect(sent.detector!.kinds).toContain('private_date')
+      expect(sent.detector!.api_key).toBeUndefined()
+      expect(sent).not.toHaveProperty('detector_api_key_set')
+
+      await wrapper.get('input[aria-label="脱敏服务密钥"]').setValue('new-secret-key-123456')
+      expect(wrapper.text()).toContain('保存后替换为新密钥')
+      sent = await save()
+      expect(sent.detector!.api_key).toBe('new-secret-key-123456')
+    } finally {
+      wrapper.unmount()
+      vi.clearAllTimers()
+      vi.useRealTimers()
+    }
+  })
+
+  it('tests unsaved settings and shows what the upload would contain', async () => {
+    vi.resetAllMocks()
+    vi.mocked(archiveAPI.testDetector).mockResolvedValue({
+      ok: true, model: 'guard', elapsed_ms: 42, sample: '我叫王小明',
+      redacted: '我叫[REDACTED]', findings: [{ label: 'private_person', score: 0.97, text: '王小明', accepted: true }],
+    })
+    const model = { ...detector(), enabled: true, url: 'http://d:8090' }
+    const wrapper = mount(DetectorSettings, {
+      props: { modelValue: model, keySet: false, status: { enabled: true, url: 'http://d:8090', requests: 3, texts: 10, bytes: 2048, cache_hits: 4, errors: 1, fail_open_skips: 0, last_error: '模型脱敏服务：返回 HTTP 503' } },
+      global: { stubs },
+    })
+    await wrapper.findAll('button').find(button => button.text().includes('测试脱敏服务'))!.trigger('click')
+    await flushPromises()
+    expect(archiveAPI.testDetector).toHaveBeenCalledWith(expect.objectContaining({ url: 'http://d:8090', min_confidence: 0.8 }))
+    const result = wrapper.get('[data-testid="detector-test-result"]').text()
+    expect(result).toContain('连接正常，耗时 42 ms，模型 guard')
+    expect(result).toContain('我叫[REDACTED]')
+    expect(result).toContain('姓名 · 王小明 · 97%')
+    const status = wrapper.get('[data-testid="detector-status"]').text()
+    expect(status).toContain('本节点请求 3 次')
+    expect(status).toContain('返回 HTTP 503')
   })
 })

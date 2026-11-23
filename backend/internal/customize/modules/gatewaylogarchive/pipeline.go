@@ -71,6 +71,10 @@ type pipeline struct {
 	idle         atomic.Int64
 	keepLocal    atomic.Int64
 
+	detectorMu     sync.Mutex
+	detectorClient *detectorClient
+	remoteDetector atomic.Pointer[remoteDetector]
+
 	intakeMu sync.RWMutex
 	open     bool
 	in       chan *Exchange
@@ -176,6 +180,31 @@ func (p *pipeline) setConfig(cfg Config) {
 	p.maxFile.Store(cfg.MaxFileSizeMB << 20)
 	p.idle.Store(int64(cfg.SessionIdleSeconds) * int64(time.Second))
 	p.keepLocal.Store(int64(cfg.KeepLocalHours) * int64(time.Hour))
+}
+
+// detector returns the configured detection service, or nil for the
+// built-in rules only.
+func (p *pipeline) detector() textDetector {
+	if d := p.remoteDetector.Load(); d != nil {
+		return d
+	}
+	return nil
+}
+
+// setDetector applies the detection settings. The client, with its cache and
+// statistics, is kept while the address, key and timeout stay the same.
+func (p *pipeline) setDetector(cfg DetectorConfig, key string, keyErr error) {
+	p.detectorMu.Lock()
+	defer p.detectorMu.Unlock()
+	if !cfg.Enabled {
+		p.remoteDetector.Store(nil)
+		return
+	}
+	timeout := time.Duration(cfg.TimeoutSeconds) * time.Second
+	if !p.detectorClient.sameTransport(cfg.URL, key, timeout, keyErr) {
+		p.detectorClient = newDetectorClient(cfg.URL, key, timeout, keyErr)
+	}
+	p.remoteDetector.Store(newRemoteDetector(p.detectorClient, cfg))
 }
 
 // submit never blocks the request goroutine; a full queue drops the exchange.

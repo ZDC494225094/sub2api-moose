@@ -27,6 +27,7 @@ type preparedUpload struct {
 	entries  []zipEntry
 	jsonl    bool
 	redact   bool
+	det      textDetector
 	sizeHint int64
 }
 
@@ -40,6 +41,9 @@ func (p *pipeline) prepareUpload(row *Bundle, redact bool) (*preparedUpload, err
 	removeLegacyUploadTemp(row.LocalPath)
 	prepared := &preparedUpload{path: row.LocalPath, fileName: BundleFileName(row.ModelKey, row.Day, row.Part),
 		jsonl: strings.HasSuffix(row.FileName, ".jsonl"), redact: redact}
+	if redact {
+		prepared.det = p.detector()
+	}
 	if prepared.jsonl && info.Size() != row.SizeBytes {
 		return nil, errors.New("本地 JSONL 大小与已封存的索引不符")
 	}
@@ -131,7 +135,7 @@ func (u *preparedUpload) writeEntry(ctx context.Context, source *os.File, entry 
 		input = legacy
 	}
 	if u.redact {
-		return redactJSON(ctx, dst, input, true)
+		return redactJSON(ctx, dst, input, true, u.det)
 	}
 	return compactJSON(dst, input)
 }

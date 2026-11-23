@@ -22,6 +22,7 @@ func (h *Handler) Register(group *gin.RouterGroup, manager *customize.Manager) {
 	g := group.Group("/gateway-log-archive", manager.Require(ID))
 	g.GET("/config", h.getConfig)
 	g.PUT("/config", h.saveConfig)
+	g.POST("/detector/test", h.testDetector)
 	g.GET("/buckets", h.listBuckets)
 	g.POST("/buckets", h.createBucket)
 	g.POST("/buckets/test", h.testBucket)
@@ -49,9 +50,17 @@ func (h *Handler) GatewayCapture() gin.HandlerFunc {
 	return h.Runtime.CaptureMiddleware()
 }
 
+// configView never carries the detection service key, only whether one is set.
 type configView struct {
 	Config
-	UpdatedAt *time.Time `json:"updated_at"`
+	DetectorAPIKeySet bool       `json:"detector_api_key_set"`
+	UpdatedAt         *time.Time `json:"updated_at"`
+}
+
+func newConfigView(cfg Config, updated *time.Time) configView {
+	set := cfg.Detector.APIKeyEnc != ""
+	cfg.Detector.APIKeyEnc, cfg.Detector.APIKey = "", ""
+	return configView{Config: cfg, DetectorAPIKeySet: set, UpdatedAt: updated}
 }
 
 func maskKey(v string) string {
@@ -67,18 +76,23 @@ func maskKey(v string) string {
 func (h *Handler) getConfig(c *gin.Context) {
 	cfg, updated, err := h.Runtime.Store.Config(c.Request.Context())
 	if !response.ErrorFrom(c, err) {
-		response.Success(c, configView{Config: cfg, UpdatedAt: updated})
+		response.Success(c, newConfigView(cfg, updated))
 	}
 }
 
 func (h *Handler) saveConfig(c *gin.Context) {
+	ctx := c.Request.Context()
+	stored, _, err := h.Runtime.Store.Config(ctx)
+	if response.ErrorFrom(c, err) {
+		return
+	}
 	req := DefaultConfig()
-	req.ExcludedUserIDs = nil // omitted or null keeps the saved list; [] clears it
+	req.ExcludedUserIDs = nil      // omitted or null keeps the saved list; [] clears it
+	req.Detector = stored.Detector // omitted keeps the saved detection settings
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "配置格式错误")
 		return
 	}
-	ctx := c.Request.Context()
 	if err := req.Normalize(); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -99,7 +113,7 @@ func (h *Handler) saveConfig(c *gin.Context) {
 	h.Runtime.signal()
 	saved, updated, err := h.Runtime.Store.Config(ctx)
 	if !response.ErrorFrom(c, err) {
-		response.Success(c, configView{Config: saved, UpdatedAt: updated})
+		response.Success(c, newConfigView(saved, updated))
 	}
 }
 

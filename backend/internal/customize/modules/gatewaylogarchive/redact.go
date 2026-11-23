@@ -17,18 +17,26 @@ const piiMask = "[REDACTED]"
 
 // This parser runs ONLY in the upload worker. It preserves JSON keys, number
 // spellings, whitespace and unchanged string tokens, including duplicate keys.
-// Memory is bounded by individual string values, never the whole JSONL file.
+// Memory is bounded by individual string values, never the whole JSONL file;
+// with a detection service, also by one pending batch (see lazyOut).
 type piiJSON struct {
 	ctx       context.Context
 	r         *bufio.Reader
-	w         io.Writer
+	out       *lazyOut
+	batch     *detectBatch // nil without a detection service
 	textDepth int
 	inSchema  bool
 	compact   bool
 }
 
-func redactJSON(ctx context.Context, w io.Writer, r io.Reader, compact bool) error {
-	p := &piiJSON{ctx: ctx, r: bufio.NewReaderSize(r, 64<<10), w: w, compact: compact}
+// redactJSON masks personal information in one JSON document. det, when not
+// nil, adds model findings to the built-in rules.
+func redactJSON(ctx context.Context, w io.Writer, r io.Reader, compact bool, det textDetector) error {
+	out := &lazyOut{w: w}
+	p := &piiJSON{ctx: ctx, r: bufio.NewReaderSize(r, 64<<10), out: out, compact: compact}
+	if det != nil {
+		p.batch = &detectBatch{ctx: ctx, det: det, root: out, results: map[int][]detectSpan{}}
+	}
 	if err := p.value("", "", 0, false); err != nil {
 		return err
 	}
@@ -38,10 +46,47 @@ func redactJSON(ctx context.Context, w io.Writer, r io.Reader, compact bool) err
 	if _, err := p.r.Peek(1); err != io.EOF {
 		return errors.New("unexpected trailing JSON data")
 	}
+	if p.batch != nil {
+		if err := p.batch.flush(); err != nil {
+			return err
+		}
+	}
 	return ctx.Err()
 }
 
-func (p *piiJSON) write(b []byte) error { _, err := p.w.Write(b); return err }
+// maxHeldOutput bounds output held back behind pending detection: past it the
+// batch is sent early so held output can be written.
+const maxHeldOutput = 4 << 20
+
+func (p *piiJSON) write(b []byte) error {
+	if err := p.out.write(b); err != nil {
+		return err
+	}
+	if p.batch != nil && p.out == p.batch.root && p.out.held > maxHeldOutput {
+		return p.batch.flush()
+	}
+	return nil
+}
+
+// writeString writes the string token for a redacted value: the original
+// token when nothing changed, else a re-encoded string. A value still waiting
+// for the detection service is written when its batch returns.
+func (p *piiJSON) writeString(raw []byte, text string, redacted lazy) error {
+	encode := func(s string) []byte {
+		if s == text {
+			return raw
+		}
+		var out bytes.Buffer
+		writeJSONString(&out, s)
+		return out.Bytes()
+	}
+	if redacted.fn == nil {
+		return p.write(encode(redacted.s))
+	}
+	p.out.deferred(func() []byte { return encode(redacted.get()) })
+	return nil
+}
+
 func (p *piiJSON) space() error {
 	for {
 		b, err := p.r.Peek(1)
@@ -154,6 +199,9 @@ func (p *piiJSON) value(key, parent string, depth int, mask bool) error {
 	if err := p.ctx.Err(); err != nil {
 		return err
 	}
+	if p.batch != nil && p.batch.err != nil {
+		return p.batch.err
+	}
 	if depth > 10000 {
 		return errors.New("JSON nesting exceeds limit")
 	}
@@ -233,18 +281,14 @@ func (p *piiJSON) value(key, parent string, depth int, mask bool) error {
 		if (opaqueProtocolField(key) || normalizePIIKey(key) == "id" && !personalContext(parent)) && !mask {
 			return p.write(raw)
 		}
-		redacted := text
 		if mask && text != "" {
-			redacted = piiMask
-		} else {
-			redacted = redactText(text, p.textDepth)
+			return p.writeString(raw, text, static(piiMask))
 		}
-		if redacted == text {
-			return p.write(raw)
+		batch := p.batch
+		if p.inSchema {
+			batch = nil // tool schemas are not conversation content
 		}
-		var out bytes.Buffer
-		writeJSONString(&out, redacted)
-		return p.write(out.Bytes())
+		return p.writeString(raw, text, redactText(text, p.textDepth, batch))
 	default:
 		var raw []byte
 		for {
@@ -288,38 +332,55 @@ var (
 	}
 )
 
-func redactText(text string, depth int) string {
+func redactText(text string, depth int, batch *detectBatch) lazy {
 	// Nested JSON and SSE data retain their exact framing. Recurse only into
 	// actual JSON, not arbitrary code snippets or textual key names.
 	if depth < 8 && json.Valid([]byte(text)) && (strings.HasPrefix(strings.TrimSpace(text), "{") || strings.HasPrefix(strings.TrimSpace(text), "[")) {
-		var out bytes.Buffer
 		// The nested parser uses the same rules; bound nesting via textDepth.
-		if err := redactEmbeddedJSON(&out, text, depth+1); err == nil {
-			return out.String()
+		if out, err := redactEmbeddedJSON(text, depth+1, batch); err == nil {
+			return out
 		}
 	}
 	if depth < 8 && strings.Contains(text, "data:") {
-		var out strings.Builder
+		var parts []lazy
 		for _, line := range strings.SplitAfter(text, "\n") {
 			if strings.HasPrefix(line, "data:") {
 				prefix := len("data:")
-				out.WriteString(line[:prefix])
-				out.WriteString(redactText(line[prefix:], depth+1))
+				parts = append(parts, static(line[:prefix]), redactText(line[prefix:], depth+1, batch))
 			} else {
-				out.WriteString(redactPlainText(line))
+				parts = append(parts, redactLeaf(line, batch))
 			}
 		}
-		return out.String()
+		return concatLazy(parts)
 	}
-	return redactPlainText(text)
+	return redactLeaf(text, batch)
 }
 
-func redactEmbeddedJSON(out io.Writer, text string, depth int) error {
-	p := &piiJSON{ctx: context.Background(), r: bufio.NewReader(strings.NewReader(text)), w: out, textDepth: depth}
-	if err := p.value("", "", 0, false); err != nil {
-		return err
+// redactLeaf applies the built-in rules and, with a detection service, queues
+// the result for the model. The model sees text whose rule matches are
+// already masked.
+func redactLeaf(text string, batch *detectBatch) lazy {
+	local := redactPlainText(text)
+	if batch == nil || !detectable(local) {
+		return static(local)
 	}
-	return p.space()
+	return batch.leaf(local)
+}
+
+func redactEmbeddedJSON(text string, depth int, batch *detectBatch) (lazy, error) {
+	ctx := context.Background()
+	if batch != nil {
+		ctx = batch.ctx
+	}
+	out := &lazyOut{}
+	p := &piiJSON{ctx: ctx, r: bufio.NewReader(strings.NewReader(text)), out: out, batch: batch, textDepth: depth}
+	if err := p.value("", "", 0, false); err != nil {
+		return lazy{}, err
+	}
+	if err := p.space(); err != nil {
+		return lazy{}, err
+	}
+	return out.result(), nil
 }
 
 func redactPlainText(text string) string {

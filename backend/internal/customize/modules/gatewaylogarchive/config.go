@@ -47,6 +47,8 @@ type Config struct {
 	KeepLocalHours     int         `json:"keep_local_hours"`
 	EntryRetentionDays int         `json:"entry_retention_days"`
 	MinFreeDiskGB      int         `json:"min_free_disk_gb"`
+	// Detector adds a model-based detection service to upload redaction.
+	Detector DetectorConfig `json:"detector"`
 
 	// BucketsMigrated marks that the single bucket of earlier versions (the
 	// legacy fields below) has been moved into the buckets table.
@@ -106,6 +108,7 @@ func DefaultConfig() Config {
 		KeepLocalHours:     0,
 		EntryRetentionDays: 90,
 		MinFreeDiskGB:      5,
+		Detector:           defaultDetectorConfig(),
 	}
 }
 
@@ -178,7 +181,7 @@ func (c *Config) Normalize() error {
 	if c.MinFreeDiskGB > 10000 {
 		c.MinFreeDiskGB = 10000
 	}
-	return nil
+	return c.Detector.Normalize()
 }
 
 // Without a verified owner, a nonempty exclusion list cannot be enforced:

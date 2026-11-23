@@ -162,7 +162,7 @@ func (p *pipeline) flushStaged(job flushJob, h sessionHeader, records []spoolRec
 		defer doc.Close()
 		indexed, err = writeIndexedLine(dst, func(out io.Writer) error {
 			if redact {
-				return redactJSON(ctx, out, doc, true)
+				return redactJSON(ctx, out, doc, true, p.detector())
 			}
 			return compactJSON(out, doc)
 		})
@@ -185,6 +185,10 @@ func (p *pipeline) flushStaged(job flushJob, h sessionHeader, records []spoolRec
 		} else {
 			if p.ctx.Err() != nil {
 				return p.ctx.Err()
+			}
+			if errors.Is(err, errDetector) {
+				// RustFS is fine; keep the session spool and retry the flush.
+				return err
 			}
 			p.stageBackoff.Store(time.Now().Add(30 * time.Second).Unix())
 			p.report(fmt.Errorf("RustFS 写入失败，新会话暂存本地：%w", err))
@@ -217,13 +221,13 @@ func (p *pipeline) flushStaged(job flushJob, h sessionHeader, records []spoolRec
 	return nil
 }
 
-func copyVerified(ctx context.Context, dst io.Writer, src io.Reader, entry zipEntry, redact bool) error {
+func copyVerified(ctx context.Context, dst io.Writer, src io.Reader, entry zipEntry, redact bool, det textDetector) error {
 	limited := &io.LimitedReader{R: src, N: entry.USize}
 	checksum := crc32.NewIEEE()
 	reader := io.TeeReader(limited, checksum)
 	var err error
 	if redact {
-		err = redactJSON(ctx, dst, reader, true)
+		err = redactJSON(ctx, dst, reader, true, det)
 	} else {
 		_, err = io.Copy(dst, reader)
 	}
@@ -258,6 +262,7 @@ func (p *pipeline) sealStaged(row *Bundle) error {
 		return err
 	}
 	redact := row.StageRedacted || primary.redact(p.defaultPrivacy())
+	det := p.detector()
 	layout := &uploadLayout{FileName: row.FileName, Entries: make([]zipEntry, 0, len(entries))}
 	progress := &uploadProgress{BundleID: row.ID, FileName: row.FileName}
 	progress.setPhase("读取暂存片段")
@@ -280,7 +285,7 @@ func (p *pipeline) sealStaged(row *Bundle) error {
 				return err
 			}
 			next, err := writeIndexedLine(out, func(dst io.Writer) error {
-				return copyVerified(p.ctx, dst, src, entry, redact && !(entry.StagedRemote && row.StageRedacted))
+				return copyVerified(p.ctx, dst, src, entry, redact && !(entry.StagedRemote && row.StageRedacted), det)
 			})
 			_ = src.Close()
 			if err != nil {

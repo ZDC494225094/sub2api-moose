@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "installation_id": "model_ffa8816afbbc3c8fd172256b35000666",
+  "identity": "QuantumNous/astrlink-guard@7216b6a3b897ef903d4b1ba367ae6fb95b0fa5e4#cpu_int8",
+  "repo_id": "QuantumNous/astrlink-guard",
+  "revision": "7216b6a3b897ef903d4b1ba367ae6fb95b0fa5e4",
+  "variant_id": "cpu_int8",
+  "adapter": "hf_token_classification",
+  "model_path": "int8/model_int8.onnx",
+  "external_data_paths": [
+    "int8/model_int8.onnx_data"
+  ],
+  "tokenizer_path": "int8/tokenizer.json",
+  "config_path": "int8/config.json",
+  "calibration_path": null,
+  "secret_rules_path": null,
+  "secret_calibration_path": null,
+  "tag_scheme": "bio",
+  "window": 512,
+  "stride": 128,
+  "max_request_tokens": 131072,
+  "input_names": {
+    "input_ids": "input_ids",
+    "attention_mask": "attention_mask",
+    "token_type_ids": "token_type_ids"
+  },
+  "output_name": "logits",
+  "label_mapping": {
+    "email": "email",
+    "phone": "phone",
+    "account": "account",
+    "payment_card": "payment_card",
+    "ip_address": "ip_address",
+    "url": "url",
+    "common_secret": "common_secret",
+    "private_address": "private_address",
+    "private_date": "private_date",
+    "private_person": "private_person"
+  },
+  "files": [
+    {
+      "path": "int8/model_int8.onnx",
+      "size": 330781,
+      "sha256": "0a070d3113615e33ba3b84d6bd486f663a377c04c4b056e7381732179f51832a"
+    },
+    {
+      "path": "int8/model_int8.onnx_data",
+      "size": 37124608,
+      "sha256": "0ba34216ceead01e0ae2dfd8e46d52b67e7aee80b04f722d9b758613a91c0067"
+    },
+    {
+      "path": "int8/config.json",
+      "size": 1804,
+      "sha256": "2c20003590d642e273c03c4c7c82d9849fa75f64bf29a71ec0a0c9a20ba4a150"
+    },
+    {
+      "path": "int8/tokenizer.json",
+      "size": 1502881,
+      "sha256": "0cf3b235ef125658015a6c8026a5fe6f28088bf825101a990ec18a10200feef4"
+    },
+    {
+      "path": "int8/tokenizer_config.json",
+      "size": 205,
+      "sha256": "3a7cf4d70bb7c0376f18cc6ad23c143853de5b4478084c414d5dbbd35ea5c589"
+    },
+    {
+      "path": "LICENSE",
+      "size": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    }
+  ]
+}

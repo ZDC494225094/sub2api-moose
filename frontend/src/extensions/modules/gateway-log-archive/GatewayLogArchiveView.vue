@@ -161,6 +161,13 @@
             </div>
             <Toggle v-model="form.redact_pii" aria-label="上传时脱敏个人信息" />
           </div>
+          <DetectorSettings
+            v-if="form.detector"
+            v-model="form.detector"
+            :key-set="!!form.detector_api_key_set"
+            :status="status?.detector"
+            :disabled="busy"
+          />
           <div>
             <p class="setting-title">存储模式</p>
             <div class="tabs mt-2 w-fit">
@@ -393,6 +400,7 @@ import Icon from '@/components/icons/Icon.vue'
 import BucketsPanel from './BucketsPanel.vue'
 import ModelStatsPanel from './ModelStatsPanel.vue'
 import ExcludedUsersEditor from './ExcludedUsersEditor.vue'
+import DetectorSettings from './DetectorSettings.vue'
 import {
   archiveAPI,
   type ArchiveBucket,
@@ -518,7 +526,12 @@ async function run(action: () => Promise<void>, fallback: string) {
 
 function applyConfig(cfg: ArchiveConfig) {
   savedExclusions = cfg.excluded_user_ids
-  form.value = { ...cfg, rules: (cfg.rules || []).map(r => ({ ...r })), excluded_user_ids: savedExclusions?.slice() }
+  form.value = {
+    ...cfg,
+    rules: (cfg.rules || []).map(r => ({ ...r })),
+    excluded_user_ids: savedExclusions?.slice(),
+    detector: cfg.detector ? { ...cfg.detector, kinds: [...(cfg.detector.kinds || [])] } : undefined,
+  }
 }
 
 async function loadStatus() {
@@ -540,6 +553,7 @@ async function loadBuckets() {
 async function saveConfig() {
   await run(async () => {
     const input = { ...form.value! }
+    delete input.detector_api_key_set
     // Leave a concurrently edited list alone when only other settings changed.
     const ids = input.excluded_user_ids
     if (ids && ids.length === savedExclusions?.length && ids.every((id, i) => id === savedExclusions?.[i])) delete input.excluded_user_ids

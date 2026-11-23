@@ -13,7 +13,7 @@ import (
 func redactForTest(t *testing.T, input string) string {
 	t.Helper()
 	var out bytes.Buffer
-	require.NoError(t, redactJSON(context.Background(), &out, strings.NewReader(input), false))
+	require.NoError(t, redactJSON(context.Background(), &out, strings.NewReader(input), false, nil))
 	require.True(t, json.Valid(out.Bytes()))
 	return out.String()
 }
@@ -60,12 +60,12 @@ func TestRedactionPreservesNonPIIAndMalformedInputFailsClosed(t *testing.T) {
 	}
 	for _, input := range []string{`{"email":"alice@example.com"`, `{"n":1,}`, `{"n":oops}`, `{} {}`} {
 		var out bytes.Buffer
-		require.Error(t, redactJSON(context.Background(), &out, strings.NewReader(input), false))
+		require.Error(t, redactJSON(context.Background(), &out, strings.NewReader(input), false, nil))
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	var out bytes.Buffer
-	require.ErrorIs(t, redactJSON(ctx, &out, strings.NewReader(`{}`), false), context.Canceled)
+	require.ErrorIs(t, redactJSON(ctx, &out, strings.NewReader(`{}`), false, nil), context.Canceled)
 }
 
 func TestRedactionProtectsOpaqueSignaturesAndToolReferences(t *testing.T) {

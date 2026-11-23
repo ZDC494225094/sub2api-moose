@@ -194,6 +194,8 @@ func (r *Runtime) reconcile(ctx context.Context) {
 		return
 	}
 	pipe.setConfig(cfg)
+	key, keyErr := r.detectorKey(cfg.Detector)
+	pipe.setDetector(cfg.Detector, key, keyErr)
 	pipe.setBuckets(all)
 	free := diskFree(r.dir())
 	reason := ""
@@ -222,6 +224,17 @@ func (r *Runtime) reconcile(ctx context.Context) {
 		r.report(r.repo.Prune(ctx, time.Now().AddDate(0, 0, -cfg.EntryRetentionDays)))
 	}
 	pipe.wakeUploader()
+}
+
+// detectorKey decrypts the stored detection service key.
+func (r *Runtime) detectorKey(d DetectorConfig) (string, error) {
+	if d.APIKeyEnc == "" {
+		return "", nil
+	}
+	if r.Store == nil {
+		return "", errStoreUnavailable
+	}
+	return r.Store.decrypt(d.APIKeyEnc)
 }
 
 func (r *Runtime) ensurePipeline(cfg Config, buckets []BucketConfig) (*pipeline, error) {
@@ -304,6 +317,7 @@ type RuntimeStatus struct {
 	LastError        string              `json:"last_error"`
 	LastErrorAt      *time.Time          `json:"last_error_at"`
 	Bundles          []StatusCount       `json:"bundles"`
+	Detector         *DetectorStatus     `json:"detector,omitempty"`
 }
 
 type uploadView struct {
@@ -335,6 +349,9 @@ func (r *Runtime) Status(ctx context.Context) RuntimeStatus {
 		st.PendingFlushes = len(pipe.retry) + int(pipe.inFlight.Load())
 		pipe.retryMu.Unlock()
 		st.OpenBundles = pipe.openBundles()
+		if d := pipe.remoteDetector.Load(); d != nil {
+			st.Detector = d.status()
+		}
 		if up := pipe.uploading.Load(); up != nil {
 			st.Uploading = &uploadView{BundleID: up.BundleID, FileName: up.FileName, Total: up.Total, Sent: up.sent.Load(), BodyBytes: up.bodyBytes.Load(), Retries: up.retries.Load()}
 			if phase := up.phase.Load(); phase != nil {

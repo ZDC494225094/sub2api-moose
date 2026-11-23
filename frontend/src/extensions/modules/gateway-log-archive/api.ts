@@ -5,6 +5,65 @@ export interface ModelRule {
   alias: string
 }
 
+export type DetectorKind =
+  | 'email'
+  | 'phone'
+  | 'account'
+  | 'payment_card'
+  | 'ip_address'
+  | 'url'
+  | 'common_secret'
+  | 'private_address'
+  | 'private_date'
+  | 'private_person'
+
+/** Model-based detection service (deploy/privacy-detector) used on upload. */
+export interface DetectorConfig {
+  enabled: boolean
+  url: string
+  timeout_seconds: number
+  min_confidence: number
+  kinds: DetectorKind[]
+  fail_open: boolean
+  /** Request only: a new key; empty keeps the saved one. */
+  api_key?: string
+  clear_api_key?: boolean
+}
+
+export interface DetectorTestInput {
+  url: string
+  api_key?: string
+  timeout_seconds: number
+  min_confidence: number
+  kinds: DetectorKind[]
+  sample?: string
+}
+
+export interface DetectorTestResult {
+  ok: boolean
+  error?: string
+  model?: string
+  elapsed_ms: number
+  sample?: string
+  rules_only?: string
+  redacted?: string
+  findings?: { label: DetectorKind; score: number; text: string; accepted: boolean }[]
+}
+
+export interface DetectorStatus {
+  enabled: boolean
+  url: string
+  model?: string
+  requests: number
+  texts: number
+  bytes: number
+  cache_hits: number
+  errors: number
+  fail_open_skips: number
+  last_error?: string
+  last_error_at?: string | null
+}
+
 export interface ArchiveConfig {
   capture_enabled: boolean
   mode: 'all' | 'selected'
@@ -19,6 +78,9 @@ export interface ArchiveConfig {
   keep_local_hours: number
   entry_retention_days: number
   min_free_disk_gb: number
+  /** Omitted by older nodes; omitting it keeps the saved settings. */
+  detector?: DetectorConfig
+  detector_api_key_set?: boolean
   updated_at?: string | null
 }
 
@@ -143,6 +205,7 @@ export interface ArchiveStatus {
   last_error: string
   last_error_at: string | null
   bundles: { status: string; count: number; bytes: number }[] | null
+  detector?: DetectorStatus
 }
 
 export interface Bundle {
@@ -218,6 +281,11 @@ export const archiveAPI = {
   },
   async saveConfig(input: ArchiveConfig): Promise<ArchiveConfig> {
     const { data } = await apiClient.put(`${base}/config`, input)
+    return data
+  },
+  /** Sends a sample with unsaved settings; an empty key uses the saved one. */
+  async testDetector(input: DetectorTestInput): Promise<DetectorTestResult> {
+    const { data } = await apiClient.post(`${base}/detector/test`, input, { timeout: (input.timeout_seconds + 15) * 1000 })
     return data
   },
   async buckets(): Promise<BucketList> {

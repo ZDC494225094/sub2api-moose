@@ -71,7 +71,7 @@ func TestRelayResumesMidLineWithoutDuplicatingOrUnmaskingBytes(t *testing.T) {
 				return io.NopCloser(strings.NewReader(data[pos:])), nil
 			}}
 			dest := newMemObjects()
-			size, err := transferRelay(ctx, source, dest, Bundle{SizeBytes: int64(len(data))}, "copy", entries, redact)
+			size, err := transferRelay(ctx, source, dest, Bundle{SizeBytes: int64(len(data))}, "copy", entries, redact, nil)
 			require.NoError(t, err)
 			want := data
 			if redact {
@@ -134,7 +134,7 @@ func TestRelayReportsWhichSideFailedAndNeverPublishesPartialCopy(t *testing.T) {
 			if scenario == "CRC" {
 				meta.CRC++
 			}
-			_, err := transferRelay(ctx, source, dest, Bundle{SizeBytes: int64(len(data))}, "copy", []zipEntry{meta}, false)
+			_, err := transferRelay(ctx, source, dest, Bundle{SizeBytes: int64(len(data))}, "copy", []zipEntry{meta}, false, nil)
 			require.Error(t, err)
 			require.Empty(t, dest.objects)
 			switch scenario {

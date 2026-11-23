@@ -171,6 +171,26 @@ func (s *Store) encrypt(v string) (string, error) {
 	return s.Cipher.Encrypt(v)
 }
 
+// resolveDetectorKey encrypts a new service key, clears it on request, or
+// keeps the stored one. Plain keys are never persisted.
+func (s *Store) resolveDetectorKey(next *DetectorConfig, stored DetectorConfig) error {
+	key := strings.TrimSpace(next.APIKey)
+	switch {
+	case key != "" && !strings.Contains(key, "****"):
+		enc, err := s.encrypt(key)
+		if err != nil {
+			return fmt.Errorf("gateway-log-archive: encrypt detector key: %w", err)
+		}
+		next.APIKeyEnc = enc
+	case next.ClearAPIKey:
+		next.APIKeyEnc = ""
+	default:
+		next.APIKeyEnc = stored.APIKeyEnc
+	}
+	next.APIKey, next.ClearAPIKey = "", false
+	return nil
+}
+
 // SaveConfig persists the capture configuration; bucket credentials are kept
 // in gateway_log_archive_buckets and never pass through here.
 func (s *Store) SaveConfig(ctx context.Context, cfg Config) error {
@@ -189,6 +209,9 @@ func (s *Store) SaveConfig(ctx context.Context, cfg Config) error {
 		next.keepStorageState(stored)
 		if next.ExcludedUserIDs == nil {
 			next.ExcludedUserIDs = stored.ExcludedUserIDs
+		}
+		if err := s.resolveDetectorKey(&next.Detector, stored.Detector); err != nil {
+			return err
 		}
 		raw, err := json.Marshal(next)
 		if err != nil {

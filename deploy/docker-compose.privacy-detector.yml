@@ -1,0 +1,48 @@
+# =============================================================================
+# 网关日志归档 · 模型脱敏服务（AstrLink privacy-worker + AstrLink Guard）
+# =============================================================================
+# 与主编排一起启动（同一网络，sub2api 用 http://privacy-detector:8090 访问）：
+#   docker compose -f docker-compose.yml -f docker-compose.privacy-detector.yml up -d --build
+# 使用 docker-compose.local.yml 时把第一个 -f 换成它即可。
+#
+# 必填：在 .env 中设置 PRIVACY_DETECTOR_API_KEY（至少 16 个字符，例如 openssl rand -hex 32），
+# 然后在 后台 → 网关日志存储 → 上传脱敏 中填写服务地址 http://privacy-detector:8090 和同一个密钥。
+#
+# 首次构建需要访问 GitHub、crates.io、NuGet 和 Hugging Face；无法访问 Hugging Face 时
+# 设置 PRIVACY_DETECTOR_HF_ENDPOINT（例如 https://hf-mirror.com），文件仍按 SHA-256 校验。
+# =============================================================================
+
+services:
+  privacy-detector:
+    build:
+      context: ./privacy-detector
+      args:
+        HF_ENDPOINT: ${PRIVACY_DETECTOR_HF_ENDPOINT:-https://huggingface.co}
+    image: sub2api-privacy-detector:local
+    container_name: sub2api-privacy-detector
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      - DETECTOR_API_KEY=${PRIVACY_DETECTOR_API_KEY:?PRIVACY_DETECTOR_API_KEY is required}
+      # 并行推理进程数与每个进程的线程数；默认按 CPU 核数自动选择
+      - DETECTOR_WORKERS=${PRIVACY_DETECTOR_WORKERS:-}
+      - DETECTOR_INTRA_THREADS=${PRIVACY_DETECTOR_INTRA_THREADS:-}
+      - TZ=${TZ:-Asia/Shanghai}
+    # 默认只在编排网络内可达。若 sub2api 不在同一编排中（例如多节点共用一台检测服务器），
+    # 取消下一行注释并通过内网地址访问；不要把端口暴露到公网。
+    # ports: ["${PRIVACY_DETECTOR_BIND:-127.0.0.1}:8090:8090"]
+    networks:
+      - sub2api-network
+    deploy:
+      resources:
+        limits:
+          cpus: "${PRIVACY_DETECTOR_CPUS:-4}"
+          memory: ${PRIVACY_DETECTOR_MEMORY:-2g}
+
+networks:
+  sub2api-network:
+    driver: bridge
