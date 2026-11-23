@@ -50,6 +50,7 @@ func ProvideRouter(
 
 	r := gin.New()
 	r.Use(middleware2.Recovery())
+	configureOriginSecret(r)
 	configureTrustedProxies(r, cfg.Server)
 
 	// Wire up websearch Manager builder so it initializes on startup and rebuilds on config save.
@@ -89,6 +90,20 @@ func ProvideRouter(
 	})
 
 	return SetupRouter(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, cfg, redisClient)
+}
+
+// configureOriginSecret 在其余中间件之前校验 CDN 回源密钥（ORIGIN_SECRET）。
+// 配置错误时拒绝启动，避免在运维以为已开启防护时实际放行直连。
+func configureOriginSecret(r *gin.Engine) {
+	originCfg, err := middleware2.LoadOriginSecretConfigFromEnv()
+	if err != nil {
+		log.Fatalf("Invalid origin secret configuration: %v", err)
+	}
+	if !originCfg.Enabled() {
+		return
+	}
+	r.Use(middleware2.OriginSecret(originCfg))
+	log.Printf("Origin secret check enabled: header=%s secrets=%d (GET /health exempt)", originCfg.Header, originCfg.SecretCount())
 }
 
 func configureTrustedProxies(r *gin.Engine, cfg config.ServerConfig) {

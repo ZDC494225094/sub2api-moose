@@ -800,6 +800,18 @@
       "kind": "shared-host",
       "evidence": "Multi-node audit endpoint: audit_logs gains request_host / server_node / server_ip (migration 253), filled by middleware.ApplyAuditEndpoint; node name comes from SERVER_NODE_NAME with hostname fallback. Upstream files only gain additive fields, an endpoint filter and a detail card.",
       "next_step": "On upstream merges keep the three extra columns in audit_log_repo insert/select lists and the endpoint column in AuditLogView; do not rename existing audit fields."
+    },
+    {
+      "paths": [
+        "backend/internal/server/middleware/origin_secret.go",
+        "backend/internal/server/middleware/origin_secret_test.go"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "shared-host",
+      "evidence": "CDN origin secret: when ORIGIN_SECRET is set, a global middleware registered right after Recovery in server/http.go returns an empty 403 for requests without a matching ORIGIN_SECRET_HEADER value (GET/HEAD /health exempt) and strips the header before later middleware. Unset means no middleware is added, so upstream behaviour is unchanged.",
+      "next_step": "On upstream merges keep configureOriginSecret ahead of every other middleware in ProvideRouter and keep the deploy compose/.env entries."
     }
   ]
 }

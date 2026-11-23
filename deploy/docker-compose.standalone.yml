@@ -42,6 +42,9 @@ services:
       - ENABLE_SERVER_TIMING=${ENABLE_SERVER_TIMING:-false}
       # 多节点部署时给每台服务器设置不同的节点名（如 hk-1），操作日志据此显示处理节点；留空则使用容器主机名
       - SERVER_NODE_NAME=${SERVER_NODE_NAME:-}
+      # CDN 回源密钥：设置后只有带正确密钥头的请求能访问（/health 除外），防止绕过 CDN 直连源站
+      - ORIGIN_SECRET_HEADER=${ORIGIN_SECRET_HEADER:-X-Origin-Secret}
+      - ORIGIN_SECRET=${ORIGIN_SECRET:-}
       - MCP_PUBLIC_URL=${MCP_PUBLIC_URL:-}
       - RUN_MODE=${RUN_MODE:-standard}
       - SIMPLE_MODE_AUTO_CREATE_DEFAULT_GROUPS=${SIMPLE_MODE_AUTO_CREATE_DEFAULT_GROUPS:-}
