@@ -82,6 +82,16 @@ func (s *Store) CountTopics(ctx context.Context, status string) (int, error) {
 
 var ErrQuotaExceeded = errors.New("今日投稿次数已用完")
 
+// submitTopicSQL checks the quota and inserts in one statement. The WHERE
+// clause takes its own copies of user and day ($8, $9). PostgreSQL leaves
+// INSERT ... SELECT outputs untyped until they meet the target columns, so
+// reusing $4 in quota_day = $4 deduced text there and varchar for the insert,
+// failing every submission with "inconsistent types deduced for parameter".
+const submitTopicSQL = `INSERT INTO iq_monitor_topics (user_id, topic, status, quota_day, created_at, next_attempt_at)
+SELECT $1, $2, $3, $4, $5, $5
+WHERE (SELECT COUNT(*) FROM iq_monitor_topics WHERE user_id = $8 AND quota_day = $9 AND status <> $6) < $7
+RETURNING id`
+
 // SubmitTopic inserts a pending submission when the user has quota left
 // today. Failed reviews do not count. The quota check and insert happen in
 // one statement so parallel submissions cannot exceed the quota.
@@ -91,10 +101,7 @@ func (s *Store) SubmitTopic(ctx context.Context, userID int64, topic, day string
 	}
 	now := s.now()
 	var id int64
-	err := s.DB.QueryRowContext(ctx, `INSERT INTO iq_monitor_topics (user_id, topic, status, quota_day, created_at, next_attempt_at)
-SELECT $1, $2, $3, $4, $5, $5
-WHERE (SELECT COUNT(*) FROM iq_monitor_topics WHERE user_id = $1 AND quota_day = $4 AND status <> $6) < $7
-RETURNING id`, userID, topic, TopicPending, day, now, TopicFailed, quota).Scan(&id)
+	err := s.DB.QueryRowContext(ctx, submitTopicSQL, userID, topic, TopicPending, day, now, TopicFailed, quota, userID, day).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Topic{}, ErrQuotaExceeded
 	}

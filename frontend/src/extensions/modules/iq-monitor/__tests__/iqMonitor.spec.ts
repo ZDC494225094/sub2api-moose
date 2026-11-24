@@ -96,6 +96,8 @@ describe('drawing wall', () => {
     const frames = wrapper.findAll('[data-frame]')
     expect(frames).toHaveLength(1)
     expect(frames[0].attributes('src')).toContain('/preview/2?')
+    // Only the finished, passing drawing carries the pass badge.
+    expect(wrapper.findAll('[data-pass-badge]')).toHaveLength(1)
     expect(wrapper.text()).toContain('0.8x')
   })
 

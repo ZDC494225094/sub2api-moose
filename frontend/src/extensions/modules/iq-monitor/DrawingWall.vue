@@ -81,7 +81,16 @@ function stateIcon(card: WallCard) {
         :disabled="busy(card)"
         @click="emit('open', card.result_id)"
       >
-        <DrawingFrame v-if="card.preview_url" :src="card.preview_url" :title="`${card.display_name || card.model} 的画作`" />
+        <div v-if="card.preview_url" class="relative">
+          <DrawingFrame :src="card.preview_url" :title="`${card.display_name || card.model} 的画作`" />
+          <span
+            v-if="card.status === 'pass'"
+            data-pass-badge
+            class="pointer-events-none absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/95 py-0.5 pl-1 pr-2 text-[11px] font-medium text-white shadow-sm ring-1 ring-white/40 backdrop-blur-sm"
+          >
+            <Icon name="check" size="xs" :stroke-width="3" />通过
+          </span>
+        </div>
         <div v-else class="grid aspect-[16/10] place-items-center bg-gray-50 dark:bg-dark-800/60">
           <span v-if="busy(card)" class="flex flex-col items-center gap-2 text-sky-600 dark:text-sky-300">
             <span class="h-6 w-6 animate-spin rounded-full border-2 border-sky-200 border-t-sky-500 dark:border-sky-900 dark:border-t-sky-400"></span>
