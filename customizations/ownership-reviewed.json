@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_at": "2026-11-18",
-  "baseline": "5af9afb588c4b014b3df9db7d4073af1f8ae01b6",
+  "reviewed_at": "2026-11-24",
+  "baseline": "0f6671457132425d1b84f3d80536b53e02942424",
   "note": "Exact-path ownership review, including the original 70 unmatched paths and Stage32 Seedance host seam. Records responsibility and host compatibility boundaries, not complete semantic coverage of regex-classified files. The sensitive dump.rdb runtime snapshot was removed from preservation and ownership ledgers; all other original inventory entries remain unchanged.",
   "reviews": [
     {

@@ -172,7 +172,7 @@ func (s *GeminiMessagesCompatService) ForwardAIStudioVideoContent(ctx context.Co
 	default:
 		return fmt.Errorf("unsupported account type: %s", account.Type)
 	}
-	account.ApplyHeaderOverrides(req.Header)
+	account.ApplyHeaderOverrides(req.Context(), req.Header)
 
 	proxyURL := ""
 	if account.ProxyID != nil && account.Proxy != nil {
