@@ -95,7 +95,7 @@ async function save() {
         <span class="input-label">分组</span>
         <select v-model.number="form.group_id" class="input">
           <option :value="0">请选择</option>
-          <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}（{{ g.platform }} · {{ formatMultiplier(g.rate_multiplier) }}）{{ g.status !== 'active' ? ' · 已停用' : '' }}</option>
+          <option v-for="g in groups" :key="g.id" :value="g.id" :disabled="g.claude_code_only && g.id !== target?.group_id">{{ g.name }}（{{ g.platform }} · {{ formatMultiplier(g.rate_multiplier) }}）{{ g.status !== 'active' ? ' · 已停用' : '' }}{{ g.claude_code_only ? ' · 仅限 Claude Code，无法监测' : '' }}</option>
         </select>
       </label>
       <label class="block">

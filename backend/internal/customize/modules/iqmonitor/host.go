@@ -15,6 +15,9 @@ type GroupOption struct {
 	Platform       string  `json:"platform"`
 	RateMultiplier float64 `json:"rate_multiplier"`
 	Status         string  `json:"status"`
+	// ClaudeCodeOnly groups without a fallback reject /v1/chat/completions
+	// with 403, so probes cannot reach them.
+	ClaudeCodeOnly bool `json:"claude_code_only"`
 }
 
 // KeyOption is redacted API key metadata; key material never leaves the server.

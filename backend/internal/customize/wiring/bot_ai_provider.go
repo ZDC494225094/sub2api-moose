@@ -258,6 +258,7 @@ func (p *botAIProvider) chat(ctx context.Context, key string, cfg botnotify.AICo
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+key)
 	httpReq.Header.Set("User-Agent", "sub2api-bot-notify")
+	setLoopbackHeaders(httpReq.Header)
 	resp, err := p.client.Do(httpReq)
 	if err != nil {
 		if ctx.Err() != nil {

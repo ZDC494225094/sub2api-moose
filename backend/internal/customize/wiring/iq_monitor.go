@@ -35,7 +35,7 @@ func ProvideIQMonitor(db *sql.DB, settingService *service.SettingService, bot *b
 			return iqMonitorNotify(ctx, bot.Runtime, botIDs, text)
 		}
 	}
-	caller := &iqmonitor.GatewayCaller{BaseURL: base, Client: &http.Client{}}
+	caller := &iqmonitor.GatewayCaller{BaseURL: base, Client: &http.Client{}, Headers: setLoopbackHeaders}
 	r := iqmonitor.NewRuntime(&iqmonitor.Store{DB: db}, extensions, host, caller)
 	r.Start()
 	return &iqmonitor.Handler{Runtime: r}
@@ -52,7 +52,7 @@ func iqMonitorHost(db *sql.DB, base func() string) iqmonitor.Host {
 			return key, err
 		},
 		Groups: func(ctx context.Context) ([]iqmonitor.GroupOption, error) {
-			rows, err := db.QueryContext(ctx, `SELECT id, name, platform, rate_multiplier, status FROM groups WHERE deleted_at IS NULL ORDER BY sort_order, id`)
+			rows, err := db.QueryContext(ctx, `SELECT id, name, platform, rate_multiplier, status, (claude_code_only AND fallback_group_id IS NULL) FROM groups WHERE deleted_at IS NULL ORDER BY sort_order, id`)
 			if err != nil {
 				return nil, err
 			}
@@ -60,7 +60,7 @@ func iqMonitorHost(db *sql.DB, base func() string) iqmonitor.Host {
 			out := []iqmonitor.GroupOption{}
 			for rows.Next() {
 				var g iqmonitor.GroupOption
-				if err := rows.Scan(&g.ID, &g.Name, &g.Platform, &g.RateMultiplier, &g.Status); err != nil {
+				if err := rows.Scan(&g.ID, &g.Name, &g.Platform, &g.RateMultiplier, &g.Status, &g.ClaudeCodeOnly); err != nil {
 					return nil, err
 				}
 				out = append(out, g)
@@ -194,6 +194,7 @@ func gatewayModels(ctx context.Context, base, key string) ([]string, error) {
 	}
 	req.Header.Set("Authorization", "Bearer "+key)
 	req.Header.Set("User-Agent", "sub2api-iq-monitor")
+	setLoopbackHeaders(req.Header)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, errors.New("读取模型列表失败")

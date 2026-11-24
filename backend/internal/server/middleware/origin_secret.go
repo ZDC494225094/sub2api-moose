@@ -29,6 +29,9 @@ const (
 type OriginSecretConfig struct {
 	Header  string
 	secrets [][sha256.Size]byte
+	// primary is the first configured secret, kept only so the server's own
+	// loopback calls (bot AI, 降智监测) can pass the check.
+	primary string
 }
 
 // Enabled 是否启用回源密钥校验。
@@ -59,6 +62,9 @@ func ParseOriginSecretConfig(header, secrets string) (OriginSecretConfig, error)
 		if len(secret) < originSecretMinLength {
 			return OriginSecretConfig{}, fmt.Errorf("%s: each secret must be at least %d characters", OriginSecretEnv, originSecretMinLength)
 		}
+		if cfg.primary == "" {
+			cfg.primary = secret
+		}
 		cfg.secrets = append(cfg.secrets, sha256.Sum256([]byte(secret)))
 	}
 	if !cfg.Enabled() {
@@ -74,6 +80,18 @@ func ParseOriginSecretConfig(header, secrets string) (OriginSecretConfig, error)
 	}
 	cfg.Header = textproto.CanonicalMIMEHeaderKey(header)
 	return cfg, nil
+}
+
+// OriginSecretLoopbackHeader returns the header that the server's own
+// loopback requests must carry when ORIGIN_SECRET is enabled. Without it the
+// middleware answers those requests with an empty 403 before any handler runs.
+// ok is false when the check is disabled or misconfigured.
+func OriginSecretLoopbackHeader() (name, value string, ok bool) {
+	cfg, err := LoadOriginSecretConfigFromEnv()
+	if err != nil || !cfg.Enabled() {
+		return "", "", false
+	}
+	return cfg.Header, cfg.primary, true
 }
 
 // trimEnvQuotes 去掉首尾空白，以及 compose 列表写法中被原样保留的一对引号。

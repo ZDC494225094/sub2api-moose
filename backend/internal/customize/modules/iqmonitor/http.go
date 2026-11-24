@@ -59,6 +59,7 @@ func (h *Handler) RegisterAdmin(group *gin.RouterGroup, manager *customize.Manag
 	g.GET("/config", h.getConfig)
 	g.PUT("/config", h.saveConfig)
 	g.GET("/status", h.status)
+	g.GET("/problems", h.problems)
 	g.POST("/trigger", h.trigger)
 	g.GET("/estimate", h.estimate)
 	g.POST("/history/clear", h.clearHistory)
@@ -264,6 +265,13 @@ func (h *Handler) status(c *gin.Context) {
 	}
 }
 
+func (h *Handler) problems(c *gin.Context) {
+	items, err := h.Runtime.Store.RecentProblems(c.Request.Context(), 30)
+	if !response.ErrorFrom(c, err) {
+		response.Success(c, gin.H{"items": items})
+	}
+}
+
 func (h *Handler) trigger(c *gin.Context) {
 	id, err := h.Runtime.TriggerNow(c.Request.Context())
 	if err != nil && !errors.Is(err, ErrRoundRunning) && !strings.HasPrefix(err.Error(), "iq-monitor:") {
@@ -449,6 +457,9 @@ func (h *Handler) bindTarget(c *gin.Context) (Target, bool) {
 	}
 	if group == nil {
 		return fail("请选择有效的分组")
+	}
+	if group.ClaudeCodeOnly {
+		return fail("该分组仅允许 Claude Code 客户端且没有降级分组，网关会以 403 拒绝监测请求；请选择其他分组或为它设置降级分组")
 	}
 	if !validEffort(group.Platform, t.Model, t.ReasoningEffort) {
 		return fail("该模型不支持所选思考深度")

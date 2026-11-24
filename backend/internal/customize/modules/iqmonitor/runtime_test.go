@@ -97,6 +97,9 @@ func (f *fakeCaller) Call(_ context.Context, req CallRequest) (CallResult, error
 		} else {
 			res.Content = `{"approved": true, "reason": ""}`
 		}
+	case req.Model == "forbidden":
+		res.InputTokens, res.OutputTokens = 0, 0
+		return res, &CallError{Message: "HTTP 403：permission_error：This group is restricted to Claude Code clients", Retryable: false, Result: res}
 	case req.Model == "flaky" && n == 1:
 		return res, &CallError{Message: "HTTP 502：upstream", Retryable: true, Result: res}
 	case drawing && req.Model == "dumb":
@@ -429,4 +432,29 @@ func TestEstimateUsesAverageTokens(t *testing.T) {
 	require.Len(t, est.Targets, 1)
 	// 100 in + 50 out per test, two tests, 48 rounds.
 	require.InDelta(t, 48*2*(100*0.000001+50*0.00001), est.CostDaily, 1e-9)
+}
+
+func TestForbiddenRequestKeepsGatewayErrorAndIsNotRetried(t *testing.T) {
+	r, _, _, _ := newTestRuntime(t)
+	ctx := context.Background()
+	addTarget(t, r.Store, "forbidden", "")
+	addTarget(t, r.Store, "smart", "")
+	round := runOnce(t, r)
+
+	logic := resultsByModel(t, r.Store, round.ID, KindLogic)["forbidden"]
+	require.Equal(t, StatusError, logic.Status)
+	require.Equal(t, 1, logic.RequestCount, "403 is not retried")
+	require.Contains(t, logic.Reason, "Claude Code clients")
+	responses, err := r.Store.Responses(ctx, logic.ID)
+	require.NoError(t, err)
+	require.Len(t, responses, 1)
+	require.Contains(t, responses[0].Error, "permission_error", "the gateway error is kept on the reply")
+
+	problems, err := r.Store.RecentProblems(ctx, 30)
+	require.NoError(t, err)
+	require.Len(t, problems, 2, "both tests of the forbidden target, nothing from the passing one")
+	for _, p := range problems {
+		require.Equal(t, "forbidden", p.Model)
+		require.Contains(t, p.Reason, "HTTP 403")
+	}
 }

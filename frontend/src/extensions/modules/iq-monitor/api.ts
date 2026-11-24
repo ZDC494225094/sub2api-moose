@@ -203,7 +203,7 @@ export interface Question {
   enabled: boolean
   last_used_at: string | null
 }
-export interface GroupOption { id: number; name: string; platform: string; rate_multiplier: number; status: string }
+export interface GroupOption { id: number; name: string; platform: string; rate_multiplier: number; status: string; claude_code_only?: boolean }
 export interface KeyOption { id: number; name: string; group_ids: number[]; status: string }
 export interface UserOption { id: number; email: string; username: string }
 export interface BotOption { id: number; name: string; platform: string; targets: number }
@@ -299,6 +299,10 @@ export const iqMonitorAdminAPI = {
   async status(): Promise<RuntimeStatus> {
     const { data } = await apiClient.get(`${A}/status`)
     return data
+  },
+  async problems(): Promise<Result[]> {
+    const { data } = await apiClient.get(`${A}/problems`)
+    return data.items ?? []
   },
   async trigger(): Promise<number> {
     const { data } = await apiClient.post(`${A}/trigger`)

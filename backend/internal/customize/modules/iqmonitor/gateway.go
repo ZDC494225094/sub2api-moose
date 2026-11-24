@@ -57,6 +57,9 @@ type Caller interface {
 type GatewayCaller struct {
 	BaseURL func() string
 	Client  *http.Client
+	// Headers adds host-required headers to every loopback request, such as
+	// the CDN origin secret; without it the host may refuse the request.
+	Headers func(http.Header)
 }
 
 const maxResponseBytes = 4 << 20
@@ -89,6 +92,9 @@ func (g *GatewayCaller) Call(ctx context.Context, req CallRequest) (CallResult, 
 	httpReq.Header.Set("Accept", "text/event-stream")
 	httpReq.Header.Set("Authorization", "Bearer "+req.APIKey)
 	httpReq.Header.Set("User-Agent", "sub2api-iq-monitor")
+	if g.Headers != nil {
+		g.Headers(httpReq.Header)
+	}
 	client := g.Client
 	if client == nil {
 		client = &http.Client{}
@@ -106,7 +112,7 @@ func (g *GatewayCaller) Call(ctx context.Context, req CallRequest) (CallResult, 
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
 		result.TotalMS = elapsed()
 		retryable := resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode >= 500
-		return result, &CallError{Message: fmt.Sprintf("HTTP %d：%s", resp.StatusCode, gatewayErrorText(raw)), Retryable: retryable, Result: result}
+		return result, &CallError{Message: httpErrorMessage(resp.StatusCode, raw), Retryable: retryable, Result: result}
 	}
 	var content strings.Builder
 	sawData := false
@@ -242,22 +248,49 @@ func transportMessage(ctx context.Context, err error, timeout time.Duration) str
 	return "请求失败：" + truncateRunes(err.Error(), 200)
 }
 
+// httpErrorMessage names the status and the gateway's own error text. An
+// empty body means the request was refused before reaching the gateway
+// handler (so no usage log exists), which is worth saying explicitly.
+func httpErrorMessage(status int, raw []byte) string {
+	text := gatewayErrorText(raw)
+	if text != "" {
+		return fmt.Sprintf("HTTP %d：%s", status, text)
+	}
+	if status == http.StatusForbidden {
+		return "HTTP 403：响应为空，请求在进入网关前被拦截（通常是 CDN 回源密钥 ORIGIN_SECRET 或反向代理规则），因此使用记录中没有这条请求"
+	}
+	return fmt.Sprintf("HTTP %d：响应为空", status)
+}
+
 func gatewayErrorText(raw []byte) string {
 	var decoded struct {
 		Error struct {
+			Type    string `json:"type"`
+			Code    any    `json:"code"`
 			Message string `json:"message"`
 		} `json:"error"`
+		Code    any    `json:"code"`
 		Message string `json:"message"`
 	}
 	if json.Unmarshal(raw, &decoded) == nil {
+		label := func(code any, msg string) string {
+			if c, ok := code.(string); ok && c != "" && !strings.Contains(msg, c) {
+				return truncateRunes(c+"："+msg, 300)
+			}
+			return truncateRunes(msg, 300)
+		}
 		if decoded.Error.Message != "" {
-			return truncateRunes(decoded.Error.Message, 200)
+			code := decoded.Error.Code
+			if c, _ := code.(string); c == "" {
+				code = decoded.Error.Type
+			}
+			return label(code, decoded.Error.Message)
 		}
 		if decoded.Message != "" {
-			return truncateRunes(decoded.Message, 200)
+			return label(decoded.Code, decoded.Message)
 		}
 	}
-	return truncateRunes(strings.TrimSpace(string(raw)), 200)
+	return truncateRunes(strings.TrimSpace(string(raw)), 300)
 }
 
 func truncateRunes(s string, max int) string {

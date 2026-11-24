@@ -81,3 +81,37 @@ func TestGatewayCallerTimeout(t *testing.T) {
 	require.Contains(t, ce.Message, "超时")
 	require.True(t, ce.Retryable)
 }
+
+func TestGatewayCallerSendsHostHeadersAndExplainsForbidden(t *testing.T) {
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Origin-Secret") != "s3cret" {
+			// What the ORIGIN_SECRET middleware does: empty 403.
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = io.WriteString(w, body)
+	}))
+	defer srv.Close()
+	req := CallRequest{APIKey: "k", Model: "m", Prompt: "p", Timeout: 5 * time.Second}
+
+	var ce *CallError
+	bare := &GatewayCaller{BaseURL: func() string { return srv.URL }}
+	_, err := bare.Call(context.Background(), req)
+	require.True(t, errors.As(err, &ce))
+	require.False(t, ce.Retryable)
+	require.Contains(t, ce.Message, "ORIGIN_SECRET", "an empty 403 names the likely cause")
+
+	g := &GatewayCaller{BaseURL: func() string { return srv.URL }, Headers: func(h http.Header) { h.Set("X-Origin-Secret", "s3cret") }}
+	body = `{"error":{"type":"permission_error","message":"This group is restricted to Claude Code clients (/v1/messages only)"}}`
+	_, err = g.Call(context.Background(), req)
+	require.True(t, errors.As(err, &ce))
+	require.Contains(t, ce.Message, "permission_error")
+	require.Contains(t, ce.Message, "Claude Code clients")
+
+	body = `{"code":"INSUFFICIENT_BALANCE","message":"Insufficient account balance"}`
+	_, err = g.Call(context.Background(), req)
+	require.True(t, errors.As(err, &ce))
+	require.Equal(t, "HTTP 403：INSUFFICIENT_BALANCE：Insufficient account balance", ce.Message)
+}

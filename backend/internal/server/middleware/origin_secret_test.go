@@ -148,3 +148,22 @@ func TestLoadOriginSecretConfigFromEnv(t *testing.T) {
 	require.Equal(t, "X-Edge-Key", cfg.Header)
 	require.Equal(t, 1, cfg.SecretCount())
 }
+
+func TestOriginSecretLoopbackHeaderUsesPrimarySecret(t *testing.T) {
+	t.Setenv(OriginSecretEnv, "")
+	_, _, ok := OriginSecretLoopbackHeader()
+	require.False(t, ok, "disabled check needs no header")
+
+	t.Setenv(OriginSecretHeaderEnv, "x-cdn-key")
+	t.Setenv(OriginSecretEnv, testOriginSecretNew+","+testOriginSecretOld)
+	name, value, ok := OriginSecretLoopbackHeader()
+	require.True(t, ok)
+	require.Equal(t, "X-Cdn-Key", name)
+	require.Equal(t, testOriginSecretNew, value, "loopback calls use the new secret while rotating")
+
+	cfg, err := LoadOriginSecretConfigFromEnv()
+	require.NoError(t, err)
+	r, _ := newOriginSecretTestRouter(t, cfg)
+	w := doOriginSecretRequest(r, http.MethodPost, "/v1/messages", map[string][]string{name: {value}})
+	require.Equal(t, http.StatusOK, w.Code)
+}

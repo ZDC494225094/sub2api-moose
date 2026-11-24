@@ -284,6 +284,13 @@ SELECT r.*, ROW_NUMBER() OVER (PARTITION BY group_id, model, reasoning_effort, k
 ) x WHERE rn <= $1 OR created_at >= $2 ORDER BY id`, limit, since.UTC())
 }
 
+// RecentProblems lists the newest results that did not pass, so admins can
+// read gateway errors that never reached the usage log.
+func (s *Store) RecentProblems(ctx context.Context, limit int) ([]Result, error) {
+	return s.queryResults(ctx, `SELECT `+resultColumns+` FROM iq_monitor_results WHERE status IN ($1, $2, $3, $4) ORDER BY id DESC LIMIT $5`,
+		StatusError, StatusFail, StatusSkipped, StatusInterrupted, limit)
+}
+
 // ResultsSince lists results created at or after since (statistics).
 func (s *Store) ResultsSince(ctx context.Context, since time.Time) ([]Result, error) {
 	return s.queryResults(ctx, `SELECT `+resultColumns+` FROM iq_monitor_results WHERE created_at >= $1 ORDER BY id`, since.UTC())

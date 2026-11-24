@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"net"
+	"net/http"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/botnotify"
+	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 )
 
 // botAIKeyLister lists the API keys an admin may attach to a bot's AI
@@ -67,6 +69,15 @@ func botAIKeyValidator(db *sql.DB) func(context.Context, int64, string) error {
 // gatewayLoopbackAddr resolves this process's own HTTP listen port so the
 // AI provider can call the gateway on loopback regardless of the public
 // host name the server is reached through.
+// setLoopbackHeaders adds what the host's own middleware requires of a
+// loopback call. With ORIGIN_SECRET set, a request without the origin header
+// gets an empty 403 before reaching the gateway (so no usage log is written).
+func setLoopbackHeaders(h http.Header) {
+	if name, value, ok := middleware.OriginSecretLoopbackHeader(); ok {
+		h.Set(name, value)
+	}
+}
+
 func gatewayLoopbackAddr() string {
 	_, port, err := net.SplitHostPort(config.GetServerAddress())
 	if err != nil || port == "" {

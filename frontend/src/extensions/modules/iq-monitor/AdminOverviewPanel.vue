@@ -2,8 +2,9 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { useAppStore } from '@/stores/app'
-import { iqMonitorAdminAPI, type ConfigView, type Estimate, type Options, type RuntimeStatus, type Target } from './api'
-import { errorMessage, formatTime, formatTokens, formatUSD } from './format'
+import ResultDialog from './ResultDialog.vue'
+import { iqMonitorAdminAPI, type ConfigView, type Estimate, type Options, type Result, type RuntimeStatus, type Target } from './api'
+import { errorMessage, formatTime, formatTokens, formatUSD, statusLabels } from './format'
 
 const props = defineProps<{ config: ConfigView; options: Options | null }>()
 const emit = defineEmits<{ goto: [tab: 'targets' | 'logic' | 'drawing' | 'settings'] }>()
@@ -12,6 +13,8 @@ const appStore = useAppStore()
 const status = ref<RuntimeStatus | null>(null)
 const estimate = ref<Estimate | null>(null)
 const targets = ref<Target[]>([])
+const problems = ref<Result[]>([])
+const openId = ref<number | null>(null)
 const error = ref('')
 const triggering = ref(false)
 const clearKey = ref('')
@@ -32,7 +35,7 @@ const clearChoices = computed(() => {
 })
 const clearTarget = computed(() => clearChoices.value.find(c => c.key === clearKey.value))
 
-const problems = computed(() => {
+const setupProblems = computed(() => {
   const out: Array<{ text: string; tab: 'targets' | 'logic' | 'drawing' | 'settings' }> = []
   if (!props.config.probe_user_id) out.push({ text: '还没有选择探测账号', tab: 'settings' })
   if (!props.config.logic.enabled && !props.config.drawing.enabled) out.push({ text: '逻辑测试和画图测试都已关闭，不会运行', tab: 'logic' })
@@ -43,7 +46,9 @@ const problems = computed(() => {
 async function loadStatus() {
   clearTimeout(timer)
   try {
-    status.value = await iqMonitorAdminAPI.status()
+    const [st, pr] = await Promise.all([iqMonitorAdminAPI.status(), iqMonitorAdminAPI.problems()])
+    status.value = st
+    problems.value = pr
   } catch (e) {
     error.value = errorMessage(e, '读取运行状态失败')
   }
@@ -102,8 +107,8 @@ onBeforeUnmount(() => clearTimeout(timer))
   <div class="space-y-6">
     <p v-if="error" role="alert" class="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">{{ error }}</p>
 
-    <div v-if="problems.length" class="rounded-2xl bg-amber-50 p-4 text-sm text-amber-800 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-800/50">
-      <p v-for="p in problems" :key="p.text">
+    <div v-if="setupProblems.length" class="rounded-2xl bg-amber-50 p-4 text-sm text-amber-800 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-800/50">
+      <p v-for="p in setupProblems" :key="p.text">
         {{ p.text }}，<button type="button" class="font-medium underline" @click="emit('goto', p.tab)">去设置</button>
       </p>
     </div>
@@ -147,6 +152,24 @@ onBeforeUnmount(() => clearTimeout(timer))
         <template v-if="status.latest.topic"><br />最近主题：{{ status.latest.topic }}</template>
       </p>
       <p v-if="status?.last_error" class="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/30 dark:text-red-300">本节点（{{ status.node_id }}）最近错误：{{ status.last_error }}</p>
+    </section>
+
+    <section class="card p-5">
+      <h2 class="text-base font-semibold text-gray-900 dark:text-white">最近失败与错误</h2>
+      <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">
+        最近 30 条未通过的结果。网关在鉴权、计费检查阶段拒绝的请求（如 403）不会写入使用记录，错误原文只保存在这里，点击可查看每次请求的详情。
+      </p>
+      <p v-if="!problems.length" class="mt-4 text-sm text-gray-400">没有失败记录。</p>
+      <ul v-else class="mt-3 divide-y divide-gray-100 dark:divide-dark-700">
+        <li v-for="p in problems" :key="p.id">
+          <button type="button" class="flex w-full flex-wrap items-start gap-x-3 gap-y-1 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-dark-800" @click="openId = p.id">
+            <span class="w-24 shrink-0 text-xs tabular-nums text-gray-400">{{ formatTime(p.created_at) }}</span>
+            <span class="shrink-0 rounded-full px-2 py-0.5 text-xs" :class="p.status === 'error' ? 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : p.status === 'fail' ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' : 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-dark-300'">{{ statusLabels[p.status] }}</span>
+            <span class="shrink-0 text-gray-900 dark:text-white">{{ p.display_name || p.model }}<span class="ml-1 text-xs text-gray-400">{{ p.kind === 'logic' ? '逻辑' : '画图' }} · {{ p.group_name }}</span></span>
+            <span class="min-w-0 flex-1 basis-full break-words text-xs text-gray-600 sm:basis-auto dark:text-dark-300">{{ p.reason || '—' }}</span>
+          </button>
+        </li>
+      </ul>
     </section>
 
     <section class="card p-5">
@@ -222,5 +245,6 @@ onBeforeUnmount(() => clearTimeout(timer))
       @confirm="doClear"
       @cancel="confirmClear = null"
     />
+    <ResultDialog :result-id="openId" admin @close="openId = null" />
   </div>
 </template>
