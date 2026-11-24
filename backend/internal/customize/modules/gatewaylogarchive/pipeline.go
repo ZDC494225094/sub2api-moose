@@ -99,6 +99,9 @@ type pipeline struct {
 	uploadWake chan struct{}
 	relayWake  chan struct{}
 	uploading  atomic.Pointer[uploadProgress]
+	deleteWake chan struct{}
+	// Buckets whose endpoint broke HTTP/2 in this process start on HTTP/1.1.
+	http1Buckets sync.Map
 
 	ctx       context.Context
 	cancel    context.CancelFunc
@@ -114,6 +117,10 @@ type uploadProgress struct {
 	bodyBytes atomic.Int64 // read by the HTTP transport; includes replayed parts
 	retries   atomic.Int64
 	phase     atomic.Pointer[string]
+	startedAt time.Time
+	attempt   int
+	bucket    string
+	cancel    context.CancelCauseFunc
 }
 
 func (p *pipeline) spoolDir() string  { return filepath.Join(p.dir, "spool") }
@@ -125,7 +132,7 @@ func startPipeline(store archiveStore, objects func(BucketConfig) (objectStore, 
 		open: true, in: make(chan *Exchange, intakeCapacity),
 		sessions: map[string]*sessionState{}, nextPart: map[string]int{},
 		flushReq: make(chan chan struct{}), stopSpool: make(chan bool, 1), spoolDone: make(chan struct{}),
-		jobs: make(chan flushJob, 65536), bundles: map[string]*bundle{}, uploadWake: make(chan struct{}, 1), relayWake: make(chan struct{}, 1), stageWake: make(chan struct{}, 1),
+		jobs: make(chan flushJob, 65536), bundles: map[string]*bundle{}, uploadWake: make(chan struct{}, 1), relayWake: make(chan struct{}, 1), stageWake: make(chan struct{}, 1), deleteWake: make(chan struct{}, 1),
 	}
 	p.setConfig(cfg)
 	p.setBuckets(buckets)
@@ -151,6 +158,8 @@ func startPipeline(store archiveStore, objects func(BucketConfig) (objectStore, 
 		go p.stagingProbeLoop()
 		p.workers.Add(1)
 		go p.relayLoop()
+		p.workers.Add(1)
+		go p.deleteLoop()
 	}
 	return p, nil
 }

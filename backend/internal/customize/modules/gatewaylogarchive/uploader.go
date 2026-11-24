@@ -129,7 +129,26 @@ const (
 	multipartThreshold = minPartSize
 	maxParts           = 9000
 	partConcurrency    = 2
+	partAttempts       = 6
 )
+
+// partRetryDelay is 2s, 4s, 8s, 16s, 30s; tests shorten it.
+var partRetryDelay = func(attempt int) time.Duration {
+	return min(time.Second<<attempt, 30*time.Second)
+}
+
+// withBucketProtocol starts on HTTP/1.1 when this bucket's endpoint already
+// broke HTTP/2 (in this process, or in the error saved by the last attempt).
+func (p *pipeline) withBucketProtocol(ctx context.Context, bucketID int64, lastError string) context.Context {
+	_, known := p.http1Buckets.Load(bucketID)
+	return withRelayProtocol(ctx, known || retryRelayHTTP1(lastError))
+}
+
+func (p *pipeline) rememberProtocol(ctx context.Context, bucketID int64) {
+	if relayProtocolFor(ctx).useHTTP1() {
+		p.http1Buckets.Store(bucketID, true)
+	}
+}
 
 func partSizeFor(size, minimum, targetParts int64) int64 {
 	part := minimum
@@ -252,12 +271,23 @@ func (s *s3Objects) sendPart(ctx context.Context, key string, uploadID *string, 
 	var err error
 	progress := progressFor(ctx)
 	progress.setPhase("发送分片，等待存储桶确认")
-	for attempt := 0; attempt < 3; attempt++ {
+	for attempt := 0; attempt < partAttempts; attempt++ {
 		if ctx.Err() != nil {
 			return types.CompletedPart{}, ctx.Err()
 		}
-		if attempt > 0 && progress != nil {
-			progress.retries.Add(1)
+		if attempt > 0 {
+			// A failed part restarts only that part. Waiting lets a proxy that
+			// reset the connection recover instead of failing the whole file.
+			if progress != nil {
+				progress.retries.Add(1)
+				progress.setPhase(fmt.Sprintf("分片 %d 第 %d 次重试", number, attempt))
+			}
+			select {
+			case <-ctx.Done():
+				return types.CompletedPart{}, ctx.Err()
+			case <-time.After(partRetryDelay(attempt)):
+			}
+			progress.setPhase("发送分片，等待存储桶确认")
 		}
 		if _, err = body.Seek(0, io.SeekStart); err != nil {
 			break
@@ -530,7 +560,7 @@ func (p *pipeline) uploadToBuckets(buckets []BucketConfig, pass *uploadPass, row
 			delete(pass.down, bucket.ID)
 			return nil
 		}
-		if errors.Is(err, errLocalBundleMissing) || errors.Is(err, errUploadSource) {
+		if errors.Is(err, errLocalBundleMissing) || errors.Is(err, errUploadSource) || errors.Is(err, errBundleDeleted) {
 			return err // no other bucket can help
 		}
 		pass.down[bucket.ID] = true
@@ -554,10 +584,23 @@ func backoff(attempts int) time.Duration {
 }
 
 func (p *pipeline) failUpload(row *Bundle, err error) {
-	p.stats.uploadErrors.Add(1)
 	if p.ctx.Err() != nil {
 		return // shutdown; the row is reset to "sealed" on the next start
 	}
+	if errors.Is(err, errBundleDeleted) {
+		// Hand the row to the delete worker; it is not an upload failure.
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if store, ok := p.store.(*Store); ok {
+			_ = store.releaseDeleted(ctx, row.ID)
+		}
+		select {
+		case p.deleteWake <- struct{}{}:
+		default:
+		}
+		return
+	}
+	p.stats.uploadErrors.Add(1)
 	p.report(fmt.Errorf("上传 %s 失败：%w", row.FileName, err))
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -599,22 +642,23 @@ func (p *pipeline) uploadOne(cfg BucketConfig, objects objectStore, row *Bundle,
 	if _, err := os.Stat(row.LocalPath); err != nil {
 		return fmt.Errorf("%w：%v", errLocalBundleMissing, err)
 	}
-	progress := &uploadProgress{BundleID: row.ID, FileName: prepared.fileName, Total: row.SizeBytes}
+	progress := &uploadProgress{FileName: prepared.fileName, Total: row.SizeBytes}
 	if prepared.entries != nil {
-		progress.Total = 0
+		progress.Total = prepared.sizeHint // redaction may change the final size slightly
 	}
 	progress.setPhase("检查归档名称")
-	p.uploading.Store(progress)
-	defer p.uploading.Store(nil)
-	uploadCtx := context.WithValue(p.ctx, uploadProgressKey{}, progress)
+	uploadCtx, finish := p.beginUpload(row, progress, cfg.Label())
+	defer finish()
+	uploadCtx = p.withBucketProtocol(uploadCtx, cfg.ID, row.LastError)
+	defer p.rememberProtocol(uploadCtx, cfg.ID)
 	key, err := p.chooseKey(uploadCtx, cfg, objects, row)
 	if err != nil {
-		return err
+		return uploadError(uploadCtx, err)
 	}
 	progress.setPhase("读取归档")
 	layout, err := prepared.upload(uploadCtx, objects, key, func(n int64) { progress.sent.Add(n) })
 	if err != nil {
-		return err
+		return uploadError(uploadCtx, err)
 	}
 	progress.setPhase("记录上传结果")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -624,6 +668,9 @@ func (p *pipeline) uploadOne(cfg BucketConfig, objects objectStore, row *Bundle,
 		commitErr = p.store.(*Store).commitUploaded(ctx, row.ID, cfg.ID, objects.Bucket(), key, layout, p.deliveryTargets(row, cfg), prepared.redact)
 	} else {
 		commitErr = p.store.MarkUploaded(ctx, row.ID, cfg.ID, objects.Bucket(), key, layout)
+	}
+	if errors.Is(commitErr, errBundleDeleted) {
+		p.discardUploaded(objects, key)
 	}
 	if commitErr != nil {
 		return commitErr

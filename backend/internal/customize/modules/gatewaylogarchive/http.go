@@ -34,6 +34,7 @@ func (h *Handler) Register(group *gin.RouterGroup, manager *customize.Manager) {
 	g.GET("/bundles", h.listBundles)
 	g.GET("/bundles/:id", h.getBundle)
 	g.POST("/bundles/:id/retry", h.retryBundle)
+	g.DELETE("/bundles/:id", h.deleteBundle)
 	g.GET("/bundles/:id/download", h.downloadBundle)
 	g.GET("/bundles/:id/deliveries", h.listDeliveries)
 	g.GET("/entries", h.listEntries)
@@ -455,6 +456,33 @@ func (h *Handler) retryBundle(c *gin.Context) {
 		pipe.wakeUploader()
 	}
 	response.Success(c, gin.H{"retried": true})
+}
+
+// deleteBundle discards a pending, uploading or failed bundle: its local data
+// (and any unfinished multipart upload) on the node that holds it, then its row.
+func (h *Handler) deleteBundle(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	b, err := h.Runtime.Store.RequestDelete(c.Request.Context(), id)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		response.NotFound(c, "归档文件不存在")
+		return
+	case errors.Is(err, errBundleNotDeletable):
+		response.BadRequest(c, "只能删除待上传、上传中或上传失败的归档文件；写入中的文件请先结束写入")
+		return
+	case response.ErrorFrom(c, err):
+		return
+	}
+	h.Runtime.mu.Lock()
+	local := b.NodeID == h.Runtime.nodeID
+	h.Runtime.mu.Unlock()
+	if pipe := h.Runtime.current(); pipe != nil && local {
+		pipe.cancelUpload(id)
+	}
+	response.Success(c, gin.H{"delete_requested": true, "node_id": b.NodeID, "local": local})
 }
 
 func (h *Handler) downloadBundle(c *gin.Context) {

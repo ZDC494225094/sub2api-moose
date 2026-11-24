@@ -264,20 +264,21 @@ func (p *pipeline) sealStaged(row *Bundle) error {
 	redact := row.StageRedacted || primary.redact(p.defaultPrivacy())
 	det := p.detector()
 	layout := &uploadLayout{FileName: row.FileName, Entries: make([]zipEntry, 0, len(entries))}
-	progress := &uploadProgress{BundleID: row.ID, FileName: row.FileName}
+	progress := &uploadProgress{FileName: row.FileName, Total: row.SizeBytes}
 	progress.setPhase("读取暂存片段")
-	p.uploading.Store(progress)
-	defer p.uploading.Store(nil)
-	uploadCtx := context.WithValue(p.ctx, uploadProgressKey{}, progress)
+	uploadCtx, finish := p.beginUpload(row, progress, primary.Label())
+	defer finish()
+	uploadCtx = p.withBucketProtocol(uploadCtx, primary.ID, row.LastError)
+	defer p.rememberProtocol(uploadCtx, primary.ID)
 	err = objects.UploadStream(uploadCtx, key, row.SizeBytes, func(out io.Writer) error {
 		for _, entry := range entries {
-			if err := p.ctx.Err(); err != nil {
+			if err := uploadCtx.Err(); err != nil {
 				return err
 			}
 			var src io.ReadCloser
 			var err error
 			if entry.StagedRemote {
-				src, err = objects.OpenRange(p.ctx, entry.StageKey, 0, entry.USize)
+				src, err = objects.OpenRange(uploadCtx, entry.StageKey, 0, entry.USize)
 			} else {
 				src, err = os.Open(fallbackPath(*row, entry.StageKey))
 			}
@@ -298,13 +299,16 @@ func (p *pipeline) sealStaged(row *Bundle) error {
 		return nil
 	}, func(n int64) { progress.sent.Add(n) })
 	if err != nil {
-		if p.ctx.Err() == nil {
+		if err = uploadError(uploadCtx, err); p.ctx.Err() == nil && !errors.Is(err, errBundleDeleted) {
 			p.stageBackoff.CompareAndSwap(0, time.Now().Add(30*time.Second).Unix())
 		}
 		return err
 	}
 	progress.setPhase("记录上传结果")
 	if err := store.commitUploaded(p.ctx, row.ID, primary.ID, primary.Bucket, key, layout, p.deliveryTargets(row, primary), redact); err != nil {
+		if errors.Is(err, errBundleDeleted) {
+			p.discardUploaded(objects, key)
+		}
 		return err
 	}
 	p.wakeRelay()

@@ -49,6 +49,8 @@ type Bundle struct {
 	StageBucketID *int64     `json:"stage_bucket_id,omitempty"`
 	StagePrefix   string     `json:"-"`
 	StageRedacted bool       `json:"stage_redacted,omitempty"`
+	// Set by an admin delete; the owning node removes the file, then the row.
+	DeleteRequestedAt *time.Time `json:"delete_requested_at,omitempty"`
 }
 
 type Entry struct {
@@ -232,16 +234,16 @@ func (s *Store) SaveConfig(ctx context.Context, cfg Config) error {
 }
 
 const bundleColumns = `id, node_id, day, model_key, part, file_name, local_path, status, size_bytes, entry_count,
-	bucket, bucket_id, object_key, attempts, last_error, local_deleted, created_at, sealed_at, uploaded_at, stage_bucket_id, stage_prefix, stage_redacted`
+	bucket, bucket_id, object_key, attempts, last_error, local_deleted, created_at, sealed_at, uploaded_at, stage_bucket_id, stage_prefix, stage_redacted, delete_requested_at`
 
 type scanner interface{ Scan(...any) error }
 
 func scanBundle(row scanner) (Bundle, error) {
 	var b Bundle
-	var sealed, uploaded sql.NullTime
+	var sealed, uploaded, deleteRequested sql.NullTime
 	var bucketID sql.NullInt64
 	err := row.Scan(&b.ID, &b.NodeID, &b.Day, &b.ModelKey, &b.Part, &b.FileName, &b.LocalPath, &b.Status, &b.SizeBytes,
-		&b.EntryCount, &b.Bucket, &bucketID, &b.ObjectKey, &b.Attempts, &b.LastError, &b.LocalDeleted, &b.CreatedAt, &sealed, &uploaded, &b.StageBucketID, &b.StagePrefix, &b.StageRedacted)
+		&b.EntryCount, &b.Bucket, &bucketID, &b.ObjectKey, &b.Attempts, &b.LastError, &b.LocalDeleted, &b.CreatedAt, &sealed, &uploaded, &b.StageBucketID, &b.StagePrefix, &b.StageRedacted, &deleteRequested)
 	if bucketID.Valid {
 		id := bucketID.Int64
 		b.BucketID = &id
@@ -251,6 +253,9 @@ func scanBundle(row scanner) (Bundle, error) {
 	}
 	if uploaded.Valid {
 		b.UploadedAt = &uploaded.Time
+	}
+	if deleteRequested.Valid {
+		b.DeleteRequestedAt = &deleteRequested.Time
 	}
 	return b, err
 }
@@ -370,7 +375,7 @@ func (s *Store) ClaimUpload(ctx context.Context, node string, now time.Time) (*B
 	for attempt := 0; attempt < 3; attempt++ {
 		var id int64
 		err := s.DB.QueryRowContext(ctx, `SELECT id FROM gateway_log_archive_bundles
-			WHERE node_id = $1 AND local_deleted = false AND (status = 'sealed' OR (status = 'failed' AND next_attempt_at IS NOT NULL AND next_attempt_at <= $2))
+			WHERE node_id = $1 AND local_deleted = false AND delete_requested_at IS NULL AND (status = 'sealed' OR (status = 'failed' AND next_attempt_at IS NOT NULL AND next_attempt_at <= $2))
 			ORDER BY id LIMIT 1`, node, now.UTC()).Scan(&id)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -379,7 +384,7 @@ func (s *Store) ClaimUpload(ctx context.Context, node string, now time.Time) (*B
 			return nil, err
 		}
 		res, err := s.DB.ExecContext(ctx, `UPDATE gateway_log_archive_bundles SET status = 'uploading', attempts = attempts + 1, updated_at = CURRENT_TIMESTAMP
-			WHERE id = $1 AND status IN ('sealed', 'failed')`, id)
+			WHERE id = $1 AND status IN ('sealed', 'failed') AND delete_requested_at IS NULL`, id)
 		if err != nil {
 			return nil, err
 		}
@@ -414,8 +419,12 @@ func (s *Store) commitUploaded(ctx context.Context, id, bucketID int64, bucket, 
 	var size, entries int64
 	err = tx.QueryRowContext(ctx, `UPDATE gateway_log_archive_bundles SET status = 'uploaded', bucket = $1, bucket_id = $2, object_key = $3,
 		last_error = '', next_attempt_at = NULL, uploaded_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, stage_redacted = $5
-		WHERE id = $4 AND status <> 'uploaded' RETURNING model_key, size_bytes, entry_count`, bucket, bucketID, key, id, sourceRedacted).Scan(&modelKey, &size, &entries)
+		WHERE id = $4 AND status <> 'uploaded' AND delete_requested_at IS NULL RETURNING model_key, size_bytes, entry_count`, bucket, bucketID, key, id, sourceRedacted).Scan(&modelKey, &size, &entries)
 	if errors.Is(err, sql.ErrNoRows) {
+		// A repeated call is success; a delete requested mid-upload is not.
+		if s.deleteRequested(ctx, id) {
+			return errBundleDeleted
+		}
 		return nil
 	}
 	if err != nil {
@@ -523,7 +532,7 @@ func (s *Store) Prune(ctx context.Context, before time.Time) error {
 // upload queue.
 func (s *Store) RetryBundle(ctx context.Context, id int64) (bool, error) {
 	res, err := s.DB.ExecContext(ctx, `UPDATE gateway_log_archive_bundles SET status = 'sealed', next_attempt_at = NULL, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $1 AND status = 'failed' AND local_deleted = false AND sealed_at IS NOT NULL`, id)
+		WHERE id = $1 AND status = 'failed' AND local_deleted = false AND sealed_at IS NOT NULL AND delete_requested_at IS NULL`, id)
 	if err != nil {
 		return false, err
 	}

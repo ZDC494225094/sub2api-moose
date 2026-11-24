@@ -85,17 +85,31 @@
           </div>
         </div>
 
-        <div v-if="status.uploading" class="mt-4 rounded-xl border border-primary-100 bg-primary-50/50 p-4 dark:border-primary-900/40 dark:bg-primary-900/10">
+        <div v-if="status.uploading" class="mt-4 rounded-xl border border-primary-100 bg-primary-50/50 p-4 dark:border-primary-900/40 dark:bg-primary-900/10" data-testid="upload-progress">
           <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <span class="font-medium text-gray-800 dark:text-gray-200">正在上传 {{ status.uploading.file_name }}</span>
-            <span v-if="status.uploading.total > 0" class="font-mono text-xs text-gray-500 dark:text-dark-400">
-              存储桶已确认 {{ formatBytes(status.uploading.sent) }} / {{ formatBytes(status.uploading.total) }} · {{ uploadPercent }}%
+            <span class="font-medium text-gray-800 dark:text-gray-200">
+              正在上传 {{ status.uploading.file_name }}<template v-if="status.uploading.bucket"> → {{ status.uploading.bucket }}</template>
             </span>
-            <span v-else class="font-mono text-xs text-gray-500 dark:text-dark-400">存储桶已确认 {{ formatBytes(status.uploading.sent) }}</span>
+            <span class="flex items-center gap-3">
+              <span v-if="status.uploading.total > 0" class="font-mono text-xs text-gray-500 dark:text-dark-400">
+                存储桶已确认 {{ formatBytes(status.uploading.sent) }} / {{ formatBytes(status.uploading.total) }} · {{ uploadPercent }}%
+              </span>
+              <span v-else class="font-mono text-xs text-gray-500 dark:text-dark-400">存储桶已确认 {{ formatBytes(status.uploading.sent) }}</span>
+              <button type="button" class="btn btn-ghost btn-sm text-red-600 dark:text-red-400" :disabled="busy" @click="askDelete(uploadingBundle)">删除此文件</button>
+            </span>
           </div>
           <div v-if="status.uploading.total > 0" class="progress mt-2"><div class="progress-bar" :style="{ width: uploadPercent + '%' }" /></div>
-          <p v-if="status.uploading.phase" class="mt-2 text-xs text-gray-600 dark:text-dark-400">
-            {{ status.uploading.phase }} · 已交给网络传输 {{ formatBytes(status.uploading.body_bytes ?? 0) }}（含重传）<template v-if="status.uploading.part_retries"> · 分片重试 {{ status.uploading.part_retries }} 次</template>
+          <p class="mt-2 text-xs text-gray-600 dark:text-dark-400">
+            <template v-if="status.uploading.phase">{{ status.uploading.phase }} · </template>
+            已交给网络传输 {{ formatBytes(status.uploading.body_bytes ?? 0) }}（含重传）
+            <template v-if="uploadRate !== null"> · 速度 {{ formatBytes(uploadRate) }}/s</template>
+            <template v-if="uploadEta"> · 预计剩余 {{ uploadEta }}</template>
+            <template v-if="uploadElapsed"> · 本次已用 {{ uploadElapsed }}</template>
+            <template v-if="status.uploading.attempt"> · 第 {{ status.uploading.attempt }} 次尝试</template>
+            <template v-if="status.uploading.part_retries"> · 分片重试 {{ status.uploading.part_retries }} 次</template>
+          </p>
+          <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">
+            进度仅显示当前响应节点（{{ status.node_id }}）上的上传。失败的上传会重新从头开始；一直卡住的文件可以删除，以释放本地磁盘并让后面的文件继续上传。
           </p>
         </div>
         <div v-if="status.open_bundles?.length" class="mt-4">
@@ -282,8 +296,17 @@
                   <td class="whitespace-nowrap font-mono text-xs">{{ b.day }}</td>
                   <td class="font-medium text-gray-900 dark:text-white">{{ b.file_name }}</td>
                   <td>
-                    <span class="badge" :class="statusBadge(b.status)">{{ statusLabels[b.status] || b.status }}</span>
-                    <p v-if="b.last_error" class="mt-1 max-w-xs break-words text-xs text-red-600 dark:text-red-400" :title="b.last_error">
+                    <span v-if="b.delete_requested_at" class="badge badge-gray">删除中</span>
+                    <span v-else class="badge" :class="statusBadge(b.status)">{{ statusLabels[b.status] || b.status }}</span>
+                    <div v-if="!b.delete_requested_at && b.status === 'uploading' && status?.uploading?.bundle_id === b.id" class="mt-1 w-40" data-testid="row-progress">
+                      <div class="progress"><div class="progress-bar" :style="{ width: uploadPercent + '%' }" /></div>
+                      <p class="mt-0.5 font-mono text-xs text-gray-500 dark:text-dark-400">
+                        {{ uploadPercent }}%<template v-if="uploadRate !== null"> · {{ formatBytes(uploadRate) }}/s</template>
+                      </p>
+                    </div>
+                    <p v-else-if="!b.delete_requested_at && b.status === 'uploading'" class="mt-1 text-xs text-gray-500 dark:text-dark-400">由节点 {{ b.node_id }} 上传</p>
+                    <p v-if="b.delete_requested_at" class="mt-1 max-w-xs text-xs text-gray-500 dark:text-dark-400">节点 {{ b.node_id }} 正在清理本地数据</p>
+                    <p v-else-if="b.last_error" class="mt-1 max-w-xs break-words text-xs text-red-600 dark:text-red-400" :title="b.last_error">
                       {{ shortError(b.last_error) }}
                     </p>
                   </td>
@@ -301,9 +324,10 @@
                     <button type="button" class="btn btn-ghost btn-sm" @click="openBundle(b)">查看数据</button>
                     <button v-if="b.status === 'uploaded'" type="button" class="btn btn-ghost btn-sm" @click="download(b)">下载</button>
                     <button v-if="b.status === 'uploaded'" type="button" class="btn btn-ghost btn-sm" @click="loadDeliveries(b.id)">转存状态</button>
-                    <button v-if="b.status === 'failed' && !b.local_deleted && b.sealed_at" type="button" class="btn btn-ghost btn-sm" @click="retry(b)">
+                    <button v-if="b.status === 'failed' && !b.local_deleted && b.sealed_at && !b.delete_requested_at" type="button" class="btn btn-ghost btn-sm" @click="retry(b)">
                       重试上传
                     </button>
+                    <button v-if="canDelete(b)" type="button" class="btn btn-ghost btn-sm text-red-600 dark:text-red-400" @click="askDelete(b)">删除</button>
                   </td>
                 </tr>
               </tbody>
@@ -373,6 +397,22 @@
         <Pager :page="entries.page" :total="entries.total" :size="entries.page_size" @change="loadEntries" />
       </section>
     </div>
+
+    <BaseDialog :show="!!deleting" title="删除归档文件" width="narrow" @close="deleting = null">
+      <div v-if="deleting" class="space-y-3 text-sm text-gray-600 dark:text-dark-300" data-testid="delete-dialog">
+        <p>
+          确定删除 <span class="font-medium text-gray-900 dark:text-white">{{ deleting.file_name }}</span>？
+          <template v-if="deleting.entry_count">其中 {{ deleting.entry_count }} 个会话</template><template v-if="deleting.size_bytes">（{{ formatBytes(deleting.size_bytes) }}）</template>尚未上传到存储桶，删除后无法恢复。
+        </p>
+        <p>正在进行的上传会被中止，存储桶中未完成的分片上传会被取消；节点 {{ deleting.node_id }} 随后删除本地文件和这条索引，释放磁盘空间，后面排队的文件继续上传。</p>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <button type="button" class="btn btn-secondary" @click="deleting = null">取消</button>
+          <button type="button" class="btn btn-danger" :disabled="busy" data-testid="confirm-delete" @click="confirmDelete">删除</button>
+        </div>
+      </template>
+    </BaseDialog>
 
     <BaseDialog :show="!!previewing" title="会话数据预览" width="extra-wide" @close="previewing = null">
       <div v-if="previewing" class="space-y-3">
@@ -491,6 +531,77 @@ const uploadPercent = computed(() => {
   return up && up.total > 0 ? Math.min(100, Math.floor((up.sent / up.total) * 10000) / 100) : 0
 })
 
+// Network rate from two consecutive polls of the same upload; the first poll
+// falls back to the average since the attempt started.
+let rateSample: { id: number; bytes: number; at: number } | null = null
+const uploadRate = ref<number | null>(null)
+function trackRate(next: ArchiveStatus) {
+  const up = next.uploading
+  if (!up) {
+    rateSample = null
+    uploadRate.value = null
+    return
+  }
+  const bytes = up.body_bytes ?? up.sent
+  const now = Date.now()
+  if (rateSample && rateSample.id === up.bundle_id && now > rateSample.at && bytes >= rateSample.bytes) {
+    uploadRate.value = ((bytes - rateSample.bytes) * 1000) / (now - rateSample.at)
+  } else {
+    const elapsed = up.started_at ? now - Date.parse(up.started_at) : NaN
+    uploadRate.value = elapsed > 1000 ? (bytes * 1000) / elapsed : null
+  }
+  rateSample = { id: up.bundle_id, bytes, at: now }
+}
+
+function formatDuration(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000))
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  if (h) return `${h} 小时 ${m} 分`
+  if (m) return `${m} 分 ${s % 60} 秒`
+  return `${s} 秒`
+}
+
+const uploadElapsed = computed(() => {
+  const started = status.value?.uploading?.started_at
+  const at = started ? Date.parse(started) : NaN
+  return Number.isNaN(at) ? '' : formatDuration(Date.now() - at)
+})
+
+const uploadEta = computed(() => {
+  const up = status.value?.uploading
+  const rate = uploadRate.value
+  if (!up || !rate || rate <= 0 || up.total <= up.sent) return ''
+  return formatDuration(((up.total - up.sent) / rate) * 1000)
+})
+
+type DeleteTarget = Pick<Bundle, 'id' | 'file_name' | 'node_id'> & { entry_count?: number; size_bytes?: number }
+const deleting = ref<DeleteTarget | null>(null)
+const deletableStatuses = new Set(['sealed', 'uploading', 'failed'])
+function canDelete(b: Bundle) {
+  return deletableStatuses.has(b.status) && !b.delete_requested_at
+}
+const uploadingBundle = computed<DeleteTarget | null>(() => {
+  const up = status.value?.uploading
+  if (!up || !status.value) return null
+  return bundles.value.items.find(b => b.id === up.bundle_id) ?? { id: up.bundle_id, file_name: up.file_name, node_id: status.value.node_id, size_bytes: up.total }
+})
+function askDelete(target: DeleteTarget | null) {
+  if (target) deleting.value = target
+}
+async function confirmDelete() {
+  const target = deleting.value
+  if (!target) return
+  deleting.value = null
+  await run(async () => {
+    const result = await archiveAPI.deleteBundle(target.id)
+    notice.value = result.local
+      ? `${target.file_name} 已删除，正在中止上传并清理本地数据。`
+      : `${target.file_name} 已标记删除，节点 ${result.node_id} 会在 15 秒内中止上传并清理本地数据。`
+    await Promise.all([loadStatus(), loadBundles()])
+  }, '删除失败')
+}
+
 const prettyContent = computed(() => {
   const p = previewing.value
   if (!p) return ''
@@ -536,7 +647,9 @@ function applyConfig(cfg: ArchiveConfig) {
 
 async function loadStatus() {
   try {
-    status.value = await archiveAPI.status()
+    const next = await archiveAPI.status()
+    trackRate(next)
+    status.value = next
   } catch (e) {
     error.value = errorMessage(e, '加载运行状态失败')
   }
@@ -688,15 +801,30 @@ watch(tab, value => {
   if (value === 'entries' && !entries.value.items.length) void loadEntries(1)
 })
 
-let timer: ReturnType<typeof setInterval> | undefined
+// Poll every 3 s while a file is uploading so its progress moves, else 10 s.
+let timer: ReturnType<typeof setTimeout> | undefined
+let unmounted = false
+function schedulePoll() {
+  if (unmounted) return
+  timer = setTimeout(async () => {
+    const wasUploading = status.value?.uploading?.bundle_id
+    await loadStatus()
+    // Refresh the list when an upload finishes or moves to the next file.
+    if (tab.value === 'bundles' && wasUploading !== status.value?.uploading?.bundle_id) void loadBundles()
+    schedulePoll()
+  }, status.value?.uploading ? 3000 : 10000)
+}
 onMounted(async () => {
   await run(async () => {
     const [cfg] = await Promise.all([archiveAPI.getConfig(), loadStatus(), loadBuckets()])
     applyConfig(cfg)
   }, '加载配置失败')
-  timer = setInterval(loadStatus, 10000)
+  schedulePoll()
 })
-onUnmounted(() => clearInterval(timer))
+onUnmounted(() => {
+  unmounted = true
+  clearTimeout(timer)
+})
 
 function addRule() {
   form.value?.rules.push({ pattern: '', alias: '' })

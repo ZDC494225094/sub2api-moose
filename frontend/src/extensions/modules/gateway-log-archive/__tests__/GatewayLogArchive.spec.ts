@@ -9,7 +9,7 @@ import BucketDialog from '../BucketDialog.vue'
 import ModelStatsPanel from '../ModelStatsPanel.vue'
 import GatewayLogArchiveView from '../GatewayLogArchiveView.vue'
 import DetectorSettings from '../DetectorSettings.vue'
-import { archiveAPI, type ArchiveBucket, type ArchiveConfig, type DetectorConfig, type Entry } from '../api'
+import { archiveAPI, type ArchiveBucket, type ArchiveConfig, type ArchiveStatus, type Bundle, type DetectorConfig, type Entry } from '../api'
 import { shortError } from '../format'
 
 vi.mock(import('@/api/admin/usage'), async importOriginal => ({ ...await importOriginal(), searchUsers: vi.fn() }))
@@ -28,6 +28,8 @@ vi.mock('../api', () => ({
     status: vi.fn(),
     entries: vi.fn(),
     exportSession: vi.fn(),
+    bundles: vi.fn(),
+    deleteBundle: vi.fn(),
   },
 }))
 
@@ -165,6 +167,70 @@ describe('gateway log archive JSONL and privacy settings', () => {
       click.mockRestore()
       URL.createObjectURL = oldCreate
       URL.revokeObjectURL = oldRevoke
+      vi.clearAllTimers()
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('gateway log archive upload progress and stuck bundles', () => {
+  const baseStatus = (uploading: ArchiveStatus['uploading']): ArchiveStatus => ({
+    module_enabled: true, running: true, capturing: true, reason: '', node_id: 'node-a', data_dir: '/app/data', today: '2026-11-24',
+    disk_free_bytes: 0, storage_buckets: 1, uploaded_bundles: 0, uploaded_bytes: 0, active_sessions: 0, queued_exchanges: 0,
+    pending_flushes: 0, open_bundles: [], uploading, captured: 0, skipped_model: 0, skipped_status: 0, dropped: 0,
+    sessions_archived: 0, flush_errors: 0, uploaded: 0, upload_errors: 0, last_error: '', last_error_at: null, bundles: null,
+  })
+  const row = (overrides: Partial<Bundle>): Bundle => ({
+    id: 1, node_id: 'node-a', day: '2026-11-22', model_key: 'gpt-6-astra', part: 4, file_name: 'gpt-6-astra-2026-11-22-part004.jsonl',
+    status: 'uploading', size_bytes: 10 * 2 ** 30, entry_count: 300, bucket: '', bucket_id: null, object_key: '', attempts: 3,
+    last_error: '', local_deleted: false, created_at: '', sealed_at: '2026-11-23T00:00:01Z', uploaded_at: null, ...overrides,
+  })
+
+  it('shows the running upload with rate and deletes a stuck bundle after confirmation', async () => {
+    vi.resetAllMocks()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-24T10:00:00Z'))
+    vi.mocked(archiveAPI.getConfig).mockResolvedValue({ capture_enabled: true, mode: 'all', rules: [], success_only: true, redact_pii: true,
+      max_file_size_mb: 10240, session_idle_seconds: 1800, max_body_mb: 64, keep_local_hours: 0, entry_retention_days: 90, min_free_disk_gb: 5 })
+    vi.mocked(archiveAPI.buckets).mockResolvedValue({ items: [], unattributed: { bundle_count: 0, size_bytes: 0 } })
+    const progress = (sent: number, body: number) => ({ bundle_id: 1, file_name: 'gpt-6-astra-2026-11-22-part004.jsonl', total: 10 * 2 ** 30,
+      sent, body_bytes: body, part_retries: 2, phase: '发送分片，等待存储桶确认', started_at: '2026-11-24T09:50:00Z', attempt: 3, bucket: '远端 RustFS' })
+    vi.mocked(archiveAPI.status)
+      .mockResolvedValueOnce(baseStatus(progress(2 ** 30, 2 ** 30)))
+      .mockResolvedValue(baseStatus(progress(2 ** 30, 2 ** 30 + 30 * 2 ** 20)))
+    vi.mocked(archiveAPI.bundles).mockResolvedValue({
+      items: [row({}), row({ id: 2, file_name: 'gpt-6-astra-2026-11-21-part001.jsonl', status: 'failed', last_error: 'read: connection reset by peer' }), row({ id: 3, status: 'uploaded', file_name: 'done.jsonl' })],
+      total: 3, page: 1, page_size: 20,
+    })
+    vi.mocked(archiveAPI.deleteBundle).mockResolvedValue({ delete_requested: true, node_id: 'node-a', local: true })
+    const wrapper = mount(GatewayLogArchiveView, { global: { stubs } })
+    try {
+      await flushPromises()
+      const card = () => wrapper.get('[data-testid="upload-progress"]').text()
+      expect(card()).toContain('正在上传 gpt-6-astra-2026-11-22-part004.jsonl → 远端 RustFS')
+      expect(card()).toContain('10.00%')
+      expect(card()).toContain('第 3 次尝试')
+      expect(card()).toContain('本次已用 10 分 0 秒')
+      // While uploading the status refreshes every 3 s; 30 MB in 3 s is 10 MB/s.
+      await vi.advanceTimersByTimeAsync(3000)
+      await flushPromises()
+      expect(card()).toContain('速度 10.00 MB/s')
+      expect(card()).toContain('预计剩余')
+
+      await wrapper.findAll('[role="tab"]').find(tab => tab.text() === '归档文件')!.trigger('click')
+      await flushPromises()
+      const rows = wrapper.findAll('tbody tr')
+      expect(rows[0].find('[data-testid="row-progress"]').text()).toContain('10%')
+      expect(rows[2].findAll('button').some(b => b.text() === '删除')).toBe(false)
+      await rows[1].findAll('button').find(b => b.text() === '删除')!.trigger('click')
+      expect(archiveAPI.deleteBundle).not.toHaveBeenCalled()
+      expect(wrapper.get('[data-testid="delete-dialog"]').text()).toContain('gpt-6-astra-2026-11-21-part001.jsonl')
+      await wrapper.get('[data-testid="confirm-delete"]').trigger('click')
+      await flushPromises()
+      expect(archiveAPI.deleteBundle).toHaveBeenCalledWith(2)
+      expect(wrapper.text()).toContain('已删除，正在中止上传并清理本地数据')
+    } finally {
+      wrapper.unmount()
       vi.clearAllTimers()
       vi.useRealTimers()
     }

@@ -328,6 +328,10 @@ type uploadView struct {
 	BodyBytes int64  `json:"body_bytes"`
 	Retries   int64  `json:"part_retries"`
 	Phase     string `json:"phase,omitempty"`
+	// When this attempt started, which attempt it is, and the target bucket.
+	StartedAt time.Time `json:"started_at"`
+	Attempt   int       `json:"attempt"`
+	Bucket    string    `json:"bucket,omitempty"`
 }
 
 func (r *Runtime) Status(ctx context.Context) RuntimeStatus {
@@ -353,7 +357,8 @@ func (r *Runtime) Status(ctx context.Context) RuntimeStatus {
 			st.Detector = d.status()
 		}
 		if up := pipe.uploading.Load(); up != nil {
-			st.Uploading = &uploadView{BundleID: up.BundleID, FileName: up.FileName, Total: up.Total, Sent: up.sent.Load(), BodyBytes: up.bodyBytes.Load(), Retries: up.retries.Load()}
+			st.Uploading = &uploadView{BundleID: up.BundleID, FileName: up.FileName, Total: up.Total, Sent: up.sent.Load(), BodyBytes: up.bodyBytes.Load(), Retries: up.retries.Load(),
+				StartedAt: up.startedAt, Attempt: up.attempt, Bucket: up.bucket}
 			if phase := up.phase.Load(); phase != nil {
 				st.Uploading.Phase = *phase
 			}

@@ -172,6 +172,24 @@ export interface OpenBundle {
   entry_count: number
 }
 
+/** The upload running on the node that answered the status request. */
+export interface UploadProgress {
+  bundle_id: number
+  file_name: string
+  /** Expected bytes; the redacted output can differ slightly. */
+  total: number
+  /** Bytes confirmed by the bucket. */
+  sent: number
+  /** Bytes handed to the network, including re-sent parts. */
+  body_bytes?: number
+  part_retries?: number
+  phase?: string
+  /** Omitted by older nodes. */
+  started_at?: string
+  attempt?: number
+  bucket?: string
+}
+
 export interface ArchiveStatus {
   module_enabled: boolean
   running: boolean
@@ -192,7 +210,7 @@ export interface ArchiveStatus {
   queued_exchanges: number
   pending_flushes: number
   open_bundles: OpenBundle[]
-  uploading: { bundle_id: number; file_name: string; total: number; sent: number; body_bytes?: number; part_retries?: number; phase?: string } | null
+  uploading: UploadProgress | null
   captured: number
   skipped_user?: number
   skipped_model: number
@@ -228,6 +246,15 @@ export interface Bundle {
   created_at: string
   sealed_at: string | null
   uploaded_at: string | null
+  /** Set once an admin deleted it; the owning node is removing the data. */
+  delete_requested_at?: string | null
+}
+
+export interface DeleteBundleResult {
+  delete_requested: boolean
+  node_id: string
+  /** False when another node holds the file and removes it on its own. */
+  local: boolean
 }
 
 export interface Delivery {
@@ -326,6 +353,11 @@ export const archiveAPI = {
   },
   async retry(id: number): Promise<void> {
     await apiClient.post(`${base}/bundles/${id}/retry`)
+  },
+  /** Discards a pending, uploading or failed bundle and its local data. */
+  async deleteBundle(id: number): Promise<DeleteBundleResult> {
+    const { data } = await apiClient.delete(`${base}/bundles/${id}`)
+    return data
   },
   async deliveries(id: number): Promise<Delivery[]> {
     const { data } = await apiClient.get(`${base}/bundles/${id}/deliveries`)
