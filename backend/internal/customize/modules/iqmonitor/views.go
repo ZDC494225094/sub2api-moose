@@ -68,6 +68,8 @@ type WallView struct {
 	Status      string     `json:"status"`
 	StartedAt   time.Time  `json:"started_at"`
 	FinishedAt  *time.Time `json:"finished_at"`
+	PrevRoundID *int64     `json:"prev_round_id"`
+	NextRoundID *int64     `json:"next_round_id"`
 	Cards       []WallCard `json:"cards"`
 }
 
@@ -92,17 +94,18 @@ type QueueItem struct {
 }
 
 type Overview struct {
-	LogicEnabled    bool            `json:"logic_enabled"`
-	DrawingEnabled  bool            `json:"drawing_enabled"`
-	PrimaryKind     string          `json:"primary_kind"`
-	IntervalMinutes int             `json:"interval_minutes"`
-	Thresholds      ThresholdConfig `json:"thresholds"`
-	Summary         Summary         `json:"summary"`
-	Wall            *WallView       `json:"wall"`
-	Models          []ModelCard     `json:"models"`
-	Queue           []QueueItem     `json:"queue"`
-	Timezone        string          `json:"timezone"`
-	Now             time.Time       `json:"now"`
+	LogicEnabled    bool                 `json:"logic_enabled"`
+	DrawingEnabled  bool                 `json:"drawing_enabled"`
+	PrimaryKind     string               `json:"primary_kind"`
+	IntervalMinutes int                  `json:"interval_minutes"`
+	Thresholds      ThresholdConfig      `json:"thresholds"`
+	Summary         Summary              `json:"summary"`
+	Wall            *WallView            `json:"wall"`
+	Models          []ModelCard          `json:"models"`
+	Queue           []QueueItem          `json:"queue"`
+	Recent          []RecentDrawingRound `json:"recent"`
+	Timezone        string               `json:"timezone"`
+	Now             time.Time            `json:"now"`
 }
 
 func (r *Runtime) groupMap(ctx context.Context) map[int64]GroupOption {
@@ -127,7 +130,7 @@ func (r *Runtime) Overview(ctx context.Context) (Overview, error) {
 	now := r.Store.now()
 	since := now.Add(-24 * time.Hour)
 	ov := Overview{LogicEnabled: cfg.Logic.Enabled, DrawingEnabled: cfg.Drawing.Enabled, PrimaryKind: cfg.PrimaryKind(),
-		IntervalMinutes: cfg.IntervalMinutes, Thresholds: cfg.Thresholds, Timezone: timezone.Name(), Now: now, Models: []ModelCard{}, Queue: []QueueItem{}}
+		IntervalMinutes: cfg.IntervalMinutes, Thresholds: cfg.Thresholds, Timezone: timezone.Name(), Now: now, Models: []ModelCard{}, Queue: []QueueItem{}, Recent: []RecentDrawingRound{}}
 	targets, err := r.enabledTargets(ctx)
 	if err != nil {
 		return ov, err
@@ -229,7 +232,14 @@ func (r *Runtime) Overview(ctx context.Context) (Overview, error) {
 		ov.Summary.Running = latest.Status == RoundRunning
 	}
 	ov.Summary.NextRoundAt = nextRoundAt(cfg, now, latest)
-	if ov.Wall, err = r.wall(ctx, targets, groups); err != nil {
+	if round, err := r.Store.LatestDrawingRound(ctx); err != nil {
+		return ov, err
+	} else if round != nil {
+		if ov.Wall, err = r.buildWall(ctx, *round, targets, groups); err != nil {
+			return ov, err
+		}
+	}
+	if ov.Recent, err = r.Store.RecentDrawingRounds(ctx, recentDrawingLimit); err != nil {
 		return ov, err
 	}
 	queued, err := r.Store.QueuedTopics(ctx, 5)
@@ -242,16 +252,31 @@ func (r *Runtime) Overview(ctx context.Context) (Overview, error) {
 	return ov, nil
 }
 
-func (r *Runtime) wall(ctx context.Context, targets []Target, groups map[int64]GroupOption) (*WallView, error) {
-	round, err := r.Store.LatestDrawingRound(ctx)
-	if err != nil || round == nil {
+// recentDrawingLimit bounds the public "recently drawn" list.
+const recentDrawingLimit = 30
+
+// Wall is the drawing wall of one past or running round.
+func (r *Runtime) Wall(ctx context.Context, roundID int64) (*WallView, error) {
+	round, err := r.Store.DrawingRound(ctx, roundID)
+	if err != nil {
 		return nil, err
 	}
+	targets, err := r.enabledTargets(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return r.buildWall(ctx, round, targets, r.groupMap(ctx))
+}
+
+func (r *Runtime) buildWall(ctx context.Context, round Round, targets []Target, groups map[int64]GroupOption) (*WallView, error) {
 	results, err := r.Store.RoundResults(ctx, round.ID, KindDrawing)
 	if err != nil {
 		return nil, err
 	}
 	view := &WallView{RoundID: round.ID, Topic: round.Topic, TopicSource: round.TopicSource, Status: round.Status, StartedAt: round.StartedAt, FinishedAt: round.FinishedAt, Cards: []WallCard{}}
+	if view.PrevRoundID, view.NextRoundID, err = r.Store.AdjacentDrawingRounds(ctx, round.ID); err != nil {
+		return nil, err
+	}
 	if round.TopicID != nil {
 		if t, err := r.Store.Topic(ctx, *round.TopicID); err == nil && t != nil {
 			view.Submitter = MaskName(displayName(t.Username, t.Email))

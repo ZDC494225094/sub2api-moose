@@ -122,6 +122,84 @@ func (s *Store) LatestDrawingRound(ctx context.Context) (*Round, error) {
 	return &r, nil
 }
 
+const drawingRoundFilter = `drawing_enabled = true AND topic <> ''`
+
+// DrawingRound loads one round that ran the drawing test.
+func (s *Store) DrawingRound(ctx context.Context, id int64) (Round, error) {
+	r, err := s.Round(ctx, id)
+	if err != nil {
+		return Round{}, err
+	}
+	if !r.DrawingEnabled || r.Topic == "" {
+		return Round{}, ErrNotFound
+	}
+	return r, nil
+}
+
+// AdjacentDrawingRounds returns the drawing rounds just before and after id,
+// nil where there is none.
+func (s *Store) AdjacentDrawingRounds(ctx context.Context, id int64) (prev, next *int64, err error) {
+	if err := s.ready(); err != nil {
+		return nil, nil, err
+	}
+	one := func(q string) (*int64, error) {
+		var v int64
+		err := s.DB.QueryRowContext(ctx, q, id).Scan(&v)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return &v, nil
+	}
+	if prev, err = one(`SELECT id FROM iq_monitor_rounds WHERE ` + drawingRoundFilter + ` AND id < $1 ORDER BY id DESC LIMIT 1`); err != nil {
+		return nil, nil, err
+	}
+	next, err = one(`SELECT id FROM iq_monitor_rounds WHERE ` + drawingRoundFilter + ` AND id > $1 ORDER BY id ASC LIMIT 1`)
+	return prev, next, err
+}
+
+// RecentDrawingRound is one entry of the public "recently drawn" list.
+type RecentDrawingRound struct {
+	RoundID     int64     `json:"round_id"`
+	Topic       string    `json:"topic"`
+	TopicSource string    `json:"topic_source"`
+	Submitter   string    `json:"submitter,omitempty"`
+	StartedAt   time.Time `json:"started_at"`
+}
+
+// RecentDrawingRounds lists the newest drawing rounds with their submitter.
+func (s *Store) RecentDrawingRounds(ctx context.Context, limit int) ([]RecentDrawingRound, error) {
+	if err := s.ready(); err != nil {
+		return nil, err
+	}
+	rows, err := s.DB.QueryContext(ctx, `SELECT r.id, r.topic, r.topic_source, r.started_at, t.id IS NOT NULL, COALESCE(u.username, ''), COALESCE(u.email, '')
+FROM iq_monitor_rounds r
+LEFT JOIN iq_monitor_topics t ON t.id = r.topic_id
+LEFT JOIN users u ON u.id = t.user_id
+WHERE r.drawing_enabled = true AND r.topic <> ''
+ORDER BY r.id DESC LIMIT $1`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("iq-monitor: recent drawing rounds: %w", err)
+	}
+	defer rows.Close()
+	out := []RecentDrawingRound{}
+	for rows.Next() {
+		var item RecentDrawingRound
+		var hasTopic bool
+		var username, email string
+		if err := rows.Scan(&item.RoundID, &item.Topic, &item.TopicSource, &item.StartedAt, &hasTopic, &username, &email); err != nil {
+			return nil, err
+		}
+		if hasTopic {
+			item.Submitter = MaskName(displayName(username, email))
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
 // InterruptStale closes running rounds whose node stopped heart-beating and
 // marks their unfinished results interrupted. Returns the rounds closed.
 func (s *Store) InterruptStale(ctx context.Context, staleBefore time.Time) (int, error) {

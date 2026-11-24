@@ -37,9 +37,31 @@ export const cellClasses: Record<ResultStatus, string> = {
   pass: 'bg-emerald-500',
   retry_pass: 'bg-lime-400 dark:bg-lime-500',
   fail: 'bg-rose-500',
-  error: 'bg-orange-400',
+  error: 'bg-amber-400',
   interrupted: 'bg-gray-300 dark:bg-dark-600',
   skipped: 'bg-gray-200 dark:bg-dark-700',
+}
+
+/** Small status dots next to health labels. */
+export const healthDots: Record<Health, string> = {
+  normal: 'bg-emerald-500',
+  unstable: 'bg-amber-400',
+  degraded: 'bg-rose-500',
+  no_data: 'bg-gray-300 dark:bg-dark-600',
+}
+
+export const healthText: Record<Health, string> = {
+  normal: 'text-emerald-600 dark:text-emerald-400',
+  unstable: 'text-amber-600 dark:text-amber-400',
+  degraded: 'text-rose-600 dark:text-rose-400',
+  no_data: 'text-gray-400 dark:text-dark-500',
+}
+
+/** Health a pass rate falls into under the configured thresholds. */
+export function healthOfRate(rate: number, total: number, t: { normal: number; unstable: number }): Health {
+  if (!total) return 'no_data'
+  if (rate >= t.normal) return 'normal'
+  return rate >= t.unstable ? 'unstable' : 'degraded'
 }
 
 export const topicLabels: Record<TopicStatus, string> = {
@@ -84,6 +106,25 @@ export function formatTime(iso: string | null | undefined): string {
   const d = new Date(iso)
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/** Remaining time as m:ss, or h:mm:ss past an hour. */
+export function formatCountdown(ms: number): string {
+  const sec = Math.max(0, Math.ceil(ms / 1000))
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return h > 0 ? `${h}:${pad(m)}:${pad(sec % 60)}` : `${pad(m)}:${pad(sec % 60)}`
+}
+
+/** HH:mm, prefixed with MM-DD when not today. */
+export function formatClock(iso: string | null | undefined, nowMs = Date.now()): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  const n = new Date(nowMs)
+  const pad = (v: number) => String(v).padStart(2, '0')
+  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return d.toDateString() === n.toDateString() ? hm : `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hm}`
 }
 
 export function formatTokens(n: number): string {

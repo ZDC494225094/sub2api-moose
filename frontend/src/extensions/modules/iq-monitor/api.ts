@@ -57,7 +57,16 @@ export interface WallView {
   status: 'running' | 'done' | 'interrupted'
   started_at: string
   finished_at: string | null
+  prev_round_id: number | null
+  next_round_id: number | null
   cards: WallCard[]
+}
+export interface RecentRound {
+  round_id: number
+  topic: string
+  topic_source: 'user' | 'admin' | ''
+  submitter?: string
+  started_at: string
 }
 export interface Summary {
   models: number
@@ -82,6 +91,7 @@ export interface Overview {
   wall: WallView | null
   models: ModelCard[]
   queue: Array<{ topic: string; submitter: string; created_at: string }>
+  recent: RecentRound[]
   timezone: string
   now: string
 }
@@ -269,6 +279,10 @@ export const iqMonitorAPI = {
   },
   async overview(): Promise<Overview> {
     const { data } = await apiClient.get('/iq-monitor/overview')
+    return data
+  },
+  async wall(roundId: number): Promise<WallView> {
+    const { data } = await apiClient.get(`/iq-monitor/rounds/${roundId}/wall`)
     return data
   },
   async result(id: number): Promise<ResultDetail> {

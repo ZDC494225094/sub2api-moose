@@ -57,13 +57,22 @@ describe('iq-monitor formatting', () => {
 
 describe('model card', () => {
   it('pads the timeline, shows the sent effort and opens finished cells only', async () => {
-    const wrapper = mount(ModelCardItem, { props: { card: card(), logicEnabled: true, drawingEnabled: false }, global: { stubs } })
+    const wrapper = mount(ModelCardItem, {
+      props: { card: card(), logicEnabled: true, drawingEnabled: false, thresholds: { normal: 95, unstable: 80 }, intervalMinutes: 30, now: Date.parse('2026-11-24T02:00:00Z') },
+      global: { stubs },
+    })
     expect(wrapper.text()).toContain('疑似降智')
-    expect(wrapper.text()).toContain('实际发送 max')
-    expect(wrapper.text()).not.toContain('画图')
+    expect(wrapper.text()).toContain('推理 xhigh → max')
+    expect(wrapper.text()).toContain('1/2 答对')
+    expect(wrapper.text()).not.toContain('绘图测试')
     expect(wrapper.findAll('[role="listitem"]')).toHaveLength(48)
     const buttons = wrapper.findAll('button[role="listitem"]')
     expect(buttons).toHaveLength(2)
+    // Newest cells sit at the right end, next to "现在".
+    const cells = wrapper.findAll('[role="listitem"]')
+    expect(cells[47].classes().join(' ')).toContain('animate-pulse')
+    await buttons[1].trigger('mouseenter')
+    expect(wrapper.text()).toContain('答案不对')
     await buttons[1].trigger('click')
     expect(wrapper.emitted('open')).toEqual([[12]])
   })
@@ -73,18 +82,37 @@ describe('drawing wall', () => {
   it('shows elapsed time for drawings in progress and previews for finished ones', () => {
     const wall: WallView = {
       round_id: 3, topic: '一只猫追蝴蝶', topic_source: 'user', submitter: 'h**g', status: 'running', started_at: '2026-11-24T00:00:00Z', finished_at: null,
+      prev_round_id: 2, next_round_id: null,
       cards: [
         { result_id: 1, target_id: 1, display_name: 'A', model: 'gpt-5', group_name: 'OpenAI', platform: 'openai', rate_multiplier: 1, reasoning_effort: '', status: 'running', started_at: '2026-11-24T00:00:00Z', total_ms: null, output_tokens: 0 },
         { result_id: 2, target_id: 2, display_name: 'B', model: 'gemini-3-pro', group_name: 'Gemini', platform: 'gemini', rate_multiplier: 0.8, reasoning_effort: '', status: 'pass', started_at: '2026-11-24T00:00:00Z', total_ms: 30_000, output_tokens: 900, preview_url: '/api/v1/iq-monitor/preview/2?exp=1&sig=x' },
       ],
     }
-    const wrapper = mount(DrawingWall, { props: { wall, now: Date.parse('2026-11-24T00:00:42Z') }, global: { stubs } })
-    expect(wrapper.text()).toContain('由 h**g 投稿')
+    const wrapper = mount(DrawingWall, { props: { wall, now: Date.parse('2026-11-24T00:00:42Z'), latest: true, switching: false }, global: { stubs } })
+    expect(wrapper.text()).toContain('用户投稿')
+    expect(wrapper.text()).toContain('h**g')
+    expect(wrapper.text()).not.toContain('回到最新')
     expect(wrapper.text()).toContain('42 秒')
     const frames = wrapper.findAll('[data-frame]')
     expect(frames).toHaveLength(1)
     expect(frames[0].attributes('src')).toContain('/preview/2?')
     expect(wrapper.text()).toContain('0.8x')
+  })
+
+  it('switches between rounds with the arrows and returns to the latest', async () => {
+    const wall: WallView = {
+      round_id: 5, topic: '宇航员放风筝', topic_source: 'admin', status: 'done', started_at: '2026-11-24T00:00:00Z', finished_at: '2026-11-24T00:05:00Z',
+      prev_round_id: 4, next_round_id: 6, cards: [],
+    }
+    const wrapper = mount(DrawingWall, { props: { wall, now: 0, latest: false, switching: false }, global: { stubs } })
+    await wrapper.find('button[aria-label="上一轮"]').trigger('click')
+    await wrapper.find('button[aria-label="下一轮"]').trigger('click')
+    const back = wrapper.findAll('button').find(b => b.text() === '回到最新')!
+    await back.trigger('click')
+    expect(wrapper.emitted('navigate')).toEqual([[4], [6], [null]])
+
+    await wrapper.setProps({ wall: { ...wall, next_round_id: null }, latest: true })
+    expect(wrapper.find('button[aria-label="下一轮"]').attributes('disabled')).toBeDefined()
   })
 })
 
@@ -102,7 +130,7 @@ describe('submission box', () => {
     vi.mocked(iqMonitorAPI.submit).mockResolvedValue({} as never)
     const wrapper = mount(SubmitBox, { global: { stubs } })
     await flushPromises()
-    expect(wrapper.text()).toContain('今日剩余 1/2')
+    expect(wrapper.text()).toContain('今日 1/2')
     expect(wrapper.text()).toContain('原因：涉及真实人物')
     await wrapper.find('input').setValue('  一只鹈鹕骑自行车  ')
     await wrapper.find('form').trigger('submit')

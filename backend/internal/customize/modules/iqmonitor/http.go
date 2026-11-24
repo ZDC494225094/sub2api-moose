@@ -43,6 +43,7 @@ func (h *Handler) RegisterUser(group *gin.RouterGroup, manager *customize.Manage
 	g.GET("/access", h.access)
 	allowed := g.Group("", h.requireViewer)
 	allowed.GET("/overview", h.overview)
+	allowed.GET("/rounds/:id/wall", h.roundWall)
 	allowed.GET("/results/:id", h.detail)
 	allowed.GET("/submissions", h.mySubmissions)
 	allowed.POST("/submissions", h.submit)
@@ -147,6 +148,17 @@ func paramID(c *gin.Context, name string) (int64, bool) {
 		return 0, false
 	}
 	return id, true
+}
+
+func (h *Handler) roundWall(c *gin.Context) {
+	id, ok := paramID(c, "id")
+	if !ok {
+		return
+	}
+	wall, err := h.Runtime.Wall(c.Request.Context(), id)
+	if !response.ErrorFrom(c, mapErr(err)) {
+		response.Success(c, wall)
+	}
 }
 
 func (h *Handler) detail(c *gin.Context) {
