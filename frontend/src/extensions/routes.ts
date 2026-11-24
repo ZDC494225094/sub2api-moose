@@ -28,6 +28,18 @@ export const customExtensionRoutes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresAdmin: false, title: '发票管理' },
   },
   {
+    path: '/admin/iq-monitor',
+    name: 'AdminIQMonitor',
+    component: () => import('./modules/iq-monitor/AdminIQMonitorView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: '降智监测' },
+  },
+  {
+    path: '/iq-monitor',
+    name: 'IQMonitor',
+    component: () => import('./modules/iq-monitor/IQMonitorView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: false, title: '降智监测' },
+  },
+  {
     path: '/admin/guide',
     name: 'AdminUserGuide',
     component: () => import('./modules/user-guide/AdminGuideView.vue'),

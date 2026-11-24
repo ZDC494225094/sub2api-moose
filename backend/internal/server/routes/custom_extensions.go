@@ -15,6 +15,9 @@ func registerCustomUserRoutes(authenticated *gin.RouterGroup, h *handler.Handler
 	if h != nil && h.Extensions != nil && h.Extensions.Invoices != nil {
 		h.Extensions.Invoices.RegisterUser(authenticated, extensions)
 	}
+	if h != nil && h.Extensions != nil && h.Extensions.IQMonitor != nil {
+		h.Extensions.IQMonitor.RegisterUser(authenticated, extensions)
+	}
 	// Core-only hosts and upstream route tests do not have to construct plugins.
 	if h == nil || h.Extensions == nil || h.Extensions.Playground == nil {
 		return
@@ -48,6 +51,9 @@ func registerCustomOperationsRoutes(admin *gin.RouterGroup, h *handler.Handlers,
 	}
 	if h != nil && h.Extensions != nil && h.Extensions.Invoices != nil {
 		h.Extensions.Invoices.RegisterAdmin(admin, extensions)
+	}
+	if h != nil && h.Extensions != nil && h.Extensions.IQMonitor != nil {
+		h.Extensions.IQMonitor.RegisterAdmin(admin, extensions)
 	}
 	if h == nil || h.Extensions == nil || h.Extensions.Operations == nil {
 		return
@@ -120,6 +126,16 @@ func registerCustomPublicGuideRoute(v1 *gin.RouterGroup, h *handler.Handlers, ex
 		return
 	}
 	v1.GET("/guide", extensions.Require("user-guide"), h.Extensions.UserGuide.Public)
+}
+
+// The iq-monitor drawing preview is loaded by iframes, which cannot send the
+// console's bearer token; a short-lived HMAC signature in the URL is the
+// credential and the response carries its own sandboxing CSP.
+func registerCustomPublicIQMonitorRoute(v1 *gin.RouterGroup, h *handler.Handlers, extensions *customize.Manager) {
+	if h == nil || h.Extensions == nil || h.Extensions.IQMonitor == nil {
+		return
+	}
+	h.Extensions.IQMonitor.RegisterPublic(v1, extensions)
 }
 
 // customGatewayCapture archives gateway request/response bodies for the

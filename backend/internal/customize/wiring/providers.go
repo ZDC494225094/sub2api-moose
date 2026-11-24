@@ -24,6 +24,7 @@ var ProviderSet = wire.NewSet(
 	ProvideUserGuide,
 	ProvideGatewayLogArchive,
 	ProvideInvoices,
+	ProvideIQMonitor,
 	repository.NewOperationsRepository,
 	service.NewOperationsService,
 	service.NewOperationsMarketingEmailService,

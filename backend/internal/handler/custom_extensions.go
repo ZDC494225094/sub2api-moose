@@ -4,6 +4,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/botnotify"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/gatewaylogarchive"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/invoices"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/iqmonitor"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/marketing"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/rechargecampaigns"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/userguide"
@@ -19,6 +20,7 @@ type ExtensionHandlers struct {
 	UserGuide         *userguide.Handler
 	GatewayLogArchive *gatewaylogarchive.Handler
 	Invoices          *invoices.Handler
+	IQMonitor         *iqmonitor.Handler
 	Marketing         *marketing.Handler[service.RedeemCode]
 	Wechat            *wechat.Handler
 	Operations        *admin.OperationsHandler
@@ -26,6 +28,6 @@ type ExtensionHandlers struct {
 	Playground        *PlaygroundHandler
 }
 
-func NewExtensionHandlers(operations *admin.OperationsHandler, playground *PlaygroundHandler, campaigns *rechargecampaigns.Handler, marketingHandler *marketing.Handler[service.RedeemCode], wechatHandler *wechat.Handler, bot *botnotify.Handler, guide *userguide.Handler, archive *gatewaylogarchive.Handler, invoicesHandler *invoices.Handler) *ExtensionHandlers {
-	return &ExtensionHandlers{Operations: operations, Playground: playground, RechargeCampaigns: campaigns, Marketing: marketingHandler, Wechat: wechatHandler, BotNotify: bot, UserGuide: guide, GatewayLogArchive: archive, Invoices: invoicesHandler}
+func NewExtensionHandlers(operations *admin.OperationsHandler, playground *PlaygroundHandler, campaigns *rechargecampaigns.Handler, marketingHandler *marketing.Handler[service.RedeemCode], wechatHandler *wechat.Handler, bot *botnotify.Handler, guide *userguide.Handler, archive *gatewaylogarchive.Handler, invoicesHandler *invoices.Handler, iqMonitor *iqmonitor.Handler) *ExtensionHandlers {
+	return &ExtensionHandlers{Operations: operations, Playground: playground, RechargeCampaigns: campaigns, Marketing: marketingHandler, Wechat: wechatHandler, BotNotify: bot, UserGuide: guide, GatewayLogArchive: archive, Invoices: invoicesHandler, IQMonitor: iqMonitor}
 }

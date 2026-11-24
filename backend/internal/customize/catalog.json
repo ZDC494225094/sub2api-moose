@@ -252,5 +252,15 @@
       "/invoices",
       "/admin/invoices"
     ]
+  },
+  {
+    "id": "iq-monitor",
+    "name": "降智监测",
+    "description": "定期用同一道逻辑题和同一个画图主题，经网关转发接口测试站内多个模型，按 24 小时通过率公开显示正常、偶有失败、疑似降智；支持用户投稿画图主题（AI 审核）、机器人告警与每日花费估算。",
+    "managed": true,
+    "audience": "public",
+    "disable_behavior": "关闭后停止新一轮测试与投稿审核，公开页与管理接口停用；已有轮次、结果、回答、题库、目标和投稿全部保留，重新开启后继续。",
+    "paths": ["/iq-monitor", "/admin/iq-monitor"],
+    "gates": ["/api/v1/iq-monitor/*", "/api/v1/admin/iq-monitor/*"]
   }
 ]

@@ -65,7 +65,7 @@ func recorded(t *testing.T, conn *sql.Conn) int {
 	return count
 }
 
-const completeMigrationCount = 23
+const completeMigrationCount = 24
 
 func TestInstallationProvenanceAndDefaultFlags(t *testing.T) {
 	for _, tc := range []struct{ name, previous, kind, enabled string }{
@@ -88,7 +88,7 @@ func TestInstallationProvenanceAndDefaultFlags(t *testing.T) {
 			createSettings(t, conn)
 			require.NoError(t, (Runner{}).Apply(ctx, conn))
 			got := flags(t, conn)
-			require.Len(t, got, 19, "only separately adopted modules get flags")
+			require.Len(t, got, 20, "only separately adopted modules get flags")
 			require.Equal(t, "false", got[customize.Key("bot-notify")])
 			require.Equal(t, "false", got[customize.Key("invoices")], "new modules start switched off")
 			for _, id := range []string{"premium-home", "playground", "infinite-canvas", "operations-analytics", "recharge-campaigns", "customer-support"} {
@@ -145,7 +145,7 @@ func TestFailedHostAdoptionRollsBackItsFlagsAndCanRetry(t *testing.T) {
 	require.Equal(t, 9, recorded(t, conn))
 	execute(t, conn, "DROP TRIGGER reject_campaign")
 	require.NoError(t, (Runner{}).Apply(ctx, conn))
-	require.Len(t, flags(t, conn), 19)
+	require.Len(t, flags(t, conn), 20)
 	require.Equal(t, completeMigrationCount, recorded(t, conn))
 }
 
@@ -165,7 +165,7 @@ func TestCustomMigrationChecksumAndLineEndingStability(t *testing.T) {
 	changed := fstest.MapFS{name: &fstest.MapFile{Data: []byte(lf + "\n-- changed historical migration")}}
 	require.ErrorContains(t, applyFS(ctx, conn, changed), "checksum mismatch")
 	require.Equal(t, completeMigrationCount, recorded(t, conn))
-	require.Len(t, flags(t, conn), 19)
+	require.Len(t, flags(t, conn), 20)
 }
 
 func TestMigrationRegistrationAndMissingProvenanceFailClosed(t *testing.T) {

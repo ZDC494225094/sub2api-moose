@@ -632,6 +632,48 @@
         "marker": "func (h *Handler) RegisterAdmin("
       },
       "scope": "管理接口在管理员认证之后校验开关；审核状态迁移为条件更新，作废与驳回在同一事务内释放订单；关闭后保留全部已提交数据。"
+    },
+    {
+      "module": "iq-monitor",
+      "checkpoint": "/api/v1/iq-monitor/*",
+      "read": {
+        "file": "backend/internal/customize/http.go",
+        "marker": "m.Enabled(c.Request.Context(), id)"
+      },
+      "call": {
+        "file": "backend/internal/server/routes/custom_extensions.go",
+        "marker": "h.Extensions.IQMonitor.RegisterUser(authenticated, extensions)"
+      },
+      "test": {
+        "file": "backend/internal/server/routes/custom_extensions_test.go",
+        "marker": "TestIQMonitorRoutesRequireEnabledModuleAndAccess"
+      },
+      "feature": {
+        "file": "backend/internal/customize/modules/iqmonitor/http.go",
+        "marker": "func (h *Handler) RegisterUser("
+      },
+      "scope": "用户接口在登录认证之后校验开关，再按可见范围（全部用户或指定名单）校验查看权限；签名预览地址同样先校验开关，签名无效或过期时不读取记录。关闭后停止排程与投稿审核，历史数据保留。"
+    },
+    {
+      "module": "iq-monitor",
+      "checkpoint": "/api/v1/admin/iq-monitor/*",
+      "read": {
+        "file": "backend/internal/customize/http.go",
+        "marker": "m.Enabled(c.Request.Context(), id)"
+      },
+      "call": {
+        "file": "backend/internal/server/routes/custom_extensions.go",
+        "marker": "h.Extensions.IQMonitor.RegisterAdmin(admin, extensions)"
+      },
+      "test": {
+        "file": "backend/internal/server/routes/custom_extensions_test.go",
+        "marker": "TestIQMonitorRoutesRequireEnabledModuleAndAccess"
+      },
+      "feature": {
+        "file": "backend/internal/customize/modules/iqmonitor/http.go",
+        "marker": "func (h *Handler) RegisterAdmin("
+      },
+      "scope": "管理接口在管理员认证之后校验开关；轮次按时间槽唯一键只由一个节点执行，投稿审核加锁防止重复；关闭后保留目标、题库、轮次结果与投稿。"
     }
   ]
 }

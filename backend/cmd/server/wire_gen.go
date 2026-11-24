@@ -354,7 +354,8 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	userguideHandler := wiring.ProvideUserGuide(db)
 	gatewaylogarchiveHandler := wiring.ProvideGatewayLogArchive(db, secretEncryptor, settingService)
 	invoicesHandler := wiring.ProvideInvoices(db)
-	extensionHandlers := handler.NewExtensionHandlers(operationsHandler, playgroundHandler, rechargecampaignsHandler, marketingHandler, wechatHandler, botnotifyHandler, userguideHandler, gatewaylogarchiveHandler, invoicesHandler)
+	iqmonitorHandler := wiring.ProvideIQMonitor(db, settingService, botnotifyHandler)
+	extensionHandlers := handler.NewExtensionHandlers(operationsHandler, playgroundHandler, rechargecampaignsHandler, marketingHandler, wechatHandler, botnotifyHandler, userguideHandler, gatewaylogarchiveHandler, invoicesHandler, iqmonitorHandler)
 	modelPlazaHandler := handler.NewModelPlazaHandler(modelPlazaService, apiKeyService, settingService)
 	imageTaskStore := repository.NewImageTaskStore(redisClient)
 	imageTaskService := service.ProvideImageTaskService(imageTaskStore, imageStorageSettingService)
@@ -497,6 +498,9 @@ func provideCleanup(
 		}
 		if extensions != nil && extensions.GatewayLogArchive != nil {
 			extensions.GatewayLogArchive.Runtime.Stop()
+		}
+		if extensions != nil && extensions.IQMonitor != nil {
+			extensions.IQMonitor.Runtime.Stop()
 		}
 
 		if playgroundRuns != nil {

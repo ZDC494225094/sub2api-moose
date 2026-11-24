@@ -65,7 +65,7 @@ func TestCatalogAndDefaultDisabled(t *testing.T) {
 			require.Nil(t, state.Enabled)
 		}
 	}
-	require.Equal(t, 20, count)
+	require.Equal(t, 21, count)
 }
 
 func TestPersistentIndependentSwitchesAcrossManagers(t *testing.T) {

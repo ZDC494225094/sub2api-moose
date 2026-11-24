@@ -18,6 +18,16 @@
     ]
   },
   {
+    "id": "iq-monitor",
+    "patterns": [
+      "^backend/internal/customize/modules/iqmonitor/",
+      "^backend/internal/customize/migrations/sql/iq-monitor/",
+      "^backend/internal/customize/wiring/iq_monitor",
+      "^backend/internal/service/iq_monitor_effort_preview(?:_test)?\\.go$",
+      "^frontend/src/extensions/modules/iq-monitor/"
+    ]
+  },
+  {
     "id": "redeem-marketing",
     "patterns": [
       "^backend/internal/customize/modules/redeemmarketing/",

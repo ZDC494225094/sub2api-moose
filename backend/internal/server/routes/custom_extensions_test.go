@@ -11,6 +11,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/Wei-Shaw/sub2api/internal/customize"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/invoices"
+	"github.com/Wei-Shaw/sub2api/internal/customize/modules/iqmonitor"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/marketing"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/rechargecampaigns"
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/userguide"
@@ -446,6 +447,76 @@ func TestInvoiceRoutesRequireEnabledModuleAndAccess(t *testing.T) {
 					require.Contains(t, w.Body.String(), tc.enabledBody, tc.path)
 				} else {
 					require.NotContains(t, w.Body.String(), "min_amount", tc.path)
+				}
+			}
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+type iqMonitorFlagStore struct{ value string }
+
+func (s iqMonitorFlagStore) GetMultiple(context.Context, []string) (map[string]string, error) {
+	return map[string]string{customize.Key(iqmonitor.ID): s.value}, nil
+}
+func (iqMonitorFlagStore) Set(context.Context, string, string) error { return nil }
+
+// Exercise the real registrars: a disabled or corrupt switch rejects before any
+// iq-monitor table is read; an enabled switch still keeps users off the
+// allowlist out of the page data, and unsigned previews are refused without a
+// database read.
+func TestIQMonitorRoutesRequireEnabledModuleAndAccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	configRow := func() *sqlmock.Rows {
+		return sqlmock.NewRows([]string{"config", "updated_at"}).AddRow(`{"visibility":"allowlist"}`, nil)
+	}
+	for _, value := range []string{"false", "true", "invalid"} {
+		t.Run(value, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = db.Close() })
+			h := &handler.Handlers{Extensions: &handler.ExtensionHandlers{IQMonitor: &iqmonitor.Handler{Runtime: &iqmonitor.Runtime{Store: &iqmonitor.Store{DB: db}}}}}
+			manager := customize.NewManager(iqMonitorFlagStore{value})
+			r := gin.New()
+			v1 := r.Group("/api/v1")
+			registerCustomPublicIQMonitorRoute(v1, h, manager)
+			authenticated := v1.Group("", func(c *gin.Context) {
+				c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 7})
+				c.Next()
+			})
+			registerCustomUserRoutes(authenticated, h, manager)
+			registerCustomOperationsRoutes(authenticated.Group("/admin"), h, manager)
+
+			if value == "true" {
+				mock.ExpectQuery("SELECT config, updated_at FROM iq_monitor_settings").WillReturnRows(configRow())
+				mock.ExpectQuery("SELECT 1 FROM iq_monitor_viewers").WithArgs(int64(7)).WillReturnRows(sqlmock.NewRows([]string{"one"}))
+				mock.ExpectQuery("SELECT config, updated_at FROM iq_monitor_settings").WillReturnRows(configRow())
+				mock.ExpectQuery("SELECT 1 FROM iq_monitor_viewers").WithArgs(int64(7)).WillReturnRows(sqlmock.NewRows([]string{"one"}))
+				mock.ExpectQuery("SELECT config, updated_at FROM iq_monitor_settings").WillReturnRows(configRow())
+			}
+			for _, tc := range []struct {
+				path, enabledBody string
+				enabledCode       int
+			}{
+				{"/api/v1/iq-monitor/access", `"allowed":false`, http.StatusOK},
+				{"/api/v1/iq-monitor/overview", "IQ_MONITOR_FORBIDDEN", http.StatusForbidden},
+				{"/api/v1/admin/iq-monitor/config", `"interval_minutes"`, http.StatusOK},
+				{"/api/v1/iq-monitor/preview/1", "预览链接无效", http.StatusForbidden},
+			} {
+				code := http.StatusForbidden
+				if value == "invalid" {
+					code = http.StatusServiceUnavailable
+				} else if value == "true" {
+					code = tc.enabledCode
+				}
+				w := httptest.NewRecorder()
+				r.ServeHTTP(w, httptest.NewRequest("GET", tc.path, nil))
+				require.Equal(t, code, w.Code, tc.path)
+				if value == "true" {
+					require.Contains(t, w.Body.String(), tc.enabledBody, tc.path)
+				} else {
+					require.Equal(t, "no-store", w.Header().Get("Cache-Control"), tc.path)
+					require.NotContains(t, w.Body.String(), "interval_minutes", tc.path)
 				}
 			}
 			require.NoError(t, mock.ExpectationsWereMet())

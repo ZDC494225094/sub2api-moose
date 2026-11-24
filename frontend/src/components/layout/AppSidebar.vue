@@ -208,6 +208,7 @@
 <script setup lang="ts">
 import { useExtensionStore } from '@/extensions/store'
 import { useInvoiceAccess } from '@/extensions/modules/invoices/useInvoiceAccess'
+import { useIQMonitorAccess } from '@/extensions/modules/iq-monitor/useIQMonitorAccess'
 import { useThemeMode } from '@/extensions/modules/console-theme/themeMode'
 import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
@@ -273,6 +274,7 @@ const onboardingStore = useOnboardingStore()
 const adminSettingsStore = useAdminSettingsStore()
 const { canUseBatchImage, refreshBatchImageAccess } = useBatchImageAccess()
 const { canUseInvoices, refreshInvoiceAccess } = useInvoiceAccess()
+const { canViewIQMonitor, refreshIQMonitorAccess } = useIQMonitorAccess()
 
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
@@ -537,6 +539,10 @@ const GatewayLogArchiveIcon = {
   render: () => h(Icon, { name: 'database' })
 }
 
+const IQMonitorIcon = {
+  render: () => h(Icon, { name: 'beaker' })
+}
+
 const UserGuideIcon = {
   render: () => h(Icon, { name: 'book' })
 }
@@ -779,6 +785,7 @@ const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 const flagBatchImageAccess = () => canUseBatchImage.value
 const flagInvoiceAccess = () => canUseInvoices.value
+const flagIQMonitorAccess = () => canViewIQMonitor.value
 
 
 function isHttpUrl(rawUrl: string): boolean {
@@ -820,6 +827,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/usage', label: t('nav.usage'), icon: ChartIcon, hideInSimpleMode: true },
     { path: '/available-channels', label: t('nav.availableChannels'), icon: ChannelIcon, hideInSimpleMode: true, featureFlag: flagAvailableChannels },
     { path: '/monitor', label: t('nav.channelStatus'), icon: SignalIcon, featureFlag: flagChannelMonitor },
+    { path: '/iq-monitor', label: '降智监测', icon: IQMonitorIcon, featureFlag: flagIQMonitorAccess },
     { path: '/subscriptions', label: t('nav.mySubscriptions'), icon: CreditCardIcon, hideInSimpleMode: true, featureFlag: flagSubscription },
     { path: '/purchase', label: purchaseNavLabel.value, icon: RechargeSubscriptionIcon, hideInSimpleMode: true, featureFlag: flagPayment },
     { path: '/lottery', label: t('nav.lottery'), icon: GiftIcon, hideInSimpleMode: true, featureFlag: flagPayment },
@@ -888,6 +896,7 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/custom-extensions', label: '二开插件管理', icon: PluginIcon },
     { path: '/admin/bot-notify', label: '消息机器人', icon: BotNotifyIcon },
     { path: '/admin/gateway-log-archive', label: '网关日志存储', icon: GatewayLogArchiveIcon },
+    { path: '/admin/iq-monitor', label: '降智监测', icon: IQMonitorIcon },
     { path: '/admin/guide', label: '用户手册', icon: UserGuideIcon },
     { path: '/admin/plugins', label: t('nav.plugins'), icon: PluginIcon, featureFlag: flagPluginManagement },
     { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon },
@@ -1052,6 +1061,13 @@ watch(
 watch(
   () => [useExtensionStore().enabled('invoices'), authStore.user?.id] as const,
   () => { void refreshInvoiceAccess() },
+  { immediate: true },
+)
+
+// The 降智监测 entry is open to all users or to an allowlist.
+watch(
+  () => [useExtensionStore().enabled('iq-monitor'), authStore.user?.id] as const,
+  () => { void refreshIQMonitorAccess() },
   { immediate: true },
 )
 

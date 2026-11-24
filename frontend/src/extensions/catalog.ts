@@ -29,6 +29,8 @@ export const extensionPaths = {
   'console-theme': [],
   // Per-user access is checked by the module itself (allowlist or all users).
   invoices: ['/invoices', '/admin/invoices'],
+  // Per-user access is checked by the module itself (allowlist or all users).
+  'iq-monitor': ['/iq-monitor', '/admin/iq-monitor'],
 } as const
 
 export type ExtensionId = keyof typeof extensionPaths

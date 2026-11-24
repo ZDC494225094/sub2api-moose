@@ -225,6 +225,10 @@ func RequestExtension(method, path string) string {
 		return "invoices"
 	case pathUnder(path, "/admin/invoices"):
 		return "invoices"
+	case (method == "GET" || method == "HEAD") && pathUnder(path, "/iq-monitor"):
+		return "iq-monitor"
+	case pathUnder(path, "/admin/iq-monitor"):
+		return "iq-monitor"
 	case method == "POST" && path == "/api/v1/playground/runs":
 		return "playground"
 	case path == "/api/v1/canvas/config" || (method == "POST" && path == "/api/v1/canvas/runs"):
