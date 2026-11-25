@@ -90,6 +90,7 @@ func (h *Handler) saveConfig(c *gin.Context) {
 	req := DefaultConfig()
 	req.ExcludedUserIDs = nil      // omitted or null keeps the saved list; [] clears it
 	req.Detector = stored.Detector // omitted keeps the saved detection settings
+	req.RedactScope = stored.RedactScope
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "配置格式错误")
 		return

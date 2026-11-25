@@ -118,6 +118,9 @@ func (p *pipeline) beginUpload(row *Bundle, progress *uploadProgress, bucket str
 		close(done)
 		p.uploading.CompareAndSwap(progress, nil)
 		cancel(nil)
+		if p.stats != nil {
+			p.stats.uploads.record(progress, progress.completed.Load())
+		}
 	}
 }
 

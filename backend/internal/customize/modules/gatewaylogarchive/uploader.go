@@ -237,6 +237,7 @@ feed:
 }
 
 func (s *s3Objects) put(ctx context.Context, key string, body io.ReadSeeker, size int64, progress func(int64)) error {
+	defer networkSection(progressFor(ctx))()
 	progressFor(ctx).setPhase("发送对象，等待存储桶确认")
 	err := watchUploadRequest(ctx, func(attempt context.Context) error {
 		_, err := s.client.PutObject(attempt, &s3.PutObjectInput{
@@ -252,6 +253,7 @@ func (s *s3Objects) put(ctx context.Context, key string, body io.ReadSeeker, siz
 }
 
 func (s *s3Objects) startMultipart(ctx context.Context, key string) (*string, error) {
+	defer networkSection(progressFor(ctx))()
 	progressFor(ctx).setPhase("创建分片上传")
 	ctx, cancel := context.WithTimeout(ctx, uploadControlTimeout)
 	defer cancel()
@@ -270,6 +272,7 @@ func (s *s3Objects) startMultipart(ctx context.Context, key string) (*string, er
 func (s *s3Objects) sendPart(ctx context.Context, key string, uploadID *string, number int32, body io.ReadSeeker, size int64) (types.CompletedPart, error) {
 	var err error
 	progress := progressFor(ctx)
+	defer networkSection(progress)()
 	progress.setPhase("发送分片，等待存储桶确认")
 	for attempt := 0; attempt < partAttempts; attempt++ {
 		if ctx.Err() != nil {
@@ -318,6 +321,7 @@ func (s *s3Objects) sendPart(ctx context.Context, key string, uploadID *string, 
 }
 
 func (s *s3Objects) completeMultipart(ctx context.Context, key string, uploadID *string, parts []types.CompletedPart) error {
+	defer networkSection(progressFor(ctx))()
 	progressFor(ctx).setPhase("等待存储桶合并分片")
 	ctx, cancel := context.WithTimeout(ctx, uploadCommitTimeout)
 	defer cancel()
@@ -642,7 +646,7 @@ func (p *pipeline) uploadOne(cfg BucketConfig, objects objectStore, row *Bundle,
 	if _, err := os.Stat(row.LocalPath); err != nil {
 		return fmt.Errorf("%w：%v", errLocalBundleMissing, err)
 	}
-	progress := &uploadProgress{FileName: prepared.fileName, Total: row.SizeBytes}
+	progress := &uploadProgress{FileName: prepared.fileName, Total: row.SizeBytes, redacted: prepared.redact}
 	if prepared.entries != nil {
 		progress.Total = prepared.sizeHint // redaction may change the final size slightly
 	}
@@ -675,6 +679,7 @@ func (p *pipeline) uploadOne(cfg BucketConfig, objects objectStore, row *Bundle,
 	if commitErr != nil {
 		return commitErr
 	}
+	progress.completed.Store(true)
 	if cfg.StorageRole == "rustfs" {
 		p.wakeRelay()
 	}

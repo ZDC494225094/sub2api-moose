@@ -9,6 +9,7 @@ import BucketDialog from '../BucketDialog.vue'
 import ModelStatsPanel from '../ModelStatsPanel.vue'
 import GatewayLogArchiveView from '../GatewayLogArchiveView.vue'
 import DetectorSettings from '../DetectorSettings.vue'
+import UploadStatsPanel from '../UploadStatsPanel.vue'
 import { archiveAPI, type ArchiveBucket, type ArchiveConfig, type ArchiveStatus, type Bundle, type DetectorConfig, type Entry } from '../api'
 import { shortError } from '../format'
 
@@ -74,6 +75,76 @@ describe('gateway log archive JSONL and privacy settings', () => {
       wrapper.unmount()
       vi.clearAllTimers()
       vi.useRealTimers()
+    }
+  })
+
+  it('shows the backlog, time breakdown and replacements of uploads', () => {
+    const counts = (detector_ms: number, replacements: Record<string, number>) => ({ records: 10, changed: 4, tool_skipped: 0, detector_ms, replacements })
+    const GB = 1024 ** 3
+    const status = {
+      disk_free_bytes: 5 * GB,
+      detector: { requests: 1, texts: 1, bytes: 1, cache_hits: 0, errors: 0, fail_open_skips: 0 },
+      bundles: [{ status: 'sealed', count: 3, bytes: 6 * GB }, { status: 'uploaded', count: 9, bytes: 99 * GB }, { status: 'failed', count: 1, bytes: 2 * GB }],
+      uploading: null,
+      upload_stats: {
+        totals: { uploads: 2, failed: 1, bytes: 2 * GB, duration_ms: 400_000, network_ms: 40_000, since: '2026-11-25T00:00:00Z', redaction: counts(300_000, { 'model:private_person': 18082, 'model:private_address': 59, 'rule:phone': 3 }) },
+        recent: [
+          { file_name: 'gpt-2026-11-19.jsonl', bytes: GB, started_at: '2026-11-25T01:00:00Z', duration_ms: 200_000, network_ms: 20_000, redacted: true, ok: true, redaction: counts(150_000, { 'model:private_person': 9000 }) },
+          { file_name: 'gpt-2026-11-18.jsonl', bytes: GB, started_at: '2026-11-25T00:00:00Z', duration_ms: 200_000, network_ms: 20_000, redacted: true, ok: true, redaction: counts(150_000, {}) },
+          { file_name: 'gpt-2026-11-17.jsonl', bytes: 0, started_at: '2026-11-24T23:00:00Z', duration_ms: 1000, network_ms: 0, redacted: true, ok: false, redaction: counts(0, {}) },
+        ],
+      },
+    } as unknown as ArchiveStatus
+    const wrapper = mount(UploadStatsPanel, { props: { status } })
+    // Sealed and failed files wait for upload: 8 GB, more than the free disk.
+    expect(wrapper.get('[data-testid="backlog"]').text()).toBe('4 个 · 8.00 GB')
+    expect(wrapper.text()).toContain('超过剩余磁盘空间 5.00 GB')
+    // 2 GB in 400 s is 5.12 MB/s; 8 GB then takes 1600 s.
+    expect(wrapper.text()).toContain('5.12 MB/s')
+    expect(wrapper.get('[data-testid="backlog-eta"]').text()).toBe('26 分 40 秒')
+    expect(wrapper.text()).toContain('等待存储桶 10%')
+    expect(wrapper.text()).toContain('模型脱敏服务 75%')
+    expect(wrapper.get('[data-testid="bottleneck"]').text()).toContain('75% 的上传时间在等待模型脱敏服务')
+    expect(wrapper.get('[data-testid="replacement-kinds"]').text()).toContain('人名 × 18,082')
+    expect(wrapper.get('[data-testid="replacement-kinds"]').text()).toContain('地点 × 59')
+    expect(wrapper.text()).toContain('失败')
+  })
+
+  it('saves the natural-language-only redaction scope and hides it on older nodes', async () => {
+    vi.resetAllMocks()
+    vi.useFakeTimers()
+    const config: ArchiveConfig = {
+      capture_enabled: false, mode: 'all', rules: [], success_only: true, redact_pii: true, redact_scope: 'all',
+      max_file_size_mb: 10240, session_idle_seconds: 1800, max_body_mb: 64,
+      keep_local_hours: 0, entry_retention_days: 90, min_free_disk_gb: 5,
+    }
+    vi.mocked(archiveAPI.getConfig).mockResolvedValue(config)
+    vi.mocked(archiveAPI.saveConfig).mockImplementation(async value => value)
+    vi.mocked(archiveAPI.buckets).mockResolvedValue({ items: [], unattributed: { bundle_count: 0, size_bytes: 0 } })
+    const wrapper = mount(GatewayLogArchiveView, { global: { stubs } })
+    try {
+      await flushPromises()
+      const natural = wrapper.findAll('[role="radio"]').find(button => button.text() === '仅自然语言')!
+      expect(natural.attributes('aria-checked')).toBe('false')
+      await natural.trigger('click')
+      expect(natural.attributes('aria-checked')).toBe('true')
+      await wrapper.findAll('button').find(button => button.text() === '保存采集配置')!.trigger('click')
+      await flushPromises()
+      expect(archiveAPI.saveConfig).toHaveBeenCalledWith(expect.objectContaining({ redact_scope: 'natural_language' }))
+    } finally {
+      wrapper.unmount()
+      vi.clearAllTimers()
+      vi.useRealTimers()
+    }
+
+    const { redact_scope: _omitted, ...older } = config
+    vi.mocked(archiveAPI.getConfig).mockResolvedValue(older)
+    const legacy = mount(GatewayLogArchiveView, { global: { stubs } })
+    try {
+      await flushPromises()
+      expect(legacy.text()).not.toContain('仅自然语言')
+    } finally {
+      legacy.unmount()
     }
   })
 

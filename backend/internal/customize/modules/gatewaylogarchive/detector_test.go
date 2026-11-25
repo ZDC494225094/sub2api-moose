@@ -55,7 +55,7 @@ func (d *wordDetector) Detect(_ context.Context, texts []string) ([][]detectSpan
 func redactWith(t *testing.T, det textDetector, input string) string {
 	t.Helper()
 	var out bytes.Buffer
-	require.NoError(t, redactJSON(context.Background(), &out, strings.NewReader(input), true, det))
+	require.NoError(t, redactJSON(context.Background(), &out, strings.NewReader(input), true, redactOptions{det: det}))
 	require.True(t, json.Valid(out.Bytes()), out.String())
 	return out.String()
 }
@@ -109,7 +109,7 @@ func TestModelDetectionKeepsOrderAcrossEarlyFlushes(t *testing.T) {
 func TestModelDetectionFailureFailsTheDocument(t *testing.T) {
 	det := &wordDetector{err: detectorError("请求失败：connection refused")}
 	var out bytes.Buffer
-	err := redactJSON(context.Background(), &out, strings.NewReader(`{"content":"hello there"}`), true, det)
+	err := redactJSON(context.Background(), &out, strings.NewReader(`{"content":"hello there"}`), true, redactOptions{det: det})
 	require.ErrorIs(t, err, errDetector)
 	// Nothing after the first pending value reaches the destination.
 	require.Equal(t, `{"content":`, out.String())
@@ -430,4 +430,107 @@ func TestDetectorConfigRoutes(t *testing.T) {
 	request(http.MethodPut, "/config", `{"detector":{"enabled":true,"url":"ftp://x"}}`, http.StatusBadRequest)
 	body = request(http.MethodPut, "/config", `{"detector":{"enabled":false,"clear_api_key":true}}`, 200)
 	require.Contains(t, body, `"detector_api_key_set":false`)
+}
+
+func TestNaturalLanguageScopeLeavesToolContentUnchanged(t *testing.T) {
+	const phone = "13800138000"
+	sse := "event: content_block_delta\n" +
+		"data: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"to\\\":\\\"" + phone + "\\\"\"}}\n\n" +
+		"data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"已发给王小明 " + phone + "\"}}\n\n" +
+		"data: {\"type\":\"response.function_call_arguments.delta\",\"delta\":\"王小明 " + phone + "\"}\n\n" +
+		"data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"function\":{\"arguments\":\"王小明\"}}]}}]}\n\n"
+	// Keys are in the order clients send them: type and role first.
+	request := strings.ReplaceAll(`{
+		"messages":[
+			{"role":"user","content":"我是王小明，电话 PHONE"},
+			{"role":"assistant","content":"好的","tool_calls":[{"id":"c1","type":"function","function":{"name":"sms","arguments":"{\"to\":\"PHONE\",\"name\":\"王小明\"}"}}]},
+			{"role":"tool","tool_call_id":"c1","content":"sent to 王小明 PHONE"},
+			{"role":"user","content":[
+				{"tool_use_id":"t1","type":"tool_result","content":"cat users.csv\n王小明,PHONE"},
+				{"type":"text","text":"王小明的号码是 PHONE"}]},
+			{"role":"assistant","content":[{"type":"tool_use","id":"t2","name":"Bash","input":{"command":"grep PHONE users.csv","phone":"PHONE"}}]}],
+		"input":[
+			{"type":"function_call","call_id":"c2","arguments":"{\"cmd\":\"echo 王小明\"}"},
+			{"type":"function_call_output","call_id":"c2","output":"王小明 PHONE"},
+			{"type":"message","role":"user","content":[{"type":"input_text","text":"王小明 PHONE"}]}],
+		"contents":[{"role":"model","parts":[{"functionCall":{"name":"lookup","args":{"name":"王小明"}}},{"text":"王小明"}]}]}`, "PHONE", phone)
+	response, err := json.Marshal(sse)
+	require.NoError(t, err)
+	input := []byte(`{"request":` + request + `,"response":` + string(response) + `}`)
+	require.True(t, json.Valid(input))
+
+	run := func(naturalOnly bool) string {
+		var out bytes.Buffer
+		det := &wordDetector{words: []string{"王小明"}, label: "private_person"}
+		require.NoError(t, redactJSON(context.Background(), &out, bytes.NewReader(input), true, redactOptions{det: det, naturalOnly: naturalOnly}))
+		require.True(t, json.Valid(out.Bytes()), out.String())
+		return out.String()
+	}
+
+	var got struct {
+		Request struct {
+			Messages []struct {
+				Content   json.RawMessage `json:"content"`
+				ToolCalls []struct {
+					Function struct{ Arguments string } `json:"function"`
+				} `json:"tool_calls"`
+			} `json:"messages"`
+			Input    []map[string]any `json:"input"`
+			Contents []struct {
+				Parts []map[string]any `json:"parts"`
+			} `json:"contents"`
+		} `json:"request"`
+		Response string `json:"response"`
+	}
+	natural := run(true)
+	require.NoError(t, json.Unmarshal([]byte(natural), &got))
+	msgs := got.Request.Messages
+	// Natural language is redacted by the rules and the model.
+	require.JSONEq(t, `"我是[REDACTED]，电话 [REDACTED]"`, string(msgs[0].Content))
+	require.Contains(t, string(msgs[3].Content), `"text":"[REDACTED]的号码是 [REDACTED]"`)
+	require.Equal(t, "[REDACTED] [REDACTED]", got.Request.Input[2]["content"].([]any)[0].(map[string]any)["text"])
+	require.Equal(t, "[REDACTED]", got.Request.Contents[0].Parts[1]["text"])
+	// Tool calls, results and commands are left unchanged.
+	require.Equal(t, `{"to":"`+phone+`","name":"王小明"}`, msgs[1].ToolCalls[0].Function.Arguments)
+	require.JSONEq(t, `"sent to 王小明 `+phone+`"`, string(msgs[2].Content))
+	require.Contains(t, string(msgs[3].Content), `"content":"cat users.csv\n王小明,`+phone+`"`)
+	require.Contains(t, string(msgs[4].Content), `"command":"grep `+phone+` users.csv","phone":"`+phone+`"`)
+	require.Equal(t, `{"cmd":"echo 王小明"}`, got.Request.Input[0]["arguments"])
+	require.Equal(t, "王小明 "+phone, got.Request.Input[1]["output"])
+	require.Equal(t, map[string]any{"name": "lookup", "args": map[string]any{"name": "王小明"}}, got.Request.Contents[0].Parts[0]["functionCall"])
+	require.Contains(t, got.Response, `"partial_json":"{\"to\":\"`+phone+`\""`)
+	require.Contains(t, got.Response, `"text":"已发给[REDACTED] [REDACTED]"`)
+	require.Contains(t, got.Response, `"delta":"王小明 `+phone+`"`)
+	require.Contains(t, got.Response, `"arguments":"王小明"`)
+
+	// The default scope redacts tool content too.
+	all := run(false)
+	require.NotContains(t, all, "王小明")
+	require.NotContains(t, all, phone)
+}
+
+func TestNaturalLanguageScopeRedactsContentBeforeTheType(t *testing.T) {
+	// A tool object is recognized from its type; content sent before the type
+	// is still redacted, so an unusual key order never leaks.
+	out := redactWithOptions(t, redactOptions{naturalOnly: true}, `{"content":"call 13800138000","type":"tool_result","more":"13800138000"}`)
+	require.Equal(t, `{"content":"call [REDACTED]","type":"tool_result","more":"13800138000"}`, out)
+}
+
+func redactWithOptions(t *testing.T, opts redactOptions, input string) string {
+	t.Helper()
+	var out bytes.Buffer
+	require.NoError(t, redactJSON(context.Background(), &out, strings.NewReader(input), true, opts))
+	return out.String()
+}
+
+func TestRedactScopeConfig(t *testing.T) {
+	cfg, err := decodeConfig(`{"redact_pii":true}`)
+	require.NoError(t, err)
+	require.Equal(t, RedactScopeAll, cfg.RedactScope)
+	cfg, err = decodeConfig(`{"redact_scope":"natural_language"}`)
+	require.NoError(t, err)
+	require.Equal(t, RedactScopeNaturalLanguage, cfg.RedactScope)
+	cfg, err = decodeConfig(`{"redact_scope":"bogus"}`)
+	require.NoError(t, err)
+	require.Equal(t, RedactScopeAll, cfg.RedactScope)
 }

@@ -64,6 +64,9 @@ export interface DetectorStatus {
   last_error_at?: string | null
 }
 
+/** natural_language leaves tool calls, tool results and commands unchanged. */
+export type RedactScope = 'all' | 'natural_language'
+
 export interface ArchiveConfig {
   capture_enabled: boolean
   mode: 'all' | 'selected'
@@ -72,6 +75,8 @@ export interface ArchiveConfig {
   excluded_user_ids?: number[]
   success_only: boolean
   redact_pii: boolean
+  /** Omitted by older nodes; omitting it keeps the saved scope. */
+  redact_scope?: RedactScope
   max_file_size_mb: number
   session_idle_seconds: number
   max_body_mb: number
@@ -188,6 +193,10 @@ export interface UploadProgress {
   started_at?: string
   attempt?: number
   bucket?: string
+  /** Omitted by older nodes. */
+  network_ms?: number
+  redacted?: boolean
+  redaction?: RedactionCounts
 }
 
 export interface ArchiveStatus {
@@ -224,6 +233,53 @@ export interface ArchiveStatus {
   last_error_at: string | null
   bundles: { status: string; count: number; bytes: number }[] | null
   detector?: DetectorStatus
+  /** Omitted by older nodes. */
+  upload_stats?: UploadStats
+}
+
+/**
+ * Redaction work. Replacement keys are `rule:<kind>` for the built-in rules
+ * and `model:<label>` for the detection service.
+ */
+export interface RedactionCounts {
+  /** Sessions read. */
+  records: number
+  /** Sessions with at least one replacement. */
+  changed: number
+  /** Strings left unchanged as tool content ("natural language only"). */
+  tool_skipped: number
+  /** Time spent waiting for the detection service. */
+  detector_ms: number
+  replacements: Record<string, number>
+}
+
+export interface UploadRecord {
+  file_name: string
+  bucket?: string
+  bytes: number
+  started_at: string
+  duration_ms: number
+  /** Time with a storage request in flight. */
+  network_ms: number
+  redacted: boolean
+  ok: boolean
+  redaction: RedactionCounts
+}
+
+/** This node's uploads since it started. */
+export interface UploadStats {
+  totals: {
+    uploads: number
+    failed: number
+    bytes: number
+    duration_ms: number
+    network_ms: number
+    /** Every session redacted on this node, including staged fragments. */
+    redaction: RedactionCounts
+    since: string
+  }
+  /** Newest first. */
+  recent: UploadRecord[]
 }
 
 export interface Bundle {

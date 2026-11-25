@@ -38,6 +38,18 @@
 - 正文识别邮箱、中国大陆手机号（含 `+86` 前缀）、通过日期与校验码验证的 18 位身份证号，以及带明确标签的姓名、住址、电话、证件/银行卡号。嵌套 JSON 文本和 SSE 的 `data:` JSON 使用相同规则，保留事件与换行；WebSocket JSON 消息逐条处理。
 - 普通模型名、工具名、请求 ID、数字、URL、代码等内容不会被整段清空；工具 schema 中的字段声明不当作真实个人资料。仅含个人信息的字符串需要重新转义，未改变的字符串 token 原样写回。
 - 内置规则是确定性脱敏，无法保证识别没有标签的姓名/住址、被拆到多个流式片段里的信息、图片/音频/base64 中的信息或所有语言/国家的格式。后台页面明确显示该范围。需要识别自然语言中的姓名、地址时，可启用下面的模型脱敏服务。
+- `redact_scope` 选择脱敏范围：`all`（默认，全部内容）或 `natural_language`（仅自然语言）。后者对工具调用和工具结果原样写回，内置规则与模型都不处理，也不送检：
+  - 按字段：`tool_calls`、`function_call`（OpenAI Chat），`functionCall`、`functionResponse`、`executableCode`、`codeExecutionResult`（Gemini），`toolUse`、`toolResult`（Bedrock），`partial_json`（Anthropic 工具参数流）。
+  - 按对象的 `type`/`role`：`tool_use`、`tool_result`、`*_tool_use`、`*_tool_result`、`input_json_delta`、`mcp_list_tools`、`mcp_approval_request`，Responses 的 `*_call`、`*_call_output` 及 `response.*_call*.*` 流事件，`role` 为 `tool` 或 `function` 的消息。对象中出现在 `type`/`role` 之前的字段仍按正常规则脱敏，键顺序异常不会漏脱敏。
+  - 工具结果可能包含读取到的文件、网页或数据库里的个人信息，选择该范围即接受这些内容原文上传。
+
+### 上传与脱敏统计
+
+运行状态返回 `upload_stats`（本节点内存统计，重启后重新开始），页面「上传与脱敏统计」据此显示：
+
+- 每次上传尝试（最近 20 次）：大小、用时、等待存储桶的时间（有存储请求在途的墙钟时间，并行分片只算一次）、等待模型脱敏服务的时间、读取/修改的会话数和按类型的替换次数。
+- 累计：完成/失败次数、字节数，以及本节点所有脱敏工作（含 RustFS 片段）的替换次数；键为 `rule:<类型>`（内置规则）或 `model:<标签>`（模型）。
+- 正在上传的文件另有实时的 `network_ms` 与 `redaction`。页面用最近成功上传的速度估算清空积压（`sealed`/`uploading`/`failed`）所需时间，并按耗时占比提示瓶颈是模型服务、存储桶网络还是本地读取。
 
 ### 模型脱敏服务（可选，AstrLink）
 

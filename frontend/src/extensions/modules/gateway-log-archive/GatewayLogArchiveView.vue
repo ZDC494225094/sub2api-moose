@@ -112,6 +112,7 @@
             进度仅显示当前响应节点（{{ status.node_id }}）上的上传。失败的上传会重新从头开始；一直卡住的文件可以删除，以释放本地磁盘并让后面的文件继续上传。
           </p>
         </div>
+        <UploadStatsPanel v-if="status.upload_stats" :status="status" />
         <div v-if="status.open_bundles?.length" class="mt-4">
           <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-dark-400">写入中的归档文件</h3>
           <ul class="mt-2 flex flex-wrap gap-2">
@@ -174,6 +175,17 @@
               <p class="setting-desc mt-1">每个存储桶可覆盖此设置。本地待上传日志保留原文；上传后的预览读取主归档。规则无法识别所有自然语言中的个人信息。</p>
             </div>
             <Toggle v-model="form.redact_pii" aria-label="上传时脱敏个人信息" />
+          </div>
+          <div v-if="form.redact_scope">
+            <p class="setting-title">脱敏范围</p>
+            <div class="tabs mt-2 w-fit" role="radiogroup" aria-label="脱敏范围">
+              <button type="button" class="tab" role="radio" :aria-checked="form.redact_scope === 'all'" :class="{ 'tab-active': form.redact_scope === 'all' }" @click="form.redact_scope = 'all'">全部内容</button>
+              <button type="button" class="tab" role="radio" :aria-checked="form.redact_scope === 'natural_language'" :class="{ 'tab-active': form.redact_scope === 'natural_language' }" @click="form.redact_scope = 'natural_language'">仅自然语言</button>
+            </div>
+            <p class="setting-desc mt-2">
+              「仅自然语言」只处理用户、助手和系统消息里的文字；工具调用参数、工具返回结果、执行的命令和代码原样上传，内置规则和模型脱敏都会跳过它们，同时减少送检量。
+              注意：工具返回结果中可能含有读取到的文件、网页或数据库内容里的个人信息。
+            </p>
           </div>
           <DetectorSettings
             v-if="form.detector"
@@ -441,6 +453,7 @@ import BucketsPanel from './BucketsPanel.vue'
 import ModelStatsPanel from './ModelStatsPanel.vue'
 import ExcludedUsersEditor from './ExcludedUsersEditor.vue'
 import DetectorSettings from './DetectorSettings.vue'
+import UploadStatsPanel from './UploadStatsPanel.vue'
 import {
   archiveAPI,
   type ArchiveBucket,

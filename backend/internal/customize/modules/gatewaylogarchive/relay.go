@@ -207,7 +207,7 @@ func (p *pipeline) relayOne(ctx context.Context, store *Store, job delivery) err
 	if len(entries) != row.EntryCount || len(entries) == 0 {
 		return errors.New("主归档索引不完整")
 	}
-	size, err := transferRelay(ctx, from, to, row, job.Key, entries, redact && !row.StageRedacted, p.detector())
+	size, err := transferRelay(ctx, from, to, row, job.Key, entries, redact && !row.StageRedacted, p.redaction())
 	if err != nil {
 		return err
 	}

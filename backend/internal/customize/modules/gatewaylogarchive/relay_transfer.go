@@ -178,7 +178,7 @@ func (w *relayWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-func transferRelay(ctx context.Context, from, to objectStore, row Bundle, key string, entries []zipEntry, redact bool, det textDetector) (int64, error) {
+func transferRelay(ctx context.Context, from, to objectStore, row Bundle, key string, entries []zipEntry, redact bool, opts redactOptions) (int64, error) {
 	http1 := relayProtocolFor(ctx).useHTTP1()
 	r := &relayRangeReader{ctx: withRelayProtocol(ctx, http1), from: from, key: row.ObjectKey, size: row.SizeBytes}
 	defer r.closeBody()
@@ -188,7 +188,7 @@ func transferRelay(ctx context.Context, from, to objectStore, row Bundle, key st
 		reader := bufio.NewReaderSize(r, 64<<10)
 		w := &relayWriter{Writer: out}
 		var err error
-		size, err = writeRelayLines(ctx, reader, w, row.SizeBytes, entries, redact, det)
+		size, err = writeRelayLines(ctx, reader, w, row.SizeBytes, entries, redact, opts)
 		// bufio can consume all requested bytes before its trailing error.
 		if r.err != nil {
 			return r.err
@@ -212,7 +212,7 @@ func transferRelay(ctx context.Context, from, to objectStore, row Bundle, key st
 	}
 }
 
-func writeRelayLines(ctx context.Context, reader *bufio.Reader, out io.Writer, sourceSize int64, entries []zipEntry, redact bool, det textDetector) (int64, error) {
+func writeRelayLines(ctx context.Context, reader *bufio.Reader, out io.Writer, sourceSize int64, entries []zipEntry, redact bool, opts redactOptions) (int64, error) {
 	var offset, size int64
 	for _, entry := range entries {
 		if err := ctx.Err(); err != nil {
@@ -221,7 +221,7 @@ func writeRelayLines(ctx context.Context, reader *bufio.Reader, out io.Writer, s
 		if entry.Offset != offset || entry.USize < 0 || entry.USize >= sourceSize-offset {
 			return 0, errors.New("主归档索引偏移或长度不符")
 		}
-		line, err := writeIndexedLine(out, func(dst io.Writer) error { return copyVerified(ctx, dst, reader, entry, redact, det) })
+		line, err := writeIndexedLine(out, func(dst io.Writer) error { return copyVerified(ctx, dst, reader, entry, redact, opts) })
 		if err != nil {
 			return 0, fmt.Errorf("校验或转换主归档条目 %s：%w", entry.Name, err)
 		}

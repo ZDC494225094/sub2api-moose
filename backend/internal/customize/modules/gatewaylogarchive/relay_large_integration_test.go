@@ -204,7 +204,7 @@ func TestRelayLargeJSONL(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 9*time.Minute)
 			defer cancel()
-			copied, err := transferRelay(ctx, bucket("primary"), bucket("destination"), Bundle{ObjectKey: "bundle.jsonl", SizeBytes: size}, "copy.jsonl", entries, tc.redact, nil)
+			copied, err := transferRelay(ctx, bucket("primary"), bucket("destination"), Bundle{ObjectKey: "bundle.jsonl", SizeBytes: size}, "copy.jsonl", entries, tc.redact, redactOptions{})
 			require.NoError(t, err)
 			mu.Lock()
 			defer mu.Unlock()

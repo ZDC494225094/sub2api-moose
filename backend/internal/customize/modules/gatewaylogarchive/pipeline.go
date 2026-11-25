@@ -121,6 +121,12 @@ type uploadProgress struct {
 	attempt   int
 	bucket    string
 	cancel    context.CancelCauseFunc
+	// Statistics of this attempt: redaction work, time with a storage request
+	// in flight, and whether the upload was recorded as complete.
+	redacted  bool
+	redaction redactStats
+	network   networkClock
+	completed atomic.Bool
 }
 
 func (p *pipeline) spoolDir() string  { return filepath.Join(p.dir, "spool") }

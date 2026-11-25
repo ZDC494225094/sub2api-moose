@@ -74,7 +74,7 @@ func (h *Handler) testDetector(c *gin.Context) {
 	defer cancel()
 	started := time.Now()
 	// The service sees what upload redaction sends it: text after the rules.
-	local := redactPlainText(sample)
+	local := redactPlainText(sample, nil)
 	raw, err := client.detect(testCtx, []string{local})
 	elapsed := time.Since(started)
 	if err != nil {

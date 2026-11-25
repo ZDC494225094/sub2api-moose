@@ -32,6 +32,7 @@ type stats struct {
 	flushErrors   atomic.Int64
 	uploaded      atomic.Int64
 	uploadErrors  atomic.Int64
+	uploads       uploadHistory
 }
 
 // Runtime supervises capture and the archive pipeline. Capture is a single
@@ -318,6 +319,8 @@ type RuntimeStatus struct {
 	LastErrorAt      *time.Time          `json:"last_error_at"`
 	Bundles          []StatusCount       `json:"bundles"`
 	Detector         *DetectorStatus     `json:"detector,omitempty"`
+	// This node's finished uploads and redaction work since it started.
+	UploadStats UploadStats `json:"upload_stats"`
 }
 
 type uploadView struct {
@@ -332,6 +335,10 @@ type uploadView struct {
 	StartedAt time.Time `json:"started_at"`
 	Attempt   int       `json:"attempt"`
 	Bucket    string    `json:"bucket,omitempty"`
+	// Time with a storage request in flight, and the redaction so far.
+	NetworkMS int64           `json:"network_ms"`
+	Redacted  bool            `json:"redacted"`
+	Redaction RedactionCounts `json:"redaction"`
 }
 
 func (r *Runtime) Status(ctx context.Context) RuntimeStatus {
@@ -358,7 +365,8 @@ func (r *Runtime) Status(ctx context.Context) RuntimeStatus {
 		}
 		if up := pipe.uploading.Load(); up != nil {
 			st.Uploading = &uploadView{BundleID: up.BundleID, FileName: up.FileName, Total: up.Total, Sent: up.sent.Load(), BodyBytes: up.bodyBytes.Load(), Retries: up.retries.Load(),
-				StartedAt: up.startedAt, Attempt: up.attempt, Bucket: up.bucket}
+				StartedAt: up.startedAt, Attempt: up.attempt, Bucket: up.bucket,
+				NetworkMS: up.network.elapsed().Milliseconds(), Redacted: up.redacted, Redaction: up.redaction.view()}
 			if phase := up.phase.Load(); phase != nil {
 				st.Uploading.Phase = *phase
 			}
@@ -373,6 +381,7 @@ func (r *Runtime) Status(ctx context.Context) RuntimeStatus {
 	st.FlushErrors = r.stats.flushErrors.Load()
 	st.Uploaded = r.stats.uploaded.Load()
 	st.UploadErrors = r.stats.uploadErrors.Load()
+	st.UploadStats = r.stats.uploads.view()
 	if r.Store != nil && r.Store.DB != nil {
 		st.Bundles, _ = r.Store.Summary(ctx)
 		// Cumulative totals survive index pruning, unlike the bundle summary.

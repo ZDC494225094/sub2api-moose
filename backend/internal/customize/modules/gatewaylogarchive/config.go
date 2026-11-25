@@ -32,21 +32,30 @@ type ModelRule struct {
 	Alias   string `json:"alias"`
 }
 
+// Upload redaction scopes. Natural language only leaves tool calls, tool
+// results and code (commands, arguments, file contents) unchanged.
+const (
+	RedactScopeAll             = "all"
+	RedactScopeNaturalLanguage = "natural_language"
+)
+
 // Config is the persisted capture configuration. Storage destinations live in
 // gateway_log_archive_buckets (see BucketConfig).
 type Config struct {
-	CaptureEnabled     bool        `json:"capture_enabled"`
-	Mode               string      `json:"mode"`
-	Rules              []ModelRule `json:"rules"`
-	ExcludedUserIDs    []int64     `json:"excluded_user_ids"`
-	SuccessOnly        bool        `json:"success_only"`
-	MaxFileSizeMB      int64       `json:"max_file_size_mb"`
-	RedactPII          bool        `json:"redact_pii"`
-	SessionIdleSeconds int         `json:"session_idle_seconds"`
-	MaxBodyMB          int         `json:"max_body_mb"`
-	KeepLocalHours     int         `json:"keep_local_hours"`
-	EntryRetentionDays int         `json:"entry_retention_days"`
-	MinFreeDiskGB      int         `json:"min_free_disk_gb"`
+	CaptureEnabled  bool        `json:"capture_enabled"`
+	Mode            string      `json:"mode"`
+	Rules           []ModelRule `json:"rules"`
+	ExcludedUserIDs []int64     `json:"excluded_user_ids"`
+	SuccessOnly     bool        `json:"success_only"`
+	MaxFileSizeMB   int64       `json:"max_file_size_mb"`
+	RedactPII       bool        `json:"redact_pii"`
+	// RedactScope is RedactScopeAll or RedactScopeNaturalLanguage.
+	RedactScope        string `json:"redact_scope"`
+	SessionIdleSeconds int    `json:"session_idle_seconds"`
+	MaxBodyMB          int    `json:"max_body_mb"`
+	KeepLocalHours     int    `json:"keep_local_hours"`
+	EntryRetentionDays int    `json:"entry_retention_days"`
+	MinFreeDiskGB      int    `json:"min_free_disk_gb"`
 	// Detector adds a model-based detection service to upload redaction.
 	Detector DetectorConfig `json:"detector"`
 
@@ -103,6 +112,7 @@ func DefaultConfig() Config {
 		SuccessOnly:        true,
 		MaxFileSizeMB:      10240,
 		RedactPII:          true,
+		RedactScope:        RedactScopeAll,
 		SessionIdleSeconds: 1800,
 		MaxBodyMB:          64,
 		KeepLocalHours:     0,
@@ -138,6 +148,9 @@ func (c *Config) Normalize() error {
 	}
 	if len(c.ExcludedUserIDs) > maxExcludedUsers {
 		return errors.New("最多可排除 1000 个用户")
+	}
+	if c.RedactScope != RedactScopeNaturalLanguage {
+		c.RedactScope = RedactScopeAll
 	}
 	c.Mode = strings.TrimSpace(c.Mode)
 	if c.Mode != ModeSelected {

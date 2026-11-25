@@ -23,19 +23,40 @@ type piiJSON struct {
 	ctx       context.Context
 	r         *bufio.Reader
 	out       *lazyOut
-	batch     *detectBatch // nil without a detection service
+	env       redactEnv
 	textDepth int
 	inSchema  bool
 	compact   bool
+	// inTool marks a tool call, tool result or code subtree, left unchanged
+	// with env.naturalOnly. lastString is the most recent string value read
+	// at lastStringDepth, so an object can be classified by its type or role.
+	inTool          bool
+	lastString      string
+	lastStringDepth int
 }
 
-// redactJSON masks personal information in one JSON document. det, when not
-// nil, adds model findings to the built-in rules.
-func redactJSON(ctx context.Context, w io.Writer, r io.Reader, compact bool, det textDetector) error {
+// redactOptions selects what upload redaction applies.
+type redactOptions struct {
+	det         textDetector // nil without a detection service
+	naturalOnly bool         // skip tool calls, tool results and code
+	stats       *redactStats // this node's totals; the current upload's progress counts too
+}
+
+// redactEnv is shared by a document and the JSON nested in its strings.
+type redactEnv struct {
+	batch       *detectBatch // nil without a detection service, and in schemas
+	naturalOnly bool
+	counts      *docCounts
+}
+
+// redactJSON masks personal information in one JSON document. opts.det, when
+// not nil, adds model findings to the built-in rules.
+func redactJSON(ctx context.Context, w io.Writer, r io.Reader, compact bool, opts redactOptions) error {
 	out := &lazyOut{w: w}
-	p := &piiJSON{ctx: ctx, r: bufio.NewReaderSize(r, 64<<10), out: out, compact: compact}
-	if det != nil {
-		p.batch = &detectBatch{ctx: ctx, det: det, root: out, results: map[int][]detectSpan{}}
+	counts := &docCounts{}
+	p := &piiJSON{ctx: ctx, r: bufio.NewReaderSize(r, 64<<10), out: out, compact: compact, env: redactEnv{naturalOnly: opts.naturalOnly, counts: counts}}
+	if opts.det != nil {
+		p.env.batch = &detectBatch{ctx: ctx, det: opts.det, root: out, results: map[int][]detectSpan{}, counts: counts}
 	}
 	if err := p.value("", "", 0, false); err != nil {
 		return err
@@ -46,12 +67,19 @@ func redactJSON(ctx context.Context, w io.Writer, r io.Reader, compact bool, det
 	if _, err := p.r.Peek(1); err != io.EOF {
 		return errors.New("unexpected trailing JSON data")
 	}
-	if p.batch != nil {
-		if err := p.batch.flush(); err != nil {
+	if p.env.batch != nil {
+		if err := p.env.batch.flush(); err != nil {
 			return err
 		}
 	}
-	return ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	opts.stats.merge(counts)
+	if up := progressFor(ctx); up != nil {
+		up.redaction.merge(counts)
+	}
+	return nil
 }
 
 // maxHeldOutput bounds output held back behind pending detection: past it the
@@ -62,8 +90,8 @@ func (p *piiJSON) write(b []byte) error {
 	if err := p.out.write(b); err != nil {
 		return err
 	}
-	if p.batch != nil && p.out == p.batch.root && p.out.held > maxHeldOutput {
-		return p.batch.flush()
+	if p.env.batch != nil && p.out == p.env.batch.root && p.out.held > maxHeldOutput {
+		return p.env.batch.flush()
 	}
 	return nil
 }
@@ -195,12 +223,48 @@ func opaqueProtocolField(key string) bool {
 	return false
 }
 
+// toolField reports keys whose whole value is a tool call, tool result or
+// code: OpenAI Chat tool_calls and function_call, Gemini parts, Bedrock
+// Converse blocks and Anthropic input_json_delta fragments.
+func toolField(key string) bool {
+	switch normalizePIIKey(key) {
+	case "toolcalls", "functioncall", "functionresponse", "executablecode", "codeexecutionresult", "tooluse", "toolresult", "partialjson":
+		return true
+	}
+	return false
+}
+
+// toolObject reports whether an object's type or role marks it as tool
+// content: Anthropic tool_use/tool_result blocks (also server and MCP tools),
+// OpenAI Responses *_call and *_call_output items and their stream events,
+// and Chat messages with role tool or function.
+func toolObject(key, value string) bool {
+	switch key {
+	case "role":
+		return value == "tool" || value == "function"
+	case "type":
+		switch {
+		case value == "tool_use", value == "tool_result", value == "input_json_delta", value == "mcp_list_tools", value == "mcp_approval_request":
+			return true
+		case strings.HasSuffix(value, "_tool_use"), strings.HasSuffix(value, "_tool_result"):
+			return true
+		case strings.HasSuffix(value, "_call"), strings.HasSuffix(value, "_call_output"):
+			return true
+		case strings.HasPrefix(value, "response."):
+			// response.function_call_arguments.delta, response.code_interpreter_call_code.delta, ...
+			event := strings.Split(value, ".")
+			return len(event) > 2 && strings.Contains(event[1], "_call")
+		}
+	}
+	return false
+}
+
 func (p *piiJSON) value(key, parent string, depth int, mask bool) error {
 	if err := p.ctx.Err(); err != nil {
 		return err
 	}
-	if p.batch != nil && p.batch.err != nil {
-		return p.batch.err
+	if p.env.batch != nil && p.env.batch.err != nil {
+		return p.env.batch.err
 	}
 	if depth > 10000 {
 		return errors.New("JSON nesting exceeds limit")
@@ -212,12 +276,15 @@ func (p *piiJSON) value(key, parent string, depth int, mask bool) error {
 	if err != nil {
 		return err
 	}
-	wasSchema := p.inSchema
+	wasSchema, wasTool := p.inSchema, p.inTool
 	if key == "tools" || key == "input_schema" || key == "output_schema" || key == "json_schema" || key == "response_format" {
 		p.inSchema = true
 	}
-	defer func() { p.inSchema = wasSchema }()
-	mask = !p.inSchema && (mask || personalField(key, parent))
+	if p.env.naturalOnly && toolField(key) {
+		p.inTool = true
+	}
+	defer func() { p.inSchema, p.inTool = wasSchema, wasTool }()
+	mask = !p.inSchema && !p.inTool && (mask || personalField(key, parent))
 	switch peek[0] {
 	case '{', '[':
 		open := peek[0]
@@ -253,8 +320,15 @@ func (p *piiJSON) value(key, parent string, depth int, mask bool) error {
 				}
 				childKey, childParent = name, key
 			}
+			p.lastStringDepth = -1
 			if err := p.value(childKey, childParent, depth+1, mask); err != nil {
 				return err
+			}
+			// Clients send type and role before the content, so the rest of
+			// a tool object is left unchanged. Content before them is still
+			// redacted.
+			if p.env.naturalOnly && open == '{' && p.lastStringDepth == depth+1 && toolObject(childKey, p.lastString) {
+				p.inTool = true
 			}
 			if err := p.space(); err != nil {
 				return err
@@ -278,17 +352,27 @@ func (p *piiJSON) value(key, parent string, depth int, mask bool) error {
 		if err != nil {
 			return err
 		}
+		p.lastString, p.lastStringDepth = text, depth
+		if p.inTool {
+			if text != "" {
+				p.env.counts.toolSkipped++
+			}
+			return p.write(raw)
+		}
 		if (opaqueProtocolField(key) || normalizePIIKey(key) == "id" && !personalContext(parent)) && !mask {
 			return p.write(raw)
 		}
 		if mask && text != "" {
+			if text != piiMask {
+				p.env.counts.add(ruleField)
+			}
 			return p.writeString(raw, text, static(piiMask))
 		}
-		batch := p.batch
+		env := p.env
 		if p.inSchema {
-			batch = nil // tool schemas are not conversation content
+			env.batch = nil // tool schemas are not conversation content
 		}
-		return p.writeString(raw, text, redactText(text, p.textDepth, batch))
+		return p.writeString(raw, text, redactText(text, p.textDepth, env))
 	default:
 		var raw []byte
 		for {
@@ -310,6 +394,9 @@ func (p *piiJSON) value(key, parent string, depth int, mask bool) error {
 		}
 		if mask && string(raw) != "null" && string(raw) != "true" && string(raw) != "false" {
 			// Retain the numeric type for explicit numeric personal fields.
+			if string(raw) != "0" {
+				p.env.counts.add(ruleField)
+			}
 			return p.write([]byte("0"))
 		}
 		return p.write(raw)
@@ -332,12 +419,15 @@ var (
 	}
 )
 
-func redactText(text string, depth int, batch *detectBatch) lazy {
+// labeledKinds names the replacement kind of each labeledPII pattern.
+var labeledKinds = []string{rulePerson, rulePerson, ruleAddress, ruleAddress, ruleAccount, rulePhone}
+
+func redactText(text string, depth int, env redactEnv) lazy {
 	// Nested JSON and SSE data retain their exact framing. Recurse only into
 	// actual JSON, not arbitrary code snippets or textual key names.
 	if depth < 8 && json.Valid([]byte(text)) && (strings.HasPrefix(strings.TrimSpace(text), "{") || strings.HasPrefix(strings.TrimSpace(text), "[")) {
 		// The nested parser uses the same rules; bound nesting via textDepth.
-		if out, err := redactEmbeddedJSON(text, depth+1, batch); err == nil {
+		if out, err := redactEmbeddedJSON(text, depth+1, env); err == nil {
 			return out
 		}
 	}
@@ -346,45 +436,55 @@ func redactText(text string, depth int, batch *detectBatch) lazy {
 		for _, line := range strings.SplitAfter(text, "\n") {
 			if strings.HasPrefix(line, "data:") {
 				prefix := len("data:")
-				parts = append(parts, static(line[:prefix]), redactText(line[prefix:], depth+1, batch))
+				parts = append(parts, static(line[:prefix]), redactText(line[prefix:], depth+1, env))
 			} else {
-				parts = append(parts, redactLeaf(line, batch))
+				parts = append(parts, redactLeaf(line, env))
 			}
 		}
 		return concatLazy(parts)
 	}
-	return redactLeaf(text, batch)
+	return redactLeaf(text, env)
 }
 
 // redactLeaf applies the built-in rules and, with a detection service, queues
 // the result for the model. The model sees text whose rule matches are
 // already masked.
-func redactLeaf(text string, batch *detectBatch) lazy {
-	local := redactPlainText(text)
-	if batch == nil || !detectable(local) {
+func redactLeaf(text string, env redactEnv) lazy {
+	local := redactPlainText(text, env.counts)
+	if env.batch == nil || !detectable(local) {
 		return static(local)
 	}
-	return batch.leaf(local)
+	return env.batch.leaf(local)
 }
 
-func redactEmbeddedJSON(text string, depth int, batch *detectBatch) (lazy, error) {
+func redactEmbeddedJSON(text string, depth int, env redactEnv) (lazy, error) {
 	ctx := context.Background()
-	if batch != nil {
-		ctx = batch.ctx
+	if env.batch != nil {
+		ctx = env.batch.ctx
 	}
+	// Rule counts are kept only if the text parses as a whole; otherwise the
+	// caller redacts it as plain text, which counts again.
+	parent, nested := env.counts, &docCounts{}
+	env.counts = nested
 	out := &lazyOut{}
-	p := &piiJSON{ctx: ctx, r: bufio.NewReader(strings.NewReader(text)), out: out, batch: batch, textDepth: depth}
+	p := &piiJSON{ctx: ctx, r: bufio.NewReader(strings.NewReader(text)), out: out, env: env, textDepth: depth}
 	if err := p.value("", "", 0, false); err != nil {
 		return lazy{}, err
 	}
 	if err := p.space(); err != nil {
 		return lazy{}, err
 	}
+	parent.mergeDoc(nested)
 	return out.result(), nil
 }
 
-func redactPlainText(text string) string {
-	text = emailPII.ReplaceAllString(text, piiMask)
+// redactPlainText applies the built-in rules; counts, when not nil, records
+// each replacement.
+func redactPlainText(text string, counts *docCounts) string {
+	text = emailPII.ReplaceAllStringFunc(text, func(string) string {
+		counts.add(ruleEmail)
+		return piiMask
+	})
 	for _, re := range []*regexp.Regexp{idCardPII, mobilePII} {
 		indices := re.FindAllStringIndex(text, -1)
 		for i := len(indices) - 1; i >= 0; i-- {
@@ -395,16 +495,25 @@ func redactPlainText(text string) string {
 			if re == idCardPII && !validIDCard(text[start:end]) {
 				continue
 			}
+			if re == idCardPII {
+				counts.add(ruleIDCard)
+			} else {
+				counts.add(rulePhone)
+			}
 			text = text[:start] + piiMask + text[end:]
 		}
 	}
-	for _, re := range labeledPII {
+	for k, re := range labeledPII {
 		indices := re.FindAllStringSubmatchIndex(text, -1)
 		for i := len(indices) - 1; i >= 0; i-- {
 			if indices[i][0] > 0 && identifierByte(text[indices[i][0]-1]) {
 				continue
 			}
 			start, end := indices[i][2], indices[i][3]
+			if text[start:end] == piiMask {
+				continue // already replaced by an earlier rule
+			}
+			counts.add(labeledKinds[k])
 			text = text[:start] + piiMask + text[end:]
 		}
 	}

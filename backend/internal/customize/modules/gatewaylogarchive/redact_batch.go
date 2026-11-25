@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"strings"
+	"time"
 )
 
 // lazy is a redacted string that may still wait for the detection service.
@@ -127,6 +128,7 @@ type detectBatch struct {
 	next    int
 	results map[int][]detectSpan
 	err     error
+	counts  *docCounts // the document's statistics
 }
 
 func (b *detectBatch) leaf(text string) lazy {
@@ -141,6 +143,11 @@ func (b *detectBatch) leaf(text string) lazy {
 	return lazy{fn: func() string {
 		spans := b.results[id]
 		delete(b.results, id)
+		// Counted when rendered, so text discarded with a nested JSON value
+		// that failed to parse is not counted.
+		for _, s := range spans {
+			b.counts.add(modelPrefix + s.Label)
+		}
 		return applySpans(text, spans)
 	}}
 }
@@ -153,7 +160,11 @@ func (b *detectBatch) flush() error {
 		return b.err
 	}
 	if len(b.pending) > 0 {
+		started := time.Now()
 		spans, err := b.det.Detect(b.ctx, b.pending)
+		if b.counts != nil {
+			b.counts.detectorWait += time.Since(started)
+		}
 		if err == nil && len(spans) != len(b.pending) {
 			err = detectorError("返回的结果数量不符")
 		}

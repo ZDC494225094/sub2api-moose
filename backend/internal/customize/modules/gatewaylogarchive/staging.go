@@ -19,6 +19,16 @@ func (p *pipeline) defaultPrivacy() bool {
 	return cfg == nil || cfg.RedactPII
 }
 
+// redaction returns the current upload redaction settings.
+func (p *pipeline) redaction() redactOptions {
+	cfg := p.cfg.Load()
+	opts := redactOptions{det: p.detector(), naturalOnly: cfg != nil && cfg.RedactScope == RedactScopeNaturalLanguage}
+	if p.stats != nil {
+		opts.stats = &p.stats.uploads.redaction
+	}
+	return opts
+}
+
 type stagingProbeResult struct {
 	At    time.Time `json:"at"`
 	Error string    `json:"error,omitempty"`
@@ -162,7 +172,7 @@ func (p *pipeline) flushStaged(job flushJob, h sessionHeader, records []spoolRec
 		defer doc.Close()
 		indexed, err = writeIndexedLine(dst, func(out io.Writer) error {
 			if redact {
-				return redactJSON(ctx, out, doc, true, p.detector())
+				return redactJSON(ctx, out, doc, true, p.redaction())
 			}
 			return compactJSON(out, doc)
 		})
@@ -221,13 +231,13 @@ func (p *pipeline) flushStaged(job flushJob, h sessionHeader, records []spoolRec
 	return nil
 }
 
-func copyVerified(ctx context.Context, dst io.Writer, src io.Reader, entry zipEntry, redact bool, det textDetector) error {
+func copyVerified(ctx context.Context, dst io.Writer, src io.Reader, entry zipEntry, redact bool, opts redactOptions) error {
 	limited := &io.LimitedReader{R: src, N: entry.USize}
 	checksum := crc32.NewIEEE()
 	reader := io.TeeReader(limited, checksum)
 	var err error
 	if redact {
-		err = redactJSON(ctx, dst, reader, true, det)
+		err = redactJSON(ctx, dst, reader, true, opts)
 	} else {
 		_, err = io.Copy(dst, reader)
 	}
@@ -262,14 +272,16 @@ func (p *pipeline) sealStaged(row *Bundle) error {
 		return err
 	}
 	redact := row.StageRedacted || primary.redact(p.defaultPrivacy())
-	det := p.detector()
+	opts := p.redaction()
 	layout := &uploadLayout{FileName: row.FileName, Entries: make([]zipEntry, 0, len(entries))}
-	progress := &uploadProgress{FileName: row.FileName, Total: row.SizeBytes}
+	progress := &uploadProgress{FileName: row.FileName, Total: row.SizeBytes, redacted: redact}
 	progress.setPhase("读取暂存片段")
 	uploadCtx, finish := p.beginUpload(row, progress, primary.Label())
 	defer finish()
 	uploadCtx = p.withBucketProtocol(uploadCtx, primary.ID, row.LastError)
 	defer p.rememberProtocol(uploadCtx, primary.ID)
+	// Redaction keeps the pipeline's lifetime but counts into this upload.
+	redactCtx := context.WithValue(p.ctx, uploadProgressKey{}, progress)
 	err = objects.UploadStream(uploadCtx, key, row.SizeBytes, func(out io.Writer) error {
 		for _, entry := range entries {
 			if err := uploadCtx.Err(); err != nil {
@@ -286,7 +298,7 @@ func (p *pipeline) sealStaged(row *Bundle) error {
 				return err
 			}
 			next, err := writeIndexedLine(out, func(dst io.Writer) error {
-				return copyVerified(p.ctx, dst, src, entry, redact && !(entry.StagedRemote && row.StageRedacted), det)
+				return copyVerified(redactCtx, dst, src, entry, redact && !(entry.StagedRemote && row.StageRedacted), opts)
 			})
 			_ = src.Close()
 			if err != nil {
@@ -311,6 +323,7 @@ func (p *pipeline) sealStaged(row *Bundle) error {
 		}
 		return err
 	}
+	progress.completed.Store(true)
 	p.wakeRelay()
 	return nil
 }
