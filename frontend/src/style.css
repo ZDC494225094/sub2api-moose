@@ -561,6 +561,7 @@
 
   .sidebar-link {
     @apply flex items-center gap-3 rounded-xl py-2.5;
+    @apply cursor-pointer select-none;
     @apply overflow-hidden;
     @apply text-sm font-medium;
     @apply text-gray-600 dark:text-dark-300;
