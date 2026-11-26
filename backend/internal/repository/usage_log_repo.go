@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -61,6 +62,22 @@ func appendRawUsageLogModelWhereCondition(conditions []string, args []any, model
 	}
 	conditions = append(conditions, fmt.Sprintf("%s = $%d", rawUsageLogModelColumn, len(args)+1))
 	args = append(args, model)
+	return conditions, args
+}
+
+// appendUsageLogIPWhereCondition 精确匹配来源 IP。
+// 非法或空值视为无筛选，避免把代理头脏值带进 SQL。
+func appendUsageLogIPWhereCondition(conditions []string, args []any, ipAddress string, alias string) ([]string, []any) {
+	addr := strings.TrimSpace(ipAddress)
+	if addr == "" || len(addr) > 45 || net.ParseIP(addr) == nil {
+		return conditions, args
+	}
+	column := "ip_address"
+	if alias != "" {
+		column = alias + ".ip_address"
+	}
+	conditions = append(conditions, fmt.Sprintf("%s = $%d", column, len(args)+1))
+	args = append(args, addr)
 	return conditions, args
 }
 

@@ -95,6 +95,16 @@ func (User) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		// registration_ip 记录注册来源 IP；历史用户为空，无法回溯。
+		field.String("registration_ip").
+			MaxLen(45).
+			Optional().
+			Nillable(),
+		// last_used_ip 记录最近一次登录/API 请求的来源 IP，上线后写入，不回填历史。
+		field.String("last_used_ip").
+			MaxLen(45).
+			Optional().
+			Nillable(),
 
 		// 公开分组访问限制：为 false 时用户可绑定任意非专属分组（默认行为），
 		// 为 true 时仅可绑定 user_allowed_groups 中列出的公开分组。
@@ -148,5 +158,7 @@ func (User) Indexes() []ent.Index {
 		// email 字段已在 Fields() 中声明 Unique()，无需重复索引
 		index.Fields("status"),
 		index.Fields("deleted_at"),
+		index.Fields("registration_ip"),
+		index.Fields("last_used_ip"),
 	}
 }

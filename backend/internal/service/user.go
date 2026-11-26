@@ -35,9 +35,13 @@ type User struct {
 	LastLoginAt          *time.Time
 	LastActiveAt         *time.Time
 	LastUsedAt           *time.Time
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
-	DeletedAt            *time.Time // 非 nil 表示用户已软删除
+	// RegistrationIP 注册来源 IP；历史用户为空。
+	RegistrationIP *string
+	// LastUsedIP 最近一次登录/API 请求来源 IP；上线后写入。
+	LastUsedIP *string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	DeletedAt  *time.Time // 非 nil 表示用户已软删除
 
 	// GroupRates 用户专属分组倍率配置
 	// map[groupID]rateMultiplier

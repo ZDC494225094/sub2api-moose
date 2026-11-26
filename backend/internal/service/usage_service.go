@@ -462,6 +462,40 @@ func (s *UsageService) GetGlobalStats(ctx context.Context, startTime, endTime ti
 	return stats, nil
 }
 
+// IPSharingRiskRepository 是使用日志仓储提供"同一 IP 多账号"聚合的可选能力。
+// 独立于 UsageLogRepository，避免无关测试桩实现风控专用方法。
+type IPSharingRiskRepository interface {
+	ListSharedIPs(ctx context.Context, startTime, endTime time.Time, minAccounts, limit int) ([]usagestats.IPSharingStat, error)
+	ListIPSharingUsers(ctx context.Context, ipAddresses []string, startTime, endTime time.Time) (map[string][]usagestats.IPSharingUser, error)
+}
+
+// GetIPSharingRisk 返回时间窗内被多个账号共用的 IP，并附带账号样本。
+func (s *UsageService) GetIPSharingRisk(ctx context.Context, startTime, endTime time.Time, minAccounts, limit int) ([]usagestats.IPSharingStat, error) {
+	repo, ok := s.usageRepo.(IPSharingRiskRepository)
+	if !ok {
+		return nil, fmt.Errorf("usage repository does not support ip sharing risk")
+	}
+	stats, err := repo.ListSharedIPs(ctx, startTime, endTime, minAccounts, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list shared ips: %w", err)
+	}
+	if len(stats) == 0 {
+		return stats, nil
+	}
+	addresses := make([]string, 0, len(stats))
+	for i := range stats {
+		addresses = append(addresses, stats[i].IPAddress)
+	}
+	users, err := repo.ListIPSharingUsers(ctx, addresses, startTime, endTime)
+	if err != nil {
+		return nil, fmt.Errorf("list ip sharing users: %w", err)
+	}
+	for i := range stats {
+		stats[i].Users = users[stats[i].IPAddress]
+	}
+	return stats, nil
+}
+
 // GetStatsWithFilters returns usage stats with optional filters.
 func (s *UsageService) GetStatsWithFilters(ctx context.Context, filters usagestats.UsageLogFilters) (*usagestats.UsageStats, error) {
 	stats, err := s.usageRepo.GetStatsWithFilters(ctx, filters)

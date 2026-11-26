@@ -321,6 +321,46 @@ func (_u *UserUpdate) ClearLastActiveAt() *UserUpdate {
 	return _u
 }
 
+// SetRegistrationIP sets the "registration_ip" field.
+func (_u *UserUpdate) SetRegistrationIP(v string) *UserUpdate {
+	_u.mutation.SetRegistrationIP(v)
+	return _u
+}
+
+// SetNillableRegistrationIP sets the "registration_ip" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableRegistrationIP(v *string) *UserUpdate {
+	if v != nil {
+		_u.SetRegistrationIP(*v)
+	}
+	return _u
+}
+
+// ClearRegistrationIP clears the value of the "registration_ip" field.
+func (_u *UserUpdate) ClearRegistrationIP() *UserUpdate {
+	_u.mutation.ClearRegistrationIP()
+	return _u
+}
+
+// SetLastUsedIP sets the "last_used_ip" field.
+func (_u *UserUpdate) SetLastUsedIP(v string) *UserUpdate {
+	_u.mutation.SetLastUsedIP(v)
+	return _u
+}
+
+// SetNillableLastUsedIP sets the "last_used_ip" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableLastUsedIP(v *string) *UserUpdate {
+	if v != nil {
+		_u.SetLastUsedIP(*v)
+	}
+	return _u
+}
+
+// ClearLastUsedIP clears the value of the "last_used_ip" field.
+func (_u *UserUpdate) ClearLastUsedIP() *UserUpdate {
+	_u.mutation.ClearLastUsedIP()
+	return _u
+}
+
 // SetRestrictPublicGroups sets the "restrict_public_groups" field.
 func (_u *UserUpdate) SetRestrictPublicGroups(v bool) *UserUpdate {
 	_u.mutation.SetRestrictPublicGroups(v)
@@ -993,6 +1033,16 @@ func (_u *UserUpdate) check() error {
 			return &ValidationError{Name: "signup_source", err: fmt.Errorf(`ent: validator failed for field "User.signup_source": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.RegistrationIP(); ok {
+		if err := user.RegistrationIPValidator(v); err != nil {
+			return &ValidationError{Name: "registration_ip", err: fmt.Errorf(`ent: validator failed for field "User.registration_ip": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.LastUsedIP(); ok {
+		if err := user.LastUsedIPValidator(v); err != nil {
+			return &ValidationError{Name: "last_used_ip", err: fmt.Errorf(`ent: validator failed for field "User.last_used_ip": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -1082,6 +1132,18 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.LastActiveAtCleared() {
 		_spec.ClearField(user.FieldLastActiveAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.RegistrationIP(); ok {
+		_spec.SetField(user.FieldRegistrationIP, field.TypeString, value)
+	}
+	if _u.mutation.RegistrationIPCleared() {
+		_spec.ClearField(user.FieldRegistrationIP, field.TypeString)
+	}
+	if value, ok := _u.mutation.LastUsedIP(); ok {
+		_spec.SetField(user.FieldLastUsedIP, field.TypeString, value)
+	}
+	if _u.mutation.LastUsedIPCleared() {
+		_spec.ClearField(user.FieldLastUsedIP, field.TypeString)
 	}
 	if value, ok := _u.mutation.RestrictPublicGroups(); ok {
 		_spec.SetField(user.FieldRestrictPublicGroups, field.TypeBool, value)
@@ -2014,6 +2076,46 @@ func (_u *UserUpdateOne) ClearLastActiveAt() *UserUpdateOne {
 	return _u
 }
 
+// SetRegistrationIP sets the "registration_ip" field.
+func (_u *UserUpdateOne) SetRegistrationIP(v string) *UserUpdateOne {
+	_u.mutation.SetRegistrationIP(v)
+	return _u
+}
+
+// SetNillableRegistrationIP sets the "registration_ip" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableRegistrationIP(v *string) *UserUpdateOne {
+	if v != nil {
+		_u.SetRegistrationIP(*v)
+	}
+	return _u
+}
+
+// ClearRegistrationIP clears the value of the "registration_ip" field.
+func (_u *UserUpdateOne) ClearRegistrationIP() *UserUpdateOne {
+	_u.mutation.ClearRegistrationIP()
+	return _u
+}
+
+// SetLastUsedIP sets the "last_used_ip" field.
+func (_u *UserUpdateOne) SetLastUsedIP(v string) *UserUpdateOne {
+	_u.mutation.SetLastUsedIP(v)
+	return _u
+}
+
+// SetNillableLastUsedIP sets the "last_used_ip" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableLastUsedIP(v *string) *UserUpdateOne {
+	if v != nil {
+		_u.SetLastUsedIP(*v)
+	}
+	return _u
+}
+
+// ClearLastUsedIP clears the value of the "last_used_ip" field.
+func (_u *UserUpdateOne) ClearLastUsedIP() *UserUpdateOne {
+	_u.mutation.ClearLastUsedIP()
+	return _u
+}
+
 // SetRestrictPublicGroups sets the "restrict_public_groups" field.
 func (_u *UserUpdateOne) SetRestrictPublicGroups(v bool) *UserUpdateOne {
 	_u.mutation.SetRestrictPublicGroups(v)
@@ -2699,6 +2801,16 @@ func (_u *UserUpdateOne) check() error {
 			return &ValidationError{Name: "signup_source", err: fmt.Errorf(`ent: validator failed for field "User.signup_source": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.RegistrationIP(); ok {
+		if err := user.RegistrationIPValidator(v); err != nil {
+			return &ValidationError{Name: "registration_ip", err: fmt.Errorf(`ent: validator failed for field "User.registration_ip": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.LastUsedIP(); ok {
+		if err := user.LastUsedIPValidator(v); err != nil {
+			return &ValidationError{Name: "last_used_ip", err: fmt.Errorf(`ent: validator failed for field "User.last_used_ip": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -2805,6 +2917,18 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if _u.mutation.LastActiveAtCleared() {
 		_spec.ClearField(user.FieldLastActiveAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.RegistrationIP(); ok {
+		_spec.SetField(user.FieldRegistrationIP, field.TypeString, value)
+	}
+	if _u.mutation.RegistrationIPCleared() {
+		_spec.ClearField(user.FieldRegistrationIP, field.TypeString)
+	}
+	if value, ok := _u.mutation.LastUsedIP(); ok {
+		_spec.SetField(user.FieldLastUsedIP, field.TypeString, value)
+	}
+	if _u.mutation.LastUsedIPCleared() {
+		_spec.ClearField(user.FieldLastUsedIP, field.TypeString)
 	}
 	if value, ok := _u.mutation.RestrictPublicGroups(); ok {
 		_spec.SetField(user.FieldRestrictPublicGroups, field.TypeBool, value)

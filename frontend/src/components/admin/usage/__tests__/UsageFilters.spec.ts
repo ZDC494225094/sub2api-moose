@@ -305,3 +305,17 @@ describe('UsageFilters — native compaction filter', () => {
     expect(wrapper.emitted('change')).toBeTruthy()
   })
 })
+
+describe('UsageFilters — IP filter', () => {
+  it('writes the typed IP into filters and emits change on enter', async () => {
+    const filters = { ...defaultFilters(), ip_address: '' } as any
+    const wrapper = mountFilters(filters)
+
+    const input = wrapper.get('input[placeholder="admin.usage.filterIpPlaceholder"]')
+    await input.setValue('203.0.113.7')
+    await input.trigger('keyup.enter')
+
+    expect(filters.ip_address).toBe('203.0.113.7')
+    expect(wrapper.emitted('change')).toBeTruthy()
+  })
+})

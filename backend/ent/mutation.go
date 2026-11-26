@@ -51416,6 +51416,8 @@ type UserMutation struct {
 	signup_source                 *string
 	last_login_at                 *time.Time
 	last_active_at                *time.Time
+	registration_ip               *string
+	last_used_ip                  *string
 	restrict_public_groups        *bool
 	balance_notify_enabled        *bool
 	balance_notify_threshold_type *string
@@ -52340,6 +52342,104 @@ func (m *UserMutation) LastActiveAtCleared() bool {
 func (m *UserMutation) ResetLastActiveAt() {
 	m.last_active_at = nil
 	delete(m.clearedFields, user.FieldLastActiveAt)
+}
+
+// SetRegistrationIP sets the "registration_ip" field.
+func (m *UserMutation) SetRegistrationIP(s string) {
+	m.registration_ip = &s
+}
+
+// RegistrationIP returns the value of the "registration_ip" field in the mutation.
+func (m *UserMutation) RegistrationIP() (r string, exists bool) {
+	v := m.registration_ip
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRegistrationIP returns the old "registration_ip" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldRegistrationIP(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRegistrationIP is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRegistrationIP requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRegistrationIP: %w", err)
+	}
+	return oldValue.RegistrationIP, nil
+}
+
+// ClearRegistrationIP clears the value of the "registration_ip" field.
+func (m *UserMutation) ClearRegistrationIP() {
+	m.registration_ip = nil
+	m.clearedFields[user.FieldRegistrationIP] = struct{}{}
+}
+
+// RegistrationIPCleared returns if the "registration_ip" field was cleared in this mutation.
+func (m *UserMutation) RegistrationIPCleared() bool {
+	_, ok := m.clearedFields[user.FieldRegistrationIP]
+	return ok
+}
+
+// ResetRegistrationIP resets all changes to the "registration_ip" field.
+func (m *UserMutation) ResetRegistrationIP() {
+	m.registration_ip = nil
+	delete(m.clearedFields, user.FieldRegistrationIP)
+}
+
+// SetLastUsedIP sets the "last_used_ip" field.
+func (m *UserMutation) SetLastUsedIP(s string) {
+	m.last_used_ip = &s
+}
+
+// LastUsedIP returns the value of the "last_used_ip" field in the mutation.
+func (m *UserMutation) LastUsedIP() (r string, exists bool) {
+	v := m.last_used_ip
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastUsedIP returns the old "last_used_ip" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldLastUsedIP(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastUsedIP is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastUsedIP requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastUsedIP: %w", err)
+	}
+	return oldValue.LastUsedIP, nil
+}
+
+// ClearLastUsedIP clears the value of the "last_used_ip" field.
+func (m *UserMutation) ClearLastUsedIP() {
+	m.last_used_ip = nil
+	m.clearedFields[user.FieldLastUsedIP] = struct{}{}
+}
+
+// LastUsedIPCleared returns if the "last_used_ip" field was cleared in this mutation.
+func (m *UserMutation) LastUsedIPCleared() bool {
+	_, ok := m.clearedFields[user.FieldLastUsedIP]
+	return ok
+}
+
+// ResetLastUsedIP resets all changes to the "last_used_ip" field.
+func (m *UserMutation) ResetLastUsedIP() {
+	m.last_used_ip = nil
+	delete(m.clearedFields, user.FieldLastUsedIP)
 }
 
 // SetRestrictPublicGroups sets the "restrict_public_groups" field.
@@ -53404,7 +53504,7 @@ func (m *UserMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserMutation) Fields() []string {
-	fields := make([]string, 0, 25)
+	fields := make([]string, 0, 27)
 	if m.created_at != nil {
 		fields = append(fields, user.FieldCreatedAt)
 	}
@@ -53458,6 +53558,12 @@ func (m *UserMutation) Fields() []string {
 	}
 	if m.last_active_at != nil {
 		fields = append(fields, user.FieldLastActiveAt)
+	}
+	if m.registration_ip != nil {
+		fields = append(fields, user.FieldRegistrationIP)
+	}
+	if m.last_used_ip != nil {
+		fields = append(fields, user.FieldLastUsedIP)
 	}
 	if m.restrict_public_groups != nil {
 		fields = append(fields, user.FieldRestrictPublicGroups)
@@ -53524,6 +53630,10 @@ func (m *UserMutation) Field(name string) (ent.Value, bool) {
 		return m.LastLoginAt()
 	case user.FieldLastActiveAt:
 		return m.LastActiveAt()
+	case user.FieldRegistrationIP:
+		return m.RegistrationIP()
+	case user.FieldLastUsedIP:
+		return m.LastUsedIP()
 	case user.FieldRestrictPublicGroups:
 		return m.RestrictPublicGroups()
 	case user.FieldBalanceNotifyEnabled:
@@ -53583,6 +53693,10 @@ func (m *UserMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldLastLoginAt(ctx)
 	case user.FieldLastActiveAt:
 		return m.OldLastActiveAt(ctx)
+	case user.FieldRegistrationIP:
+		return m.OldRegistrationIP(ctx)
+	case user.FieldLastUsedIP:
+		return m.OldLastUsedIP(ctx)
 	case user.FieldRestrictPublicGroups:
 		return m.OldRestrictPublicGroups(ctx)
 	case user.FieldBalanceNotifyEnabled:
@@ -53731,6 +53845,20 @@ func (m *UserMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetLastActiveAt(v)
+		return nil
+	case user.FieldRegistrationIP:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRegistrationIP(v)
+		return nil
+	case user.FieldLastUsedIP:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastUsedIP(v)
 		return nil
 	case user.FieldRestrictPublicGroups:
 		v, ok := value.(bool)
@@ -53901,6 +54029,12 @@ func (m *UserMutation) ClearedFields() []string {
 	if m.FieldCleared(user.FieldLastActiveAt) {
 		fields = append(fields, user.FieldLastActiveAt)
 	}
+	if m.FieldCleared(user.FieldRegistrationIP) {
+		fields = append(fields, user.FieldRegistrationIP)
+	}
+	if m.FieldCleared(user.FieldLastUsedIP) {
+		fields = append(fields, user.FieldLastUsedIP)
+	}
 	if m.FieldCleared(user.FieldBalanceNotifyThreshold) {
 		fields = append(fields, user.FieldBalanceNotifyThreshold)
 	}
@@ -53932,6 +54066,12 @@ func (m *UserMutation) ClearField(name string) error {
 		return nil
 	case user.FieldLastActiveAt:
 		m.ClearLastActiveAt()
+		return nil
+	case user.FieldRegistrationIP:
+		m.ClearRegistrationIP()
+		return nil
+	case user.FieldLastUsedIP:
+		m.ClearLastUsedIP()
 		return nil
 	case user.FieldBalanceNotifyThreshold:
 		m.ClearBalanceNotifyThreshold()
@@ -53997,6 +54137,12 @@ func (m *UserMutation) ResetField(name string) error {
 		return nil
 	case user.FieldLastActiveAt:
 		m.ResetLastActiveAt()
+		return nil
+	case user.FieldRegistrationIP:
+		m.ResetRegistrationIP()
+		return nil
+	case user.FieldLastUsedIP:
+		m.ResetLastUsedIP()
 		return nil
 	case user.FieldRestrictPublicGroups:
 		m.ResetRestrictPublicGroups()

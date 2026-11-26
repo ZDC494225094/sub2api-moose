@@ -275,6 +275,8 @@ type UsageLogFilters struct {
 	AccountID int64
 	GroupID   int64
 	RequestID string
+	// IPAddress 精确匹配来源 IP；空值表示不筛选。
+	IPAddress string
 	Model     string
 	// ModelFilterSource controls how Model is matched. Empty preserves raw usage_logs.model semantics.
 	ModelFilterSource string
@@ -291,6 +293,23 @@ type UsageLogFilters struct {
 	EndTime               *time.Time
 	// ExactTotal requests exact COUNT(*) for pagination. Default false for fast large-table paging.
 	ExactTotal bool
+}
+
+// IPSharingUser 是"同一 IP 多账号"风控条目里的账号样本。
+type IPSharingUser struct {
+	UserID   int64  `json:"user_id"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
+	Requests int64  `json:"requests"`
+}
+
+// IPSharingStat 表示时间窗内被多个账号共用的来源 IP。
+type IPSharingStat struct {
+	IPAddress    string          `json:"ip_address"`
+	UserCount    int             `json:"user_count"`
+	RequestCount int64           `json:"request_count"`
+	LastSeen     time.Time       `json:"last_seen"`
+	Users        []IPSharingUser `json:"users,omitempty"`
 }
 
 // UsageStats represents usage statistics

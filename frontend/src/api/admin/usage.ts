@@ -121,6 +121,7 @@ export async function getStats(params: {
   account_id?: number
   group_id?: number
   model?: string
+  ip_address?: string
   request_type?: UsageRequestType
   stream?: boolean
   native_compaction_v2?: boolean | null
@@ -208,6 +209,39 @@ export async function cancelCleanupTask(taskId: number): Promise<{ id: number; s
   return data
 }
 
+export interface UsageIPSharingUser {
+  user_id: number
+  email: string
+  username: string
+  requests: number
+}
+
+export interface UsageIPSharingItem {
+  ip_address: string
+  user_count: number
+  request_count: number
+  last_seen: string
+  users?: UsageIPSharingUser[]
+}
+
+export interface UsageIPSharingParams {
+  start_date?: string
+  end_date?: string
+  timezone?: string
+  min_accounts?: number
+  limit?: number
+}
+
+/**
+ * List IPs shared by multiple accounts in a time range (admin only)
+ */
+export async function ipSharing(params: UsageIPSharingParams): Promise<{ items: UsageIPSharingItem[] }> {
+  const { data } = await apiClient.get<{ items: UsageIPSharingItem[] }>('/admin/usage/ip-sharing', {
+    params
+  })
+  return data
+}
+
 export const adminUsageAPI = {
   list,
   getStats,
@@ -215,7 +249,8 @@ export const adminUsageAPI = {
   searchApiKeys,
   listCleanupTasks,
   createCleanupTask,
-  cancelCleanupTask
+  cancelCleanupTask,
+  ipSharing
 }
 
 export default adminUsageAPI

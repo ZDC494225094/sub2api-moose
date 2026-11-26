@@ -1027,10 +1027,13 @@ func (s *AuthService) touchUserLogin(ctx context.Context, userID int64) {
 		return
 	}
 	now := time.Now().UTC()
-	if err := s.entClient.User.UpdateOneID(userID).
+	update := s.entClient.User.UpdateOneID(userID).
 		SetLastLoginAt(now).
-		SetLastActiveAt(now).
-		Exec(ctx); err != nil {
+		SetLastActiveAt(now)
+	if addr, ok := ClientIPFromContext(ctx); ok {
+		update = update.SetLastUsedIP(addr)
+	}
+	if err := update.Exec(ctx); err != nil {
 		logger.LegacyPrintf("service.auth", "[Auth] Failed to touch login timestamps: user_id=%d err=%v", userID, err)
 	}
 }

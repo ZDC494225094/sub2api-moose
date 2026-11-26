@@ -72,6 +72,28 @@
               />
             </div>
 
+            <!-- IP Filter (visible when enabled) -->
+            <div v-if="visibleFilters.has('ip')" class="flex w-full items-center gap-2 sm:w-auto">
+              <input
+                v-model="filters.ip"
+                type="text"
+                :placeholder="t('admin.users.searchIpPlaceholder')"
+                class="input w-40 sm:w-44"
+                @keyup.enter="applyFilter"
+              />
+              <div class="w-36">
+                <Select
+                  v-model="filters.ipScope"
+                  :options="[
+                    { value: '', label: t('admin.users.ipScopeAny') },
+                    { value: 'registration', label: t('admin.users.ipScopeRegistration') },
+                    { value: 'last_used', label: t('admin.users.ipScopeLastUsed') }
+                  ]"
+                  @change="applyFilter"
+                />
+              </div>
+            </div>
+
             <!-- Dynamic Attribute Filters -->
             <template v-for="(value, attrId) in activeAttributeFilters" :key="attrId">
               <div
@@ -609,6 +631,14 @@
             <span class="text-sm text-gray-500 dark:text-dark-400">{{ formatDateTime(value) }}</span>
           </template>
 
+          <template #cell-registration_ip="{ value }">
+            <span class="font-mono text-xs text-gray-600 dark:text-dark-300">{{ value || '-' }}</span>
+          </template>
+
+          <template #cell-last_used_ip="{ value }">
+            <span class="font-mono text-xs text-gray-600 dark:text-dark-300">{{ value || '-' }}</span>
+          </template>
+
           <template #cell-last_used_at="{ value }">
             <span class="text-sm text-gray-500 dark:text-dark-400">
               {{ value ? formatDateTime(value) : '-' }}
@@ -921,6 +951,8 @@ const allColumns = computed<Column[]>(() => [
   { key: 'usage_antigravity', label: t('admin.users.columns.usageAntigravity'), sortable: false },
   { key: 'concurrency', label: t('admin.users.columns.concurrency'), sortable: true },
   { key: 'status', label: t('admin.users.columns.status'), sortable: true },
+  { key: 'registration_ip', label: t('admin.users.columns.registrationIp'), sortable: false },
+  { key: 'last_used_ip', label: t('admin.users.columns.lastUsedIp'), sortable: false },
   { key: 'last_active_at', label: t('admin.users.columns.lastActive'), sortable: true },
   { key: 'last_used_at', label: t('admin.users.columns.lastUsed'), sortable: true },
   { key: 'created_at', label: t('admin.users.columns.created'), sortable: true },
@@ -1152,7 +1184,9 @@ const filters = reactive({
   role: '',
   status: '',
   group: '',  // group name for fuzzy match, '' = all
-  apiKeyGroup: null as number | null  // group id bound to the user's API keys, null = all
+  apiKeyGroup: null as number | null,  // group id bound to the user's API keys, null = all
+  ip: '',  // exact IP match, '' = all
+  ipScope: '' as '' | 'registration' | 'last_used'  // '' = either IP field
 })
 const activeAttributeFilters = reactive<Record<number, string>>({})
 
@@ -1182,7 +1216,8 @@ const builtInFilters = computed(() => [
   { key: 'role', name: t('admin.users.columns.role'), type: 'select' as const },
   { key: 'status', name: t('admin.users.columns.status'), type: 'select' as const },
   { key: 'group', name: t('admin.users.authorizedGroupFilter'), type: 'select' as const },
-  { key: 'apiKeyGroup', name: t('admin.users.apiKeyGroupFilter'), type: 'select' as const }
+  { key: 'apiKeyGroup', name: t('admin.users.apiKeyGroupFilter'), type: 'select' as const },
+  { key: 'ip', name: t('admin.users.ipFilter'), type: 'text' as const }
 ])
 
 // Load saved filters from localStorage
@@ -1202,6 +1237,8 @@ const loadSavedFilters = () => {
       if (parsed.status) filters.status = parsed.status
       if (parsed.group) filters.group = parsed.group
       if (typeof parsed.apiKeyGroup === 'number') filters.apiKeyGroup = parsed.apiKeyGroup
+      if (typeof parsed.ip === 'string') filters.ip = parsed.ip
+      if (parsed.ipScope === 'registration' || parsed.ipScope === 'last_used') filters.ipScope = parsed.ipScope
       if (parsed.attributes) {
         Object.assign(activeAttributeFilters, parsed.attributes)
       }
@@ -1222,6 +1259,8 @@ const saveFiltersToStorage = () => {
       status: filters.status,
       group: filters.group,
       apiKeyGroup: filters.apiKeyGroup,
+      ip: filters.ip,
+      ipScope: filters.ipScope,
       attributes: activeAttributeFilters
     }
     localStorage.setItem(FILTER_VALUES_KEY, JSON.stringify(values))
@@ -1630,6 +1669,8 @@ const loadUsers = async () => {
         search: searchQuery.value || undefined,
         group_name: filters.group || undefined,
         api_key_group_id: filters.apiKeyGroup ?? undefined,
+        ip_address: filters.ip || undefined,
+        ip_scope: filters.ip ? (filters.ipScope || undefined) : undefined,
         attributes: Object.keys(attrFilters).length > 0 ? attrFilters : undefined,
         // 始终请求 subscriptions：列隐藏时仍需用于 UserPlatformQuotaModal 的 active-subscription 警示 banner
         include_subscriptions: true,
@@ -1721,6 +1762,7 @@ const toggleBuiltInFilter = (key: string) => {
     if (key === 'status') filters.status = ''
     if (key === 'group') filters.group = ''
     if (key === 'apiKeyGroup') filters.apiKeyGroup = null
+    if (key === 'ip') { filters.ip = ''; filters.ipScope = '' }
   } else {
     visibleFilters.add(key)
     if (key === 'group') loadAllGroups()

@@ -170,7 +170,7 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			})
 			c.Set(string(ContextKeyUserRole), apiKey.User.Role)
 			setGroupContext(c, apiKey.Group)
-			_ = apiKeyService.TouchLastUsed(c.Request.Context(), apiKey.ID)
+			_ = apiKeyService.TouchLastUsedWithIP(c.Request.Context(), apiKey.ID, apiKey.User.ID, ip.GetSecurityClientIP(c, cfg.TrustForwardedIPForAPIKeyACL()))
 			c.Next()
 			return
 		}
@@ -254,7 +254,7 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 		})
 		c.Set(string(ContextKeyUserRole), apiKey.User.Role)
 		setGroupContext(c, apiKey.Group)
-		_ = apiKeyService.TouchLastUsed(c.Request.Context(), apiKey.ID)
+		_ = apiKeyService.TouchLastUsedWithIP(c.Request.Context(), apiKey.ID, apiKey.User.ID, ip.GetSecurityClientIP(c, cfg.TrustForwardedIPForAPIKeyACL()))
 		c.Next()
 	}
 }

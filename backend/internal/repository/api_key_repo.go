@@ -1014,6 +1014,8 @@ func userEntityToService(u *dbent.User) *service.User {
 		SignupSource:               u.SignupSource,
 		LastLoginAt:                u.LastLoginAt,
 		LastActiveAt:               u.LastActiveAt,
+		RegistrationIP:             u.RegistrationIP,
+		LastUsedIP:                 u.LastUsedIP,
 		TotpSecretEncrypted:        u.TotpSecretEncrypted,
 		TotpEnabled:                u.TotpEnabled,
 		TotpEnabledAt:              u.TotpEnabledAt,

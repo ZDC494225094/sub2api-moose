@@ -7,6 +7,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/adminefficiency"
 	"log/slog"
 	"math"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -115,6 +116,26 @@ type BindUserAuthIdentityChannelRequest struct {
 	Metadata       map[string]any `json:"metadata"`
 }
 
+// parseUserIPFilter 解析用户列表的 IP 查询参数；返回 false 表示已写回 400。
+func parseUserIPFilter(c *gin.Context) (string, string, bool) {
+	raw := strings.TrimSpace(c.Query("ip_address"))
+	if raw == "" {
+		return "", "", true
+	}
+	if len(raw) > 45 || net.ParseIP(raw) == nil {
+		response.BadRequest(c, "Invalid ip_address")
+		return "", "", false
+	}
+	scope := strings.ToLower(strings.TrimSpace(c.Query("ip_scope")))
+	switch scope {
+	case "", "registration", "last_used":
+	default:
+		response.BadRequest(c, "Invalid ip_scope")
+		return "", "", false
+	}
+	return raw, scope, true
+}
+
 // List handles listing all users with pagination
 // GET /api/v1/admin/users
 // Query params:
@@ -134,11 +155,17 @@ func (h *UserHandler) List(c *gin.Context) {
 		search = string(runes[:100])
 	}
 
+	ipAddress, ipScope, ok := parseUserIPFilter(c)
+	if !ok {
+		return
+	}
 	filters := service.UserListFilters{
 		Status:     c.Query("status"),
 		Role:       c.Query("role"),
 		Search:     search,
 		GroupName:  strings.TrimSpace(c.Query("group_name")),
+		IPAddress:  ipAddress,
+		IPScope:    ipScope,
 		Attributes: parseAttributeFilters(c),
 	}
 	if raw := strings.TrimSpace(c.Query("api_key_group_id")); raw != "" {

@@ -270,6 +270,34 @@ func (_c *UserCreate) SetNillableLastActiveAt(v *time.Time) *UserCreate {
 	return _c
 }
 
+// SetRegistrationIP sets the "registration_ip" field.
+func (_c *UserCreate) SetRegistrationIP(v string) *UserCreate {
+	_c.mutation.SetRegistrationIP(v)
+	return _c
+}
+
+// SetNillableRegistrationIP sets the "registration_ip" field if the given value is not nil.
+func (_c *UserCreate) SetNillableRegistrationIP(v *string) *UserCreate {
+	if v != nil {
+		_c.SetRegistrationIP(*v)
+	}
+	return _c
+}
+
+// SetLastUsedIP sets the "last_used_ip" field.
+func (_c *UserCreate) SetLastUsedIP(v string) *UserCreate {
+	_c.mutation.SetLastUsedIP(v)
+	return _c
+}
+
+// SetNillableLastUsedIP sets the "last_used_ip" field if the given value is not nil.
+func (_c *UserCreate) SetNillableLastUsedIP(v *string) *UserCreate {
+	if v != nil {
+		_c.SetLastUsedIP(*v)
+	}
+	return _c
+}
+
 // SetRestrictPublicGroups sets the "restrict_public_groups" field.
 func (_c *UserCreate) SetRestrictPublicGroups(v bool) *UserCreate {
 	_c.mutation.SetRestrictPublicGroups(v)
@@ -748,6 +776,16 @@ func (_c *UserCreate) check() error {
 			return &ValidationError{Name: "signup_source", err: fmt.Errorf(`ent: validator failed for field "User.signup_source": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.RegistrationIP(); ok {
+		if err := user.RegistrationIPValidator(v); err != nil {
+			return &ValidationError{Name: "registration_ip", err: fmt.Errorf(`ent: validator failed for field "User.registration_ip": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.LastUsedIP(); ok {
+		if err := user.LastUsedIPValidator(v); err != nil {
+			return &ValidationError{Name: "last_used_ip", err: fmt.Errorf(`ent: validator failed for field "User.last_used_ip": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.RestrictPublicGroups(); !ok {
 		return &ValidationError{Name: "restrict_public_groups", err: errors.New(`ent: missing required field "User.restrict_public_groups"`)}
 	}
@@ -864,6 +902,14 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.LastActiveAt(); ok {
 		_spec.SetField(user.FieldLastActiveAt, field.TypeTime, value)
 		_node.LastActiveAt = &value
+	}
+	if value, ok := _c.mutation.RegistrationIP(); ok {
+		_spec.SetField(user.FieldRegistrationIP, field.TypeString, value)
+		_node.RegistrationIP = &value
+	}
+	if value, ok := _c.mutation.LastUsedIP(); ok {
+		_spec.SetField(user.FieldLastUsedIP, field.TypeString, value)
+		_node.LastUsedIP = &value
 	}
 	if value, ok := _c.mutation.RestrictPublicGroups(); ok {
 		_spec.SetField(user.FieldRestrictPublicGroups, field.TypeBool, value)
@@ -1409,6 +1455,42 @@ func (u *UserUpsert) ClearLastActiveAt() *UserUpsert {
 	return u
 }
 
+// SetRegistrationIP sets the "registration_ip" field.
+func (u *UserUpsert) SetRegistrationIP(v string) *UserUpsert {
+	u.Set(user.FieldRegistrationIP, v)
+	return u
+}
+
+// UpdateRegistrationIP sets the "registration_ip" field to the value that was provided on create.
+func (u *UserUpsert) UpdateRegistrationIP() *UserUpsert {
+	u.SetExcluded(user.FieldRegistrationIP)
+	return u
+}
+
+// ClearRegistrationIP clears the value of the "registration_ip" field.
+func (u *UserUpsert) ClearRegistrationIP() *UserUpsert {
+	u.SetNull(user.FieldRegistrationIP)
+	return u
+}
+
+// SetLastUsedIP sets the "last_used_ip" field.
+func (u *UserUpsert) SetLastUsedIP(v string) *UserUpsert {
+	u.Set(user.FieldLastUsedIP, v)
+	return u
+}
+
+// UpdateLastUsedIP sets the "last_used_ip" field to the value that was provided on create.
+func (u *UserUpsert) UpdateLastUsedIP() *UserUpsert {
+	u.SetExcluded(user.FieldLastUsedIP)
+	return u
+}
+
+// ClearLastUsedIP clears the value of the "last_used_ip" field.
+func (u *UserUpsert) ClearLastUsedIP() *UserUpsert {
+	u.SetNull(user.FieldLastUsedIP)
+	return u
+}
+
 // SetRestrictPublicGroups sets the "restrict_public_groups" field.
 func (u *UserUpsert) SetRestrictPublicGroups(v bool) *UserUpsert {
 	u.Set(user.FieldRestrictPublicGroups, v)
@@ -1853,6 +1935,48 @@ func (u *UserUpsertOne) UpdateLastActiveAt() *UserUpsertOne {
 func (u *UserUpsertOne) ClearLastActiveAt() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.ClearLastActiveAt()
+	})
+}
+
+// SetRegistrationIP sets the "registration_ip" field.
+func (u *UserUpsertOne) SetRegistrationIP(v string) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetRegistrationIP(v)
+	})
+}
+
+// UpdateRegistrationIP sets the "registration_ip" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateRegistrationIP() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateRegistrationIP()
+	})
+}
+
+// ClearRegistrationIP clears the value of the "registration_ip" field.
+func (u *UserUpsertOne) ClearRegistrationIP() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearRegistrationIP()
+	})
+}
+
+// SetLastUsedIP sets the "last_used_ip" field.
+func (u *UserUpsertOne) SetLastUsedIP(v string) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetLastUsedIP(v)
+	})
+}
+
+// UpdateLastUsedIP sets the "last_used_ip" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateLastUsedIP() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateLastUsedIP()
+	})
+}
+
+// ClearLastUsedIP clears the value of the "last_used_ip" field.
+func (u *UserUpsertOne) ClearLastUsedIP() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearLastUsedIP()
 	})
 }
 
@@ -2484,6 +2608,48 @@ func (u *UserUpsertBulk) UpdateLastActiveAt() *UserUpsertBulk {
 func (u *UserUpsertBulk) ClearLastActiveAt() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.ClearLastActiveAt()
+	})
+}
+
+// SetRegistrationIP sets the "registration_ip" field.
+func (u *UserUpsertBulk) SetRegistrationIP(v string) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetRegistrationIP(v)
+	})
+}
+
+// UpdateRegistrationIP sets the "registration_ip" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateRegistrationIP() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateRegistrationIP()
+	})
+}
+
+// ClearRegistrationIP clears the value of the "registration_ip" field.
+func (u *UserUpsertBulk) ClearRegistrationIP() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearRegistrationIP()
+	})
+}
+
+// SetLastUsedIP sets the "last_used_ip" field.
+func (u *UserUpsertBulk) SetLastUsedIP(v string) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetLastUsedIP(v)
+	})
+}
+
+// UpdateLastUsedIP sets the "last_used_ip" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateLastUsedIP() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateLastUsedIP()
+	})
+}
+
+// ClearLastUsedIP clears the value of the "last_used_ip" field.
+func (u *UserUpsertBulk) ClearLastUsedIP() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearLastUsedIP()
 	})
 }
 

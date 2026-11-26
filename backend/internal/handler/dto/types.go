@@ -45,6 +45,9 @@ type AdminUser struct {
 
 	Notes      string     `json:"notes"`
 	LastUsedAt *time.Time `json:"last_used_at"`
+	// 注册来源 IP 与最近使用 IP，仅管理端返回。
+	RegistrationIP *string `json:"registration_ip"`
+	LastUsedIP     *string `json:"last_used_ip"`
 	// GroupRates 用户专属分组倍率配置
 	// map[groupID]rateMultiplier
 	GroupRates map[int64]float64 `json:"group_rates,omitempty"`

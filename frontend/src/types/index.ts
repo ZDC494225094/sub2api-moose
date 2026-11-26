@@ -112,6 +112,9 @@ export interface AdminUser extends User {
   restrict_public_groups?: boolean
   // 当前并发数（仅管理员列表接口返回）
   current_concurrency?: number
+  // 注册来源 IP 与最近使用 IP（仅管理员列表接口返回）
+  registration_ip?: string | null
+  last_used_ip?: string | null
 }
 
 export interface LoginRequest {
@@ -2362,6 +2365,7 @@ export interface UsageQueryParams {
   account_id?: number
   group_id?: number
   model?: string
+  ip_address?: string
   request_type?: UsageRequestType
   stream?: boolean
   native_compaction_v2?: boolean | null

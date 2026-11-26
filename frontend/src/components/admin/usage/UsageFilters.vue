@@ -84,6 +84,19 @@
           <Select v-model="filters.model" :options="modelOptions" searchable @change="emitChange" />
         </div>
 
+        <!-- IP Filter (usage only) -->
+        <div v-if="mode === 'usage'" class="w-full sm:w-auto sm:min-w-[200px]">
+          <label class="input-label">{{ t('admin.usage.filterIp') }}</label>
+          <input
+            v-model="filters.ip_address"
+            type="text"
+            class="input"
+            :placeholder="t('admin.usage.filterIpPlaceholder')"
+            @keyup.enter="emitChange"
+            @blur="emitChange"
+          />
+        </div>
+
         <!-- Account Filter -->
         <div ref="accountSearchRef" class="usage-filter-dropdown relative w-full sm:w-auto sm:min-w-[220px]">
           <label class="input-label">{{ t('admin.usage.account') }}</label>

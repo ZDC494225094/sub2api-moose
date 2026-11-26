@@ -73,7 +73,11 @@ type UserListFilters struct {
 	// bound to this group (api_keys.group_id). 0 = no filter. Covers all three
 	// group types since it matches the key's group directly, not allowed_groups.
 	APIKeyGroupID int64
-	Attributes    map[int64]string // Custom attribute filters: attributeID -> value
+	// IPAddress 精确匹配用户 IP；IPScope 选择匹配字段：
+	// "registration"（注册 IP）、"last_used"（最近使用 IP），空值表示任一命中。
+	IPAddress  string
+	IPScope    string
+	Attributes map[int64]string // Custom attribute filters: attributeID -> value
 	// IncludeSubscriptions controls whether ListWithFilters should load active subscriptions.
 	// For large datasets this can be expensive; admin list pages should enable it on demand.
 	// nil means not specified (default: load subscriptions for backward compatibility).
@@ -180,6 +184,12 @@ type UserRepository interface {
 	UpdateTotpSecret(ctx context.Context, userID int64, encryptedSecret *string) error
 	EnableTotp(ctx context.Context, userID int64) error
 	DisableTotp(ctx context.Context, userID int64) error
+}
+
+// UserLastUsedIPRepository 是用户仓储记录"最近使用 IP"的可选能力。
+// 独立于 UserRepository，避免无关测试桩被迫实现写入方法；生产仓储同时实现两者。
+type UserLastUsedIPRepository interface {
+	UpdateUserLastUsedIP(ctx context.Context, userID int64, clientIP string) error
 }
 
 // RegistrationEmailDomainRepository 是生产用户仓储为非白名单域名单账户兜底策略提供的可选能力。

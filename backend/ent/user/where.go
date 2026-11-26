@@ -145,6 +145,16 @@ func LastActiveAt(v time.Time) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldLastActiveAt, v))
 }
 
+// RegistrationIP applies equality check predicate on the "registration_ip" field. It's identical to RegistrationIPEQ.
+func RegistrationIP(v string) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldRegistrationIP, v))
+}
+
+// LastUsedIP applies equality check predicate on the "last_used_ip" field. It's identical to LastUsedIPEQ.
+func LastUsedIP(v string) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldLastUsedIP, v))
+}
+
 // RestrictPublicGroups applies equality check predicate on the "restrict_public_groups" field. It's identical to RestrictPublicGroupsEQ.
 func RestrictPublicGroups(v bool) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldRestrictPublicGroups, v))
@@ -1118,6 +1128,156 @@ func LastActiveAtIsNil() predicate.User {
 // LastActiveAtNotNil applies the NotNil predicate on the "last_active_at" field.
 func LastActiveAtNotNil() predicate.User {
 	return predicate.User(sql.FieldNotNull(FieldLastActiveAt))
+}
+
+// RegistrationIPEQ applies the EQ predicate on the "registration_ip" field.
+func RegistrationIPEQ(v string) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldRegistrationIP, v))
+}
+
+// RegistrationIPNEQ applies the NEQ predicate on the "registration_ip" field.
+func RegistrationIPNEQ(v string) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldRegistrationIP, v))
+}
+
+// RegistrationIPIn applies the In predicate on the "registration_ip" field.
+func RegistrationIPIn(vs ...string) predicate.User {
+	return predicate.User(sql.FieldIn(FieldRegistrationIP, vs...))
+}
+
+// RegistrationIPNotIn applies the NotIn predicate on the "registration_ip" field.
+func RegistrationIPNotIn(vs ...string) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldRegistrationIP, vs...))
+}
+
+// RegistrationIPGT applies the GT predicate on the "registration_ip" field.
+func RegistrationIPGT(v string) predicate.User {
+	return predicate.User(sql.FieldGT(FieldRegistrationIP, v))
+}
+
+// RegistrationIPGTE applies the GTE predicate on the "registration_ip" field.
+func RegistrationIPGTE(v string) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldRegistrationIP, v))
+}
+
+// RegistrationIPLT applies the LT predicate on the "registration_ip" field.
+func RegistrationIPLT(v string) predicate.User {
+	return predicate.User(sql.FieldLT(FieldRegistrationIP, v))
+}
+
+// RegistrationIPLTE applies the LTE predicate on the "registration_ip" field.
+func RegistrationIPLTE(v string) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldRegistrationIP, v))
+}
+
+// RegistrationIPContains applies the Contains predicate on the "registration_ip" field.
+func RegistrationIPContains(v string) predicate.User {
+	return predicate.User(sql.FieldContains(FieldRegistrationIP, v))
+}
+
+// RegistrationIPHasPrefix applies the HasPrefix predicate on the "registration_ip" field.
+func RegistrationIPHasPrefix(v string) predicate.User {
+	return predicate.User(sql.FieldHasPrefix(FieldRegistrationIP, v))
+}
+
+// RegistrationIPHasSuffix applies the HasSuffix predicate on the "registration_ip" field.
+func RegistrationIPHasSuffix(v string) predicate.User {
+	return predicate.User(sql.FieldHasSuffix(FieldRegistrationIP, v))
+}
+
+// RegistrationIPIsNil applies the IsNil predicate on the "registration_ip" field.
+func RegistrationIPIsNil() predicate.User {
+	return predicate.User(sql.FieldIsNull(FieldRegistrationIP))
+}
+
+// RegistrationIPNotNil applies the NotNil predicate on the "registration_ip" field.
+func RegistrationIPNotNil() predicate.User {
+	return predicate.User(sql.FieldNotNull(FieldRegistrationIP))
+}
+
+// RegistrationIPEqualFold applies the EqualFold predicate on the "registration_ip" field.
+func RegistrationIPEqualFold(v string) predicate.User {
+	return predicate.User(sql.FieldEqualFold(FieldRegistrationIP, v))
+}
+
+// RegistrationIPContainsFold applies the ContainsFold predicate on the "registration_ip" field.
+func RegistrationIPContainsFold(v string) predicate.User {
+	return predicate.User(sql.FieldContainsFold(FieldRegistrationIP, v))
+}
+
+// LastUsedIPEQ applies the EQ predicate on the "last_used_ip" field.
+func LastUsedIPEQ(v string) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldLastUsedIP, v))
+}
+
+// LastUsedIPNEQ applies the NEQ predicate on the "last_used_ip" field.
+func LastUsedIPNEQ(v string) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldLastUsedIP, v))
+}
+
+// LastUsedIPIn applies the In predicate on the "last_used_ip" field.
+func LastUsedIPIn(vs ...string) predicate.User {
+	return predicate.User(sql.FieldIn(FieldLastUsedIP, vs...))
+}
+
+// LastUsedIPNotIn applies the NotIn predicate on the "last_used_ip" field.
+func LastUsedIPNotIn(vs ...string) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldLastUsedIP, vs...))
+}
+
+// LastUsedIPGT applies the GT predicate on the "last_used_ip" field.
+func LastUsedIPGT(v string) predicate.User {
+	return predicate.User(sql.FieldGT(FieldLastUsedIP, v))
+}
+
+// LastUsedIPGTE applies the GTE predicate on the "last_used_ip" field.
+func LastUsedIPGTE(v string) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldLastUsedIP, v))
+}
+
+// LastUsedIPLT applies the LT predicate on the "last_used_ip" field.
+func LastUsedIPLT(v string) predicate.User {
+	return predicate.User(sql.FieldLT(FieldLastUsedIP, v))
+}
+
+// LastUsedIPLTE applies the LTE predicate on the "last_used_ip" field.
+func LastUsedIPLTE(v string) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldLastUsedIP, v))
+}
+
+// LastUsedIPContains applies the Contains predicate on the "last_used_ip" field.
+func LastUsedIPContains(v string) predicate.User {
+	return predicate.User(sql.FieldContains(FieldLastUsedIP, v))
+}
+
+// LastUsedIPHasPrefix applies the HasPrefix predicate on the "last_used_ip" field.
+func LastUsedIPHasPrefix(v string) predicate.User {
+	return predicate.User(sql.FieldHasPrefix(FieldLastUsedIP, v))
+}
+
+// LastUsedIPHasSuffix applies the HasSuffix predicate on the "last_used_ip" field.
+func LastUsedIPHasSuffix(v string) predicate.User {
+	return predicate.User(sql.FieldHasSuffix(FieldLastUsedIP, v))
+}
+
+// LastUsedIPIsNil applies the IsNil predicate on the "last_used_ip" field.
+func LastUsedIPIsNil() predicate.User {
+	return predicate.User(sql.FieldIsNull(FieldLastUsedIP))
+}
+
+// LastUsedIPNotNil applies the NotNil predicate on the "last_used_ip" field.
+func LastUsedIPNotNil() predicate.User {
+	return predicate.User(sql.FieldNotNull(FieldLastUsedIP))
+}
+
+// LastUsedIPEqualFold applies the EqualFold predicate on the "last_used_ip" field.
+func LastUsedIPEqualFold(v string) predicate.User {
+	return predicate.User(sql.FieldEqualFold(FieldLastUsedIP, v))
+}
+
+// LastUsedIPContainsFold applies the ContainsFold predicate on the "last_used_ip" field.
+func LastUsedIPContainsFold(v string) predicate.User {
+	return predicate.User(sql.FieldContainsFold(FieldLastUsedIP, v))
 }
 
 // RestrictPublicGroupsEQ applies the EQ predicate on the "restrict_public_groups" field.

@@ -53,6 +53,10 @@ type User struct {
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
 	// LastActiveAt holds the value of the "last_active_at" field.
 	LastActiveAt *time.Time `json:"last_active_at,omitempty"`
+	// RegistrationIP holds the value of the "registration_ip" field.
+	RegistrationIP *string `json:"registration_ip,omitempty"`
+	// LastUsedIP holds the value of the "last_used_ip" field.
+	LastUsedIP *string `json:"last_used_ip,omitempty"`
 	// RestrictPublicGroups holds the value of the "restrict_public_groups" field.
 	RestrictPublicGroups bool `json:"restrict_public_groups,omitempty"`
 	// BalanceNotifyEnabled holds the value of the "balance_notify_enabled" field.
@@ -245,7 +249,7 @@ func (*User) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case user.FieldID, user.FieldConcurrency, user.FieldRpmLimit:
 			values[i] = new(sql.NullInt64)
-		case user.FieldEmail, user.FieldPasswordHash, user.FieldRole, user.FieldStatus, user.FieldUsername, user.FieldNotes, user.FieldTotpSecretEncrypted, user.FieldSignupSource, user.FieldBalanceNotifyThresholdType, user.FieldBalanceNotifyExtraEmails:
+		case user.FieldEmail, user.FieldPasswordHash, user.FieldRole, user.FieldStatus, user.FieldUsername, user.FieldNotes, user.FieldTotpSecretEncrypted, user.FieldSignupSource, user.FieldRegistrationIP, user.FieldLastUsedIP, user.FieldBalanceNotifyThresholdType, user.FieldBalanceNotifyExtraEmails:
 			values[i] = new(sql.NullString)
 		case user.FieldCreatedAt, user.FieldUpdatedAt, user.FieldDeletedAt, user.FieldTotpEnabledAt, user.FieldLastLoginAt, user.FieldLastActiveAt:
 			values[i] = new(sql.NullTime)
@@ -382,6 +386,20 @@ func (_m *User) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.LastActiveAt = new(time.Time)
 				*_m.LastActiveAt = value.Time
+			}
+		case user.FieldRegistrationIP:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field registration_ip", values[i])
+			} else if value.Valid {
+				_m.RegistrationIP = new(string)
+				*_m.RegistrationIP = value.String
+			}
+		case user.FieldLastUsedIP:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field last_used_ip", values[i])
+			} else if value.Valid {
+				_m.LastUsedIP = new(string)
+				*_m.LastUsedIP = value.String
 			}
 		case user.FieldRestrictPublicGroups:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -594,6 +612,16 @@ func (_m *User) String() string {
 	if v := _m.LastActiveAt; v != nil {
 		builder.WriteString("last_active_at=")
 		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.RegistrationIP; v != nil {
+		builder.WriteString("registration_ip=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.LastUsedIP; v != nil {
+		builder.WriteString("last_used_ip=")
+		builder.WriteString(*v)
 	}
 	builder.WriteString(", ")
 	builder.WriteString("restrict_public_groups=")

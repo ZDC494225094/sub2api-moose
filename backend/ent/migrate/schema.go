@@ -1898,6 +1898,8 @@ var (
 		{Name: "signup_source", Type: field.TypeString, Default: "email"},
 		{Name: "last_login_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "last_active_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "registration_ip", Type: field.TypeString, Nullable: true, Size: 45},
+		{Name: "last_used_ip", Type: field.TypeString, Nullable: true, Size: 45},
 		{Name: "restrict_public_groups", Type: field.TypeBool, Default: false},
 		{Name: "balance_notify_enabled", Type: field.TypeBool, Default: true},
 		{Name: "balance_notify_threshold_type", Type: field.TypeString, Default: "fixed"},
@@ -1921,6 +1923,16 @@ var (
 				Name:    "user_deleted_at",
 				Unique:  false,
 				Columns: []*schema.Column{UsersColumns[3]},
+			},
+			{
+				Name:    "user_registration_ip",
+				Unique:  false,
+				Columns: []*schema.Column{UsersColumns[19]},
+			},
+			{
+				Name:    "user_last_used_ip",
+				Unique:  false,
+				Columns: []*schema.Column{UsersColumns[20]},
 			},
 		},
 	}

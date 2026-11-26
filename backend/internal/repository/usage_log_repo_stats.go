@@ -684,6 +684,7 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 	}
 	conditions, args = appendUsageLogBillingModeWhereCondition(conditions, args, filters.BillingMode)
 	conditions, args = appendUsageLogCanvasManagedWhereCondition(conditions, args, filters.CanvasManaged, "")
+	conditions, args = appendUsageLogIPWhereCondition(conditions, args, filters.IPAddress, "")
 	if filters.UpstreamModelMismatch != nil {
 		conditions = append(conditions, upstreamModelMismatchCondition("upstream_model_mismatch", *filters.UpstreamModelMismatch))
 	}

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"hash/fnv"
+	"net"
 	"reflect"
 	"sort"
 	"strings"
@@ -723,6 +724,22 @@ func (r *userRepository) UpdateUserLastLoginAt(ctx context.Context, userID int64
 func (r *userRepository) UpdateUserLastActiveAt(ctx context.Context, userID int64, activeAt time.Time) error {
 	_, err := clientFromContext(ctx, r.client).User.UpdateOneID(userID).
 		SetLastActiveAt(activeAt).
+		Save(ctx)
+	return err
+}
+
+// UpdateUserLastUsedIP 记录用户最近一次登录/API 请求的来源 IP。
+// 只接受已校验的 IP，避免把代理头的脏值写进用户档案。
+func (r *userRepository) UpdateUserLastUsedIP(ctx context.Context, userID int64, clientIP string) error {
+	if userID <= 0 {
+		return nil
+	}
+	addr := strings.TrimSpace(clientIP)
+	if addr == "" || len(addr) > 45 || net.ParseIP(addr) == nil {
+		return nil
+	}
+	_, err := clientFromContext(ctx, r.client).User.UpdateOneID(userID).
+		SetLastUsedIP(addr).
 		Save(ctx)
 	return err
 }

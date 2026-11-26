@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -55,6 +56,19 @@ type CreateUsageCleanupTaskRequest struct {
 	Stream      *bool   `json:"stream"`
 	BillingType *int8   `json:"billing_type"`
 	Timezone    string  `json:"timezone"`
+}
+
+// parseUsageIPFilter 解析并校验 ip_address 查询参数；返回 false 表示已写回 400。
+func parseUsageIPFilter(c *gin.Context) (string, bool) {
+	raw := strings.TrimSpace(c.Query("ip_address"))
+	if raw == "" {
+		return "", true
+	}
+	if len(raw) > 45 || net.ParseIP(raw) == nil {
+		response.BadRequest(c, "Invalid ip_address")
+		return "", false
+	}
+	return raw, true
 }
 
 // List handles listing all usage records with filters
@@ -112,6 +126,10 @@ func (h *UsageHandler) List(c *gin.Context) {
 	model := c.Query("model")
 	requestID := strings.TrimSpace(c.Query("request_id"))
 	billingMode := strings.TrimSpace(c.Query("billing_mode"))
+	ipAddress, ok := parseUsageIPFilter(c)
+	if !ok {
+		return
+	}
 
 	var requestType *int16
 	var stream *bool
@@ -204,6 +222,7 @@ func (h *UsageHandler) List(c *gin.Context) {
 		AccountID:             accountID,
 		GroupID:               groupID,
 		RequestID:             requestID,
+		IPAddress:             ipAddress,
 		Model:                 model,
 		ModelFilterSource:     usagestats.ModelSourceRequested,
 		RequestType:           requestType,
@@ -225,6 +244,63 @@ func (h *UsageHandler) List(c *gin.Context) {
 	}
 
 	response.Paginated(c, adminUsageLogResponses(c, records), result.Total, page, pageSize)
+}
+
+// IPSharingRisk 返回时间窗内被多个账号共用的来源 IP。
+// GET /api/v1/admin/usage/ip-sharing
+func (h *UsageHandler) IPSharingRisk(c *gin.Context) {
+	userTZ := c.Query("timezone")
+	endTime := time.Now()
+	if raw := strings.TrimSpace(c.Query("end_date")); raw != "" {
+		t, err := timezone.ParseInUserLocation("2006-01-02", raw, userTZ)
+		if err != nil {
+			response.BadRequest(c, "Invalid end_date format, use YYYY-MM-DD")
+			return
+		}
+		endTime = t.AddDate(0, 0, 1)
+	}
+	startTime := endTime.AddDate(0, 0, -7)
+	if raw := strings.TrimSpace(c.Query("start_date")); raw != "" {
+		t, err := timezone.ParseInUserLocation("2006-01-02", raw, userTZ)
+		if err != nil {
+			response.BadRequest(c, "Invalid start_date format, use YYYY-MM-DD")
+			return
+		}
+		startTime = t
+	}
+	if !startTime.Before(endTime) {
+		response.BadRequest(c, "start_date must be before end_date")
+		return
+	}
+
+	minAccounts := parseIntQueryClamped(c, "min_accounts", 2, 2, 100)
+	limit := parseIntQueryClamped(c, "limit", 50, 1, 200)
+
+	items, err := h.usageService.GetIPSharingRisk(c.Request.Context(), startTime, endTime, minAccounts, limit)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"items": items, "start_time": startTime, "end_time": endTime})
+}
+
+// parseIntQueryClamped 解析整数查询参数；缺失或非法时返回默认值，并夹在 [min,max]。
+func parseIntQueryClamped(c *gin.Context, key string, fallback, minValue, maxValue int) int {
+	raw := strings.TrimSpace(c.Query(key))
+	if raw == "" {
+		return fallback
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil {
+		return fallback
+	}
+	if value < minValue {
+		return minValue
+	}
+	if value > maxValue {
+		return maxValue
+	}
+	return value
 }
 
 // Stats handles getting usage statistics with filters
@@ -270,6 +346,10 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 
 	model := c.Query("model")
 	billingMode := strings.TrimSpace(c.Query("billing_mode"))
+	ipAddress, ok := parseUsageIPFilter(c)
+	if !ok {
+		return
+	}
 
 	var requestType *int16
 	var stream *bool
@@ -370,6 +450,7 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 		APIKeyID:              apiKeyID,
 		AccountID:             accountID,
 		GroupID:               groupID,
+		IPAddress:             ipAddress,
 		Model:                 model,
 		ModelFilterSource:     usagestats.ModelSourceRequested,
 		RequestType:           requestType,

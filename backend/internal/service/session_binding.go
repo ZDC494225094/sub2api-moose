@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"net"
 	"strings"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -50,6 +51,20 @@ func SessionBindingFromContext(ctx context.Context) *SessionBinding {
 	}
 	binding, _ := ctx.Value(sessionBindingCtxKey{}).(*SessionBinding)
 	return binding
+}
+
+// ClientIPFromContext 返回本次请求已校验的客户端 IP，供注册/登录落库使用。
+// 缺失或非法时返回 false，调用方应保持字段为空。
+func ClientIPFromContext(ctx context.Context) (string, bool) {
+	binding := SessionBindingFromContext(ctx)
+	if binding == nil {
+		return "", false
+	}
+	addr := strings.TrimSpace(binding.IP)
+	if addr == "" || len(addr) > 45 || net.ParseIP(addr) == nil {
+		return "", false
+	}
+	return addr, true
 }
 
 // sessionBindingHashFromContext 提取指纹哈希，缺失时返回空串。

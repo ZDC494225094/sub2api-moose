@@ -150,6 +150,7 @@ func (r *userRepository) create(ctx context.Context, userIn *service.User, guard
 		SetConcurrency(userIn.Concurrency).
 		SetStatus(userIn.Status).
 		SetSignupSource(userSignupSourceOrDefault(userIn.SignupSource)).
+		SetNillableRegistrationIP(registrationIPFromContext(txCtx)).
 		SetNillableLastLoginAt(userIn.LastLoginAt).
 		SetNillableLastActiveAt(userIn.LastActiveAt).
 		SetRpmLimit(userIn.RPMLimit).
@@ -565,6 +566,20 @@ func (r *userRepository) ListWithFilters(ctx context.Context, params pagination.
 		q = q.Where(dbuser.HasAllowedGroupsWith(
 			dbgroup.NameContainsFold(filters.GroupName),
 		))
+	}
+
+	if ipAddress := strings.TrimSpace(filters.IPAddress); ipAddress != "" {
+		switch strings.ToLower(strings.TrimSpace(filters.IPScope)) {
+		case "registration":
+			q = q.Where(dbuser.RegistrationIPEQ(ipAddress))
+		case "last_used":
+			q = q.Where(dbuser.LastUsedIPEQ(ipAddress))
+		default:
+			q = q.Where(dbuser.Or(
+				dbuser.RegistrationIPEQ(ipAddress),
+				dbuser.LastUsedIPEQ(ipAddress),
+			))
+		}
 	}
 
 	if filters.APIKeyGroupID > 0 {
@@ -1547,6 +1562,8 @@ func applyUserEntityToService(dst *service.User, src *dbent.User) {
 	dst.SignupSource = src.SignupSource
 	dst.LastLoginAt = src.LastLoginAt
 	dst.LastActiveAt = src.LastActiveAt
+	dst.RegistrationIP = src.RegistrationIP
+	dst.LastUsedIP = src.LastUsedIP
 	dst.CreatedAt = src.CreatedAt
 	dst.UpdatedAt = src.UpdatedAt
 }
@@ -1560,6 +1577,17 @@ func userSignupSourceOrDefault(signupSource string) string {
 	default:
 		return "email"
 	}
+}
+
+// registrationIPFromContext 返回本次请求的客户端 IP，用于记录注册来源。
+// 只接受 SessionBindingContext 注入的、经校验的 IP；后台建号等无请求上下文的
+// 路径返回 nil，保持 NULL。
+func registrationIPFromContext(ctx context.Context) *string {
+	addr, ok := service.ClientIPFromContext(ctx)
+	if !ok {
+		return nil
+	}
+	return &addr
 }
 
 // marshalExtraEmails serializes notify email entries to JSON for storage.

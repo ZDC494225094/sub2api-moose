@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"log/slog"
 	"math"
 	"sort"
 	"strconv"
@@ -1027,6 +1028,12 @@ func (s *APIKeyService) ValidateKey(ctx context.Context, key string) (*APIKey, *
 // TouchLastUsed 通过防抖更新 api_keys.last_used_at，减少高频写放大。
 // 该操作为尽力而为，不应阻塞主请求链路。
 func (s *APIKeyService) TouchLastUsed(ctx context.Context, keyID int64) error {
+	return s.TouchLastUsedWithIP(ctx, keyID, 0, "")
+}
+
+// TouchLastUsedWithIP 在同一个防抖窗口内更新 API Key 的最近使用时间，
+// 并在可用时记录用户最近使用的来源 IP。userID 或 clientIP 为空时只更新 Key。
+func (s *APIKeyService) TouchLastUsedWithIP(ctx context.Context, keyID, userID int64, clientIP string) error {
 	if keyID <= 0 {
 		return nil
 	}
@@ -1051,9 +1058,24 @@ func (s *APIKeyService) TouchLastUsed(ctx context.Context, keyID int64) error {
 			return nil, fmt.Errorf("touch api key last used: %w", err)
 		}
 		s.lastUsedTouchL1.Store(keyID, latest.Add(apiKeyLastUsedMinTouch))
+		s.touchUserLastUsedIP(ctx, userID, clientIP)
 		return nil, nil
 	})
 	return err
+}
+
+// touchUserLastUsedIP 记录用户最近使用 IP；失败只影响风控数据，不阻断计费链路。
+func (s *APIKeyService) touchUserLastUsedIP(ctx context.Context, userID int64, clientIP string) {
+	if userID <= 0 || strings.TrimSpace(clientIP) == "" || s.userRepo == nil {
+		return
+	}
+	repo, ok := s.userRepo.(UserLastUsedIPRepository)
+	if !ok {
+		return
+	}
+	if err := repo.UpdateUserLastUsedIP(ctx, userID, clientIP); err != nil {
+		slog.Warn("touch user last used ip failed", "user_id", userID, "error", err)
+	}
 }
 
 // IncrementUsage 增加API Key使用次数（可选：用于统计）

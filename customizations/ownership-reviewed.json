@@ -812,6 +812,18 @@
       "kind": "shared-host",
       "evidence": "CDN origin secret: when ORIGIN_SECRET is set, a global middleware registered right after Recovery in server/http.go returns an empty 403 for requests without a matching ORIGIN_SECRET_HEADER value (GET/HEAD /health exempt) and strips the header before later middleware. Unset means no middleware is added, so upstream behaviour is unchanged.",
       "next_step": "On upstream merges keep configureOriginSecret ahead of every other middleware in ProvideRouter and keep the deploy compose/.env entries."
+    },
+    {
+      "paths": [
+        "backend/internal/service/session_binding.go",
+        "backend/internal/service/session_binding_client_ip_test.go"
+      ],
+      "owners": [
+        "shared-infrastructure"
+      ],
+      "kind": "shared-host",
+      "evidence": "User IP tracking: session_binding.go only gains ClientIPFromContext, a read-only helper that returns the validated client IP already stored in the SessionBinding context. userRepo.create uses it to fill users.registration_ip and touchUserLogin to fill users.last_used_ip (migration 254). Existing session binding fingerprint and revocation logic is unchanged.",
+      "next_step": "On upstream merges keep ClientIPFromContext reading the same SessionBinding context value; if upstream renames that context, update the helper rather than adding a second IP source."
     }
   ]
 }
