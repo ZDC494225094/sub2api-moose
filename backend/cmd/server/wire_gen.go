@@ -350,7 +350,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	marketingHandler := wiring.ProvideMarketingHandler(v5, v12, bindingRepository)
 	wechatHandler := wiring.ProvideWechatHandler(db, bindingRepository, v12)
 	modelPlazaService := service.NewModelPlazaService(channelRepository, groupRepository, pricingService, billingService, modelPricingResolver)
-	botnotifyHandler := wiring.ProvideBotNotify(db, secretEncryptor, settingRepository, settingService, channelMonitorService, announcementService, modelPlazaService, paymentConfigService)
+	botnotifyHandler := wiring.ProvideBotNotify(db, secretEncryptor, settingRepository, settingService, channelMonitorService, channelMonitorV2Service, announcementService, modelPlazaService, paymentConfigService)
 	userguideHandler := wiring.ProvideUserGuide(db)
 	gatewaylogarchiveHandler := wiring.ProvideGatewayLogArchive(db, secretEncryptor, settingService)
 	invoicesHandler := wiring.ProvideInvoices(db)

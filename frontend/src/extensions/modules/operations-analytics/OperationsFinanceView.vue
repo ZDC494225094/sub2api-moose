@@ -3,7 +3,10 @@
     <div class="finance space-y-6">
       <header class="finance-hero">
         <div class="flex items-center gap-4"><div class="hero-icon"><Icon name="chartBar" size="lg" /></div><div><p class="mb-1 text-[10px] font-semibold tracking-[0.24em] text-indigo-500 dark:text-indigo-300">OPERATIONS INTELLIGENCE</p><h1 class="text-2xl font-semibold tracking-tight">运营分析</h1><p class="mt-2 text-xs text-gray-500 dark:text-gray-400">从充值、消耗到利润，追踪每一笔经营变化</p></div></div>
-        <button v-if="report" type="button" class="btn btn-secondary flex items-center gap-2" @click="openCustomers('repeat')"><Icon name="users" size="sm" /> 用户经营与留存 <Icon name="arrowRight" size="sm" /></button>
+        <div v-if="report" class="flex flex-wrap gap-2">
+          <button type="button" class="btn btn-secondary flex items-center gap-2" @click="openModal('balance')"><Icon name="chartBar" size="sm" />{{ t('admin.operations.balanceTrend.title') }}</button>
+          <button type="button" class="btn btn-secondary flex items-center gap-2" @click="openCustomers('repeat')"><Icon name="users" size="sm" /> 用户经营与留存 <Icon name="arrowRight" size="sm" /></button>
+        </div>
       </header>
       <form class="finance-panel finance-filter" @submit.prevent="load">
         <div class="mr-auto"><p class="mb-2 text-xs text-gray-500">统计周期 <span class="ml-2 text-gray-400">{{ timezone }} · 最多 90 天</span></p><div class="date-presets" role="group" aria-label="日期快捷选择"><button v-for="preset in presets" :key="preset.label" type="button" :aria-pressed="activePreset === preset.label" :class="{ selected: activePreset === preset.label }" @click="setRange(preset.days, preset.label)">{{ preset.label }}</button></div></div>
@@ -39,7 +42,7 @@
         </section>
         <BaseDialog :show="modal !== null" :title="modalTitle" width="extra-wide" @close="closeModal">
           <div ref="modalContent" class="finance space-y-4">
-            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500"><button v-if="modalHistory.length" class="btn btn-secondary flex items-center gap-1" @click="backModal"><Icon name="chevronLeft" size="sm" />返回上一级</button><span>{{ report.start_date }} — {{ report.end_date }} · {{ timezone }}</span><span>原地分析 · Esc 关闭</span></div>
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500"><button v-if="modalHistory.length" class="btn btn-secondary flex items-center gap-1" @click="backModal"><Icon name="chevronLeft" size="sm" />返回上一级</button><span><template v-if="modal !== 'balance'">{{ report.start_date }} — {{ report.end_date }} · </template>{{ timezone }}</span><span>原地分析 · Esc 关闭</span></div>
         <section v-show="modal === 'dimensions'" class="finance-panel min-w-0 ">
           <div class="section-heading mb-5"><div><span class="section-index">03</span><h2>多维经营分析</h2></div><span class="text-xs text-gray-400">上游 → 账号 → 请求 · 原地弹窗下探</span></div>
           <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -63,11 +66,19 @@
               </div>
               <section class="finance-panel min-w-0">
                 <div class="chart-heading flex-wrap">
-                  <h3>{{ t('admin.operations.balanceTrend.title') }}</h3>
-                  <div class="date-presets" role="group" :aria-label="t('admin.operations.balanceTrend.range')">
-                    <button v-for="months in balanceMonthOptions" :key="months" type="button" :class="{ selected: balanceMonths === months }" :aria-pressed="balanceMonths === months" @click="balanceMonths = months">{{ t('admin.operations.balanceTrend.months', { months }) }}</button>
+                  <div><h3>{{ t('admin.operations.balanceTrend.title') }}</h3><p>{{ t('admin.operations.balanceTrend.basis') }}</p></div>
+                  <div class="date-presets" role="group" :aria-label="t('admin.operations.balanceTrend.granularity')">
+                    <button v-for="unit in balanceUnits" :key="unit" type="button" :class="{ selected: balanceUnit === unit }" :aria-pressed="balanceUnit === unit" @click="balanceUnit = unit">{{ t('admin.operations.balanceTrend.' + unit) }}</button>
                   </div>
                 </div>
+                <form class="mb-4 flex flex-wrap items-end gap-3" @submit.prevent="applyBalanceRange">
+                  <div class="date-presets" role="group" :aria-label="t('admin.operations.balanceTrend.presets')">
+                    <button v-for="months in balanceMonthOptions" :key="months" type="button" :class="{ selected: 'months' in balanceRange && balanceRange.months === months }" :aria-pressed="'months' in balanceRange && balanceRange.months === months" @click="balanceRange = { months }">{{ t('admin.operations.balanceTrend.months', { months }) }}</button>
+                  </div>
+                  <label class="text-xs text-gray-500">{{ t('admin.operations.balanceTrend.startDate') }}<input v-model="balanceStart" type="date" required class="input mt-1" :max="balanceEnd || balanceToday"></label>
+                  <label class="text-xs text-gray-500">{{ t('admin.operations.balanceTrend.endDate') }}<input v-model="balanceEnd" type="date" required class="input mt-1" :min="balanceStart" :max="balanceToday"></label>
+                  <button type="submit" class="btn btn-secondary">{{ t('admin.operations.balanceTrend.apply') }}</button>
+                </form>
                 <div v-if="balanceLoading" role="status" class="flex h-72 flex-col items-center justify-center text-sm text-gray-500 dark:text-gray-400">
                   <Icon name="refresh" class="mb-3 animate-spin text-indigo-500" />{{ t('admin.operations.balanceTrend.loading') }}
                 </div>
@@ -75,9 +86,26 @@
                   <p>{{ t('admin.operations.balanceTrend.loadFailed') }}</p>
                   <button type="button" class="btn btn-secondary" @click="loadBalanceHistory">{{ t('admin.operations.balanceTrend.retry') }}</button>
                 </div>
-                <div v-else-if="!balanceHistory.length" role="status" class="flex h-72 items-center justify-center text-sm text-gray-500 dark:text-gray-400">{{ t('admin.operations.balanceTrend.noData') }}</div>
+                <div v-else-if="!hasBalanceValues" role="status" class="flex h-28 items-center justify-center text-sm text-gray-500 dark:text-gray-400">{{ t('admin.operations.balanceTrend.noData') }}</div>
                 <div v-else class="relative h-72"><canvas ref="balanceCanvas" role="img" :aria-label="t('admin.operations.balanceTrend.title')" /></div>
                 <p v-if="!balanceLoading && !balanceError && balanceHistory.some(point => point.realtime)" class="mt-3 flex items-start gap-2 text-xs leading-5 text-gray-500 dark:text-gray-400"><span aria-hidden="true" class="mt-1.5 h-2 w-2 shrink-0 rotate-45 bg-amber-500" />{{ t('admin.operations.balanceTrend.realtimeNote') }}</p>
+                <div v-if="balanceHistory.length" class="mt-4 max-h-80 overflow-auto">
+                  <table class="w-full whitespace-nowrap text-sm tabular-nums">
+                    <caption class="pb-2 text-left font-medium">{{ t('admin.operations.balanceTrend.details') }} · USD</caption>
+                    <thead class="sticky top-0 bg-gray-50 text-xs text-gray-500 dark:bg-dark-900"><tr>
+                      <th scope="col" class="p-2 text-left">{{ t('admin.operations.balanceTrend.period') }}</th>
+                      <th scope="col" class="p-2 text-right">{{ t('admin.operations.balanceTrend.totalBalance') }}</th>
+                      <th scope="col" class="p-2 text-right">{{ t('admin.operations.balanceTrend.totalSubscriptionRemaining') }}</th>
+                      <th scope="col" class="p-2 text-left">{{ t('admin.operations.balanceTrend.observed') }}</th>
+                    </tr></thead>
+                    <tbody><tr v-for="point in newestBalances" :key="point.period" class="border-t border-gray-100 dark:border-dark-700">
+                      <th scope="row" class="p-2 text-left font-normal">{{ point.period }}</th>
+                      <td class="p-2 text-right">{{ point.total_balance == null ? '—' : money(point.total_balance) }}</td>
+                      <td class="p-2 text-right">{{ point.total_subscription_remaining == null ? '—' : money(point.total_subscription_remaining) }}</td>
+                      <td class="p-2 text-xs text-gray-500">{{ observationLabel(point) }}</td>
+                    </tr></tbody>
+                  </table>
+                </div>
               </section>
               <p class="rounded-xl bg-gray-50 p-4 text-xs leading-6 text-gray-500 dark:bg-dark-900">订阅额度按每份有效订阅的日 / 周 / 月剩余限额取最小值后汇总，已按实际重置规则刷新。无限额订阅单独计数，不将多个周期相加，也不与余额相加。冻结余额：{{ report.inventory ? money(report.inventory.frozen_balance) : '—' }}。</p>
               <button class="btn btn-secondary" @click="openCustomers('balance')">查看有余额用户明细</button>
@@ -107,7 +135,7 @@ import OperationsPaymentBreakdown from './components/OperationsPaymentBreakdown.
 import { cashMoney, paymentTotals } from './operationsFinanceMetrics'
 import OperationsCustomers from './components/OperationsCustomers.vue'
 import OperationsRecords from './components/OperationsRecords.vue'
-import { getOperationsFinance, getOperationsBalanceHistory, type FinanceReport, type FinanceRow, type CustomerSegment, type BalanceMonthlyStats } from '@/extensions/modules/operations-analytics/api'
+import { getOperationsFinance, getOperationsBalanceHistory, type FinanceReport, type FinanceRow, type CustomerSegment, type BalanceHistoryPoint, type BalanceGranularity, type BalanceRange } from '@/extensions/modules/operations-analytics/api'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend)
 const { t, locale } = useI18n()
@@ -169,8 +197,37 @@ function closeModal() { modal.value = null; modalHistory.value = [] }
 function backModal() { modal.value = modalHistory.value.pop() ?? null }
 async function openCustomers(segment: CustomerSegment) { openModal('customers'); await nextTick(); customers.value?.open(segment) }
 const balanceMonthOptions = [3, 6, 12] as const
-const balanceMonths = ref<3 | 6 | 12>(3)
-const balanceHistory = ref<BalanceMonthlyStats[]>([])
+const balanceUnits = ['month', 'week', 'day', 'range'] as const
+const balanceUnit = ref<BalanceGranularity>('month')
+const balanceRange = ref<BalanceRange>({ months: 3 })
+const balanceStart = ref(''), balanceEnd = ref('')
+const balanceToday = computed(() => report.value
+  ? new Intl.DateTimeFormat('sv-SE', { timeZone: timezone.value }).format(new Date(report.value.generated_at))
+  : '')
+watch([balanceRange, balanceToday], ([range, today]) => {
+  if (!today) return
+  if ('months' in range) {
+    const [year, month] = today.split('-').map(Number)
+    balanceStart.value = new Date(Date.UTC(year, month - range.months, 1)).toISOString().slice(0, 10)
+    balanceEnd.value = today
+  } else {
+    balanceStart.value = range.start_date
+    balanceEnd.value = range.end_date
+  }
+}, { immediate: true })
+function applyBalanceRange() {
+  if (balanceStart.value && balanceEnd.value >= balanceStart.value && balanceEnd.value <= balanceToday.value) {
+    balanceRange.value = { start_date: balanceStart.value, end_date: balanceEnd.value }
+  }
+}
+const balanceHistory = ref<BalanceHistoryPoint[]>([])
+const hasBalanceValues = computed(() => balanceHistory.value.some(p => p.total_balance != null || p.total_subscription_remaining != null))
+const newestBalances = computed(() => [...balanceHistory.value].reverse())
+function observationLabel(point: BalanceHistoryPoint) {
+  const label = t('admin.operations.balanceTrend.' + point.source)
+  if (point.as_of) return label + ' · ' + new Date(point.as_of).toLocaleString(locale.value, { timeZone: timezone.value })
+  return point.observed_on ? label + ' · ' + point.observed_on : label
+}
 const balanceLoading = ref(false), balanceError = ref(false)
 const balanceCanvas = ref<HTMLCanvasElement | null>(null)
 let balanceController: AbortController | undefined
@@ -196,7 +253,7 @@ async function loadBalanceHistory() {
   balanceLoading.value = true
   balanceError.value = false
   try {
-    const result = await getOperationsBalanceHistory({ months: balanceMonths.value }, request.signal)
+    const result = await getOperationsBalanceHistory({ ...balanceRange.value, granularity: balanceUnit.value }, request.signal)
     if (balanceController === request && !request.signal.aborted) balanceHistory.value = result
   } catch {
     if (balanceController === request && !request.signal.aborted) balanceError.value = true
@@ -241,7 +298,7 @@ function renderBalanceChart() {
       plugins: {
         legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 7, padding: 20 } },
         tooltip: { callbacks: {
-          label: context => `${context.dataset.label}: ${money(context.parsed.y ?? 0)}`,
+          label: context => `${context.dataset.label} · ${context.parsed.y == null ? '—' : money(context.parsed.y)}`,
           footer: items => points[items[0]?.dataIndex ?? -1]?.realtime ? t('admin.operations.balanceTrend.realtimeNote') : ''
         } }
       },
@@ -252,7 +309,7 @@ function renderBalanceChart() {
     }
   })
 }
-watch([modal, balanceMonths], () => {
+watch([modal, balanceRange, balanceUnit], () => {
   if (modal.value === 'balance') void loadBalanceHistory()
   else resetBalanceHistory()
 }, { flush: 'sync' })

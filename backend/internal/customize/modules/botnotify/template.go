@@ -2,11 +2,14 @@ package botnotify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 )
+
+var ErrMonitorDisabled = errors.New("渠道监控已关闭")
 
 func Blocks(points []Point) (string, int) {
 	points = append([]Point(nil), points...)
@@ -39,12 +42,39 @@ func Blocks(points []Point) (string, int) {
 func ChannelStatus(channels []Channel, abnormal bool, now time.Time) string {
 	var out strings.Builder
 	fmt.Fprintf(&out, "%d月%d日%s 分组状态", now.Month(), now.Day(), now.Format("15:04"))
+	if len(channels) == 0 {
+		return out.String() + "\n暂无可播报的分组监控数据"
+	}
+	if passive := channels[0].Passive; passive != nil {
+		out.WriteString(" · V2 被动监控\n近 90 分钟综合健康度，每格 5 分钟，白格表示样本不足")
+		if !passive.DataThrough.IsZero() {
+			fmt.Fprintf(&out, "\n数据截至 %s", passive.DataThrough.In(now.Location()).Format("01-02 15:04"))
+		}
+	}
+	shown, unknown := 0, 0
 	for _, c := range channels {
 		blocks, bad := Blocks(c.Timeline)
+		if c.Passive != nil {
+			warn := c.Status == "degraded" || c.Status == "failed"
+			if c.Status == "unknown" {
+				unknown++
+			}
+			if abnormal && !warn {
+				continue
+			}
+			shown++
+			fmt.Fprintf(&out, "\n\n%s · %s", c.GroupName, c.Passive.Platform)
+			if warn {
+				out.WriteString(" ⚠️")
+			}
+			fmt.Fprintf(&out, "\n%s\n%s", blocks, c.Passive.Summary(c.Status))
+			continue
+		}
 		warn := c.Status != "operational" || bad >= 3
 		if abnormal && !warn {
 			continue
 		}
+		shown++
 		out.WriteString("\n\n" + c.GroupName + " · " + c.Model)
 		if warn {
 			out.WriteString(" ⚠️")
@@ -54,7 +84,40 @@ func ChannelStatus(channels []Channel, abnormal bool, now time.Time) string {
 			fmt.Fprintf(&out, "\n近10次检测 %d 次降级/失败", bad)
 		}
 	}
+	if abnormal && shown == 0 {
+		out.WriteString("\n暂无已确认异常的分组")
+	}
+	if abnormal && unknown > 0 {
+		fmt.Fprintf(&out, "\n%d 个分组样本不足", unknown)
+	}
 	return out.String()
+}
+
+func (p PassiveMetrics) Summary(status string) string {
+	state := "样本不足"
+	switch status {
+	case "operational":
+		state = "正常"
+	case "degraded":
+		state = "降级"
+	case "failed":
+		state = "异常"
+	}
+	rate := func(value *float64) string {
+		if value == nil {
+			return "样本不足"
+		}
+		return fmt.Sprintf("%.2f%%", *value)
+	}
+	latency := "暂无样本"
+	if p.TTFTP50MS != nil {
+		latency = fmt.Sprintf("%dms", *p.TTFTP50MS)
+	}
+	week := rate(p.Success7d)
+	if p.PartialWeek && p.Success7d != nil {
+		week += "（部分覆盖）"
+	}
+	return fmt.Sprintf("状态 %s｜首字延迟 P50 %s｜90 分钟成功率 %s｜近 7 天成功率 %s", state, latency, rate(p.Success90m), week)
 }
 
 // FormatAnnouncement renders one announcement as its title plus its body
@@ -90,10 +153,14 @@ func Render(ctx context.Context, data Data, template string, now time.Time) (str
 	pairs := []string{"{now}", now.Format("2006-01-02 15:04:05")}
 	if strings.Contains(template, "{channel_status}") || strings.Contains(template, "{channel_status_abnormal}") {
 		channels, err := data.Channels(ctx)
-		if err != nil {
+		switch {
+		case errors.Is(err, ErrMonitorDisabled):
+			pairs = append(pairs, "{channel_status}", ErrMonitorDisabled.Error(), "{channel_status_abnormal}", ErrMonitorDisabled.Error())
+		case err != nil:
 			return "", err
+		default:
+			pairs = append(pairs, "{channel_status}", ChannelStatus(channels, false, now), "{channel_status_abnormal}", ChannelStatus(channels, true, now))
 		}
-		pairs = append(pairs, "{channel_status}", ChannelStatus(channels, false, now), "{channel_status_abnormal}", ChannelStatus(channels, true, now))
 	}
 	if strings.Contains(template, "{announcements}") {
 		list, err := data.Announcements(ctx)

@@ -82,11 +82,11 @@ type Config struct {
 	// PushMode is "interval" (IntervalMinutes, aligned to local midnight) or
 	// "daily" (every PushTimes "HH:MM" point in the server timezone). Empty
 	// means interval, the behavior of configs saved before daily times.
-	PushMode  string   `json:"push_mode"`
-	PushTimes []string `json:"push_times"`
-	PushTemplate    string   `json:"push_template"`
-	BotUsername     string   `json:"bot_username"`
-	BotID           int64    `json:"bot_id"`
+	PushMode     string   `json:"push_mode"`
+	PushTimes    []string `json:"push_times"`
+	PushTemplate string   `json:"push_template"`
+	BotUsername  string   `json:"bot_username"`
+	BotID        int64    `json:"bot_id"`
 	// AppID is the QQ bot's app id in clear text (the secret rides encrypted
 	// in BotToken as a JSON credential blob). Empty for Telegram bots.
 	AppID string `json:"app_id,omitempty"`
@@ -125,6 +125,16 @@ type Channel struct {
 	LatencyMS                int
 	Availability             float64
 	Timeline                 []Point
+	Passive                  *PassiveMetrics
+}
+
+type PassiveMetrics struct {
+	Platform    string
+	TTFTP50MS   *int64
+	Success90m  *float64
+	Success7d   *float64
+	PartialWeek bool
+	DataThrough time.Time
 }
 
 // Announcement is one currently-active site announcement with its raw

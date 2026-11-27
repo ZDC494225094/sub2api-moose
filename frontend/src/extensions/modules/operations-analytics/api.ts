@@ -50,15 +50,23 @@ export async function getOperationsFinance(params: { start_date?: string; end_da
   return data
 }
 
-export interface BalanceMonthlyStats {
+export type BalanceGranularity = 'day' | 'week' | 'month' | 'range'
+export type BalanceRange = { months: 3 | 6 | 12 } | { start_date: string; end_date: string }
+
+export interface BalanceHistoryPoint {
   period: string
-  total_balance: number
-  total_subscription_remaining: number
+  start_date: string
+  end_date: string
+  observed_on?: string
+  as_of?: string
+  source: 'daily' | 'monthly' | 'wallet_snapshot' | 'live' | 'missing'
+  total_balance: number | null
+  total_subscription_remaining: number | null
   realtime?: boolean
 }
 
-export async function getOperationsBalanceHistory(params: { months: 3 | 6 | 12 }, signal?: AbortSignal) {
-  const { data } = await apiClient.get<BalanceMonthlyStats[]>('/admin/operations/balance/history', { params, signal })
+export async function getOperationsBalanceHistory(params: BalanceRange & { granularity?: BalanceGranularity }, signal?: AbortSignal) {
+  const { data } = await apiClient.get<BalanceHistoryPoint[]>('/admin/operations/balance/history', { params, signal })
   return data
 }
 

@@ -4,7 +4,7 @@ import { createI18n, type MessageContext } from 'vue-i18n'
 import type { ChartConfiguration, ScriptableLineSegmentContext } from 'chart.js'
 import en from '@/i18n/locales/en/custom'
 import zh from '@/i18n/locales/zh/custom'
-import type { BalanceMonthlyStats } from '../api'
+import type { BalanceHistoryPoint } from '../api'
 import OperationsFinanceView from '../OperationsFinanceView.vue'
 
 const { getReport, getHistory, createChart, push, replace, openRecords } = vi.hoisted(() => ({
@@ -26,10 +26,10 @@ const payments = [
  { day: '2026-09-01', currency: 'USD', recharge_paid: 4, subscription_paid: 0, credited: 5, pending_credit: 0 }
 ]
 const data = { payments, inventory: { frozen_balance: 3, subscription_remaining: 75, limited_subscriptions: 2, unlimited_subscriptions: 1, gift_remaining: null }, start_date: '2026-09-01', end_date: '2026-09-14', generated_at: '2026-09-14T10:00:00Z', current_balance: 50, summary: row, rows: [{ ...row, dimension: 'day', key: '2026-09-01' }, { ...row, dimension: 'upstream', key: 'Vendor A', label: 'Vendor A' }, { ...row, dimension: 'account' }] }
-const history: BalanceMonthlyStats[] = [
-  { period: '2026-07', total_balance: 30, total_subscription_remaining: 60 },
-  { period: '2026-08', total_balance: 40, total_subscription_remaining: 70 },
-  { period: '2026-09', total_balance: 50, total_subscription_remaining: 75, realtime: true }
+const history: BalanceHistoryPoint[] = [
+  { period: '2026-07', start_date: '2026-07-01', end_date: '2026-07-31', observed_on: '2026-07-31', source: 'monthly', total_balance: 30, total_subscription_remaining: 60 },
+  { period: '2026-08', start_date: '2026-08-01', end_date: '2026-08-31', observed_on: '2026-08-31', source: 'monthly', total_balance: 40, total_subscription_remaining: 70 },
+  { period: '2026-09', start_date: '2026-09-01', end_date: '2026-09-14', observed_on: '2026-09-14', source: 'live', total_balance: 50, total_subscription_remaining: 75, realtime: true }
 ]
 const balanceMessages = (source: typeof en) => ({ admin: { operations: {
   balanceTrend: Object.fromEntries(Object.entries(source.admin.operations.balanceTrend).map(([key, message]) => [
@@ -127,7 +127,7 @@ describe('Operations finance', () => {
     expect(getHistory).not.toHaveBeenCalled()
     await wrapper.findAll('button').find(button => button.text().includes('当前用户余额'))!.trigger('click')
     await flushPromises()
-    expect(getHistory).toHaveBeenCalledWith({ months: 3 }, expect.any(AbortSignal))
+    expect(getHistory).toHaveBeenCalledWith({ months: 3, granularity: 'month' }, expect.any(AbortSignal))
     const config = createChart.mock.lastCall![1]
     expect(config.type).toBe('line')
     expect(config.options).toMatchObject({ responsive: true, maintainAspectRatio: false })
@@ -152,7 +152,7 @@ describe('Operations finance', () => {
       }
     }
     expect(wrapper.get('canvas[role="img"]').element.parentElement!.classList.contains('h-72')).toBe(true)
-    expect(wrapper.get('[role="dialog"]').text()).toContain('本月实时数据，非月末快照')
+    expect(wrapper.get('[role="dialog"]').text()).toContain('查询时的实时结余')
     wrapper.unmount()
     expect(createChart.mock.results[0].value.destroy).toHaveBeenCalledOnce()
   })
@@ -164,7 +164,7 @@ describe('Operations finance', () => {
       const previousChart = createChart.mock.results[createChart.mock.results.length - 1].value
       const button = wrapper.findAll('button').find(item => item.text() === `${months} 个月`)!
       await button.trigger('click'); await flushPromises()
-      expect(getHistory.mock.lastCall![0]).toEqual({ months })
+      expect(getHistory.mock.lastCall![0]).toEqual({ months, granularity: 'month' })
       expect(button.attributes('aria-pressed')).toBe('true')
       expect(previousChart.destroy).toHaveBeenCalledOnce()
     }
@@ -173,13 +173,13 @@ describe('Operations finance', () => {
     expect(lastChart.destroy).toHaveBeenCalledOnce()
     await wrapper.findAll('button').find(button => button.text().includes('当前用户余额'))!.trigger('click')
     await flushPromises()
-    expect(getHistory.mock.lastCall![0]).toEqual({ months: 12 })
+    expect(getHistory.mock.lastCall![0]).toEqual({ months: 12, granularity: 'month' })
     wrapper.unmount()
     expect(createChart.mock.results[createChart.mock.results.length - 1].value.destroy).toHaveBeenCalledOnce()
   })
   it('shows loading and errors, then retries without changing the selected range', async () => {
     let rejectHistory!: (error: Error) => void
-    getHistory.mockImplementationOnce(() => new Promise<BalanceMonthlyStats[]>((_resolve, reject) => { rejectHistory = reject }))
+    getHistory.mockImplementationOnce(() => new Promise<BalanceHistoryPoint[]>((_resolve, reject) => { rejectHistory = reject }))
     const wrapper = create(); await flushPromises()
     await wrapper.findAll('button').find(button => button.text().includes('当前用户余额'))!.trigger('click')
     expect(wrapper.get('[role="dialog"] [role="status"]').text()).toContain('正在加载余额趋势')
@@ -190,7 +190,7 @@ describe('Operations finance', () => {
     await wrapper.findAll('button').find(button => button.text() === '重试')!.trigger('click')
     await flushPromises()
     expect(getHistory).toHaveBeenCalledTimes(2)
-    expect(getHistory.mock.lastCall![0]).toEqual({ months: 3 })
+    expect(getHistory.mock.lastCall![0]).toEqual({ months: 3, granularity: 'month' })
     expect(wrapper.find('[role="dialog"] [role="alert"]').exists()).toBe(false)
     expect(createChart).toHaveBeenCalledOnce()
     wrapper.unmount()
@@ -202,22 +202,51 @@ describe('Operations finance', () => {
     await flushPromises()
     expect(wrapper.get('[role="dialog"] [role="status"]').text()).toContain('暂无余额历史数据')
     expect(createChart).not.toHaveBeenCalled()
-    expect(wrapper.text()).not.toContain('本月实时数据，非月末快照')
+    expect(wrapper.text()).not.toContain('查询时的实时结余')
     wrapper.unmount()
   })
   it('renders real zero balances and does not mark historical snapshots as live data', async () => {
-    getHistory.mockResolvedValue([{ period: '2026-08', total_balance: 0, total_subscription_remaining: 0 }])
+    getHistory.mockResolvedValue([{ ...history[1], total_balance: 0, total_subscription_remaining: 0 }])
     const wrapper = create(); await flushPromises()
     await wrapper.findAll('button').find(button => button.text().includes('当前用户余额'))!.trigger('click')
     await flushPromises()
     expect(createChart.mock.lastCall![1].data.datasets.map(series => series.data)).toEqual([[0], [0]])
     expect(createChart.mock.lastCall![1].data.datasets[0].pointStyle).toEqual(['circle'])
-    expect(wrapper.text()).not.toContain('本月实时数据，非月末快照')
+    expect(wrapper.text()).not.toContain('查询时的实时结余')
+    wrapper.unmount()
+  })
+  it('queries the chosen calendar interval and shows missing values separately from zero', async () => {
+    const wrapper = create()
+    await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === '额度结余')!.trigger('click')
+    await flushPromises()
+    const dialog = wrapper.get('[role="dialog"]')
+    const [start, end] = dialog.findAll('input[type="date"]')
+    expect((start.element as HTMLInputElement).value).toBe('2026-07-01')
+    await start.setValue('2026-08-12')
+    await end.setValue('2026-09-05')
+    await dialog.get('form').trigger('submit')
+    for (const [label, granularity] of [['按日', 'day'], ['按周', 'week'], ['整个时间段', 'range'], ['按月', 'month']]) {
+      await dialog.findAll('button').find(b => b.text() === label)!.trigger('click')
+      expect(getHistory.mock.lastCall![0]).toEqual({ granularity, start_date: '2026-08-12', end_date: '2026-09-05' })
+    }
+    getHistory.mockResolvedValue([
+      { ...history[0], source: 'missing', observed_on: undefined, total_balance: null, total_subscription_remaining: null },
+      { ...history[1], source: 'wallet_snapshot', total_balance: 0, total_subscription_remaining: null },
+    ])
+    await dialog.get('form').trigger('submit')
+    await flushPromises()
+    const rows = dialog.get('table:has(caption)').findAll('tbody tr')
+    expect(rows[0].text()).toContain('$0.00')
+    expect(rows[0].text()).toContain('月末账户余额核算')
+    expect(rows[1].text()).toContain('无历史快照')
+    expect(rows[1].text()).not.toContain('$0')
+    expect(createChart.mock.lastCall![1].data.datasets[0].data).toEqual([null, 0])
     wrapper.unmount()
   })
   it('ignores stale responses after range changes and aborts on close and unmount', async () => {
-    const pending: { signal: AbortSignal; resolve: (points: BalanceMonthlyStats[]) => void }[] = []
-    getHistory.mockImplementation((_params, signal: AbortSignal) => new Promise<BalanceMonthlyStats[]>(resolve => { pending.push({ signal, resolve }) }))
+    const pending: { signal: AbortSignal; resolve: (points: BalanceHistoryPoint[]) => void }[] = []
+    getHistory.mockImplementation((_params, signal: AbortSignal) => new Promise<BalanceHistoryPoint[]>(resolve => { pending.push({ signal, resolve }) }))
     const wrapper = create(); await flushPromises()
     await wrapper.findAll('button').find(button => button.text().includes('当前用户余额'))!.trigger('click')
     await wrapper.findAll('button').find(button => button.text() === '6 个月')!.trigger('click')
@@ -254,10 +283,10 @@ describe('Operations finance', () => {
     const wrapper = create('en'); await flushPromises()
     await wrapper.findAll('button').find(button => button.text().includes('当前用户余额'))!.trigger('click')
     await flushPromises()
-    expect(wrapper.get('[role="dialog"]').text()).toContain('Monthly Balance Trend')
+    expect(wrapper.get('[role="dialog"]').text()).toContain('Credit Balance History')
     expect(wrapper.get('[role="dialog"]').text()).toContain('12 months')
     expect(createChart.mock.lastCall![1].data.datasets[0].label).toBe('Total Remaining Balance')
-    expect(wrapper.text()).toContain('not a month-end snapshot')
+    expect(wrapper.text()).toContain('live balance at query time')
     const chart = createChart.mock.results[0].value
     wrapper.vm.$i18n.locale = 'zh'
     await flushPromises()

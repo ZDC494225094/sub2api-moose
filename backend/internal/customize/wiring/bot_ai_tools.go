@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -73,7 +74,7 @@ func keywordProp(description string) map[string]any {
 }
 
 var aiToolSchemas = map[string]map[string]any{
-	botnotify.ToolGroupStatus: toolSchema(botnotify.ToolGroupStatus, "查询各分组（渠道）的当前状态、主模型和近7天可用性。用户问某个分组或模型是否正常、稳不稳定时调用。",
+	botnotify.ToolGroupStatus: toolSchema(botnotify.ToolGroupStatus, "根据站点当前监控模式查询分组健康度。V2 返回真实请求成功率和首字延迟，V1 返回主模型探测结果。",
 		map[string]any{"group": keywordProp("可选，分组名关键词，只返回名称包含该词的分组")}),
 	botnotify.ToolGroups: toolSchema(botnotify.ToolGroups, "查询公开分组的平台、计费方式（扣余额或订阅额度）、倍率和说明。用户问有哪些分组、哪个便宜、分组区别、该选哪个时调用。", nil),
 	botnotify.ToolModelPrices: toolSchema(botnotify.ToolModelPrices, "查询模型实付价格：每百万 token 的输入、输出、缓存读取、缓存写入价（已按分组倍率折算）及按次计费价。用户问某个模型多少钱、缓存怎么计费时调用。",
@@ -149,12 +150,19 @@ func containsFold(s, sub string) bool {
 
 func (t *botAITools) groupStatus(ctx context.Context, group string) string {
 	channels, err := t.data.Channels(ctx)
+	if errors.Is(err, botnotify.ErrMonitorDisabled) {
+		return botnotify.ErrMonitorDisabled.Error()
+	}
 	if err != nil {
 		return toolFailed
 	}
 	var lines []string
 	for _, c := range channels {
 		if !containsFold(c.GroupName, group) {
+			continue
+		}
+		if c.Passive != nil {
+			lines = append(lines, fmt.Sprintf("%s｜%s｜V2 被动监控｜%s", c.GroupName, c.Passive.Platform, c.Passive.Summary(c.Status)))
 			continue
 		}
 		status := "异常"

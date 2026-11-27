@@ -3,6 +3,7 @@ package wiring
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"sort"
 	"time"
 
@@ -15,11 +16,28 @@ import (
 
 type botData struct {
 	channels      *service.ChannelMonitorService
+	passive       *service.ChannelMonitorV2Service
+	runtime       func(context.Context) (service.ChannelMonitorRuntime, error)
+	db            *sql.DB
 	announcements *service.AnnouncementService
 	settings      service.SettingRepository
 }
 
 func (d botData) Channels(ctx context.Context) ([]botnotify.Channel, error) {
+	rt, err := d.runtime(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !rt.Enabled {
+		return nil, botnotify.ErrMonitorDisabled
+	}
+	if rt.PassiveAggregationAllowed() {
+		channels, err := d.passiveChannels(ctx)
+		if errors.Is(err, service.ErrChannelMonitorDisabled) {
+			return nil, botnotify.ErrMonitorDisabled
+		}
+		return channels, err
+	}
 	views, err := d.channels.ListUserView(ctx)
 	if err != nil {
 		return nil, err
@@ -128,9 +146,9 @@ func (k botKnowledge) AIKnowledge(ctx context.Context) (botnotify.PublicDTO, err
 }
 
 // Wire's cleanup runs before database infrastructure is closed.
-func ProvideBotNotify(db *sql.DB, cipher service.SecretEncryptor, settings service.SettingRepository, settingService *service.SettingService, channels *service.ChannelMonitorService, announcements *service.AnnouncementService, plaza *service.ModelPlazaService, payments *service.PaymentConfigService) *botnotify.Handler {
+func ProvideBotNotify(db *sql.DB, cipher service.SecretEncryptor, settings service.SettingRepository, settingService *service.SettingService, channels *service.ChannelMonitorService, passive *service.ChannelMonitorV2Service, announcements *service.AnnouncementService, plaza *service.ModelPlazaService, payments *service.PaymentConfigService) *botnotify.Handler {
 	store := &botnotify.Store{DB: db, Cipher: cipher, KeyLister: botAIKeyLister(db), KeyValidator: botAIKeyValidator(db)}
-	data := botData{channels: channels, announcements: announcements, settings: settings}
+	data := botData{db: db, channels: channels, passive: passive, runtime: settingService.ReadChannelMonitorRuntime, announcements: announcements, settings: settings}
 	extensions := settingService.CustomExtensions()
 	// Disabled modules and unreadable switches both hide their data.
 	enabled := func(ctx context.Context, id string) bool {

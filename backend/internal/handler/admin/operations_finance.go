@@ -72,11 +72,16 @@ func (h *OperationsHandler) GetOperationsCustomers(c *gin.Context) {
 }
 
 // Reporting dates belong to the business timezone, not the caller's clock or timezone.
-func parseOperationsReportingRange(c *gin.Context, now time.Time) (time.Time, time.Time, error) {
+func operationsReportingLocation() *time.Location {
 	loc := timezone.Location()
 	if loc.String() == "Local" {
 		loc, _ = time.LoadLocation("Asia/Shanghai")
 	}
+	return loc
+}
+
+func parseOperationsReportingRange(c *gin.Context, now time.Time) (time.Time, time.Time, error) {
+	loc := operationsReportingLocation()
 	now = now.In(loc)
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	start, end := today, today.AddDate(0, 0, 1)

@@ -179,7 +179,7 @@ async function test() {
       </template>
     </div>
 
-    <div v-if="status" class="grid gap-x-4 gap-y-1 text-xs text-gray-500 sm:grid-cols-3 dark:text-dark-400" data-testid="detector-status">
+    <div v-if="detector.enabled && status?.enabled" class="grid gap-x-4 gap-y-1 text-xs text-gray-500 sm:grid-cols-3 dark:text-dark-400" data-testid="detector-status">
       <span>本节点请求 {{ status.requests }} 次</span>
       <span>送检 {{ status.texts }} 段 / {{ formatBytes(status.bytes) }}</span>
       <span>缓存命中 {{ status.cache_hits }} 段</span>

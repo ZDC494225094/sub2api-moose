@@ -48,3 +48,32 @@ func TestOperationsReportingCustomRangeAndPresets(t *testing.T) {
 		require.Equal(t, start.AddDate(0, 0, test.days), end)
 	}
 }
+
+func TestBalanceHistoryDateSelection(t *testing.T) {
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	require.NoError(t, err)
+	now := time.Date(2026, 1, 5, 3, 0, 0, 0, loc)
+	for _, tc := range []struct{ query, start, end, unit string }{
+		{"months=3", "2025-11-01", "2026-01-05", "month"},
+		{"start_date=2024-02-29&end_date=2026-01-05&granularity=range", "2024-02-29", "2026-01-05", "range"},
+		{"months=4", "", "", ""},
+		{"months=3&start_date=2025-11-01&end_date=2026-01-05", "", "", ""},
+		{"start_date=2025-02-29&end_date=2025-03-01", "", "", ""},
+		{"start_date=2026-01-01", "", "", ""},
+		{"start_date=2026-01-07&end_date=2026-01-01", "", "", ""},
+		{"start_date=2026-01-01&end_date=2026-01-06", "", "", ""},
+		{"granularity=hour", "", "", ""},
+	} {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest("GET", "/?"+tc.query, nil)
+		start, end, unit, err := parseBalanceHistoryRange(c, now)
+		if tc.unit == "" {
+			require.Error(t, err, tc.query)
+			continue
+		}
+		require.NoError(t, err)
+		require.Equal(t, tc.unit, unit)
+		require.Equal(t, tc.start, start.Format(time.DateOnly))
+		require.Equal(t, tc.end, end.Format(time.DateOnly))
+	}
+}

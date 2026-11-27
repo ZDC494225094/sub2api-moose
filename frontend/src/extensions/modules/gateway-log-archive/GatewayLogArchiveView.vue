@@ -30,6 +30,39 @@
         <Icon name="checkCircle" size="sm" class="mt-0.5 shrink-0" /><span class="min-w-0 break-words">{{ notice }}</span>
       </p>
 
+      <div class="sticky top-16 z-20 rounded-xl border border-primary-100 bg-white p-3 shadow-sm dark:border-primary-900/40 dark:bg-dark-800" data-testid="upload-progress">
+        <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <span class="min-w-0 break-all font-medium text-gray-800 dark:text-gray-200">
+            <template v-if="upload">正在上传 {{ upload.file_name }}<template v-if="upload.bucket"> → {{ upload.bucket }}</template></template>
+            <template v-else>上传进度</template>
+          </span>
+          <span v-if="upload" class="flex max-w-full flex-wrap items-center gap-3">
+            <span v-if="upload.total > 0" class="font-mono text-xs text-gray-500 dark:text-dark-400">
+              存储桶已确认 {{ formatBytes(upload.sent) }} / {{ formatBytes(upload.total) }} · {{ uploadPercent.toFixed(2) }}%
+            </span>
+            <span v-else class="font-mono text-xs text-gray-500 dark:text-dark-400">存储桶已确认 {{ formatBytes(upload.sent) }} · 总大小待确定</span>
+            <button type="button" class="btn btn-ghost btn-sm text-red-600 dark:text-red-400" :disabled="busy" @click="askDelete(uploadingBundle)">删除此文件</button>
+          </span>
+          <span v-else class="text-xs text-gray-500 dark:text-dark-400">{{ progressLabel }}</span>
+        </div>
+        <div class="progress mt-2" role="progressbar" aria-label="当前节点上传进度" aria-valuemin="0" aria-valuemax="100"
+             :aria-valuenow="progressIndeterminate ? undefined : uploadPercent" :aria-valuetext="progressLabel">
+          <div class="progress-bar" :class="{ 'progress-indeterminate': progressIndeterminate }" :style="progressIndeterminate ? undefined : { width: uploadPercent + '%' }" />
+        </div>
+        <p v-if="upload" class="mt-2 break-words text-xs text-gray-600 dark:text-dark-400">
+          <template v-if="upload.phase">{{ upload.phase }} · </template>
+          已交给网络传输 {{ formatBytes(upload.body_bytes ?? 0) }}（含重传）
+          <template v-if="uploadRate !== null"> · 速度 {{ formatBytes(uploadRate) }}/s</template>
+          <template v-if="uploadEta"> · 预计剩余 {{ uploadEta }}</template>
+          <template v-if="uploadElapsed"> · 本次已用 {{ uploadElapsed }}</template>
+          <template v-if="upload.attempt"> · 第 {{ upload.attempt }} 次尝试</template>
+          <template v-if="upload.part_retries"> · 分片重试 {{ upload.part_retries }} 次</template>
+        </p>
+        <p v-if="upload && status" class="mt-1 text-xs text-gray-500 dark:text-dark-400">
+          字节进度来自当前节点 {{ status.node_id }}。
+        </p>
+      </div>
+
       <section v-if="status" class="card p-5">
         <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
           <span
@@ -84,35 +117,7 @@
             </span>
           </div>
         </div>
-
-        <div v-if="status.uploading" class="mt-4 rounded-xl border border-primary-100 bg-primary-50/50 p-4 dark:border-primary-900/40 dark:bg-primary-900/10" data-testid="upload-progress">
-          <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <span class="font-medium text-gray-800 dark:text-gray-200">
-              正在上传 {{ status.uploading.file_name }}<template v-if="status.uploading.bucket"> → {{ status.uploading.bucket }}</template>
-            </span>
-            <span class="flex items-center gap-3">
-              <span v-if="status.uploading.total > 0" class="font-mono text-xs text-gray-500 dark:text-dark-400">
-                存储桶已确认 {{ formatBytes(status.uploading.sent) }} / {{ formatBytes(status.uploading.total) }} · {{ uploadPercent }}%
-              </span>
-              <span v-else class="font-mono text-xs text-gray-500 dark:text-dark-400">存储桶已确认 {{ formatBytes(status.uploading.sent) }}</span>
-              <button type="button" class="btn btn-ghost btn-sm text-red-600 dark:text-red-400" :disabled="busy" @click="askDelete(uploadingBundle)">删除此文件</button>
-            </span>
-          </div>
-          <div v-if="status.uploading.total > 0" class="progress mt-2"><div class="progress-bar" :style="{ width: uploadPercent + '%' }" /></div>
-          <p class="mt-2 text-xs text-gray-600 dark:text-dark-400">
-            <template v-if="status.uploading.phase">{{ status.uploading.phase }} · </template>
-            已交给网络传输 {{ formatBytes(status.uploading.body_bytes ?? 0) }}（含重传）
-            <template v-if="uploadRate !== null"> · 速度 {{ formatBytes(uploadRate) }}/s</template>
-            <template v-if="uploadEta"> · 预计剩余 {{ uploadEta }}</template>
-            <template v-if="uploadElapsed"> · 本次已用 {{ uploadElapsed }}</template>
-            <template v-if="status.uploading.attempt"> · 第 {{ status.uploading.attempt }} 次尝试</template>
-            <template v-if="status.uploading.part_retries"> · 分片重试 {{ status.uploading.part_retries }} 次</template>
-          </p>
-          <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">
-            进度仅显示当前响应节点（{{ status.node_id }}）上的上传。失败的上传会重新从头开始；一直卡住的文件可以删除，以释放本地磁盘并让后面的文件继续上传。
-          </p>
-        </div>
-        <UploadStatsPanel v-if="status.upload_stats" :status="status" />
+        <UploadStatsPanel v-if="status.upload_stats" :status="status" :detector-enabled="!!status.detector?.enabled && form?.detector?.enabled !== false" />
         <div v-if="status.open_bundles?.length" class="mt-4">
           <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-dark-400">写入中的归档文件</h3>
           <ul class="mt-2 flex flex-wrap gap-2">
@@ -311,12 +316,15 @@
                     <span v-if="b.delete_requested_at" class="badge badge-gray">删除中</span>
                     <span v-else class="badge" :class="statusBadge(b.status)">{{ statusLabels[b.status] || b.status }}</span>
                     <div v-if="!b.delete_requested_at && b.status === 'uploading' && status?.uploading?.bundle_id === b.id" class="mt-1 w-40" data-testid="row-progress">
-                      <div class="progress"><div class="progress-bar" :style="{ width: uploadPercent + '%' }" /></div>
+                      <div class="progress"><div class="progress-bar" :class="{ 'progress-indeterminate': progressIndeterminate }" :style="progressIndeterminate ? undefined : { width: uploadPercent + '%' }" /></div>
                       <p class="mt-0.5 font-mono text-xs text-gray-500 dark:text-dark-400">
-                        {{ uploadPercent }}%<template v-if="uploadRate !== null"> · {{ formatBytes(uploadRate) }}/s</template>
+                        {{ progressLabel }}<template v-if="uploadRate !== null"> · {{ formatBytes(uploadRate) }}/s</template>
                       </p>
                     </div>
-                    <p v-else-if="!b.delete_requested_at && b.status === 'uploading'" class="mt-1 text-xs text-gray-500 dark:text-dark-400">由节点 {{ b.node_id }} 上传</p>
+                    <div v-else-if="!b.delete_requested_at && b.status === 'uploading'" class="mt-1 w-40">
+                      <div class="progress"><div class="progress-bar progress-indeterminate" /></div>
+                      <p class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">由节点 {{ b.node_id }} 上传</p>
+                    </div>
                     <p v-if="b.delete_requested_at" class="mt-1 max-w-xs text-xs text-gray-500 dark:text-dark-400">节点 {{ b.node_id }} 正在清理本地数据</p>
                     <p v-else-if="b.last_error" class="mt-1 max-w-xs break-words text-xs text-red-600 dark:text-red-400" :title="b.last_error">
                       {{ shortError(b.last_error) }}
@@ -539,9 +547,17 @@ const idleMinutes = computed({
   },
 })
 
+const upload = computed(() => status.value?.uploading)
+const uploadingCount = computed(() => status.value?.bundles?.find(b => b.status === 'uploading')?.count ?? 0)
+const progressIndeterminate = computed(() => !status.value || (upload.value ? upload.value.total <= 0 : uploadingCount.value > 0))
 const uploadPercent = computed(() => {
-  const up = status.value?.uploading
-  return up && up.total > 0 ? Math.min(100, Math.floor((up.sent / up.total) * 10000) / 100) : 0
+  const up = upload.value
+  return up && up.total > 0 ? Math.min(100, Math.max(0, Math.floor((up.sent / up.total) * 10000) / 100)) : 0
+})
+const progressLabel = computed(() => {
+  if (!status.value) return error.value ? '上传状态暂不可用' : '正在读取上传状态'
+  if (!upload.value) return uploadingCount.value ? `${uploadingCount.value} 个归档标为上传中，本节点暂无字节进度` : '当前节点暂无上传任务'
+  return progressIndeterminate.value ? '总大小待确定' : `${uploadPercent.value}%`
 })
 
 // Network rate from two consecutive polls of the same upload; the first poll
@@ -608,10 +624,10 @@ async function confirmDelete() {
   deleting.value = null
   await run(async () => {
     const result = await archiveAPI.deleteBundle(target.id)
+    await Promise.all([loadStatus(), loadBundles()])
     notice.value = result.local
       ? `${target.file_name} 已删除，正在中止上传并清理本地数据。`
       : `${target.file_name} 已标记删除，节点 ${result.node_id} 会在 15 秒内中止上传并清理本地数据。`
-    await Promise.all([loadStatus(), loadBundles()])
   }, '删除失败')
 }
 
@@ -825,7 +841,7 @@ function schedulePoll() {
     // Refresh the list when an upload finishes or moves to the next file.
     if (tab.value === 'bundles' && wasUploading !== status.value?.uploading?.bundle_id) void loadBundles()
     schedulePoll()
-  }, status.value?.uploading ? 3000 : 10000)
+  }, upload.value || uploadingCount.value ? 3000 : 10000)
 }
 onMounted(async () => {
   await run(async () => {
@@ -845,6 +861,17 @@ function addRule() {
 </script>
 
 <style scoped>
+.progress-indeterminate {
+  width: 35%;
+  animation: transfer-progress 1.6s ease-in-out infinite alternate;
+}
+@keyframes transfer-progress {
+  to { transform: translateX(185%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-indeterminate { animation: none; }
+}
+
 .kpi {
   @apply flex flex-col gap-1 rounded-xl border border-gray-100 bg-gray-50/70 p-4 dark:border-dark-700 dark:bg-dark-900/40;
 }

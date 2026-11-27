@@ -96,10 +96,12 @@ delivery.
 
 Both scheduled pushes and rules call the same renderer. It fetches only
 referenced data and substitutes once, leaving unknown placeholders and
-inserted text literal. Channels use `ChannelMonitorService.ListUserView`, the
-same source as the V1 user monitor endpoint; the heading label is the
-monitor's group_name, falling back to its name when group_name is empty. Its
-primary-model timeline is sorted and trimmed to ten. Announcements use
+inserted text literal. V1 reports use the enabled monitors' primary-model
+probe histories. V2 reads the platform/group matrix for active public groups,
+showing 90-minute health, the last ten five-minute buckets, median time to
+first token and request success rates for 90 minutes and seven days. The
+report identifies partial weekly coverage and insufficient samples.
+Announcements use
 `AnnouncementService.List`, active status plus `IsActiveAt`, latest
 publication time (starts_at, falling back to created_at), at most five. This
 is a global bot feed, including targeted active announcements; use trusted

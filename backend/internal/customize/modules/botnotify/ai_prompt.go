@@ -32,7 +32,7 @@ func AIToolsFor(c AIConfig) []string {
 }
 
 var toolPromptLines = map[string]string{
-	ToolGroupStatus:   "query_group_status：分组（渠道）当前状态、主模型和近 7 天可用性，可传分组名关键词。用户问某个分组或模型正不正常、稳不稳定时调用。",
+	ToolGroupStatus:   "query_group_status：按当前监控模式查询分组健康度，可传分组名关键词。V2 使用真实请求的成功率和首字延迟，V1 使用主模型的探测结果。用户问某个分组或模型正不正常、稳不稳定时调用。",
 	ToolGroups:        "query_groups：公开分组的平台、计费方式（扣余额还是订阅额度）、倍率和说明。用户问有哪些分组、哪个便宜、分组区别、该选哪个时调用。",
 	ToolModelPrices:   "query_model_prices：模型实付价格，含每百万 token 的输入、输出、缓存读取、缓存写入价（已按分组倍率折算）和按次计费价，可传 model、group 关键词。用户问某个模型多少钱、缓存怎么计费时调用。",
 	ToolPlans:         "query_subscription_plans：在售包月套餐的价格、有效期、对应分组和额度。用户问套餐、包月、订阅多少钱时调用。",

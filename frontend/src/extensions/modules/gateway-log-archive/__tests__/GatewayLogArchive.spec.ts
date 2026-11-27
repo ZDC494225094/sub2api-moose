@@ -78,12 +78,12 @@ describe('gateway log archive JSONL and privacy settings', () => {
     }
   })
 
-  it('shows the backlog, time breakdown and replacements of uploads', () => {
+  it('keeps upload metrics and hides all redaction statistics when the detector is switched off', async () => {
     const counts = (detector_ms: number, replacements: Record<string, number>) => ({ records: 10, changed: 4, tool_skipped: 0, detector_ms, replacements })
     const GB = 1024 ** 3
     const status = {
       disk_free_bytes: 5 * GB,
-      detector: { requests: 1, texts: 1, bytes: 1, cache_hits: 0, errors: 0, fail_open_skips: 0 },
+      detector: { enabled: true, requests: 1, texts: 1, bytes: 1, cache_hits: 0, errors: 0, fail_open_skips: 0 },
       bundles: [{ status: 'sealed', count: 3, bytes: 6 * GB }, { status: 'uploaded', count: 9, bytes: 99 * GB }, { status: 'failed', count: 1, bytes: 2 * GB }],
       uploading: null,
       upload_stats: {
@@ -95,7 +95,7 @@ describe('gateway log archive JSONL and privacy settings', () => {
         ],
       },
     } as unknown as ArchiveStatus
-    const wrapper = mount(UploadStatsPanel, { props: { status } })
+    const wrapper = mount(UploadStatsPanel, { props: { status, detectorEnabled: true } })
     // Sealed and failed files wait for upload: 8 GB, more than the free disk.
     expect(wrapper.get('[data-testid="backlog"]').text()).toBe('4 个 · 8.00 GB')
     expect(wrapper.text()).toContain('超过剩余磁盘空间 5.00 GB')
@@ -108,6 +108,13 @@ describe('gateway log archive JSONL and privacy settings', () => {
     expect(wrapper.get('[data-testid="replacement-kinds"]').text()).toContain('人名 × 18,082')
     expect(wrapper.get('[data-testid="replacement-kinds"]').text()).toContain('地点 × 59')
     expect(wrapper.text()).toContain('失败')
+    await wrapper.setProps({ detectorEnabled: false })
+    expect(wrapper.get('[data-testid="backlog"]').text()).toContain('8.00 GB')
+    expect(wrapper.text()).toContain('5.12 MB/s')
+    expect(wrapper.text()).toContain('gpt-2026-11-19.jsonl')
+    expect(wrapper.text()).not.toMatch(/脱敏|模型服务|替换|已修改会话/)
+    expect(wrapper.find('[data-testid="bottleneck"]').exists()).toBe(false)
+    wrapper.unmount()
   })
 
   it('saves the natural-language-only redaction scope and hides it on older nodes', async () => {
@@ -255,6 +262,41 @@ describe('gateway log archive upload progress and stuck bundles', () => {
     id: 1, node_id: 'node-a', day: '2026-11-22', model_key: 'gpt-6-astra', part: 4, file_name: 'gpt-6-astra-2026-11-22-part004.jsonl',
     status: 'uploading', size_bytes: 10 * 2 ** 30, entry_count: 300, bucket: '', bucket_id: null, object_key: '', attempts: 3,
     last_error: '', local_deleted: false, created_at: '', sealed_at: '2026-11-23T00:00:01Z', uploaded_at: null, ...overrides,
+  })
+
+  it('shows a progress bar while loading, idle, and uploading an unknown size', async () => {
+    vi.resetAllMocks()
+    vi.useFakeTimers()
+    vi.mocked(archiveAPI.buckets).mockResolvedValue({ items: [], unattributed: { bundle_count: 0, size_bytes: 0 } })
+    vi.mocked(archiveAPI.getConfig).mockResolvedValue({
+      capture_enabled: true, mode: 'all', rules: [], success_only: true, redact_pii: false,
+      max_file_size_mb: 10240, session_idle_seconds: 1800, max_body_mb: 64, keep_local_hours: 0, entry_retention_days: 90, min_free_disk_gb: 5,
+    })
+    vi.mocked(archiveAPI.status)
+      .mockResolvedValueOnce(baseStatus(null))
+      .mockResolvedValueOnce(baseStatus({ bundle_id: 4, file_name: 'archive.jsonl', bucket: '', total: 0, sent: 4096 }))
+      .mockResolvedValueOnce({ ...baseStatus(null), bundles: [{ status: 'uploading', count: 2, bytes: 1000 }] })
+      .mockResolvedValue(baseStatus(null))
+    const wrapper = mount(GatewayLogArchiveView, { global: { stubs } })
+    const bar = () => wrapper.get('[aria-label="当前节点上传进度"]')
+    try {
+      expect(bar().attributes('aria-valuenow')).toBeUndefined()
+      await flushPromises()
+      expect(bar().attributes('aria-valuetext')).toBe('当前节点暂无上传任务')
+      await vi.advanceTimersByTimeAsync(10000)
+      expect(bar().attributes('aria-valuenow')).toBeUndefined()
+      expect(bar().attributes('aria-valuetext')).toBe('总大小待确定')
+      expect(wrapper.get('[data-testid="upload-progress"]').text()).toContain('4.00 KB')
+      await vi.advanceTimersByTimeAsync(3000)
+      expect(bar().attributes('aria-valuenow')).toBeUndefined()
+      expect(bar().attributes('aria-valuetext')).toContain('2 个归档标为上传中')
+      await vi.advanceTimersByTimeAsync(3000)
+      expect(bar().attributes('aria-valuenow')).toBe('0')
+      expect(wrapper.get('[data-testid="upload-progress"]').find('button').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+      vi.useRealTimers()
+    }
   })
 
   it('shows the running upload with rate and deletes a stuck bundle after confirmation', async () => {

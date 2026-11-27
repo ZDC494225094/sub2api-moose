@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import type { ArchiveStatus, RedactionCounts } from './api'
 import { formatBytes, formatTime } from './format'
 
-const props = defineProps<{ status: ArchiveStatus }>()
+const props = defineProps<{ status: ArchiveStatus; detectorEnabled: boolean }>()
 
 const kindLabels: Record<string, string> = {
   'model:private_person': '人名',
@@ -56,7 +56,7 @@ function breakdown(total: number, network: number, model: number): Breakdown {
 }
 const pct = (part: number, b: Breakdown) => Math.round((part / b.total) * 100)
 
-function bottleneck(b: Breakdown, hasDetector: boolean): { tone: string; text: string } | null {
+function bottleneck(b: Breakdown): { tone: string; text: string } | null {
   if (b.total < 5000) return null
   const share = { network: b.network / b.total, model: b.model / b.total, local: b.local / b.total }
   if (share.model >= share.network && share.model >= share.local && share.model > 0.3) {
@@ -68,7 +68,7 @@ function bottleneck(b: Breakdown, hasDetector: boolean): { tone: string; text: s
   if (share.network >= share.local) {
     return {
       tone: 'text-gray-600 dark:text-dark-300',
-      text: `${pct(b.network, b)}% 的上传时间在等待存储桶${hasDetector ? `，模型脱敏只占 ${pct(b.model, b)}%` : ''}。瓶颈在到存储桶的网络或存储桶本身。`,
+      text: `${pct(b.network, b)}% 的上传时间在等待存储桶，模型脱敏占 ${pct(b.model, b)}%。瓶颈在到存储桶的网络或存储桶本身。`,
     }
   }
   return {
@@ -78,7 +78,6 @@ function bottleneck(b: Breakdown, hasDetector: boolean): { tone: string; text: s
 }
 
 const stats = computed(() => props.status.upload_stats)
-const hasDetector = computed(() => !!props.status.detector)
 
 // Recent successful uploads give the current speed and time breakdown.
 const recentOK = computed(() => (stats.value?.recent || []).filter(r => r.ok))
@@ -88,6 +87,7 @@ const recentSum = computed(() => recentOK.value.reduce(
 ))
 const recentRate = computed(() => rate(recentSum.value.bytes, recentSum.value.ms))
 const recentBreakdown = computed(() => breakdown(recentSum.value.ms, recentSum.value.network, recentSum.value.model))
+const recentBottleneck = computed(() => bottleneck(recentBreakdown.value))
 
 const current = computed(() => {
   const up = props.status.uploading
@@ -108,7 +108,7 @@ const diskTight = computed(() => props.status.disk_free_bytes >= 0 && backlog.va
 <template>
   <section v-if="stats" class="mt-4 space-y-4 rounded-xl border border-gray-100 p-4 dark:border-dark-700" data-testid="upload-stats">
     <div class="flex flex-wrap items-baseline justify-between gap-2">
-      <h3 class="text-sm font-semibold text-gray-900 dark:text-white">上传与脱敏统计</h3>
+      <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ detectorEnabled ? '上传与脱敏统计' : '上传统计' }}</h3>
       <span class="text-xs text-gray-500 dark:text-dark-400">当前节点，统计开始于 {{ formatTime(stats.totals.since) }}；节点重启后重新统计</span>
     </div>
 
@@ -135,7 +135,7 @@ const diskTight = computed(() => props.status.disk_free_bytes >= 0 && backlog.va
       </div>
     </div>
 
-    <div v-if="recentSum.ms > 0">
+    <div v-if="detectorEnabled && recentSum.ms > 0">
       <p class="text-xs text-gray-500 dark:text-dark-400">最近上传的耗时构成</p>
       <div class="mt-1 flex h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-700" data-testid="time-breakdown">
         <div class="bg-sky-500" :style="{ width: pct(recentBreakdown.network, recentBreakdown) + '%' }" />
@@ -147,12 +147,12 @@ const diskTight = computed(() => props.status.disk_free_bytes >= 0 && backlog.va
         <span><span class="mr-1 inline-block h-2 w-2 rounded-full bg-amber-500" />模型脱敏服务 {{ pct(recentBreakdown.model, recentBreakdown) }}%</span>
         <span><span class="mr-1 inline-block h-2 w-2 rounded-full bg-gray-400" />读取与规则处理 {{ pct(recentBreakdown.local, recentBreakdown) }}%</span>
       </p>
-      <p v-if="bottleneck(recentBreakdown, hasDetector)" class="mt-1 text-xs" :class="bottleneck(recentBreakdown, hasDetector)!.tone" data-testid="bottleneck">
-        {{ bottleneck(recentBreakdown, hasDetector)!.text }}
+      <p v-if="recentBottleneck" class="mt-1 text-xs" :class="recentBottleneck.tone" data-testid="bottleneck">
+        {{ recentBottleneck.text }}
       </p>
     </div>
 
-    <div v-if="current" class="rounded-lg bg-gray-50 p-3 dark:bg-dark-800" data-testid="current-redaction">
+    <div v-if="detectorEnabled && current" class="rounded-lg bg-gray-50 p-3 dark:bg-dark-800" data-testid="current-redaction">
       <p class="text-xs text-gray-500 dark:text-dark-400">正在上传 {{ current.up.file_name }}<template v-if="!current.up.redacted">（此存储桶上传原文，不脱敏）</template></p>
       <div class="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-sm lg:grid-cols-4">
         <div><p class="text-xs text-gray-500 dark:text-dark-400">已读取会话</p><p class="font-mono">{{ current.up.redaction?.records ?? 0 }}</p></div>
@@ -167,7 +167,7 @@ const diskTight = computed(() => props.status.disk_free_bytes >= 0 && backlog.va
       </ul>
     </div>
 
-    <div>
+    <div v-if="detectorEnabled">
       <p class="text-xs text-gray-500 dark:text-dark-400">
         累计替换 {{ replacementTotal(stats.totals.redaction).toLocaleString() }} 处 · 读取 {{ stats.totals.redaction.records.toLocaleString() }} 个会话，修改 {{ stats.totals.redaction.changed.toLocaleString() }} 个
         <template v-if="stats.totals.redaction.tool_skipped"> · 跳过工具内容 {{ stats.totals.redaction.tool_skipped.toLocaleString() }} 段</template>
@@ -190,9 +190,9 @@ const diskTight = computed(() => props.status.disk_free_bytes >= 0 && backlog.va
             <th class="py-1 pr-3 text-right font-medium">大小</th>
             <th class="py-1 pr-3 text-right font-medium">用时</th>
             <th class="py-1 pr-3 text-right font-medium">速度</th>
-            <th class="py-1 pr-3 text-right font-medium">模型服务</th>
+            <th v-if="detectorEnabled" class="py-1 pr-3 text-right font-medium">模型服务</th>
             <th class="py-1 pr-3 text-right font-medium">存储桶</th>
-            <th class="py-1 text-right font-medium">替换</th>
+            <th v-if="detectorEnabled" class="py-1 text-right font-medium">替换</th>
           </tr>
         </thead>
         <tbody class="font-mono text-gray-700 dark:text-gray-300">
@@ -201,14 +201,14 @@ const diskTight = computed(() => props.status.disk_free_bytes >= 0 && backlog.va
             <td class="py-1 pr-3">
               {{ r.file_name }}
               <span v-if="!r.ok" class="ml-1 text-red-600 dark:text-red-400">失败</span>
-              <span v-else-if="!r.redacted" class="ml-1 text-gray-400">原文</span>
+              <span v-else-if="detectorEnabled && !r.redacted" class="ml-1 text-gray-400">原文</span>
             </td>
             <td class="py-1 pr-3 text-right">{{ formatBytes(r.bytes) }}</td>
             <td class="py-1 pr-3 text-right">{{ formatDuration(r.duration_ms) }}</td>
             <td class="py-1 pr-3 text-right">{{ r.ok ? `${formatBytes(rate(r.bytes, r.duration_ms))}/s` : '—' }}</td>
-            <td class="py-1 pr-3 text-right">{{ pct(Math.min(r.redaction.detector_ms, r.duration_ms), breakdown(r.duration_ms, 0, 0)) }}%</td>
+            <td v-if="detectorEnabled" class="py-1 pr-3 text-right">{{ pct(Math.min(r.redaction.detector_ms, r.duration_ms), breakdown(r.duration_ms, 0, 0)) }}%</td>
             <td class="py-1 pr-3 text-right">{{ pct(Math.min(r.network_ms, r.duration_ms), breakdown(r.duration_ms, 0, 0)) }}%</td>
-            <td class="py-1 text-right">{{ replacementTotal(r.redaction).toLocaleString() }}</td>
+            <td v-if="detectorEnabled" class="py-1 text-right">{{ replacementTotal(r.redaction).toLocaleString() }}</td>
           </tr>
         </tbody>
       </table>

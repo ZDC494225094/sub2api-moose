@@ -497,13 +497,23 @@ func (r ChannelMonitorRuntime) PassiveAggregationAllowed() bool {
 // GetChannelMonitorRuntime reads the channel monitor feature flags directly from
 // the settings store. Fail-open: on error returns Enabled=true, Mode=v1, default interval.
 func (s *SettingService) GetChannelMonitorRuntime(ctx context.Context) ChannelMonitorRuntime {
-	if s == nil || s.settingRepo == nil {
+	rt, err := s.ReadChannelMonitorRuntime(ctx)
+	if err != nil {
 		return ChannelMonitorRuntime{
 			Enabled:                true,
 			Mode:                   defaultChannelMonitorMode,
 			DefaultIntervalSeconds: channelMonitorIntervalFallback,
 			HideThroughput:         true,
 		}
+	}
+	return rt
+}
+
+// ReadChannelMonitorRuntime preserves read errors for consumers publishing a
+// report, where picking a fallback mode could broadcast stale probe results.
+func (s *SettingService) ReadChannelMonitorRuntime(ctx context.Context) (ChannelMonitorRuntime, error) {
+	if s == nil || s.settingRepo == nil {
+		return ChannelMonitorRuntime{}, fmt.Errorf("channel monitor settings unavailable")
 	}
 	vals, err := s.settingRepo.GetMultiple(ctx, []string{
 		SettingKeyChannelMonitorEnabled,
@@ -514,12 +524,7 @@ func (s *SettingService) GetChannelMonitorRuntime(ctx context.Context) ChannelMo
 		SettingKeyChannelMonitorHideUserRanking,
 	})
 	if err != nil {
-		return ChannelMonitorRuntime{
-			Enabled:                true,
-			Mode:                   defaultChannelMonitorMode,
-			DefaultIntervalSeconds: channelMonitorIntervalFallback,
-			HideThroughput:         true,
-		}
+		return ChannelMonitorRuntime{}, err
 	}
 	return ChannelMonitorRuntime{
 		Enabled:                !isFalseSettingValue(vals[SettingKeyChannelMonitorEnabled]),
@@ -528,7 +533,7 @@ func (s *SettingService) GetChannelMonitorRuntime(ctx context.Context) ChannelMo
 		HideThroughput:         !isFalseSettingValue(vals[SettingKeyChannelMonitorHideThroughput]),
 		ShowQuota:              vals[SettingKeyChannelMonitorShowQuota] == "true",
 		HideUserRanking:        isTrueSettingValue(vals[SettingKeyChannelMonitorHideUserRanking]),
-	}
+	}, nil
 }
 
 // AvailableChannelsRuntime is the lightweight view of the available-channels feature
