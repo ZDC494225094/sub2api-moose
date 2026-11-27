@@ -69,7 +69,7 @@ func ChannelStatus(channels []Channel, abnormal bool, now time.Time) string {
 				continue
 			}
 			shown++
-			fmt.Fprintf(&out, "\n\n%s · %s\n%s\n%s", c.GroupName, c.Passive.Platform, c.Passive.blocks(), c.Passive.Summary())
+			fmt.Fprintf(&out, "\n\n%s\n%s\n%s", c.GroupName, c.Passive.blocks(), c.Passive.Summary())
 			continue
 		}
 		blocks, bad := Blocks(c.Timeline)
@@ -100,7 +100,7 @@ func (p PassiveMetrics) blocks() string {
 	var out strings.Builder
 	for _, score := range p.Scores {
 		if score == nil || math.IsNaN(*score) {
-			out.WriteString("⬛")
+			out.WriteString("⬜")
 			continue
 		}
 		band := int(math.Round(max(0, min(100, *score)) / 10))
@@ -110,10 +110,17 @@ func (p PassiveMetrics) blocks() string {
 }
 
 func (p PassiveMetrics) Summary() string {
-	if p.Success90m == nil {
-		return "近90分钟成功率 —"
+	window := "近90分钟"
+	switch p.SuccessWindow {
+	case 24 * time.Hour:
+		window = "近1天"
+	case 7 * 24 * time.Hour:
+		window = "近7天"
 	}
-	return fmt.Sprintf("近90分钟成功率 %.2f%%", *p.Success90m)
+	if p.SuccessRate == nil {
+		return window + "成功率 样本不足"
+	}
+	return fmt.Sprintf("%s成功率 %.2f%%", window, *p.SuccessRate)
 }
 
 // FormatAnnouncement renders one announcement as its title plus its body

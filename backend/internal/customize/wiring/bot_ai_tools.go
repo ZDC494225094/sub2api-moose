@@ -74,7 +74,7 @@ func keywordProp(description string) map[string]any {
 }
 
 var aiToolSchemas = map[string]map[string]any{
-	botnotify.ToolGroupStatus: toolSchema(botnotify.ToolGroupStatus, "根据站点当前监控模式查询分组。V2 返回近90分钟真实请求成功率，V1 返回主模型探测结果。",
+	botnotify.ToolGroupStatus: toolSchema(botnotify.ToolGroupStatus, "根据站点当前监控模式查询分组。V2 返回真实请求成功率及其时段（近90分钟、近1天或近7天），V1 返回主模型探测结果。",
 		map[string]any{"group": keywordProp("可选，分组名关键词，只返回名称包含该词的分组")}),
 	botnotify.ToolGroups: toolSchema(botnotify.ToolGroups, "查询公开分组的平台、计费方式（扣余额或订阅额度）、倍率和说明。用户问有哪些分组、哪个便宜、分组区别、该选哪个时调用。", nil),
 	botnotify.ToolModelPrices: toolSchema(botnotify.ToolModelPrices, "查询模型实付价格：每百万 token 的输入、输出、缓存读取、缓存写入价（已按分组倍率折算）及按次计费价。用户问某个模型多少钱、缓存怎么计费时调用。",
@@ -162,7 +162,7 @@ func (t *botAITools) groupStatus(ctx context.Context, group string) string {
 			continue
 		}
 		if c.Passive != nil {
-			lines = append(lines, fmt.Sprintf("%s｜%s｜%s", c.GroupName, c.Passive.Platform, c.Passive.Summary()))
+			lines = append(lines, c.GroupName+"｜"+c.Passive.Summary())
 			continue
 		}
 		status := "异常"

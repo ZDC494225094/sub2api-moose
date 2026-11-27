@@ -132,8 +132,9 @@ type Channel struct {
 }
 
 type PassiveMetrics struct {
-	Platform   string
-	Success90m *float64
+	SuccessRate *float64
+	// SuccessWindow is the period of the rate, or the last period checked if no rate qualified.
+	SuccessWindow time.Duration
 	// Scores are the public V2 matrix's overall health scores, oldest first.
 	// All ten slots use the same bucket width. A nil score is a sampling gap.
 	Scores [StatusBarSlots]*float64

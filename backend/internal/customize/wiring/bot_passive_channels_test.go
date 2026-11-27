@@ -33,15 +33,16 @@ func (r *botMatrixRepo) GetMatrix(_ context.Context, f service.ChannelMonitorV2F
 	return &service.ChannelMonitorV2Matrix{Items: r.rows(f)}, nil
 }
 
-func matrixGroup(f service.ChannelMonitorV2Filter, id int64, name, overall string, rate float64, scores ...float64) service.ChannelMonitorV2MatrixRow {
+func matrixGroup(f service.ChannelMonitorV2Filter, id int64, name string, requests int64, rate float64, scores ...float64) service.ChannelMonitorV2MatrixRow {
+	total := service.ChannelMonitorV2Metric{RequestCount: requests, SuccessRate: rate, ErrorRate: 1 - rate}
 	row := service.ChannelMonitorV2MatrixRow{
-		Platform: "openai", GroupID: &id, GroupName: name, Health: service.ChannelMonitorV2Health{Overall: overall},
-		Metrics: service.ChannelMonitorV2Metric{SuccessRate: rate},
+		Platform: "openai", GroupID: &id, GroupName: name,
+		Metrics: total, Health: service.ChannelMonitorV2HealthFor(total),
 	}
 	for i, score := range scores {
 		// With error rate as the only sampled signal this produces the
 		// requested score, including the real coarse "critical" for a 40.
-		var metrics service.ChannelMonitorV2Metric
+		metrics := service.ChannelMonitorV2Metric{RequestCount: 1}
 		if !math.IsNaN(score) {
 			metrics.RequestCount = 100
 			metrics.ErrorRate = (1 - score/100) * service.DefaultChannelMonitorV2HealthThresholds().CriticalErrorRate
@@ -72,25 +73,34 @@ func passiveBotFixture(t *testing.T, ids string, rows func(service.ChannelMonito
 }
 
 func TestBotPassiveStatusRendersPublicGroupMatrix(t *testing.T) {
-	data, repo := passiveBotFixture(t, "{3,4,5,6,7}", func(f service.ChannelMonitorV2Filter) []service.ChannelMonitorV2MatrixRow {
+	minimum := service.DefaultChannelMonitorV2HealthThresholds().MinimumSample
+	data, repo := passiveBotFixture(t, "{3,4,5,6,7,8}", func(f service.ChannelMonitorV2Filter) []service.ChannelMonitorV2MatrixRow {
 		switch f.Bucket {
 		case 5 * time.Minute:
 			return []service.ChannelMonitorV2MatrixRow{
-				matrixGroup(f, 3, "活跃组", "healthy", 0.9052, 100, 70, 60, 50, 60, 60, 50, 40, 40, 40),
-				matrixGroup(f, 4, "低流量组", "warning", 0.875, 70, 70, 70, 70, 70, 70, 70, 70, 70),
-				matrixGroup(f, 5, "无流量组", "unknown", 0),
-				matrixGroup(f, 6, "全部失败组", "unknown", 0, math.NaN()),
-				matrixGroup(f, 7, "其他时段有流量", "unknown", 0),
+				matrixGroup(f, 3, "活跃组", 10000, 0.9952, 100, 70, 60, 50, 60, 60, 50, 40, 40, 40),
+				matrixGroup(f, 4, "低流量组", 1600, 0.875, 70, 70, 70, 70, 70, 70, 70, 70, 70),
+				matrixGroup(f, 5, "无流量组", 0, 0),
+				matrixGroup(f, 6, "全部失败组", minimum, 0, math.NaN()),
+				matrixGroup(f, 7, "周样本组", 1, 1, math.NaN()),
+				matrixGroup(f, 8, "ClaudeCode-Max", 0, 0),
 			}
 		case 30 * time.Minute:
 			// Return groups in a different order. The wider window has its own rates.
 			return []service.ChannelMonitorV2MatrixRow{
-				matrixGroup(f, 7, "其他时段有流量", "critical", 0.5, 20, math.NaN(), 30),
-				matrixGroup(f, 4, "低流量组", "healthy", 1, 70, 70, 70, 70, 70, 70, 50, 50, 40, 0),
+				matrixGroup(f, 8, "ClaudeCode-Max", 1000, 1, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70),
+				matrixGroup(f, 4, "低流量组", 2000, 1, 70, 70, 70, 70, 70, 70, 50, 50, 40, 0),
+			}
+		case time.Hour:
+			return []service.ChannelMonitorV2MatrixRow{
+				// The half-hour query already filled group 8's strip. Its rate still needs a full day.
+				matrixGroup(f, 8, "ClaudeCode-Max", 2500, 0.9624, 40),
+				matrixGroup(f, 7, "周样本组", minimum-1, 1, math.NaN()),
+				matrixGroup(f, 6, "全部失败组", 100, 0.5, math.NaN()),
 			}
 		case 12 * time.Hour:
 			return []service.ChannelMonitorV2MatrixRow{
-				matrixGroup(f, 7, "其他时段有流量", "healthy", 1, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70),
+				matrixGroup(f, 7, "周样本组", 4000, 0.9625, 70, 70, 70, 70, 70, 70, 70, 70, math.NaN(), math.NaN()),
 			}
 		default:
 			return nil
@@ -104,34 +114,69 @@ func TestBotPassiveStatusRendersPublicGroupMatrix(t *testing.T) {
 	require.Equal(t, 90*time.Minute, recent.End.Sub(recent.Start))
 	require.Empty(t, recent.GroupIDs)
 	for i, want := range []struct {
-		width time.Duration
-		ids   []int64
+		width, window time.Duration
+		ids           []int64
 	}{
-		{30 * time.Minute, []int64{4, 5, 6, 7}},
-		{time.Hour, []int64{5, 6, 7}},
-		{12 * time.Hour, []int64{5, 6, 7}},
-		{24 * time.Hour, []int64{5, 6}},
+		{30 * time.Minute, 5 * time.Hour, []int64{4, 5, 6, 7, 8}},
+		{time.Hour, 24 * time.Hour, []int64{5, 6, 7, 8}},
+		{12 * time.Hour, 7 * 24 * time.Hour, []int64{5, 6, 7}},
+		{24 * time.Hour, 10 * 24 * time.Hour, []int64{5, 6, 7}},
 	} {
 		coarse := repo.filters[i+1]
 		require.Equal(t, want.width, coarse.Bucket)
-		require.Equal(t, botnotify.StatusBarSlots*want.width, coarse.End.Sub(coarse.Start))
+		require.Equal(t, want.window, coarse.End.Sub(coarse.Start))
 		require.Equal(t, coarse.End.Truncate(want.width), coarse.End)
 		require.GreaterOrEqual(t, coarse.End.Sub(recent.End), time.Duration(0))
 		require.Less(t, coarse.End.Sub(recent.End), want.width)
 		require.Equal(t, want.ids, coarse.GroupIDs)
-		require.Equal(t, []int64{3, 4, 5, 6, 7}, coarse.AllowedGroupIDs)
+		require.Equal(t, []int64{3, 4, 5, 6, 7, 8}, coarse.AllowedGroupIDs)
 	}
 	title := "【03月07日 09:05】分组状态"
-	sparse := "低流量组 · OpenAI/GPT\n🟩🟩🟩🟩🟩🟩🟨🟨🟧🟥\n近90分钟成功率 87.50%"
-	empty := strings.Repeat("⬛", botnotify.StatusBarSlots)
+	sparse := "低流量组\n🟩🟩🟩🟩🟩🟩🟨🟨🟧🟥\n近90分钟成功率 87.50%"
+	empty := strings.Repeat("⬜", botnotify.StatusBarSlots)
+	allFailed := "全部失败组\n" + empty + "\n近90分钟成功率 0.00%"
 	require.Equal(t, strings.Join([]string{
 		title,
-		"活跃组 · OpenAI/GPT\n🟩🟩🟨🟨🟨🟨🟨🟧🟧🟧\n近90分钟成功率 90.52%",
+		"活跃组\n🟩🟩🟨🟨🟨🟨🟨🟧🟧🟧\n近90分钟成功率 99.52%",
 		sparse,
-		"无流量组 · OpenAI/GPT\n" + empty + "\n近90分钟成功率 —",
-		"全部失败组 · OpenAI/GPT\n" + empty + "\n近90分钟成功率 0.00%",
-		"其他时段有流量 · OpenAI/GPT\n" + strings.Repeat("🟩", botnotify.StatusBarSlots) + "\n近90分钟成功率 —",
-	}, "\n\n")+"\n---\n"+title+"\n\n"+sparse, output)
+		"无流量组\n" + empty + "\n近7天成功率 样本不足",
+		allFailed,
+		"周样本组\n" + strings.Repeat("🟩", 8) + "⬜⬜\n近7天成功率 96.25%",
+		"ClaudeCode-Max\n" + strings.Repeat("🟩", botnotify.StatusBarSlots) + "\n近1天成功率 96.24%",
+	}, "\n\n")+"\n---\n"+strings.Join([]string{title, sparse, allFailed}, "\n\n"), output)
+}
+
+func TestBotGroupStatusToolUsesMatchingPlatformAndRateWindow(t *testing.T) {
+	minimum := service.DefaultChannelMonitorV2HealthThresholds().MinimumSample
+	for _, tc := range []struct {
+		weekRequests int64
+		want         string
+	}{
+		{minimum, "0.00%"},
+		{minimum - 1, "样本不足"},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			data, _ := passiveBotFixture(t, "{8}", func(f service.ChannelMonitorV2Filter) []service.ChannelMonitorV2MatrixRow {
+				switch f.Bucket {
+				case 5 * time.Minute:
+					return []service.ChannelMonitorV2MatrixRow{matrixGroup(f, 8, "同名组", 1, 1, math.NaN())}
+				case time.Hour:
+					other := matrixGroup(f, 8, "同名组", 1000, 1, 100)
+					other.Platform = "anthropic"
+					return []service.ChannelMonitorV2MatrixRow{other}
+				case 12 * time.Hour:
+					return []service.ChannelMonitorV2MatrixRow{matrixGroup(f, 8, "同名组", tc.weekRequests, 0, math.NaN())}
+				case 24 * time.Hour:
+					// The ten-day strip includes older traffic outside all three rate windows.
+					return []service.ChannelMonitorV2MatrixRow{matrixGroup(f, 8, "同名组", 2000, 0.9)}
+				default:
+					return nil
+				}
+			})
+			tools := &botAITools{data: data}
+			require.Equal(t, "同名组｜近7天成功率 "+tc.want, tools.groupStatus(t.Context(), "同名"))
+		})
+	}
 }
 
 func TestBotChannelModeReadFailureAndDisabledMonitor(t *testing.T) {
@@ -178,16 +223,16 @@ func TestPassiveStatusChoosesMostCompleteThenFinestTimeline(t *testing.T) {
 	}{
 		{"ten recent scores stop widening", full, nil, 1, strings.Repeat("🟩", 10)},
 		{"nine scores still widen and stop at ten", full[1:], full, 2, strings.Repeat("🟩", 10)},
-		{"equal coverage keeps finer colors and gap positions", []float64{40, math.NaN(), 100}, []float64{0, 0}, 5, strings.Repeat("⬛", 7) + "🟧⬛🟩"},
-		{"partial improvement survives sparser later tiers", []float64{40}, []float64{0, 40}, 5, strings.Repeat("⬛", 8) + "🟥🟧"},
+		{"equal coverage keeps finer colors and gap positions", []float64{40, math.NaN(), 100}, []float64{0, 0}, 5, strings.Repeat("⬜", 7) + "🟧⬜🟩"},
+		{"partial improvement survives sparser later tiers", []float64{40}, []float64{0, 40}, 5, strings.Repeat("⬜", 8) + "🟥🟧"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			data, repo := passiveBotFixture(t, "{3}", func(f service.ChannelMonitorV2Filter) []service.ChannelMonitorV2MatrixRow {
 				switch f.Bucket {
 				case 5 * time.Minute:
-					return []service.ChannelMonitorV2MatrixRow{matrixGroup(f, 3, "A", "healthy", 0.8, tc.fine...)}
+					return []service.ChannelMonitorV2MatrixRow{matrixGroup(f, 3, "A", 1000, 0.8, tc.fine...)}
 				case 30 * time.Minute:
-					return []service.ChannelMonitorV2MatrixRow{matrixGroup(f, 3, "A", "critical", 0.3, tc.coarse...)}
+					return []service.ChannelMonitorV2MatrixRow{matrixGroup(f, 3, "A", 1500, 0.3, tc.coarse...)}
 				default:
 					return nil
 				}

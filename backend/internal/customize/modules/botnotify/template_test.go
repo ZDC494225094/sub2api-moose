@@ -76,29 +76,29 @@ func TestPassiveBlocksUseWebsiteScoreBands(t *testing.T) {
 		{25, "🟧"}, {30, "🟧"}, {40, "🟧"}, {44.99, "🟧"},
 		{45, "🟨"}, {50, "🟨"}, {60, "🟨"}, {64.99, "🟨"},
 		{65, "🟩"}, {70, "🟩"}, {80, "🟩"}, {90, "🟩"}, {100, "🟩"}, {105, "🟩"},
-		{math.NaN(), "⬛"},
+		{math.NaN(), "⬜"},
 	}
 	for _, tt := range tests {
 		p := PassiveMetrics{}
 		p.Scores[StatusBarSlots-1] = &tt.score
-		require.Equal(t, strings.Repeat("⬛", StatusBarSlots-1)+tt.block, p.blocks(), "score %v", tt.score)
+		require.Equal(t, strings.Repeat("⬜", StatusBarSlots-1)+tt.block, p.blocks(), "score %v", tt.score)
 	}
-	require.Equal(t, strings.Repeat("⬛", StatusBarSlots), (PassiveMetrics{}).blocks())
+	require.Equal(t, strings.Repeat("⬜", StatusBarSlots), (PassiveMetrics{}).blocks())
 }
 
 func TestLongReportKeepsGroupSquaresAndRateInOneMessage(t *testing.T) {
 	now := time.Date(2026, 11, 27, 14, 19, 0, 0, time.UTC)
 	score, rate := 40.0, 90.52
-	group := Channel{GroupName: "分组", Passive: &PassiveMetrics{Platform: "Claude", Success90m: &rate}}
+	group := Channel{GroupName: "ClaudeCode-Max", Passive: &PassiveMetrics{SuccessWindow: 24 * time.Hour, SuccessRate: &rate}}
 	for i := range group.Passive.Scores {
 		group.Passive.Scores[i] = &score
 	}
 	report := ChannelStatus([]Channel{group}, false, now)
 	header, row, ok := strings.Cut(report, "\n\n")
 	require.True(t, ok)
-	require.Equal(t, "分组 · Claude\n"+strings.Repeat("🟧", 10)+"\n近90分钟成功率 90.52%", row)
+	require.Equal(t, "ClaudeCode-Max\n"+strings.Repeat("🟧", 10)+"\n近1天成功率 90.52%", row)
 	// Place the hard transport limit two squares into the status bar.
-	prefix := strings.Repeat("字", 2000-len([]rune(header+"\n\n分组 · Claude\n"))-2)
+	prefix := strings.Repeat("字", 2000-len([]rune(header+"\n\n"+group.GroupName+"\n"))-2)
 	chunks := make(chan string, 4)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/token" {

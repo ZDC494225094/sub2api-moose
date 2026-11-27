@@ -102,11 +102,13 @@ probe histories. V2 reads the platform/group matrix for active public groups.
 Each group has ten equal-width text squares, oldest first. Each square covers
 five minutes by default. Groups with gaps try 30-minute, 1-hour, 12-hour and
 1-day buckets until all ten have scores. Each group uses the finest interval
-that yields the most scored squares. Remaining gaps use ⬛ in their original
+that yields the most scored squares. Remaining gaps use ⬜ in their original
 positions. Colors follow the website's overall health score rounded to the
 nearest ten, with 🟥 for bands 0–2, 🟧 for 3–4, 🟨 for 5–6 and 🟩 for 7–10.
-The percentage below each group always counts requests in the 90-minute
-window. A dash indicates there is no recorded rate.
+Each heading shows the group name alone. The percentage below the squares
+uses the shortest V2 window in which the group meets the configured request
+minimum, in order of 90 minutes, one day and seven days. The message names
+that window. If all three fall short, it shows `近7天成功率 样本不足`.
 Announcements use
 `AnnouncementService.List`, active status plus `IsActiveAt`, latest
 publication time (starts_at, falling back to created_at), at most five. This
