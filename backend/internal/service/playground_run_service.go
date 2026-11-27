@@ -1758,6 +1758,7 @@ func (s *PlaygroundRunService) materializePlaygroundImages(ctx context.Context, 
 			if err == nil {
 				// Provider-controlled CDN URLs must never receive the user's Sub2API key.
 				data, mimeType, err = s.downloadPlaygroundImage(ctx, assetURL, "")
+				err = playgroundRemoteAssetError("image", assetURL, err)
 			}
 		}
 		if err != nil {
@@ -1892,6 +1893,39 @@ func (s *PlaygroundRunService) downloadPlaygroundImage(ctx context.Context, asse
 	return s.downloadPlaygroundAsset(ctx, assetURL, apiKey, playgroundImageMaxBytes, "image")
 }
 
+const playgroundAssetUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 Sub2API-Playground"
+
+func playgroundAssetAccept(assetKind string) string {
+	switch assetKind {
+	case "image":
+		return "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8,*/*;q=0.5"
+	case "video":
+		return "video/mp4,video/webm,video/*;q=0.8,*/*;q=0.5"
+	default:
+		return "*/*"
+	}
+}
+
+// playgroundRemoteAssetError 给远程素材下载失败加上阶段和主机名，
+// 避免用户只看到一句光秃秃的 "403 Forbidden (HTTP 403)" 而无法判断是哪一环拒绝了请求。
+func playgroundRemoteAssetError(assetKind, assetURL string, err error) error {
+	if err == nil {
+		return nil
+	}
+	host := ""
+	if parsed, parseErr := url.Parse(assetURL); parseErr == nil {
+		host = parsed.Host
+	}
+	label := "图片"
+	if assetKind == "video" {
+		label = "视频"
+	}
+	if host == "" {
+		return fmt.Errorf("下载上游生成的%s失败：%w", label, err)
+	}
+	return fmt.Errorf("下载上游生成的%s失败（%s）：%w", label, host, err)
+}
+
 func (s *PlaygroundRunService) downloadPlaygroundAsset(ctx context.Context, assetURL, apiKey string, maxBytes int64, assetKind string) ([]byte, string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, assetURL, nil)
 	if err != nil {
@@ -1900,6 +1934,10 @@ func (s *PlaygroundRunService) downloadPlaygroundAsset(ctx context.Context, asse
 	if apiKey = strings.TrimSpace(apiKey); apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
+	// 上游返回的图片/视频直链多半挂在 CDN / 对象存储后面，很多 WAF 会直接拦截
+	// Go 默认 UA（Go-http-client/1.1）并回一个没有正文的 403，这里补齐浏览器式请求头。
+	req.Header.Set("User-Agent", playgroundAssetUserAgent)
+	req.Header.Set("Accept", playgroundAssetAccept(assetKind))
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, "", err
@@ -3056,9 +3094,59 @@ func parsePlaygroundUpstreamError(resp *http.Response) error {
 		if value, ok := payload["detail"].(string); ok && strings.TrimSpace(value) != "" {
 			message = strings.TrimSpace(value)
 		}
+	} else if snippet := playgroundNonJSONErrorSnippet(body); snippet != "" {
+		// CDN / 对象存储 / WAF 的拒绝通常是 XML 或 HTML，保留关键片段便于定位。
+		message = message + ": " + snippet
 	}
 	message = sanitizePlaygroundUpstreamErrorMessage(message)
 	return fmt.Errorf("%s (HTTP %d)", message, resp.StatusCode)
+}
+
+var (
+	playgroundXMLCodePattern    = regexp.MustCompile(`(?is)<Code>\s*([^<]{1,120}?)\s*</Code>`)
+	playgroundXMLMessagePattern = regexp.MustCompile(`(?is)<Message>\s*([^<]{1,300}?)\s*</Message>`)
+	playgroundHTMLTitlePattern  = regexp.MustCompile(`(?is)<title[^>]*>\s*([^<]{1,200}?)\s*</title>`)
+	playgroundHTMLTagPattern    = regexp.MustCompile(`(?s)<[^>]*>`)
+	playgroundWhitespacePattern = regexp.MustCompile(`\s+`)
+)
+
+const playgroundErrorSnippetMaxRunes = 200
+
+// playgroundNonJSONErrorSnippet 从非 JSON 错误响应里提取一段可读的说明：
+// S3/OSS/R2 的 XML 取 Code+Message，HTML 取 <title>，其余取去标签后的前 200 个字符。
+func playgroundNonJSONErrorSnippet(body []byte) string {
+	text := strings.TrimSpace(string(body))
+	if text == "" {
+		return ""
+	}
+	code := ""
+	if m := playgroundXMLCodePattern.FindStringSubmatch(text); len(m) == 2 {
+		code = strings.TrimSpace(m[1])
+	}
+	msg := ""
+	if m := playgroundXMLMessagePattern.FindStringSubmatch(text); len(m) == 2 {
+		msg = strings.TrimSpace(m[1])
+	}
+	var snippet string
+	switch {
+	case code != "" && msg != "":
+		snippet = code + " - " + msg
+	case code != "":
+		snippet = code
+	case msg != "":
+		snippet = msg
+	default:
+		if m := playgroundHTMLTitlePattern.FindStringSubmatch(text); len(m) == 2 {
+			snippet = m[1]
+		} else {
+			snippet = playgroundHTMLTagPattern.ReplaceAllString(text, " ")
+		}
+	}
+	snippet = strings.TrimSpace(playgroundWhitespacePattern.ReplaceAllString(snippet, " "))
+	if runes := []rune(snippet); len(runes) > playgroundErrorSnippetMaxRunes {
+		snippet = string(runes[:playgroundErrorSnippetMaxRunes]) + "…"
+	}
+	return snippet
 }
 
 var playgroundUpstreamGroupPrefixPattern = regexp.MustCompile(`^分组\s+.+?\s+下模型\s+(.+)$`)

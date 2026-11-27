@@ -705,6 +705,16 @@ export default {
       line2: 'When invitees recharge, you receive {rate} of the recharge as rebate quota.',
       line3: 'Transfer rebate quota to balance at any time.',
       line4: 'Newly earned rebates may have a waiting period before they can be transferred.'
+    },
+    header: {
+      button: 'Invite & earn {rate}',
+      buttonNoRate: 'Invite & earn',
+      title: 'Referral Program',
+      line1: 'When friends sign up with your link, you earn {rate} of every recharge they make as rebate quota.',
+      line1NoRate: 'When friends sign up with your link, you earn rebate quota on every recharge they make.',
+      line2: 'Transfer rebate quota to your balance at any time and use it for model calls.',
+      line3: 'There is no limit on invites. The more friends you invite, the more you earn.',
+      clickToCopy: 'Click the button to copy your personal invite link'
     }
   },
 

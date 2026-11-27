@@ -61,9 +61,17 @@
         }}
       </button>
     </div>
-    <p v-if="emailVerifyEnabled && sendCodeSuccess" class="text-sm text-green-600 dark:text-green-400">
-      {{ t('auth.codeSentSuccess') }}
-    </p>
+    <div v-if="emailVerifyEnabled && sendCodeSuccess" class="space-y-1">
+      <p class="text-sm text-green-600 dark:text-green-400">
+        {{ t('auth.codeSentSuccess') }}
+      </p>
+      <p
+        :data-testid="`${testIdPrefix}-create-account-spam-hint`"
+        class="text-xs text-amber-700 dark:text-amber-400"
+      >
+        {{ t('auth.codeSentSpamHint') }}
+      </p>
+    </div>
     <p v-else-if="emailVerifyEnabled" class="text-xs text-gray-500 dark:text-dark-400">
       {{ t('auth.verificationCodeHint') }}
     </p>
