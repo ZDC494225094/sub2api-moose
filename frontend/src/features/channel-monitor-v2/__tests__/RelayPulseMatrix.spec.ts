@@ -94,7 +94,7 @@ describe('RelayPulseMatrix', () => {
           health,
           buckets: [
             { bucket_start: '2026-08-01T00:00:00Z', metrics: metrics(10), health },
-            { bucket_start: '2026-08-01T00:01:00Z', metrics: metrics(0), health },
+            { bucket_start: '2026-08-01T00:01:00Z', metrics: metrics(0), health: { ...health, overall: 'critical', score: 40 } },
           ],
         }],
         coverage: {
@@ -131,9 +131,9 @@ describe('RelayPulseMatrix', () => {
     expect(header).toContain('每秒 Token')
     expect(header).toContain('缓存率')
     // Multi-band class from score 52 → score5
-    expect(cells[0].classes().some((c) => c.startsWith('health-score'))).toBe(true)
-    // Redacted user payloads may have request_count=0 but still include score.
-    expect(cells[1].classes().some((c) => c.startsWith('health-score'))).toBe(true)
+    expect(cells[0].classes()).toContain('health-score5')
+    // The public matrix and bot both display an orange 40 even when counts are redacted.
+    expect(cells[1].classes()).toContain('health-score4')
     expect(cells[2].classes()).toContain('health-unknown')
 
     // No click-to-open modal

@@ -289,10 +289,7 @@ func (q *QQ) send(ctx context.Context, token, target, text, msgID string) error 
 	}
 	runes := []rune(text)
 	for len(runes) > 0 {
-		n := len(runes)
-		if n > 2000 {
-			n = 2000
-		}
+		n := messageChunkLength(runes)
 		body := map[string]any{"content": string(runes[:n]), "msg_type": 0}
 		if msgID != "" {
 			body["msg_id"] = msgID

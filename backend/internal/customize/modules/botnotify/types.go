@@ -134,6 +134,9 @@ type Channel struct {
 type PassiveMetrics struct {
 	Platform   string
 	Success90m *float64
+	// Scores are the public V2 matrix's overall health scores, oldest first.
+	// All ten slots use the same bucket width. A nil score is a sampling gap.
+	Scores [StatusBarSlots]*float64
 }
 
 // Announcement is one currently-active site announcement with its raw

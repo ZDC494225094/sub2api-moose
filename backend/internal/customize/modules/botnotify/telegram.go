@@ -106,10 +106,7 @@ func (t *Telegram) send(ctx context.Context, token, chat, text string, replyTo i
 	// remain below the UTF-16 limit for emoji-heavy channel summaries.
 	runes := []rune(text)
 	for len(runes) > 0 {
-		n := len(runes)
-		if n > 2000 {
-			n = 2000
-		}
+		n := messageChunkLength(runes)
 		payload := map[string]any{"chat_id": chat, "text": string(runes[:n])}
 		if replyTo > 0 {
 			// Only the first chunk quotes; a deleted original never blocks it.

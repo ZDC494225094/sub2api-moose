@@ -81,7 +81,8 @@ does not touch the schedule watermark.
 
 Telegram uses net/http with 30-second long polling, a 40-second per-attempt
 deadline, at most three attempts, bounded backoff and sanitized errors.
-Messages are split into 2000-rune chunks. Group mentions are parsed from
+Long reports split at group boundaries when possible, up to 2000 runes per
+message on either transport. Group mentions are parsed from
 Telegram UTF-16 entities, including `/status@bot`; replies check bot numeric
 ID. Plain `/status` in a group requires replying to the bot. Private chats
 match normally. Bot privacy mode/permissions must allow Telegram to deliver
@@ -98,11 +99,14 @@ Both scheduled pushes and rules call the same renderer. It fetches only
 referenced data and substitutes once, leaving unknown placeholders and
 inserted text literal. V1 reports use the enabled monitors' primary-model
 probe histories. V2 reads the platform/group matrix for active public groups.
-Its ten colored slots normally cover five minutes each. A group with fewer
-than five scored slots uses half-hour slots from the last five hours if that
-produces more scored slots. Dots mark individual gaps, and groups with no
-scored slots omit the bar. The percentage below each group always counts
-requests in the 90-minute window. A dash indicates there is no recorded rate.
+Each group has ten equal-width text squares, oldest first. Each square covers
+five minutes by default. Groups with gaps try 30-minute, 1-hour, 12-hour and
+1-day buckets until all ten have scores. Each group uses the finest interval
+that yields the most scored squares. Remaining gaps use ⬛ in their original
+positions. Colors follow the website's overall health score rounded to the
+nearest ten, with 🟥 for bands 0–2, 🟧 for 3–4, 🟨 for 5–6 and 🟩 for 7–10.
+The percentage below each group always counts requests in the 90-minute
+window. A dash indicates there is no recorded rate.
 Announcements use
 `AnnouncementService.List`, active status plus `IsActiveAt`, latest
 publication time (starts_at, falling back to created_at), at most five. This

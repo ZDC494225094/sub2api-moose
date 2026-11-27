@@ -4,12 +4,31 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 var ErrMonitorDisabled = errors.New("渠道监控已关闭")
+
+// Both text transports cap each send at 2000 runes. Prefer a paragraph
+// boundary so a group heading, its ten squares and its rate travel together.
+func messageChunkLength(runes []rune) int {
+	const limit = 2000
+	if len(runes) <= limit {
+		return len(runes)
+	}
+	window := string(runes[:limit])
+	for _, separator := range [...]string{"\n\n", "\n"} {
+		at := strings.LastIndex(window, separator)
+		if at >= 0 && strings.TrimSpace(window[:at]) != "" {
+			return utf8.RuneCountInString(window[:at+len(separator)])
+		}
+	}
+	return limit
+}
 
 func Blocks(points []Point) (string, int) {
 	points = append([]Point(nil), points...)
@@ -50,12 +69,7 @@ func ChannelStatus(channels []Channel, abnormal bool, now time.Time) string {
 				continue
 			}
 			shown++
-			fmt.Fprintf(&out, "\n\n%s · %s", c.GroupName, c.Passive.Platform)
-			if len(c.Timeline) > 0 {
-				blocks, _ := Blocks(c.Timeline)
-				fmt.Fprintf(&out, "\n%s", blocks)
-			}
-			fmt.Fprintf(&out, "\n%s", c.Passive.Summary())
+			fmt.Fprintf(&out, "\n\n%s · %s\n%s\n%s", c.GroupName, c.Passive.Platform, c.Passive.blocks(), c.Passive.Summary())
 			continue
 		}
 		blocks, bad := Blocks(c.Timeline)
@@ -75,6 +89,22 @@ func ChannelStatus(channels []Channel, abnormal bool, now time.Time) string {
 	}
 	if abnormal && shown == 0 {
 		out.WriteString("\n暂无已确认异常的分组")
+	}
+	return out.String()
+}
+
+func (p PassiveMetrics) blocks() string {
+	// Match scoreToBand in channel-monitor-v2/monitorFormat.ts. QQ and
+	// Telegram text messages represent the heatmap's eleven stops in four hues.
+	palette := [...]string{"🟥", "🟥", "🟥", "🟧", "🟧", "🟨", "🟨", "🟩", "🟩", "🟩", "🟩"}
+	var out strings.Builder
+	for _, score := range p.Scores {
+		if score == nil || math.IsNaN(*score) {
+			out.WriteString("⬛")
+			continue
+		}
+		band := int(math.Round(max(0, min(100, *score)) / 10))
+		out.WriteString(palette[band])
 	}
 	return out.String()
 }

@@ -2,7 +2,12 @@ package botnotify
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
+	"math"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -60,6 +65,72 @@ func TestBlocksChronologyAndLastTen(t *testing.T) {
 	require.Equal(t, strings.Repeat("·", 10), blocks)
 	require.Zero(t, bad)
 	require.NotContains(t, ChannelStatus([]Channel{{GroupName: "healthy", Status: "operational"}}, true, base), "healthy")
+}
+
+func TestPassiveBlocksUseWebsiteScoreBands(t *testing.T) {
+	tests := []struct {
+		score float64
+		block string
+	}{
+		{-5, "🟥"}, {0, "🟥"}, {10, "🟥"}, {20, "🟥"}, {24.99, "🟥"},
+		{25, "🟧"}, {30, "🟧"}, {40, "🟧"}, {44.99, "🟧"},
+		{45, "🟨"}, {50, "🟨"}, {60, "🟨"}, {64.99, "🟨"},
+		{65, "🟩"}, {70, "🟩"}, {80, "🟩"}, {90, "🟩"}, {100, "🟩"}, {105, "🟩"},
+		{math.NaN(), "⬛"},
+	}
+	for _, tt := range tests {
+		p := PassiveMetrics{}
+		p.Scores[StatusBarSlots-1] = &tt.score
+		require.Equal(t, strings.Repeat("⬛", StatusBarSlots-1)+tt.block, p.blocks(), "score %v", tt.score)
+	}
+	require.Equal(t, strings.Repeat("⬛", StatusBarSlots), (PassiveMetrics{}).blocks())
+}
+
+func TestLongReportKeepsGroupSquaresAndRateInOneMessage(t *testing.T) {
+	now := time.Date(2026, 11, 27, 14, 19, 0, 0, time.UTC)
+	score, rate := 40.0, 90.52
+	group := Channel{GroupName: "分组", Passive: &PassiveMetrics{Platform: "Claude", Success90m: &rate}}
+	for i := range group.Passive.Scores {
+		group.Passive.Scores[i] = &score
+	}
+	report := ChannelStatus([]Channel{group}, false, now)
+	header, row, ok := strings.Cut(report, "\n\n")
+	require.True(t, ok)
+	require.Equal(t, "分组 · Claude\n"+strings.Repeat("🟧", 10)+"\n近90分钟成功率 90.52%", row)
+	// Place the hard transport limit two squares into the status bar.
+	prefix := strings.Repeat("字", 2000-len([]rune(header+"\n\n分组 · Claude\n"))-2)
+	chunks := make(chan string, 4)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			_, _ = io.WriteString(w, `{"access_token":"test","expires_in":7200}`)
+			return
+		}
+		var body struct{ Text, Content string }
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		chunks <- body.Text + body.Content
+		_, _ = io.WriteString(w, `{"ok":true,"result":{}}`)
+	}))
+	t.Cleanup(server.Close)
+	qq := NewQQ()
+	qq.Client, qq.APIBase, qq.TokenURL = server.Client(), server.URL, server.URL+"/token"
+	tg := &Telegram{Client: server.Client(), BaseURL: server.URL}
+	for _, tc := range []struct {
+		platform      Platform
+		token, target string
+	}{
+		{qq, `{"app_id":"1","client_secret":"test"}`, "group:123"},
+		{tg, "test", "-123"},
+	} {
+		require.NoError(t, tc.platform.SendMessage(t.Context(), tc.token, tc.target, prefix+report))
+		require.Len(t, chunks, 2)
+		require.Equal(t, prefix+header+"\n\n", <-chunks)
+		require.Equal(t, row, <-chunks)
+	}
+	require.Equal(t, 2000, messageChunkLength([]rune(strings.Repeat("字", 2100))))
+	require.Equal(t, 2000, messageChunkLength([]rune("\n\n"+strings.Repeat("字", 2100))))
 }
 
 func TestRuleMatching(t *testing.T) {

@@ -2,6 +2,8 @@ package wiring
 
 import (
 	"context"
+	"math"
+	"slices"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/customize/modules/botnotify"
@@ -31,8 +33,6 @@ func (d botData) passiveChannels(ctx context.Context) ([]botnotify.Channel, erro
 		platform string
 		id       int64
 	}
-	// A second matrix is only needed for sparse strips. Keep each row's
-	// original position and its 90-minute rate when replacing the timeline.
 	type sparseGroup struct{ index, known int }
 	sparse := make(map[groupKey]sparseGroup)
 	channels := make([]botnotify.Channel, 0, len(recent.Items))
@@ -40,40 +40,63 @@ func (d botData) passiveChannels(ctx context.Context) ([]botnotify.Channel, erro
 		if row.GroupID == nil || row.GroupName == "" {
 			continue
 		}
-		points, known := passiveTimeline(row.Buckets, filter.End, filter.Bucket)
-		if known < botnotify.StatusBarSlots/2 {
+		scores, known := passiveTimeline(row.Buckets, filter.End, filter.Bucket)
+		if known < botnotify.StatusBarSlots {
 			sparse[groupKey{row.Platform, *row.GroupID}] = sparseGroup{index: len(channels), known: known}
-			filter.GroupIDs = append(filter.GroupIDs, *row.GroupID)
 		}
 		channels = append(channels, botnotify.Channel{
-			GroupName: row.GroupName, Status: passiveStatus(row.Health.Overall), Timeline: points,
-			Passive: &botnotify.PassiveMetrics{Platform: platformLabel(row.Platform), Success90m: passiveSuccessRate(row)},
+			GroupName: row.GroupName,
+			Status:    passiveStatus(row.Health.Overall),
+			Passive: &botnotify.PassiveMetrics{
+				Platform:   platformLabel(row.Platform),
+				Success90m: passiveSuccessRate(row),
+				Scores:     scores,
+			},
 		})
 	}
-	if len(sparse) == 0 {
-		return channels, nil
-	}
-	// Use the same reporting instant for both reads. The repository bins
-	// minute facts on UTC half hours, including the current partial bucket.
-	filter.Bucket = 30 * time.Minute
-	filter.Range = "5h"
-	filter.End = filter.End.Add(-time.Nanosecond).Truncate(filter.Bucket).Add(filter.Bucket)
-	filter.Start = filter.End.Add(-botnotify.StatusBarSlots * filter.Bucket)
-	coarse, err := d.passive.Matrix(ctx, filter, service.ChannelMonitorV2GroupByPlatformGroup, false)
-	if err != nil {
-		return nil, err
-	}
-	for _, row := range coarse.Items {
-		if row.GroupID == nil {
-			continue
+	// Try half-hour facts first, then the V2 monitor's existing rollup tiers.
+	// Only replace a whole strip when more of its ten buckets have scores.
+	for _, width := range [...]time.Duration{30 * time.Minute, time.Hour, 12 * time.Hour, 24 * time.Hour} {
+		if len(sparse) == 0 {
+			break
 		}
-		group, ok := sparse[groupKey{row.Platform, *row.GroupID}]
-		if !ok {
-			continue
+		coarse := filter
+		coarse.GroupIDs = make([]int64, 0, len(sparse))
+		for key := range sparse {
+			coarse.GroupIDs = append(coarse.GroupIDs, key.id)
 		}
-		points, known := passiveTimeline(row.Buckets, filter.End, filter.Bucket)
-		if known > group.known {
-			channels[group.index].Timeline = points
+		slices.Sort(coarse.GroupIDs)
+		coarse.GroupIDs = slices.Compact(coarse.GroupIDs)
+		coarse.Bucket = width
+		// Anchor every tier to the same exclusive end, including the current
+		// partial bucket without adding a future slot at an exact boundary.
+		coarse.End = filter.End.Add(-time.Nanosecond).Truncate(width).Add(width)
+		coarse.Start = coarse.End.Add(-botnotify.StatusBarSlots * width)
+		coarse.Range = coarse.End.Sub(coarse.Start).String()
+		matrix, err := d.passive.Matrix(ctx, coarse, service.ChannelMonitorV2GroupByPlatformGroup, false)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range matrix.Items {
+			if row.GroupID == nil {
+				continue
+			}
+			key := groupKey{row.Platform, *row.GroupID}
+			group, ok := sparse[key]
+			if !ok {
+				continue
+			}
+			scores, known := passiveTimeline(row.Buckets, coarse.End, width)
+			if known <= group.known {
+				continue
+			}
+			channels[group.index].Passive.Scores = scores
+			if known == botnotify.StatusBarSlots {
+				delete(sparse, key)
+			} else {
+				group.known = known
+				sparse[key] = group
+			}
 		}
 	}
 	return channels, nil
@@ -103,26 +126,19 @@ func passiveStatus(band string) string {
 	}
 }
 
-// Keep gaps at their time positions. A completely unknown strip is omitted.
-func passiveTimeline(buckets []service.ChannelMonitorV2TrendPoint, end time.Time, width time.Duration) ([]botnotify.Point, int) {
-	points := make([]botnotify.Point, botnotify.StatusBarSlots)
-	start := end.Add(-time.Duration(len(points)) * width)
-	for i := range points {
-		points[i] = botnotify.Point{CheckedAt: start.Add(time.Duration(i) * width), Status: "unknown"}
-	}
-	for _, point := range buckets {
-		if !point.BucketStart.Before(start) && point.BucketStart.Before(end) {
-			points[int(point.BucketStart.Sub(start)/width)].Status = passiveStatus(point.Health.Overall)
+// Align the last ten bucket starts exactly as the website's heatmap does.
+func passiveTimeline(buckets []service.ChannelMonitorV2TrendPoint, end time.Time, width time.Duration) (scores [botnotify.StatusBarSlots]*float64, known int) {
+	start := end.Add(-botnotify.StatusBarSlots * width)
+	for _, bucket := range buckets {
+		offset := bucket.BucketStart.Sub(start)
+		if offset >= 0 && bucket.BucketStart.Before(end) && offset%width == 0 {
+			scores[offset/width] = bucket.Health.Score
 		}
 	}
-	known := 0
-	for _, point := range points {
-		if point.Status != "unknown" {
+	for _, score := range scores {
+		if score != nil && !math.IsNaN(*score) {
 			known++
 		}
 	}
-	if known == 0 {
-		return nil, 0
-	}
-	return points, known
+	return scores, known
 }
