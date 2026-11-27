@@ -97,10 +97,12 @@ delivery.
 Both scheduled pushes and rules call the same renderer. It fetches only
 referenced data and substitutes once, leaving unknown placeholders and
 inserted text literal. V1 reports use the enabled monitors' primary-model
-probe histories. V2 reads the platform/group matrix for active public groups,
-showing 90-minute health, the last ten five-minute buckets, median time to
-first token and request success rates for 90 minutes and seven days. The
-report identifies partial weekly coverage and insufficient samples.
+probe histories. V2 reads the platform/group matrix for active public groups.
+Its ten colored slots normally cover five minutes each. A group with fewer
+than five scored slots uses half-hour slots from the last five hours if that
+produces more scored slots. Dots mark individual gaps, and groups with no
+scored slots omit the bar. The percentage below each group always counts
+requests in the 90-minute window. A dash indicates there is no recorded rate.
 Announcements use
 `AnnouncementService.List`, active status plus `IsActiveAt`, latest
 publication time (starts_at, falling back to created_at), at most five. This

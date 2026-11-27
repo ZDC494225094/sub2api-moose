@@ -14,13 +14,11 @@ var ErrMonitorDisabled = errors.New("渠道监控已关闭")
 func Blocks(points []Point) (string, int) {
 	points = append([]Point(nil), points...)
 	sort.SliceStable(points, func(i, j int) bool { return points[i].CheckedAt.Before(points[j].CheckedAt) })
-	if len(points) > 10 {
-		points = points[len(points)-10:]
+	if len(points) > StatusBarSlots {
+		points = points[len(points)-StatusBarSlots:]
 	}
 	var out strings.Builder
-	for i := len(points); i < 10; i++ {
-		out.WriteString("⬜")
-	}
+	out.WriteString(strings.Repeat("·", StatusBarSlots-len(points)))
 	bad := 0
 	for _, p := range points {
 		switch p.Status {
@@ -33,7 +31,7 @@ func Blocks(points []Point) (string, int) {
 			out.WriteString("🟥")
 			bad++
 		default:
-			out.WriteString("⬜")
+			out.WriteString("·")
 		}
 	}
 	return out.String(), bad
@@ -41,35 +39,26 @@ func Blocks(points []Point) (string, int) {
 
 func ChannelStatus(channels []Channel, abnormal bool, now time.Time) string {
 	var out strings.Builder
-	fmt.Fprintf(&out, "%d月%d日%s 分组状态", now.Month(), now.Day(), now.Format("15:04"))
+	out.WriteString(now.Format("【01月02日 15:04】分组状态"))
 	if len(channels) == 0 {
 		return out.String() + "\n暂无可播报的分组监控数据"
 	}
-	if passive := channels[0].Passive; passive != nil {
-		out.WriteString(" · V2 被动监控\n近 90 分钟综合健康度，每格 5 分钟，白格表示样本不足")
-		if !passive.DataThrough.IsZero() {
-			fmt.Fprintf(&out, "\n数据截至 %s", passive.DataThrough.In(now.Location()).Format("01-02 15:04"))
-		}
-	}
-	shown, unknown := 0, 0
+	shown := 0
 	for _, c := range channels {
-		blocks, bad := Blocks(c.Timeline)
 		if c.Passive != nil {
-			warn := c.Status == "degraded" || c.Status == "failed"
-			if c.Status == "unknown" {
-				unknown++
-			}
-			if abnormal && !warn {
+			if abnormal && c.Status != "degraded" && c.Status != "failed" {
 				continue
 			}
 			shown++
 			fmt.Fprintf(&out, "\n\n%s · %s", c.GroupName, c.Passive.Platform)
-			if warn {
-				out.WriteString(" ⚠️")
+			if len(c.Timeline) > 0 {
+				blocks, _ := Blocks(c.Timeline)
+				fmt.Fprintf(&out, "\n%s", blocks)
 			}
-			fmt.Fprintf(&out, "\n%s\n%s", blocks, c.Passive.Summary(c.Status))
+			fmt.Fprintf(&out, "\n%s", c.Passive.Summary())
 			continue
 		}
+		blocks, bad := Blocks(c.Timeline)
 		warn := c.Status != "operational" || bad >= 3
 		if abnormal && !warn {
 			continue
@@ -81,43 +70,20 @@ func ChannelStatus(channels []Channel, abnormal bool, now time.Time) string {
 		}
 		fmt.Fprintf(&out, "\n%s\n延迟 %dms｜七天可用性 %.2f%%", blocks, c.LatencyMS, c.Availability)
 		if bad >= 3 {
-			fmt.Fprintf(&out, "\n近10次检测 %d 次降级/失败", bad)
+			fmt.Fprintf(&out, "\n近10次检测中有 %d 次出现波动或失败", bad)
 		}
 	}
 	if abnormal && shown == 0 {
 		out.WriteString("\n暂无已确认异常的分组")
 	}
-	if abnormal && unknown > 0 {
-		fmt.Fprintf(&out, "\n%d 个分组样本不足", unknown)
-	}
 	return out.String()
 }
 
-func (p PassiveMetrics) Summary(status string) string {
-	state := "样本不足"
-	switch status {
-	case "operational":
-		state = "正常"
-	case "degraded":
-		state = "降级"
-	case "failed":
-		state = "异常"
+func (p PassiveMetrics) Summary() string {
+	if p.Success90m == nil {
+		return "近90分钟成功率 —"
 	}
-	rate := func(value *float64) string {
-		if value == nil {
-			return "样本不足"
-		}
-		return fmt.Sprintf("%.2f%%", *value)
-	}
-	latency := "暂无样本"
-	if p.TTFTP50MS != nil {
-		latency = fmt.Sprintf("%dms", *p.TTFTP50MS)
-	}
-	week := rate(p.Success7d)
-	if p.PartialWeek && p.Success7d != nil {
-		week += "（部分覆盖）"
-	}
-	return fmt.Sprintf("状态 %s｜首字延迟 P50 %s｜90 分钟成功率 %s｜近 7 天成功率 %s", state, latency, rate(p.Success90m), week)
+	return fmt.Sprintf("近90分钟成功率 %.2f%%", *p.Success90m)
 }
 
 // FormatAnnouncement renders one announcement as its title plus its body

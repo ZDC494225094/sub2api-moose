@@ -120,6 +120,9 @@ type Point struct {
 	Status    string
 	CheckedAt time.Time
 }
+
+const StatusBarSlots = 10
+
 type Channel struct {
 	GroupName, Model, Status string
 	LatencyMS                int
@@ -129,12 +132,8 @@ type Channel struct {
 }
 
 type PassiveMetrics struct {
-	Platform    string
-	TTFTP50MS   *int64
-	Success90m  *float64
-	Success7d   *float64
-	PartialWeek bool
-	DataThrough time.Time
+	Platform   string
+	Success90m *float64
 }
 
 // Announcement is one currently-active site announcement with its raw
